@@ -33,7 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for core.coverage</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span></span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">traceback</span>
@@ -41,7 +41,7 @@
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
 
-<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">BaseCoverageRecord</span><span class="p">,</span>
@@ -58,13 +58,13 @@
     <span class="n">Work</span><span class="p">,</span>
     <span class="n">WorkCoverageRecord</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ReplacementPolicy</span><span class="p">,</span>
     <span class="n">TimestampData</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util.worker_pools</span> <span class="kn">import</span> <span class="n">DatabaseJob</span>
+<span class="kn">from</span> <span class="nn">.util.worker_pools</span> <span class="kn">import</span> <span class="n">DatabaseJob</span>
 
-<span class="kn">import</span> <span class="nn">log</span> <span class="c1"># This sets the appropriate log format.</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">log</span> <span class="c1"># This sets the appropriate log format.</span>
 
 <div class="viewcode-block" id="CoverageFailure"><a class="viewcode-back" href="../../core.html#core.coverage.CoverageFailure">[docs]</a><span class="k">class</span> <span class="nc">CoverageFailure</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Object representing the failure to provide coverage.&quot;&quot;&quot;</span>
@@ -291,7 +291,7 @@
                     <span class="c1"># in-place the one it was passed.</span>
                     <span class="k">if</span> <span class="n">new_progress</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                         <span class="n">progress</span> <span class="o">=</span> <span class="n">new_progress</span>
-                <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                         <span class="s2">&quot;CoverageProvider </span><span class="si">%s</span><span class="s2"> raised uncaught exception.&quot;</span><span class="p">,</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
@@ -807,7 +807,7 @@
             <span class="k">return</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DATA_SOURCE_NAME</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">data_source</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="k">return</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="n">autocreate</span><span class="p">)</span>
 
     <span class="nd">@property</span>
@@ -1181,7 +1181,7 @@
             <span class="k">return</span> <span class="n">license_pools</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
         <span class="n">data_source</span> <span class="o">=</span> <span class="n">data_source</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">)</span>
 
         <span class="c1"># This Collection has no LicensePool for the given Identifier.</span>
@@ -1686,7 +1686,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

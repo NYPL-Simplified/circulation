@@ -41,7 +41,6 @@
 <span class="kn">import</span> <span class="nn">tempfile</span>
 <span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">contextmanager</span>
 
-<span class="kn">import</span> <span class="nn">six</span>
 <span class="kn">import</span> <span class="nn">webpub_manifest_parser.opds2.ast</span> <span class="k">as</span> <span class="nn">opds2_ast</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">requests</span> <span class="kn">import</span> <span class="n">HTTPError</span>
@@ -79,7 +78,6 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.opds2_import</span> <span class="kn">import</span> <span class="n">OPDS2Importer</span><span class="p">,</span> <span class="n">OPDS2ImportMonitor</span><span class="p">,</span> <span class="n">parse_feed</span>
 <span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="n">OPDSImporter</span>
-<span class="kn">from</span> <span class="nn">core.util.string_helpers</span> <span class="kn">import</span> <span class="n">is_string</span>
 
 <span class="n">MISSING_AFFILIATION_ID</span> <span class="o">=</span> <span class="n">BaseError</span><span class="p">(</span>
     <span class="n">_</span><span class="p">(</span>
@@ -111,7 +109,7 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inner_exception</span><span class="p">):</span>
         <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
             <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Can not create a ProQuest JWT bearer token&quot;</span><span class="p">),</span>
-            <span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">inner_exception</span><span class="p">)),</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">inner_exception</span><span class="p">),</span>
         <span class="p">)</span>
 
         <span class="nb">super</span><span class="p">(</span><span class="n">CannotCreateProQuestTokenError</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">inner_exception</span><span class="p">)</span></div>
@@ -206,7 +204,7 @@
     <span class="sd">&quot;&quot;&quot;Allows to import ProQuest OPDS 2.0 feeds into Circulation Manager.&quot;&quot;&quot;</span>
 
     <span class="n">NAME</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PROQUEST</span>
-    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Import books from a ProQuest OPDS 2.0 feed.&quot;</span><span class="p">)</span>
+    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Import books from a ProQuest OPDS 2.0 feed.&quot;</span><span class="p">)</span>
     <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">(</span>
         <span class="n">ProQuestOPDS2ImporterConfiguration</span><span class="o">.</span><span class="n">to_settings</span><span class="p">()</span>
         <span class="o">+</span> <span class="n">ProQuestAPIClientConfiguration</span><span class="o">.</span><span class="n">to_settings</span><span class="p">()</span>
@@ -313,7 +311,7 @@
         <span class="k">if</span> <span class="n">configuration</span><span class="o">.</span><span class="n">affiliation_attributes</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">configuration</span><span class="o">.</span><span class="n">affiliation_attributes</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
                 <span class="n">affiliation_attributes</span> <span class="o">=</span> <span class="n">configuration</span><span class="o">.</span><span class="n">affiliation_attributes</span>
-            <span class="k">elif</span> <span class="n">is_string</span><span class="p">(</span><span class="n">configuration</span><span class="o">.</span><span class="n">affiliation_attributes</span><span class="p">):</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">configuration</span><span class="o">.</span><span class="n">affiliation_attributes</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="n">affiliation_attributes</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
                     <span class="nb">map</span><span class="p">(</span>
                         <span class="nb">str</span><span class="o">.</span><span class="n">strip</span><span class="p">,</span>
@@ -409,7 +407,7 @@
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Cannot create a ProQuest JWT bearer token&quot;</span><span class="p">)</span>
 
-            <span class="k">raise</span> <span class="n">CannotCreateProQuestTokenError</span><span class="p">(</span><span class="n">exception</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">CannotCreateProQuestTokenError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exception</span><span class="p">))</span>
 
     <span class="k">def</span> <span class="nf">_get_or_create_proquest_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">configuration</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get an existing or create a new ProQuest JWT bearer token.</span>
@@ -480,7 +478,7 @@
 <span class="sd">        :rtype: List[LinkData]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Started extracting image links from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Started extracting image links from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">images</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -505,7 +503,7 @@
             <span class="n">image_links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cover_link</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Finished extracting image links from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Finished extracting image links from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">images</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">image_links</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -544,7 +542,7 @@
 <span class="sd">        :rtype: List[Tuple[str, str]]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Started extracting media types and a DRM scheme from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Started extracting media types and a DRM scheme from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -579,7 +577,7 @@
                 <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Finished extracting media types and a DRM scheme from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Finished extracting media types and a DRM scheme from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">link</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">media_types_and_drm_scheme</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -708,8 +706,7 @@
                 <span class="k">return</span> <span class="n">loan</span>
         <span class="k">except</span> <span class="n">BaseError</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Failed to check out </span><span class="si">{0}</span><span class="s2"> for patron </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-            <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">(</span><span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exception</span><span class="p">)))</span></div>
+            <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exception</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="ProQuestOPDS2Importer.fulfill"><a class="viewcode-back" href="../../../api.proquest.html#api.proquest.importer.ProQuestOPDS2Importer.fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -746,7 +743,7 @@
                         <span class="n">content_link</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                         <span class="n">content_type</span><span class="o">=</span><span class="n">book</span><span class="o">.</span><span class="n">content_type</span>
                         <span class="k">if</span> <span class="n">book</span><span class="o">.</span><span class="n">content_type</span>
-                        <span class="k">else</span> <span class="n">internal_format</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">media_type</span><span class="p">,</span>
+                        <span class="k">else</span> <span class="n">internal_format</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">content_type</span><span class="p">,</span>
                         <span class="n">content</span><span class="o">=</span><span class="n">book</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
                         <span class="n">content_expires</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                     <span class="p">)</span>
@@ -781,7 +778,7 @@
         <span class="k">except</span> <span class="n">BaseError</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Failed to fulfill out </span><span class="si">{0}</span><span class="s2"> for patron </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-            <span class="k">raise</span> <span class="n">CannotFulfill</span><span class="p">(</span><span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exception</span><span class="p">)))</span></div>
+            <span class="k">raise</span> <span class="n">CannotFulfill</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exception</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="ProQuestOPDS2Importer.external_integration"><a class="viewcode-back" href="../../../api.proquest.html#api.proquest.importer.ProQuestOPDS2Importer.external_integration">[docs]</a>    <span class="k">def</span> <span class="nf">external_integration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return an external integration associated with this object.</span>
@@ -902,7 +899,7 @@
 
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">feed_page_content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span>
-                    <span class="n">feed</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span>
+                    <span class="n">feed</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">feed_page_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">feed_page_content</span><span class="p">)</span>
                 <span class="n">feed_page_file</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
@@ -1131,7 +1128,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

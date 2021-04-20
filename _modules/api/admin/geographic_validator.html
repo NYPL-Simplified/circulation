@@ -45,10 +45,9 @@
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">from</span> <span class="nn">pypostalcode</span> <span class="kn">import</span> <span class="n">PostalCodeDatabase</span>
 <span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">import</span> <span class="nn">urllib.request</span><span class="o">,</span> <span class="nn">urllib.parse</span><span class="o">,</span> <span class="nn">urllib.error</span>
 <span class="kn">import</span> <span class="nn">uszipcode</span>
 <span class="kn">import</span> <span class="nn">os</span>
 
@@ -90,7 +89,7 @@
             <span class="n">flagged</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;everywhere&quot;</span><span class="p">:</span>
                 <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                     <span class="c1"># Is it a US state or Canadian province abbreviation?</span>
                     <span class="k">if</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">CA_PROVINCES</span><span class="p">:</span>
@@ -99,7 +98,7 @@
                         <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
                     <span class="k">else</span><span class="p">:</span>
                         <span class="k">return</span> <span class="n">UNKNOWN_LOCATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;&quot;</span><span class="si">%(value)s</span><span class="s1">&quot; is not a valid U.S. state or Canadian province abbreviation.&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
-                <span class="k">elif</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">CA_PROVINCES</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">elif</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">CA_PROVINCES</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
                     <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;CA&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
                 <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_zip</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">&quot;CA&quot;</span><span class="p">):</span>
                     <span class="c1"># Is it a Canadian zipcode?</span>
@@ -167,7 +166,7 @@
 
 <div class="viewcode-block" id="GeographicValidator.find_location_through_registry"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator.find_location_through_registry">[docs]</a>    <span class="k">def</span> <span class="nf">find_location_through_registry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">nation</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">,</span> <span class="s2">&quot;CA&quot;</span><span class="p">]:</span>
-            <span class="n">service_area_object</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="s1">&#39;{&quot;</span><span class="si">%s</span><span class="s1">&quot;: &quot;</span><span class="si">%s</span><span class="s1">&quot;}&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">nation</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+            <span class="n">service_area_object</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="s1">&#39;{&quot;</span><span class="si">%s</span><span class="s1">&quot;: &quot;</span><span class="si">%s</span><span class="s1">&quot;}&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">nation</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
             <span class="n">registry_check</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ask_registry</span><span class="p">(</span><span class="n">service_area_object</span><span class="p">,</span> <span class="n">db</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">registry_check</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">registry_check</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">registry_check</span>
@@ -254,7 +253,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

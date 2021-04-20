@@ -123,9 +123,9 @@
             <span class="k">return</span> <span class="n">library_error</span>
 
         <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
     
     <span class="k">def</span> <span class="nf">_set_external_integration_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Either set or delete the external integration link between the</span>
@@ -249,7 +249,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

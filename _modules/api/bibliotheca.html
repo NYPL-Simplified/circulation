@@ -34,42 +34,57 @@
             
   <h1>Source code for api.bibliotheca</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
-
-<span class="kn">from</span> <span class="nn">cStringIO</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">StringIO</span>
 <span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">import</span> <span class="nn">hashlib</span>
+<span class="kn">import</span> <span class="nn">hmac</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">base64</span>
-<span class="kn">import</span> <span class="nn">urlparse</span>
+<span class="kn">import</span> <span class="nn">urllib.parse</span>
 <span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">import</span> <span class="nn">hmac</span>
-<span class="kn">import</span> <span class="nn">hashlib</span>
 
+<span class="kn">import</span> <span class="nn">dateutil.parser</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">or_</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
-<span class="kn">from</span> <span class="nn">web_publication_manifest</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.web_publication_manifest</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">FindawayManifest</span><span class="p">,</span>
     <span class="n">SpineItem</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">circulation</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.circulation</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">FulfillmentInfo</span><span class="p">,</span>
     <span class="n">HoldInfo</span><span class="p">,</span>
     <span class="n">LoanInfo</span><span class="p">,</span>
     <span class="n">BaseCirculationAPI</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">selftest</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.selftest</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HasSelfTests</span><span class="p">,</span>
     <span class="n">SelfTestResult</span><span class="p">,</span>
 <span class="p">)</span>
-
+<span class="kn">from</span> <span class="nn">core.config</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Configuration</span><span class="p">,</span>
+    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
+    <span class="n">temp_config</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.coverage</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BibliographicCoverageProvider</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ContributorData</span><span class="p">,</span>
+    <span class="n">CirculationData</span><span class="p">,</span>
+    <span class="n">Metadata</span><span class="p">,</span>
+    <span class="n">LinkData</span><span class="p">,</span>
+    <span class="n">IdentifierData</span><span class="p">,</span>
+    <span class="n">FormatData</span><span class="p">,</span>
+    <span class="n">MeasurementData</span><span class="p">,</span>
+    <span class="n">ReplacementPolicy</span><span class="p">,</span>
+    <span class="n">SubjectData</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
     <span class="n">Classification</span><span class="p">,</span>
@@ -94,29 +109,20 @@
     <span class="n">Timestamp</span><span class="p">,</span>
     <span class="n">WorkCoverageRecord</span><span class="p">,</span>
 <span class="p">)</span>
-
-<span class="kn">from</span> <span class="nn">core.config</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Configuration</span><span class="p">,</span>
-    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
-    <span class="n">temp_config</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="kn">from</span> <span class="nn">core.coverage</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">BibliographicCoverageProvider</span>
-<span class="p">)</span>
-
 <span class="kn">from</span> <span class="nn">core.monitor</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CollectionMonitor</span><span class="p">,</span>
     <span class="n">IdentifierSweepMonitor</span><span class="p">,</span>
     <span class="n">TimelineMonitor</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="kn">import</span> <span class="n">RunCollectionMonitorScript</span>
+<span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="n">DatabaseTest</span>
 <span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BadResponseException</span><span class="p">,</span>
     <span class="n">HTTP</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">core.analytics</span> <span class="kn">import</span> <span class="n">Analytics</span>
 
 <span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
@@ -130,7 +136,7 @@
     <span class="n">ReplacementPolicy</span><span class="p">,</span>
     <span class="n">SubjectData</span><span class="p">,</span>
 <span class="p">)</span>
-
+<span class="kn">from</span> <span class="nn">core.util.string_helpers</span> <span class="kn">import</span> <span class="n">base64</span>
 <span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="n">DatabaseTest</span>
 
 <div class="viewcode-block" id="BibliothecaAPI"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaAPI">[docs]</a><span class="k">class</span> <span class="nc">BibliothecaAPI</span><span class="p">(</span><span class="n">BaseCirculationAPI</span><span class="p">,</span> <span class="n">HasSelfTests</span><span class="p">):</span>
@@ -175,7 +181,7 @@
         <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">findaway_drm</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;MP3&#39;</span>
     <span class="p">}</span>
     <span class="n">internal_format_to_delivery_mechanism</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
-        <span class="p">[</span><span class="n">v</span><span class="p">,</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">delivery_mechanism_to_internal_format</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">[</span><span class="n">v</span><span class="p">,</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">delivery_mechanism_to_internal_format</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
     <span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
@@ -199,12 +205,6 @@
             <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
                 <span class="s2">&quot;Bibliotheca configuration is incomplete.&quot;</span>
             <span class="p">)</span>
-
-        <span class="c1"># Use utf8 instead of unicode encoding</span>
-        <span class="n">settings</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">account_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">account_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">account_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">account_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">setting</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf8&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">settings</span>
-        <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">item_list_parser</span> <span class="o">=</span> <span class="n">ItemListParser</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">id</span>
@@ -237,7 +237,9 @@
         <span class="n">now</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
         <span class="n">signature_components</span> <span class="o">=</span> <span class="p">[</span><span class="n">now</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">path</span><span class="p">]</span>
         <span class="n">signature_string</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">signature_components</span><span class="p">)</span>
-        <span class="n">digest</span> <span class="o">=</span> <span class="n">hmac</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">account_key</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="n">signature_string</span><span class="p">,</span>
+        <span class="n">digest</span> <span class="o">=</span> <span class="n">hmac</span><span class="o">.</span><span class="n">new</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">account_key</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">),</span>
+                    <span class="n">msg</span><span class="o">=</span><span class="n">signature_string</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">),</span>
                     <span class="n">digestmod</span><span class="o">=</span><span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">)</span><span class="o">.</span><span class="n">digest</span><span class="p">()</span>
         <span class="n">signature</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">standard_b64encode</span><span class="p">(</span><span class="n">digest</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">signature</span><span class="p">,</span> <span class="n">now</span></div>
@@ -245,7 +247,7 @@
 <div class="viewcode-block" id="BibliothecaAPI.full_url"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaAPI.full_url">[docs]</a>    <span class="k">def</span> <span class="nf">full_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;/cirrus&quot;</span><span class="p">):</span>
             <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">full_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="BibliothecaAPI.full_path"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaAPI.full_path">[docs]</a>    <span class="k">def</span> <span class="nf">full_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">):</span>
@@ -314,7 +316,7 @@
 <span class="sd">        :param identifiers: A list containing either Identifier</span>
 <span class="sd">            objects or Bibliotheca identifier strings.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">identifiers</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Identifier</span><span class="p">,</span> <span class="n">basestring</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">identifiers</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Identifier</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">identifiers</span> <span class="o">=</span> <span class="p">[</span><span class="n">identifiers</span><span class="p">]</span>
         <span class="n">identifier_strings</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="p">:</span>
@@ -375,7 +377,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">events</span> <span class="o">=</span> <span class="n">EventParser</span><span class="p">()</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">no_events_error</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                 <span class="s2">&quot;Error parsing Bibliotheca response content: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
                 <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
@@ -478,7 +480,7 @@
                 <span class="n">content_type</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="p">(</span>
                     <span class="n">content_transformation</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
                 <span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                     <span class="s2">&quot;Error transforming fulfillment document: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
                     <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
@@ -525,9 +527,14 @@
                    <span class="n">item_id</span><span class="o">=</span><span class="n">item_id</span><span class="p">,</span> <span class="n">patron_id</span><span class="o">=</span><span class="n">patron_id</span><span class="p">)</span>
         <span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">TEMPLATE</span> <span class="o">%</span> <span class="n">args</span>
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s1">&#39;placehold&#39;</span><span class="p">,</span> <span class="n">body</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;PUT&quot;</span><span class="p">)</span>
+        <span class="c1"># The response comes in as a byte string that we must</span>
+        <span class="c1"># convert into a string.</span>
+        <span class="n">response_content</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="n">response_content</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">201</span><span class="p">):</span>
             <span class="n">start_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
-            <span class="n">end_date</span> <span class="o">=</span> <span class="n">HoldResponseParser</span><span class="p">()</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+            <span class="n">end_date</span> <span class="o">=</span> <span class="n">HoldResponseParser</span><span class="p">()</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span><span class="n">response_content</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">HoldInfo</span><span class="p">(</span>
                 <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">BIBLIOTHECA</span><span class="p">,</span>
                 <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
@@ -537,9 +544,9 @@
                 <span class="n">hold_position</span><span class="o">=</span><span class="kc">None</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">response_content</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">CannotHold</span><span class="p">()</span>
-            <span class="n">error</span> <span class="o">=</span> <span class="n">ErrorParser</span><span class="p">()</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">ErrorParser</span><span class="p">()</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span><span class="n">response_content</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="ne">Exception</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="n">error</span>
             <span class="k">else</span><span class="p">:</span>
@@ -571,7 +578,7 @@
 <span class="sd">            license document via Bibliotheca, or a dictionary</span>
 <span class="sd">            representing such a document loaded into JSON form.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">findaway_license</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">findaway_license</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">findaway_license</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">findaway_license</span><span class="p">)</span>
 
         <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span>
@@ -616,7 +623,7 @@
             <span class="n">license_pool</span><span class="o">=</span><span class="n">license_pool</span><span class="p">,</span> <span class="n">spine_items</span><span class="o">=</span><span class="n">spine_items</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
         <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">FINDAWAY_DRM</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">manifest</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">FINDAWAY_DRM</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">manifest</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="DummyBibliothecaAPIResponse"><a class="viewcode-back" href="../../api.html#api.bibliotheca.DummyBibliothecaAPIResponse">[docs]</a><span class="k">class</span> <span class="nc">DummyBibliothecaAPIResponse</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -629,20 +636,20 @@
 <div class="viewcode-block" id="MockBibliothecaAPI"><a class="viewcode-back" href="../../api.html#api.bibliotheca.MockBibliothecaAPI">[docs]</a><span class="k">class</span> <span class="nc">MockBibliothecaAPI</span><span class="p">(</span><span class="n">BibliothecaAPI</span><span class="p">):</span>
 
 <div class="viewcode-block" id="MockBibliothecaAPI.mock_collection"><a class="viewcode-back" href="../../api.html#api.bibliotheca.MockBibliothecaAPI.mock_collection">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">mock_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">mock_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Test Bibliotheca Collection&quot;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a mock Bibliotheca collection for use in tests.&quot;&quot;&quot;</span>
         <span class="n">library</span> <span class="o">=</span> <span class="n">DatabaseTest</span><span class="o">.</span><span class="n">make_default_library</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">collection</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span>
-            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Test Bibliotheca Collection&quot;</span><span class="p">,</span> <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
-                <span class="n">external_account_id</span><span class="o">=</span><span class="sa">u</span><span class="s1">&#39;c&#39;</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                <span class="n">external_account_id</span><span class="o">=</span><span class="s1">&#39;c&#39;</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
         <span class="n">integration</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">create_external_integration</span><span class="p">(</span>
             <span class="n">protocol</span><span class="o">=</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">BIBLIOTHECA</span>
         <span class="p">)</span>
-        <span class="n">integration</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;a&#39;</span>
-        <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;b&#39;</span>
+        <span class="n">integration</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="s1">&#39;a&#39;</span>
+        <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="s1">&#39;b&#39;</span>
         <span class="n">integration</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;http://bibliotheca.test&quot;</span>
         <span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">collection</span></div>
@@ -787,7 +794,7 @@
         <span class="k">for</span> <span class="nb">format</span> <span class="ow">in</span> <span class="n">formats</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">published_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">published</span><span class="p">,</span> <span class="nb">format</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">pass</span>
 
         <span class="n">links</span> <span class="o">=</span> <span class="p">[]</span>
@@ -931,7 +938,7 @@
                 <span class="n">value</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
                     <span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">INPUT_TIME_FORMAT</span>
                 <span class="p">)</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                     <span class="s1">&#39;Unable to parse Bibliotheca date: &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span>
                     <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
@@ -984,7 +991,7 @@
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">super</span><span class="p">(</span><span class="n">ErrorParser</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span>
                     <span class="n">string</span><span class="p">,</span> <span class="s2">&quot;//Error&quot;</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">i</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># The server sent us an error with an incorrect or</span>
             <span class="c1"># nonstandard syntax.</span>
             <span class="k">return</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span>
@@ -1074,6 +1081,10 @@
 
 <div class="viewcode-block" id="PatronCirculationParser.process_all"><a class="viewcode-back" href="../../api.html#api.bibliotheca.PatronCirculationParser.process_all">[docs]</a>    <span class="k">def</span> <span class="nf">process_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
         <span class="n">parser</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">XMLParser</span><span class="p">()</span>
+        <span class="c1"># If the data is an HTTP response, it is a bytestring and</span>
+        <span class="c1"># must be converted before it is parsed.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+            <span class="n">string</span> <span class="o">=</span> <span class="n">string</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
         <span class="n">root</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">StringIO</span><span class="p">(</span><span class="n">string</span><span class="p">),</span> <span class="n">parser</span><span class="p">)</span>
         <span class="n">sup</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">PatronCirculationParser</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
         <span class="n">loans</span> <span class="o">=</span> <span class="n">sup</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span>
@@ -1322,11 +1333,37 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Bibliotheca Event Monitor&quot;</span>
-    <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="mi">365</span><span class="o">*</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">365</span><span class="o">*</span><span class="mi">3</span><span class="p">)</span>
     <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">BIBLIOTHECA</span>
+    <span class="n">LOG_DATE_FORMAT</span> <span class="o">=</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1">T%H:%M:%S&#39;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">BibliothecaAPI</span><span class="p">,</span>
-                 <span class="n">cli_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+                 <span class="n">default_start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">override_timestamp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializer.</span>
+
+<span class="sd">        :param _db: Database session object.</span>
+
+<span class="sd">        :param collection: Collection for which this monitor operates.</span>
+
+<span class="sd">        :param api_class: API class or an instance thereof for this monitor.</span>
+<span class="sd">        :param api_class: Union[Type[BibliothecaAPI], BibliothecaAPI]</span>
+
+<span class="sd">        :param default_start: A default date/time at which to start</span>
+<span class="sd">            requesting events. It should be specified as a `datetime` or</span>
+<span class="sd">            an ISO 8601 string. If not provided, the monitor&#39;s calculated</span>
+<span class="sd">            intrinsic default will be used.</span>
+<span class="sd">        :type default_start: Optional[Union[datetime, basestring]]</span>
+
+<span class="sd">        :param analytics: An optional Analytics object.</span>
+<span class="sd">        :type analytics: Optional[Analytics]</span>
+
+<span class="sd">        :param override_timestamp: Boolean indicating whether</span>
+<span class="sd">            `default_start` should take precedence over the timestamp</span>
+<span class="sd">            for an already initialized monitor.</span>
+<span class="sd">        :type override_timestamp: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span> <span class="o">=</span> <span class="n">analytics</span> <span class="ow">or</span> <span class="n">Analytics</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">BibliothecaEventMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">api_class</span><span class="p">,</span> <span class="n">BibliothecaAPI</span><span class="p">):</span>
@@ -1340,98 +1377,164 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">bibliographic_coverage_provider</span> <span class="o">=</span> <span class="n">BibliothecaBibliographicCoverageProvider</span><span class="p">(</span>
             <span class="n">collection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">,</span> <span class="n">replacement_policy</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">replacement_policy</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="n">cli_date</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">default_start_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_default_start_time</span><span class="p">(</span>
-                <span class="n">_db</span><span class="p">,</span>  <span class="n">cli_date</span>
-            <span class="p">)</span>
 
-<div class="viewcode-block" id="BibliothecaEventMonitor.create_default_start_time"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaEventMonitor.create_default_start_time">[docs]</a>    <span class="k">def</span> <span class="nf">create_default_start_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">cli_date</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Sets the default start time if it&#39;s passed as an argument.</span>
+        <span class="c1"># We should only force the use of `default_start` as the actual</span>
+        <span class="c1"># start time if it was passed in.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">override_timestamp</span> <span class="o">=</span> <span class="n">override_timestamp</span> <span class="k">if</span> <span class="n">default_start</span> <span class="k">else</span> <span class="kc">False</span>
+        <span class="c1"># A specified `default_start` takes precedence over the</span>
+        <span class="c1"># monitor&#39;s intrinsic default start date/time.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_start_time</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_optional_iso_date</span><span class="p">(</span><span class="n">default_start</span><span class="p">)</span> <span class="ow">or</span>
+                                   <span class="bp">self</span><span class="o">.</span><span class="n">_intrinsic_start_time</span><span class="p">(</span><span class="n">_db</span><span class="p">))</span>
 
-<span class="sd">        The command line date argument should have the format YYYY-MM-DD.</span>
+    <span class="k">def</span> <span class="nf">_optional_iso_date</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">date</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the date in `datetime` format.</span>
+
+<span class="sd">        :param date: A date/time value, specified as either an ISO 8601</span>
+<span class="sd">            string or as a `datetime`.</span>
+<span class="sd">        :type date: Optional[Union[datetime, str]]</span>
+
+<span class="sd">        :return: Optional datetime.</span>
+<span class="sd">        :rtype: Optional[datetime]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">date</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">date</span><span class="p">,</span> <span class="n">datetime</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">date</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">dt_date</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">isoparse</span><span class="p">(</span><span class="n">date</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s1">&#39;</span><span class="si">%r</span><span class="s1">. Date argument &quot;</span><span class="si">%s</span><span class="s1">&quot; was not in a valid format. Use an ISO 8601 string or a datetime.&#39;</span><span class="p">,</span>
+                <span class="n">e</span><span class="p">,</span> <span class="n">date</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">raise</span>
+        <span class="k">return</span> <span class="n">dt_date</span>
 
+    <span class="k">def</span> <span class="nf">_intrinsic_start_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the intrinsic start time for this monitor.</span>
+
+<span class="sd">        The intrinsic start time is the time at which this monitor would</span>
+<span class="sd">        start if it were uninitialized (no timestamp) and no `default_start`</span>
+<span class="sd">        parameter were supplied. It is a datetime `self.DEFAULT_START_TIME`</span>
+<span class="sd">        in the past.</span>
+
+<span class="sd">        :param _db: Database session object.</span>
+
+<span class="sd">        :return: datetime representing a default start time.</span>
+<span class="sd">        :rtype: datetime</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># We don&#39;t use Monitor.timestamp() because that will create</span>
         <span class="c1"># the timestamp if it doesn&#39;t exist -- we want to see whether</span>
         <span class="c1"># or not it exists.</span>
+        <span class="n">default_start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_START_TIME</span>
         <span class="n">initialized</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">Timestamp</span><span class="p">,</span> <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span>
-            <span class="n">service_type</span><span class="o">=</span><span class="n">Timestamp</span><span class="o">.</span><span class="n">MONITOR_TYPE</span>
+            <span class="n">service_type</span><span class="o">=</span><span class="n">Timestamp</span><span class="o">.</span><span class="n">MONITOR_TYPE</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span>
         <span class="p">)</span>
-        <span class="n">default_start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_START_TIME</span>
-
-        <span class="k">if</span> <span class="n">cli_date</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cli_date</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
-                    <span class="n">date</span> <span class="o">=</span> <span class="n">cli_date</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">date</span> <span class="o">=</span> <span class="n">cli_date</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">date</span><span class="p">,</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="c1"># Date argument wasn&#39;t in the proper format.</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                    <span class="s2">&quot;</span><span class="si">%r</span><span class="s2">. Using default date instead: </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span>
-                    <span class="n">default_start_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%B </span><span class="si">%d</span><span class="s2">, %Y&quot;</span><span class="p">)</span>
-                <span class="p">)</span>
-                <span class="k">return</span> <span class="n">default_start_time</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">initialized</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="s2">&quot;Initializing </span><span class="si">%s</span><span class="s2"> from date: </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span>
-                <span class="n">default_start_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%B </span><span class="si">%d</span><span class="s2">, %Y&quot;</span><span class="p">)</span>
+                <span class="n">default_start_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LOG_DATE_FORMAT</span><span class="p">)</span>
             <span class="p">)</span>
-            <span class="k">return</span> <span class="n">default_start_time</span>
-        <span class="k">return</span> <span class="kc">None</span></div>
+        <span class="k">return</span> <span class="n">default_start_time</span>
+
+<div class="viewcode-block" id="BibliothecaEventMonitor.timestamp"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaEventMonitor.timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a Timestamp for this Monitor.</span>
+
+<span class="sd">        If we are overriding the normal start time with one supplied when</span>
+<span class="sd">        the this class was instantiated, we do that here. The instance&#39;s</span>
+<span class="sd">        `default_start_time` will have been set to the specified datetime</span>
+<span class="sd">        and setting`timestamp.finish` to None will cause the default to</span>
+<span class="sd">        be used.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">BibliothecaEventMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">override_timestamp</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Overriding timestamp and starting at </span><span class="si">%s</span><span class="s1">.&#39;</span><span class="p">,</span>
+                          <span class="n">datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_start_time</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">LOG_DATE_FORMAT</span><span class="p">))</span>
+            <span class="n">timestamp</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">timestamp</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_impose_bibliotheca_timespan_constraint</span><span class="p">(</span><span class="n">timespan</span><span class="p">):</span>
+        <span class="c1"># Due to the workings of the Bibliotheca API, no mode</span>
+        <span class="c1"># should have a timespan longer than 72 hours.</span>
+        <span class="k">if</span> <span class="n">timespan</span> <span class="o">&lt;=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">72</span><span class="p">):</span>
+            <span class="k">return</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;A timespan greater than 72 hours can result in spurious&#39;</span>
+                         <span class="s1">&#39; results from the Bibliotheca events API.&#39;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="BibliothecaEventMonitor.catch_up_from"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaEventMonitor.catch_up_from">[docs]</a>    <span class="k">def</span> <span class="nf">catch_up_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">progress</span><span class="p">):</span>
-        <span class="n">added_books</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">timespan_to_check</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="c1"># This method operates in three modes: Uninitialized, Backlog,</span>
+        <span class="c1"># and Recent. Uninitialized Mode happens when the monitor&#39;s</span>
+        <span class="c1"># `progress.counter` is null, but is functionally identical</span>
+        <span class="c1"># to Backlog Mode (0, backlog_mode_counter_value).</span>
+        <span class="c1"># In both of these modes, the timespan for which we fetch</span>
+        <span class="c1"># events is `backlog_mode_timespan` and it is NOT considered</span>
+        <span class="c1"># an error when the response contains no events.</span>
+        <span class="c1"># In Recent Mode, the timespan (`backlog_mode_timespan`) is</span>
+        <span class="c1"># longer and a response contains no events DOES raise an error.</span>
+        <span class="n">recent_mode_counter_value</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">backlog_mode_counter_value</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c1"># Due to the workings of the Bibliotheca API, no mode</span>
+        <span class="c1"># should have a timespan longer than 72 hours.</span>
+        <span class="n">recent_mode_timespan</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">70</span><span class="p">)</span>
+        <span class="n">backlog_mode_timespan</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="c1"># The CloudEvents API might not return all events. If we</span>
+        <span class="c1"># get 100 or more events, then we may have lost some.</span>
+        <span class="n">reliable_max_cloudevents_count</span> <span class="o">=</span> <span class="mi">100</span>
 
-        <span class="c1"># Not having events in a time period is not considered to be</span>
-        <span class="c1"># an error.</span>
-        <span class="n">no_events_error</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="c1"># But in this case, we do want to consider not getting events as</span>
-        <span class="c1"># an error. Each subsequent time this is run after the first time,</span>
-        <span class="c1"># the timespan to check for event increases by 5 minutes until we</span>
-        <span class="c1"># reach a 70-hour timespan to check for events.</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="n">no_events_error</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="n">timespan_to_check</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">70</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_impose_bibliotheca_timespan_constraint</span><span class="p">(</span><span class="n">recent_mode_timespan</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_impose_bibliotheca_timespan_constraint</span><span class="p">(</span><span class="n">backlog_mode_timespan</span><span class="p">)</span>
 
-            <span class="n">import_time_delta</span> <span class="o">=</span> <span class="n">cutoff</span> <span class="o">-</span> <span class="n">start</span>
-            <span class="c1"># If we want to check for events in a time period that&#39;s</span>
-            <span class="c1"># longer than 70 hours, then revert back to the initial</span>
-            <span class="c1"># import configuration.</span>
-            <span class="k">if</span> <span class="p">(</span><span class="n">import_time_delta</span> <span class="o">&gt;</span> <span class="n">timespan_to_check</span><span class="p">):</span>
-                <span class="n">no_events_error</span> <span class="o">=</span> <span class="kc">False</span>
-                <span class="c1"># Start by checking for events in a 5 minute timespan.</span>
-                <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
-                <span class="n">timespan_to_check</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="n">events_handled</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Setup for Uninitialized or Backlog Mode</span>
+        <span class="n">timespan_to_check</span> <span class="o">=</span> <span class="n">backlog_mode_timespan</span>
+        <span class="n">raise_on_no_events</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># Unless we are already in Recent Mode.</span>
+        <span class="c1"># NB: If the timespan is too long, we might yet end up in Backlog Mode.</span>
+        <span class="k">if</span> <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">==</span> <span class="n">recent_mode_counter_value</span><span class="p">:</span>
+            <span class="n">raise_on_no_events</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">timespan_to_check</span> <span class="o">=</span> <span class="n">recent_mode_timespan</span>
+
+            <span class="k">if</span> <span class="p">(</span><span class="n">cutoff</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">timespan_to_check</span><span class="p">:</span>
+                <span class="n">raise_on_no_events</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="n">backlog_mode_counter_value</span>
+                <span class="n">timespan_to_check</span> <span class="o">=</span> <span class="n">backlog_mode_timespan</span>
 
         <span class="k">for</span> <span class="n">slice_start</span><span class="p">,</span> <span class="n">slice_cutoff</span><span class="p">,</span> <span class="n">full_slice</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">slice_timespan</span><span class="p">(</span>
             <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">timespan_to_check</span>
         <span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="s2">&quot;Asking for events between </span><span class="si">%r</span><span class="s2"> and </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">slice_start</span><span class="p">,</span>
-                <span class="n">slice_cutoff</span>
+                <span class="s2">&quot;Requesting events between </span><span class="si">%s</span><span class="s2"> and </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">slice_start</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LOG_DATE_FORMAT</span><span class="p">),</span>
+                <span class="n">slice_cutoff</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LOG_DATE_FORMAT</span><span class="p">)</span>
             <span class="p">)</span>
+            <span class="n">_events_pre_request</span> <span class="o">=</span> <span class="n">events_handled</span>
             <span class="n">events</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_events_between</span><span class="p">(</span>
-                <span class="n">slice_start</span><span class="p">,</span> <span class="n">slice_cutoff</span><span class="p">,</span> <span class="n">full_slice</span><span class="p">,</span> <span class="n">no_events_error</span>
+                <span class="n">slice_start</span><span class="p">,</span> <span class="n">slice_cutoff</span><span class="p">,</span> <span class="n">full_slice</span><span class="p">,</span> <span class="n">raise_on_no_events</span>
             <span class="p">)</span>
             <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">events</span><span class="p">:</span>
-                <span class="n">event_timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_event</span><span class="p">(</span><span class="o">*</span><span class="n">event</span><span class="p">)</span>
-                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">1000</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">handle_event</span><span class="p">(</span><span class="o">*</span><span class="n">event</span><span class="p">)</span>
+                <span class="n">events_handled</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">events_handled</span> <span class="o">%</span> <span class="mi">1000</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
-        <span class="n">progress</span><span class="o">.</span><span class="n">achievements</span> <span class="o">=</span> <span class="s2">&quot;Events handled: </span><span class="si">%d</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">i</span>
-        <span class="c1"># If we are in &quot;catch up&quot; mode and we encounter some events, we can</span>
-        <span class="c1"># reset the counter back to 0. Otherwise, keep the counter at 1. This</span>
-        <span class="c1"># will also set it to 1 after the initial run.</span>
-        <span class="k">if</span> <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="mi">1</span></div>
+            <span class="n">_events_this_request</span> <span class="o">=</span> <span class="n">events_handled</span> <span class="o">-</span> <span class="n">_events_pre_request</span>
+            <span class="k">if</span> <span class="n">_events_this_request</span> <span class="o">&gt;=</span> <span class="n">reliable_max_cloudevents_count</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s1">&#39;Response contained </span><span class="si">%d</span><span class="s1"> events, which equals or exceeds the number &#39;</span>
+                    <span class="s1">&#39;reliably returned by this API (</span><span class="si">%d</span><span class="s1">). Some events may have been lost.&#39;</span><span class="p">,</span>
+                    <span class="n">_events_this_request</span><span class="p">,</span> <span class="n">reliable_max_cloudevents_count</span><span class="p">)</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">achievements</span> <span class="o">=</span> <span class="s2">&quot;Events handled: </span><span class="si">%d</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">events_handled</span>
+        <span class="c1"># We have not encountered an exception, which means that we have</span>
+        <span class="c1"># completed processing either:</span>
+        <span class="c1"># - a Recent Mode update that contained at least one event, so we</span>
+        <span class="c1">#   can process next run in more granular Backlog Mode.</span>
+        <span class="c1"># - a backlog (Uninitialized or Backlog Mode), so we have caught</span>
+        <span class="c1">#   up, so can resume checking in Recent Mode&#39;s longer timespan.</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="p">(</span><span class="n">recent_mode_counter_value</span>
+                            <span class="k">if</span> <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">!=</span> <span class="n">recent_mode_counter_value</span>
+                            <span class="k">else</span> <span class="n">backlog_mode_counter_value</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="BibliothecaEventMonitor.handle_event"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaEventMonitor.handle_event">[docs]</a>    <span class="k">def</span> <span class="nf">handle_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bibliotheca_id</span><span class="p">,</span> <span class="n">isbn</span><span class="p">,</span> <span class="n">foreign_patron_id</span><span class="p">,</span>
                      <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">internal_event_type</span><span class="p">):</span>
@@ -1483,8 +1586,38 @@
                 <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span>
             <span class="p">)</span>
         <span class="n">title</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">title</span> <span class="ow">or</span> <span class="s2">&quot;[no title]&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%r</span><span class="s2"> </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">internal_event_type</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LOG_DATE_FORMAT</span><span class="p">),</span>
+                      <span class="n">title</span><span class="p">,</span> <span class="n">internal_event_type</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">start_time</span></div></div>
+
+
+<div class="viewcode-block" id="RunBibliothecaMonitorScript"><a class="viewcode-back" href="../../api.html#api.bibliotheca.RunBibliothecaMonitorScript">[docs]</a><span class="k">class</span> <span class="nc">RunBibliothecaMonitorScript</span><span class="p">(</span><span class="n">RunCollectionMonitorScript</span><span class="p">):</span>
+
+<div class="viewcode-block" id="RunBibliothecaMonitorScript.arg_parser"><a class="viewcode-back" href="../../api.html#api.bibliotheca.RunBibliothecaMonitorScript.arg_parser">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">arg_parser</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="n">parser</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">RunBibliothecaMonitorScript</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">arg_parser</span><span class="p">()</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--default-start&#39;</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s1">&#39;DATETIME&#39;</span><span class="p">,</span>
+                            <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">isoparse</span><span class="p">,</span>
+                            <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Default start date/time to be used for uninitialized (no timestamp) monitors.&#39;</span>
+                                 <span class="s1">&#39; Use ISO 8601 format (e.g., &quot;yyyy-mm-dd&quot;, &quot;yyyy-mm-ddThh:mm:ss&quot;).&#39;</span>
+                                 <span class="s1">&#39; Do not specify a time zone or offset.&#39;</span><span class="p">,</span>
+                            <span class="p">)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--override-timestamp&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span>
+                            <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Use the specified `--default-start` as the actual&#39;</span>
+                                 <span class="s1">&#39; start date, even if a monitor is already initialized.&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">parser</span></div>
+
+<div class="viewcode-block" id="RunBibliothecaMonitorScript.parse_command_line"><a class="viewcode-back" href="../../api.html#api.bibliotheca.RunBibliothecaMonitorScript.parse_command_line">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parse_command_line</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">parsed</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">RunBibliothecaMonitorScript</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span>
+            <span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="n">cmd_args</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">parsed</span><span class="o">.</span><span class="n">override_timestamp</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">parsed</span><span class="o">.</span><span class="n">default_start</span><span class="p">:</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">arg_parser</span><span class="p">()</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s1">&#39;&quot;--override-timestamp&quot; is valid only when &quot;--default-start&quot; is also specified.&#39;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">parsed</span></div></div>
+
 
 <div class="viewcode-block" id="BibliothecaBibliographicCoverageProvider"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaBibliographicCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">BibliothecaBibliographicCoverageProvider</span><span class="p">(</span><span class="n">BibliographicCoverageProvider</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Fill in bibliographic metadata for Bibliotheca records.</span>
@@ -1588,7 +1721,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

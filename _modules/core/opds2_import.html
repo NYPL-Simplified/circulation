@@ -37,15 +37,15 @@
 
 <span class="kn">import</span> <span class="nn">webpub_manifest_parser.opds2.ast</span> <span class="k">as</span> <span class="nn">opds2_ast</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">six</span> <span class="kn">import</span> <span class="n">StringIO</span>
-<span class="kn">from</span> <span class="nn">six.moves.urllib.parse</span> <span class="kn">import</span> <span class="n">urljoin</span><span class="p">,</span> <span class="n">urlparse</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urljoin</span><span class="p">,</span> <span class="n">urlparse</span>
 <span class="kn">from</span> <span class="nn">webpub_manifest_parser.errors</span> <span class="kn">import</span> <span class="n">BaseError</span>
 <span class="kn">from</span> <span class="nn">webpub_manifest_parser.opds2.parsers</span> <span class="kn">import</span> <span class="n">OPDS2DocumentParserFactory</span>
 <span class="kn">from</span> <span class="nn">webpub_manifest_parser.opds2.registry</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">OPDS2LinkRelationsRegistry</span><span class="p">,</span>
     <span class="n">OPDS2MediaTypesRegistry</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">webpub_manifest_parser.utils</span> <span class="kn">import</span> <span class="n">encode</span><span class="p">,</span> <span class="n">first_or_default</span><span class="p">,</span> <span class="n">is_string</span>
+<span class="kn">from</span> <span class="nn">webpub_manifest_parser.utils</span> <span class="kn">import</span> <span class="n">encode</span><span class="p">,</span> <span class="n">first_or_default</span>
 
 <span class="kn">from</span> <span class="nn">.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CirculationData</span><span class="p">,</span>
@@ -89,7 +89,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">parsed_feed</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="k">if</span> <span class="n">is_string</span><span class="p">(</span><span class="n">feed</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">input_stream</span> <span class="o">=</span> <span class="n">StringIO</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
             <span class="n">parser_factory</span> <span class="o">=</span> <span class="n">OPDS2DocumentParserFactory</span><span class="p">()</span>
@@ -126,8 +126,8 @@
     <span class="sd">&quot;&quot;&quot;Imports editions and license pools from an OPDS 2.0 feed.&quot;&quot;&quot;</span>
 
     <span class="n">NAME</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS2_IMPORT</span>
-    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Import books from a publicly-accessible OPDS 2.0 feed.&quot;</span><span class="p">)</span>
-    <span class="n">NEXT_LINK_RELATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;next&quot;</span>
+    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Import books from a publicly-accessible OPDS 2.0 feed.&quot;</span><span class="p">)</span>
+    <span class="n">NEXT_LINK_RELATION</span> <span class="o">=</span> <span class="s2">&quot;next&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -197,13 +197,13 @@
 <span class="sd">        :return: List of subjects metadata</span>
 <span class="sd">        :rtype: List[SubjectMetadata]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Started extracting subjects metadata&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Started extracting subjects metadata&quot;</span><span class="p">)</span>
 
         <span class="n">subject_metadata_list</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="k">for</span> <span class="n">subject</span> <span class="ow">in</span> <span class="n">subjects</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">u</span><span class="s2">&quot;Started extracting subject metadata from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">encode</span><span class="p">(</span><span class="n">subject</span><span class="p">))</span>
+                <span class="s2">&quot;Started extracting subject metadata from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">encode</span><span class="p">(</span><span class="n">subject</span><span class="p">))</span>
             <span class="p">)</span>
 
             <span class="n">scheme</span> <span class="o">=</span> <span class="n">subject</span><span class="o">.</span><span class="n">scheme</span>
@@ -221,13 +221,13 @@
             <span class="n">subject_metadata_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject_metadata</span><span class="p">)</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">u</span><span class="s2">&quot;Finished extracting subject metadata from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="s2">&quot;Finished extracting subject metadata from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                     <span class="n">encode</span><span class="p">(</span><span class="n">subject</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">subject_metadata</span><span class="p">)</span>
                 <span class="p">)</span>
             <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Finished extracting subjects metadata: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Finished extracting subjects metadata: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">subject_metadata_list</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -246,13 +246,13 @@
 <span class="sd">        :return: List of contributors metadata</span>
 <span class="sd">        :rtype: List[ContributorData]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Started extracting contributors metadata&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Started extracting contributors metadata&quot;</span><span class="p">)</span>
 
         <span class="n">contributor_metadata_list</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="k">for</span> <span class="n">contributor</span> <span class="ow">in</span> <span class="n">contributors</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">u</span><span class="s2">&quot;Started extracting contributor metadata from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="s2">&quot;Started extracting contributor metadata from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                     <span class="n">encode</span><span class="p">(</span><span class="n">contributor</span><span class="p">)</span>
                 <span class="p">)</span>
             <span class="p">)</span>
@@ -266,7 +266,7 @@
             <span class="p">)</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">u</span><span class="s2">&quot;Finished extracting contributor metadata from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="s2">&quot;Finished extracting contributor metadata from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                     <span class="n">encode</span><span class="p">(</span><span class="n">contributor</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">contributor_metadata</span><span class="p">)</span>
                 <span class="p">)</span>
             <span class="p">)</span>
@@ -274,7 +274,7 @@
             <span class="n">contributor_metadata_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">contributor_metadata</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Finished extracting contributors metadata: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Finished extracting contributors metadata: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">contributor_metadata_list</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -297,7 +297,7 @@
 <span class="sd">        :rtype: LinkData</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Started extracting link metadata from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">encode</span><span class="p">(</span><span class="n">link</span><span class="p">))</span>
+            <span class="s2">&quot;Started extracting link metadata from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">encode</span><span class="p">(</span><span class="n">link</span><span class="p">))</span>
         <span class="p">)</span>
 
         <span class="c1"># FIXME: It seems that OPDS 2.0 spec doesn&#39;t contain information about rights so we use the default one.</span>
@@ -319,7 +319,7 @@
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Finished extracting link metadata from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Finished extracting link metadata from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">link</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">link_metadata</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -336,7 +336,7 @@
 <span class="sd">        :rtype: LinkData</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Started extracting a description link from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Started extracting a description link from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">description</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -351,7 +351,7 @@
             <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Finished extracting a description link from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Finished extracting a description link from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">description</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">description_link</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -371,7 +371,7 @@
 <span class="sd">        :rtype: List[LinkData]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Started extracting image links from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Started extracting image links from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">images</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -389,7 +389,7 @@
         <span class="n">sorted_raw_image_links</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
             <span class="nb">reversed</span><span class="p">(</span>
                 <span class="nb">sorted</span><span class="p">(</span>
-                    <span class="n">publication</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">links</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">link</span><span class="p">:</span> <span class="p">(</span><span class="n">link</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="n">link</span><span class="o">.</span><span class="n">height</span><span class="p">)</span>
+                    <span class="n">publication</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">links</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">link</span><span class="p">:</span> <span class="p">(</span><span class="n">link</span><span class="o">.</span><span class="n">width</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">,</span> <span class="n">link</span><span class="o">.</span><span class="n">height</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
                 <span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -412,7 +412,7 @@
             <span class="n">image_links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cover_link</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Finished extracting image links from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Finished extracting image links from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">images</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">image_links</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -432,7 +432,7 @@
 <span class="sd">        :rtype: List[LinkData]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Started extracting links from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">links</span><span class="p">))</span>
+            <span class="s2">&quot;Started extracting links from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">links</span><span class="p">))</span>
         <span class="p">)</span>
 
         <span class="n">links</span> <span class="o">=</span> <span class="p">[]</span>
@@ -450,7 +450,7 @@
             <span class="n">links</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">image_links</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Finished extracting links from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Finished extracting links from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="o">.</span><span class="n">links</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">links</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -467,7 +467,7 @@
 <span class="sd">        :rtype: List[Tuple[str, str]]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Started extracting media types and a DRM scheme from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Started extracting media types and a DRM scheme from </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -505,7 +505,7 @@
                 <span class="n">media_types_and_drm_scheme</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">link</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span><span class="p">))</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Finished extracting media types and a DRM scheme from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Finished extracting media types and a DRM scheme from </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">link</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">media_types_and_drm_scheme</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -584,7 +584,7 @@
 <span class="sd">        :rtype: Metadata</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Started extracting metadata from publication </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Started extracting metadata from publication </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -706,7 +706,7 @@
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Finished extracting metadata from publication </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Finished extracting metadata from publication </span><span class="si">{0}</span><span class="s2">: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">encode</span><span class="p">(</span><span class="n">publication</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -960,7 +960,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

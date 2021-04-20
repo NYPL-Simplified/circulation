@@ -39,7 +39,7 @@
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">string</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">keyword</span> <span class="kn">import</span> <span class="n">KeywordBasedClassifier</span>
+<span class="kn">from</span> <span class="nn">.keyword</span> <span class="kn">import</span> <span class="n">KeywordBasedClassifier</span>
 
 <div class="viewcode-block" id="CustomMatchToken"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.CustomMatchToken">[docs]</a><span class="k">class</span> <span class="nc">CustomMatchToken</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A custom token used in matching rules.&quot;&quot;&quot;</span>
@@ -125,7 +125,7 @@
                     <span class="o">%</span> <span class="n">special_variables</span><span class="p">[</span><span class="n">rule</span><span class="p">]</span>
                 <span class="p">)</span>
 
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rule</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rule</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
                 <span class="c1"># It&#39;s a string. We do case-insensitive comparisons,</span>
                 <span class="c1"># so lowercase it.</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">ruleset</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Lowercased</span><span class="p">(</span><span class="n">rule</span><span class="p">))</span>
@@ -791,7 +791,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

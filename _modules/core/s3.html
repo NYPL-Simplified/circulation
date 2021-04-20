@@ -35,9 +35,8 @@
   <h1>Source code for core.s3</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">functools</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
 <span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">contextmanager</span>
-<span class="kn">from</span> <span class="nn">urlparse</span> <span class="kn">import</span> <span class="n">urlsplit</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">quote</span><span class="p">,</span> <span class="n">urlsplit</span><span class="p">,</span> <span class="n">unquote_plus</span>
 
 <span class="kn">import</span> <span class="nn">boto3</span>
 <span class="kn">import</span> <span class="nn">botocore</span>
@@ -49,11 +48,14 @@
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
-<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="kn">import</span> <span class="n">ConfigurationOption</span><span class="p">,</span> <span class="n">ConfigurationGrouping</span><span class="p">,</span> <span class="n">ConfigurationMetadata</span><span class="p">,</span> \
+<span class="kn">from</span> <span class="nn">.mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
+<span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
+<span class="kn">from</span> <span class="nn">.model.configuration</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ConfigurationOption</span><span class="p">,</span>
+    <span class="n">ConfigurationGrouping</span><span class="p">,</span>
+    <span class="n">ConfigurationMetadata</span><span class="p">,</span>
     <span class="n">ConfigurationAttributeType</span>
-
+<span class="p">)</span>
 
 <div class="viewcode-block" id="MultipartS3Upload"><a class="viewcode-back" href="../../core.html#core.s3.MultipartS3Upload">[docs]</a><span class="k">class</span> <span class="nc">MultipartS3Upload</span><span class="p">():</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">uploader</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">):</span>
@@ -138,29 +140,29 @@
 
 
 <div class="viewcode-block" id="S3UploaderConfiguration"><a class="viewcode-back" href="../../core.html#core.s3.S3UploaderConfiguration">[docs]</a><span class="k">class</span> <span class="nc">S3UploaderConfiguration</span><span class="p">(</span><span class="n">ConfigurationGrouping</span><span class="p">):</span>
-    <span class="n">S3_REGION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;s3_region&#39;</span>
-    <span class="n">S3_DEFAULT_REGION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;us-east-1&#39;</span>
+    <span class="n">S3_REGION</span> <span class="o">=</span> <span class="s1">&#39;s3_region&#39;</span>
+    <span class="n">S3_DEFAULT_REGION</span> <span class="o">=</span> <span class="s1">&#39;us-east-1&#39;</span>
 
-    <span class="n">S3_ADDRESSING_STYLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;s3_addressing_style&#39;</span>
+    <span class="n">S3_ADDRESSING_STYLE</span> <span class="o">=</span> <span class="s1">&#39;s3_addressing_style&#39;</span>
     <span class="n">S3_DEFAULT_ADDRESSING_STYLE</span> <span class="o">=</span> <span class="n">S3AddressingStyle</span><span class="o">.</span><span class="n">VIRTUAL</span><span class="o">.</span><span class="n">value</span>
 
-    <span class="n">S3_PRESIGNED_URL_EXPIRATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;s3_presigned_url_expiration&#39;</span>
+    <span class="n">S3_PRESIGNED_URL_EXPIRATION</span> <span class="o">=</span> <span class="s1">&#39;s3_presigned_url_expiration&#39;</span>
     <span class="n">S3_DEFAULT_PRESIGNED_URL_EXPIRATION</span> <span class="o">=</span> <span class="mi">3600</span>
 
-    <span class="n">BOOK_COVERS_BUCKET_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;book_covers_bucket&#39;</span>
-    <span class="n">OA_CONTENT_BUCKET_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;open_access_content_bucket&#39;</span>
-    <span class="n">PROTECTED_CONTENT_BUCKET_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;protected_content_bucket&#39;</span>
-    <span class="n">MARC_BUCKET_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;marc_bucket&#39;</span>
+    <span class="n">BOOK_COVERS_BUCKET_KEY</span> <span class="o">=</span> <span class="s1">&#39;book_covers_bucket&#39;</span>
+    <span class="n">OA_CONTENT_BUCKET_KEY</span> <span class="o">=</span> <span class="s1">&#39;open_access_content_bucket&#39;</span>
+    <span class="n">PROTECTED_CONTENT_BUCKET_KEY</span> <span class="o">=</span> <span class="s1">&#39;protected_content_bucket&#39;</span>
+    <span class="n">MARC_BUCKET_KEY</span> <span class="o">=</span> <span class="s1">&#39;marc_bucket&#39;</span>
 
-    <span class="n">URL_TEMPLATE_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;bucket_name_transform&#39;</span>
-    <span class="n">URL_TEMPLATE_HTTP</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;http&#39;</span>
-    <span class="n">URL_TEMPLATE_HTTPS</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;https&#39;</span>
-    <span class="n">URL_TEMPLATE_DEFAULT</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;identity&#39;</span>
+    <span class="n">URL_TEMPLATE_KEY</span> <span class="o">=</span> <span class="s1">&#39;bucket_name_transform&#39;</span>
+    <span class="n">URL_TEMPLATE_HTTP</span> <span class="o">=</span> <span class="s1">&#39;http&#39;</span>
+    <span class="n">URL_TEMPLATE_HTTPS</span> <span class="o">=</span> <span class="s1">&#39;https&#39;</span>
+    <span class="n">URL_TEMPLATE_DEFAULT</span> <span class="o">=</span> <span class="s1">&#39;identity&#39;</span>
 
     <span class="n">URL_TEMPLATES_BY_TEMPLATE</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">URL_TEMPLATE_HTTP</span><span class="p">:</span> <span class="sa">u</span><span class="s1">&#39;http://</span><span class="si">%(bucket)s</span><span class="s1">/</span><span class="si">%(key)s</span><span class="s1">&#39;</span><span class="p">,</span>
-        <span class="n">URL_TEMPLATE_HTTPS</span><span class="p">:</span> <span class="sa">u</span><span class="s1">&#39;https://</span><span class="si">%(bucket)s</span><span class="s1">/</span><span class="si">%(key)s</span><span class="s1">&#39;</span><span class="p">,</span>
-        <span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">:</span> <span class="sa">u</span><span class="s1">&#39;https://</span><span class="si">%(bucket)s</span><span class="s1">.s3.</span><span class="si">%(region)s</span><span class="s1">/</span><span class="si">%(key)s</span><span class="s1">&#39;</span>
+        <span class="n">URL_TEMPLATE_HTTP</span><span class="p">:</span> <span class="s1">&#39;http://</span><span class="si">%(bucket)s</span><span class="s1">/</span><span class="si">%(key)s</span><span class="s1">&#39;</span><span class="p">,</span>
+        <span class="n">URL_TEMPLATE_HTTPS</span><span class="p">:</span> <span class="s1">&#39;https://</span><span class="si">%(bucket)s</span><span class="s1">/</span><span class="si">%(key)s</span><span class="s1">&#39;</span><span class="p">,</span>
+        <span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">:</span> <span class="s1">&#39;https://</span><span class="si">%(bucket)s</span><span class="s1">.s3.</span><span class="si">%(region)s</span><span class="s1">/</span><span class="si">%(key)s</span><span class="s1">&#39;</span>
     <span class="p">}</span>
 
     <span class="n">access_key</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="p">(</span>
@@ -452,6 +454,8 @@
             <span class="c1"># This is a list of key components that need to be quoted</span>
             <span class="c1"># and assembled.</span>
             <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">encode</span><span class="o">=</span><span class="n">custom_url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">):</span>
             <span class="n">path</span> <span class="o">=</span> <span class="n">path</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
 
@@ -504,27 +508,22 @@
 <span class="sd">        :param key: Either a key, or a list of parts to be</span>
 <span class="sd">                    assembled into a key.</span>
 
-<span class="sd">        :return: A bytestring that can be used as an S3 key.</span>
-
-<span class="sd">        TODO PYTHON3 This is rewritten to return a Unicode string.</span>
+<span class="sd">        :return: A string that can be used as an S3 key.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">parts</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">parts</span> <span class="o">=</span> <span class="n">key</span>
         <span class="n">new_parts</span> <span class="o">=</span> <span class="p">[]</span>
+
         <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
-                <span class="n">part</span> <span class="o">=</span> <span class="n">part</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">part</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">part</span><span class="p">)</span>
-
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+                <span class="n">part</span> <span class="o">=</span> <span class="n">part</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">encode</span><span class="p">:</span>
-                <span class="n">part</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">part</span><span class="p">)</span>
-
+                <span class="n">part</span> <span class="o">=</span> <span class="n">quote</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">part</span><span class="p">))</span>
             <span class="n">new_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">part</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="sa">b</span><span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">new_parts</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">new_parts</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="S3Uploader.book_url"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.book_url">[docs]</a>    <span class="k">def</span> <span class="nf">book_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">extension</span><span class="o">=</span><span class="s1">&#39;.epub&#39;</span><span class="p">,</span> <span class="n">open_access</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                  <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -615,7 +614,7 @@
             <span class="n">filename</span> <span class="o">=</span> <span class="n">path</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
 
         <span class="k">if</span> <span class="n">unquote</span><span class="p">:</span>
-            <span class="n">filename</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">unquote_plus</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">unquote_plus</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">bucket</span><span class="p">,</span> <span class="n">filename</span></div>
 
@@ -681,7 +680,7 @@
                              <span class="n">source</span><span class="p">,</span> <span class="n">representation</span><span class="o">.</span><span class="n">mirror_url</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;MIRRORED </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">representation</span><span class="o">.</span><span class="n">mirror_url</span><span class="p">)</span>
-        <span class="k">except</span> <span class="p">(</span><span class="n">BotoCoreError</span><span class="p">,</span> <span class="n">ClientError</span><span class="p">),</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">BotoCoreError</span><span class="p">,</span> <span class="n">ClientError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># BotoCoreError happens when there&#39;s a problem with</span>
             <span class="c1"># the network transport. ClientError happens when</span>
             <span class="c1"># there&#39;s a problem with the credentials. Either way,</span>
@@ -700,10 +699,10 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="k">yield</span> <span class="n">upload</span>
             <span class="n">upload</span><span class="o">.</span><span class="n">complete</span><span class="p">()</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Multipart upload of </span><span class="si">%s</span><span class="s2"> failed: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
             <span class="n">upload</span><span class="o">.</span><span class="n">abort</span><span class="p">()</span>
-            <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">)</span></div></div>
+            <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span></div></div>
 
 
 <span class="c1"># MirrorUploader.implementation will instantiate an S3Uploader</span>
@@ -931,7 +930,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

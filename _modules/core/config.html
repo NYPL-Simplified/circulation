@@ -35,7 +35,7 @@
   <h1>Source code for core.config</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">contextlib</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
@@ -45,15 +45,15 @@
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">facets</span> <span class="kn">import</span> <span class="n">FacetConstants</span>
-<span class="kn">from</span> <span class="nn">entrypoint</span> <span class="kn">import</span> <span class="n">EntryPoint</span>
+<span class="kn">from</span> <span class="nn">.facets</span> <span class="kn">import</span> <span class="n">FacetConstants</span>
+<span class="kn">from</span> <span class="nn">.entrypoint</span> <span class="kn">import</span> <span class="n">EntryPoint</span>
 
 <span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="kn">import</span> <span class="n">ArgumentError</span>
-<span class="kn">from</span> <span class="nn">util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
 
 <span class="c1"># It&#39;s convenient for other modules import IntegrationException</span>
 <span class="c1"># from this module, alongside CannotLoadConfiguration.</span>
-<span class="kn">from</span> <span class="nn">util.http</span> <span class="kn">import</span> <span class="n">IntegrationException</span>
+<span class="kn">from</span> <span class="nn">.util.http</span> <span class="kn">import</span> <span class="n">IntegrationException</span>
 
 
 <div class="viewcode-block" id="CannotLoadConfiguration"><a class="viewcode-back" href="../../core.html#core.config.CannotLoadConfiguration">[docs]</a><span class="k">class</span> <span class="nc">CannotLoadConfiguration</span><span class="p">(</span><span class="n">IntegrationException</span><span class="p">):</span>
@@ -94,8 +94,14 @@
     <span class="c1"># configuring which facets are enabled for that facet group, and</span>
     <span class="c1"># one configuring which facet is the default.</span>
     <span class="n">ENABLED_FACETS_KEY_PREFIX</span> <span class="o">=</span> <span class="s2">&quot;facets_enabled_&quot;</span>
-    <span class="n">DEFAULT_FACET_KEY_PREFIX</span> <span class="o">=</span> <span class="s2">&quot;facets_default_&quot;</span></div>
-
+    <span class="n">DEFAULT_FACET_KEY_PREFIX</span> <span class="o">=</span> <span class="s2">&quot;facets_default_&quot;</span>
+    
+    <span class="c1"># The &quot;level&quot; property determines which admins will be able to modify the setting.  Level 1 settings can be modified by anyone.</span>
+    <span class="c1"># Level 2 settings can be modified only by library managers and system admins (i.e. not by librarians).  Level 3 settings can be changed only by system admins.</span>
+    <span class="c1"># If no level is specified, the setting will be treated as Level 1 by default.</span>
+    <span class="n">ALL_ACCESS</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">SYS_ADMIN_OR_MANAGER</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">SYS_ADMIN_ONLY</span> <span class="o">=</span> <span class="mi">3</span></div>
 
 <div class="viewcode-block" id="Configuration"><a class="viewcode-back" href="../../core.html#core.config.Configuration">[docs]</a><span class="k">class</span> <span class="nc">Configuration</span><span class="p">(</span><span class="n">ConfigurationConstants</span><span class="p">):</span>
 
@@ -132,7 +138,7 @@
     <span class="n">DATA_DIRECTORY</span> <span class="o">=</span> <span class="s2">&quot;data_directory&quot;</span>
 
     <span class="c1"># ConfigurationSetting key for the base url of the app.</span>
-    <span class="n">BASE_URL_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;base_url&#39;</span>
+    <span class="n">BASE_URL_KEY</span> <span class="o">=</span> <span class="s1">&#39;base_url&#39;</span>
 
     <span class="c1"># ConfigurationSetting to enable the MeasurementReaper script</span>
     <span class="n">MEASUREMENT_REAPER</span> <span class="o">=</span> <span class="s1">&#39;measurement_reaper_enabled&#39;</span>
@@ -153,11 +159,11 @@
     <span class="n">NAME</span> <span class="o">=</span> <span class="s2">&quot;name&quot;</span>
     <span class="n">TYPE</span> <span class="o">=</span> <span class="s2">&quot;type&quot;</span>
     <span class="n">INTEGRATIONS</span> <span class="o">=</span> <span class="s2">&quot;integrations&quot;</span>
-    <span class="n">DATABASE_INTEGRATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Postgres&quot;</span>
+    <span class="n">DATABASE_INTEGRATION</span> <span class="o">=</span> <span class="s2">&quot;Postgres&quot;</span>
     <span class="n">DATABASE_PRODUCTION_URL</span> <span class="o">=</span> <span class="s2">&quot;production_url&quot;</span>
     <span class="n">DATABASE_TEST_URL</span> <span class="o">=</span> <span class="s2">&quot;test_url&quot;</span>
 
-    <span class="n">CONTENT_SERVER_INTEGRATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Content Server&quot;</span>
+    <span class="n">CONTENT_SERVER_INTEGRATION</span> <span class="o">=</span> <span class="s2">&quot;Content Server&quot;</span>
 
     <span class="n">AXIS_INTEGRATION</span> <span class="o">=</span> <span class="s2">&quot;Axis 360&quot;</span>
     <span class="n">RBDIGITAL_INTEGRATION</span> <span class="o">=</span> <span class="s2">&quot;RBDigital&quot;</span>
@@ -165,7 +171,7 @@
     <span class="n">THREEM_INTEGRATION</span> <span class="o">=</span> <span class="s2">&quot;3M&quot;</span>
 
     <span class="c1"># ConfigurationSetting key for a CDN&#39;s mirror domain</span>
-    <span class="n">CDN_MIRRORED_DOMAIN_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;mirrored_domain&#39;</span>
+    <span class="n">CDN_MIRRORED_DOMAIN_KEY</span> <span class="o">=</span> <span class="s1">&#39;mirrored_domain&#39;</span>
 
     <span class="c1"># The name of the per-library configuration policy that controls whether</span>
     <span class="c1"># books may be put on hold.</span>
@@ -185,7 +191,9 @@
     <span class="c1"># their authorization_identifier.</span>
     <span class="n">EXTERNAL_TYPE_REGULAR_EXPRESSION</span> <span class="o">=</span> <span class="s1">&#39;external_type_regular_expression&#39;</span>
 
-    <span class="n">WEBSITE_URL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;website&#39;</span>
+    <span class="n">WEBSITE_URL</span> <span class="o">=</span> <span class="s1">&#39;website&#39;</span>
+    <span class="n">NAME</span> <span class="o">=</span> <span class="s1">&#39;name&#39;</span>
+    <span class="n">SHORT_NAME</span> <span class="o">=</span> <span class="s1">&#39;short_name&#39;</span>
 
     <span class="n">DEBUG</span> <span class="o">=</span> <span class="s2">&quot;DEBUG&quot;</span>
     <span class="n">INFO</span> <span class="o">=</span> <span class="s2">&quot;INFO&quot;</span>
@@ -247,21 +255,31 @@
         <span class="p">},</span>
     <span class="p">]</span>
 
-    <span class="c1"># The &quot;level&quot; property determines which admins will be able to modify the setting.  Level 1 settings can be modified by anyone.</span>
-    <span class="c1"># Level 2 settings can be modified only by library managers and system admins (i.e. not by librarians).  Level 3 settings can be changed only by system admins.</span>
-    <span class="c1"># If no level is specified, the setting will be treated as Level 1 by default.</span>
-    <span class="n">ALL_ACCESS</span> <span class="o">=</span> <span class="mi">1</span>
-    <span class="n">SYS_ADMIN_OR_MANAGER</span> <span class="o">=</span> <span class="mi">2</span>
-    <span class="n">SYS_ADMIN_ONLY</span> <span class="o">=</span> <span class="mi">3</span>
-
     <span class="n">LIBRARY_SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">NAME</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Name&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The human-readable name of this library.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Basic Information&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">SYS_ADMIN_ONLY</span><span class="p">,</span>
+            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">SHORT_NAME</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Short name&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A short name of this library, to use when identifying it in scripts or URLs, e.g. &#39;NYPL&#39;.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Basic Information&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">SYS_ADMIN_ONLY</span><span class="p">,</span>
+            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span>
+        <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEBSITE_URL</span><span class="p">,</span>
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;URL of the library&#39;s website&quot;</span><span class="p">),</span>
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The library&#39;s main website, e.g. </span><span class="se">\&quot;</span><span class="s2">https://www.nypl.org/</span><span class="se">\&quot;</span><span class="s2"> (not this Circulation Manager&#39;s URL).&quot;</span><span class="p">),</span>
             <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">SYS_ADMIN_ONLY</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">SYS_ADMIN_ONLY</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Basic Information&quot;</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ALLOW_HOLDS</span><span class="p">,</span>
@@ -273,7 +291,7 @@
             <span class="p">],</span>
             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Loans, Holds, &amp; Fines&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">SYS_ADMIN_ONLY</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">SYS_ADMIN_ONLY</span>
         <span class="p">},</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">EntryPoint</span><span class="o">.</span><span class="n">ENABLED_SETTING</span><span class="p">,</span>
           <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Enabled entry points&quot;</span><span class="p">),</span>
@@ -290,7 +308,7 @@
           <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;narrow&quot;</span><span class="p">,</span>
           <span class="c1"># Renders an input field that cannot be edited.</span>
           <span class="s2">&quot;readOnly&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-          <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">SYS_ADMIN_ONLY</span>
+          <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">SYS_ADMIN_ONLY</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">FEATURED_LANE_SIZE</span><span class="p">,</span>
@@ -298,7 +316,7 @@
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Lanes &amp; Filters&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">ALL_ACCESS</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
 
         <span class="p">},</span>
         <span class="p">{</span>
@@ -309,7 +327,7 @@
             <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
             <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_MINIMUM_FEATURED_QUALITY</span><span class="p">,</span>
             <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Lanes &amp; Filters&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">ALL_ACCESS</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">ALL_ACCESS</span>
         <span class="p">},</span>
     <span class="p">]</span> <span class="o">+</span> <span class="p">[</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">ENABLED_FACETS_KEY_PREFIX</span> <span class="o">+</span> <span class="n">group</span><span class="p">,</span>
@@ -323,8 +341,8 @@
           <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Lanes &amp; Filters&quot;</span><span class="p">,</span>
           <span class="c1"># Tells the front end that each of these settings is related to the corresponding default setting.</span>
           <span class="s2">&quot;paired&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">DEFAULT_FACET_KEY_PREFIX</span> <span class="o">+</span> <span class="n">group</span><span class="p">,</span>
-          <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">SYS_ADMIN_OR_MANAGER</span>
-        <span class="p">}</span> <span class="k">for</span> <span class="n">group</span><span class="p">,</span> <span class="n">description</span> <span class="ow">in</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">GROUP_DESCRIPTIONS</span><span class="o">.</span><span class="n">iteritems</span><span class="p">()</span>
+          <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">SYS_ADMIN_OR_MANAGER</span>
+        <span class="p">}</span> <span class="k">for</span> <span class="n">group</span><span class="p">,</span> <span class="n">description</span> <span class="ow">in</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">GROUP_DESCRIPTIONS</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
     <span class="p">]</span> <span class="o">+</span> <span class="p">[</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">DEFAULT_FACET_KEY_PREFIX</span> <span class="o">+</span> <span class="n">group</span><span class="p">,</span>
           <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Default </span><span class="si">%(group)s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="n">display_name</span><span class="p">),</span>
@@ -336,7 +354,7 @@
           <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">DEFAULT_FACET</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">group</span><span class="p">),</span>
           <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Lanes &amp; Filters&quot;</span><span class="p">,</span>
           <span class="s2">&quot;skip&quot;</span><span class="p">:</span> <span class="kc">True</span>
-        <span class="p">}</span> <span class="k">for</span> <span class="n">group</span><span class="p">,</span> <span class="n">display_name</span> <span class="ow">in</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">GROUP_DISPLAY_TITLES</span><span class="o">.</span><span class="n">iteritems</span><span class="p">()</span>
+        <span class="p">}</span> <span class="k">for</span> <span class="n">group</span><span class="p">,</span> <span class="n">display_name</span> <span class="ow">in</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">GROUP_DISPLAY_TITLES</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
     <span class="p">]</span>
 
     <span class="c1"># This is set once CDN data is loaded from the database and</span>
@@ -420,12 +438,12 @@
             <span class="c1"># The CDNs were never initialized from the database.</span>
             <span class="c1"># Create a new database connection and find that</span>
             <span class="c1"># information now.</span>
-            <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">SessionManager</span>
+            <span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="n">SessionManager</span>
             <span class="n">url</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">database_url</span><span class="p">()</span>
             <span class="n">_db</span> <span class="o">=</span> <span class="n">SessionManager</span><span class="o">.</span><span class="n">session</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
             <span class="bp">cls</span><span class="o">.</span><span class="n">load_cdns</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
 
-        <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
+        <span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">integration</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">CDN</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Configuration.policy"><a class="viewcode-back" href="../../core.html#core.config.Configuration.policy">[docs]</a>    <span class="nd">@classmethod</span>
@@ -473,7 +491,7 @@
         <span class="n">url_obj</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">url_obj</span> <span class="o">=</span> <span class="n">make_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">ArgumentError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">ArgumentError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># Improve the error message by giving a guide as to what&#39;s</span>
             <span class="c1"># likely to work.</span>
             <span class="k">raise</span> <span class="n">ArgumentError</span><span class="p">(</span>
@@ -511,7 +529,7 @@
 
 <div class="viewcode-block" id="Configuration.load_cdns"><a class="viewcode-back" href="../../core.html#core.config.Configuration.load_cdns">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load_cdns</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">config_instance</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span> <span class="k">as</span> <span class="n">EI</span>
+        <span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span> <span class="k">as</span> <span class="n">EI</span>
         <span class="n">cdns</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">EI</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">EI</span><span class="o">.</span><span class="n">goal</span><span class="o">==</span><span class="n">EI</span><span class="o">.</span><span class="n">CDN_GOAL</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
         <span class="n">cdn_integration</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">cdn</span> <span class="ow">in</span> <span class="n">cdns</span><span class="p">:</span>
@@ -583,7 +601,7 @@
         <span class="c1"># NOTE: Currently we never check the database (because timeout is</span>
         <span class="c1"># never set to None). This code will hopefully be removed soon.</span>
         <span class="k">if</span> <span class="n">_db</span> <span class="ow">and</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">ConfigurationSetting</span>
+            <span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="n">ConfigurationSetting</span>
             <span class="n">timeout</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
                 <span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SITE_CONFIGURATION_TIMEOUT</span>
             <span class="p">)</span><span class="o">.</span><span class="n">int_value</span>
@@ -610,7 +628,7 @@
         <span class="c1"># site_configuration_was_changed() (defined in model.py) was</span>
         <span class="c1"># called.</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">known_value</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">Timestamp</span>
+            <span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="n">Timestamp</span>
             <span class="n">known_value</span> <span class="o">=</span> <span class="n">Timestamp</span><span class="o">.</span><span class="n">value</span><span class="p">(</span>
                 <span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SITE_CONFIGURATION_CHANGED</span><span class="p">,</span> <span class="n">service_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                 <span class="n">collection</span><span class="o">=</span><span class="kc">None</span>
@@ -649,7 +667,7 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="bp">cls</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading configuration from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">config_path</span><span class="p">)</span>
                 <span class="n">configuration</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">config_path</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
                     <span class="s2">&quot;Error loading configuration file </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
                         <span class="n">config_path</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
@@ -723,7 +741,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

@@ -35,19 +35,16 @@
   <h1>Source code for core.mirror</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">abstractmethod</span><span class="p">,</span> <span class="n">ABCMeta</span>
-<span class="kn">from</span> <span class="nn">urlparse</span> <span class="kn">import</span> <span class="n">urlsplit</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlsplit</span>
 
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
 
-
-<div class="viewcode-block" id="MirrorUploader"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader">[docs]</a><span class="k">class</span> <span class="nc">MirrorUploader</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<div class="viewcode-block" id="MirrorUploader"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader">[docs]</a><span class="k">class</span> <span class="nc">MirrorUploader</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">ABCMeta</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Handles the job of uploading a representation&#39;s content to</span>
 <span class="sd">    a mirror that we control.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">ABCMeta</span>
-
-    <span class="n">STORAGE_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;storage&#39;</span>
+    <span class="n">STORAGE_GOAL</span> <span class="o">=</span> <span class="s1">&#39;storage&#39;</span>
 
     <span class="c1"># Depending on the .protocol of an ExternalIntegration with</span>
     <span class="c1"># .goal=STORAGE, a different subclass might be initialized by</span>
@@ -75,7 +72,7 @@
 <div class="viewcode-block" id="MirrorUploader.integration_by_name"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.integration_by_name">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">integration_by_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">storage_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find the ExternalIntegration for the mirror by storage name.&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
+        <span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">goal</span><span class="o">==</span><span class="bp">cls</span><span class="o">.</span><span class="n">STORAGE_GOAL</span><span class="p">,</span>
             <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">name</span><span class="o">==</span><span class="n">storage_name</span>
@@ -99,12 +96,12 @@
 <span class="sd">        :return: A MirrorUploader, or None if the Collection has no</span>
 <span class="sd">            mirror integration.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
+        <span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">Session</span>
+            <span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="n">Session</span>
             <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
             <span class="n">integration</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">for_collection_and_purpose</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">purpose</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">implementation</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span></div>
 
@@ -293,7 +290,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

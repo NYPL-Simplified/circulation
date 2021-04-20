@@ -149,9 +149,9 @@
             <span class="k">return</span> <span class="n">library_error</span>
 
         <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">auth_service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">auth_service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">auth_service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">auth_service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_find_protocol_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service_object</span><span class="p">):</span>
         <span class="p">[</span><span class="n">protocol_class</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider_apis</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="vm">__module__</span> <span class="o">==</span> <span class="n">service_object</span><span class="o">.</span><span class="n">protocol</span><span class="p">]</span>
@@ -197,7 +197,7 @@
         <span class="k">if</span> <span class="n">value</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION</span></div>
 
 <div class="viewcode-block" id="PatronAuthServicesController.check_identifier_restriction"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.patron_auth_services.PatronAuthServicesController.check_identifier_restriction">[docs]</a>    <span class="k">def</span> <span class="nf">check_identifier_restriction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">auth_service</span><span class="p">):</span>
@@ -213,7 +213,7 @@
         <span class="k">if</span> <span class="n">identifier_restriction</span> <span class="ow">and</span> <span class="n">identifier_restriction_type</span> <span class="o">==</span> <span class="n">AuthenticationProvider</span><span class="o">.</span><span class="n">LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">identifier_restriction</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">INVALID_LIBRARY_IDENTIFIER_RESTRICTION_REGULAR_EXPRESSION</span></div>
 
 <div class="viewcode-block" id="PatronAuthServicesController.check_libraries"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.patron_auth_services.PatronAuthServicesController.check_libraries">[docs]</a>    <span class="k">def</span> <span class="nf">check_libraries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">auth_service</span><span class="p">):</span>
@@ -287,7 +287,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

@@ -35,7 +35,7 @@
   <h1>Source code for api.lcp.server</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">urlparse</span>
+<span class="kn">import</span> <span class="nn">urllib.parse</span>
 
 <span class="kn">import</span> <span class="nn">requests</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
@@ -225,7 +225,7 @@
         <span class="n">rights_fields</span> <span class="o">=</span> <span class="p">[</span>
             <span class="n">license_start</span><span class="p">,</span> <span class="n">license_end</span><span class="p">,</span> <span class="n">configuration</span><span class="o">.</span><span class="n">max_printable_pages</span><span class="p">,</span> <span class="n">configuration</span><span class="o">.</span><span class="n">max_copiable_pages</span><span class="p">]</span>
 
-        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">rights_field</span><span class="p">:</span> <span class="n">rights_field</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">rights_field</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">rights_fields</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">rights_field</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">rights_field</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span> <span class="k">for</span> <span class="n">rights_field</span> <span class="ow">in</span> <span class="n">rights_fields</span><span class="p">]):</span>
             <span class="n">partial_license</span><span class="p">[</span><span class="s1">&#39;rights&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
         <span class="k">if</span> <span class="n">license_start</span><span class="p">:</span>
@@ -259,7 +259,7 @@
 <span class="sd">        :rtype: Dict</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">json_payload</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">json_encoder</span><span class="p">)</span>
-        <span class="n">url</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="n">configuration</span><span class="o">.</span><span class="n">lcpserver_url</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="n">configuration</span><span class="o">.</span><span class="n">lcpserver_url</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
         <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">request</span><span class="p">(</span>
             <span class="n">method</span><span class="p">,</span>
             <span class="n">url</span><span class="p">,</span>
@@ -413,7 +413,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

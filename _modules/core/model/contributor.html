@@ -35,7 +35,7 @@
   <h1>Source code for core.model.contributor</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Contributor, Contribution</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
@@ -64,7 +64,6 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">..util.personal_names</span> <span class="kn">import</span> <span class="n">display_name_to_sort_name</span>
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
 
 <div class="viewcode-block" id="Contributor"><a class="viewcode-back" href="../../../core.model.html#core.model.contributor.Contributor">[docs]</a><span class="k">class</span> <span class="nc">Contributor</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Someone (usually human) who contributes to books.&quot;&quot;&quot;</span>
@@ -103,40 +102,40 @@
     <span class="n">contributions</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Contribution&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;contributor&quot;</span><span class="p">)</span>
 
     <span class="c1"># Types of roles</span>
-    <span class="n">AUTHOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Author&quot;</span>
-    <span class="n">PRIMARY_AUTHOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Primary Author&quot;</span>
-    <span class="n">EDITOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Editor&quot;</span>
-    <span class="n">ARTIST_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Artist&quot;</span>
-    <span class="n">PHOTOGRAPHER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Photographer&quot;</span>
-    <span class="n">TRANSLATOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Translator&quot;</span>
-    <span class="n">ILLUSTRATOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Illustrator&quot;</span>
-    <span class="n">LETTERER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Letterer&quot;</span>
-    <span class="n">PENCILER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Penciler&quot;</span>
-    <span class="n">COLORIST_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Colorist&quot;</span>
-    <span class="n">INKER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Inker&quot;</span>
-    <span class="n">INTRODUCTION_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Introduction Author&quot;</span>
-    <span class="n">FOREWORD_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Foreword Author&quot;</span>
-    <span class="n">AFTERWORD_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Afterword Author&quot;</span>
-    <span class="n">COLOPHON_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Colophon Author&quot;</span>
-    <span class="n">UNKNOWN_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Unknown&#39;</span>
-    <span class="n">DIRECTOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Director&#39;</span>
-    <span class="n">PRODUCER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Producer&#39;</span>
-    <span class="n">EXECUTIVE_PRODUCER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Executive Producer&#39;</span>
-    <span class="n">ACTOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Actor&#39;</span>
-    <span class="n">LYRICIST_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Lyricist&#39;</span>
-    <span class="n">CONTRIBUTOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Contributor&#39;</span>
-    <span class="n">COMPOSER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Composer&#39;</span>
-    <span class="n">NARRATOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Narrator&#39;</span>
-    <span class="n">COMPILER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Compiler&#39;</span>
-    <span class="n">ADAPTER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Adapter&#39;</span>
-    <span class="n">PERFORMER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Performer&#39;</span>
-    <span class="n">MUSICIAN_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Musician&#39;</span>
-    <span class="n">ASSOCIATED_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Associated name&#39;</span>
-    <span class="n">COLLABORATOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Collaborator&#39;</span>
-    <span class="n">ENGINEER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Engineer&#39;</span>
-    <span class="n">COPYRIGHT_HOLDER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Copyright holder&#39;</span>
-    <span class="n">TRANSCRIBER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Transcriber&#39;</span>
-    <span class="n">DESIGNER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Designer&#39;</span>
+    <span class="n">AUTHOR_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Author&quot;</span>
+    <span class="n">PRIMARY_AUTHOR_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Primary Author&quot;</span>
+    <span class="n">EDITOR_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Editor&quot;</span>
+    <span class="n">ARTIST_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Artist&quot;</span>
+    <span class="n">PHOTOGRAPHER_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Photographer&quot;</span>
+    <span class="n">TRANSLATOR_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Translator&quot;</span>
+    <span class="n">ILLUSTRATOR_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Illustrator&quot;</span>
+    <span class="n">LETTERER_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Letterer&quot;</span>
+    <span class="n">PENCILER_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Penciler&quot;</span>
+    <span class="n">COLORIST_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Colorist&quot;</span>
+    <span class="n">INKER_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Inker&quot;</span>
+    <span class="n">INTRODUCTION_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Introduction Author&quot;</span>
+    <span class="n">FOREWORD_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Foreword Author&quot;</span>
+    <span class="n">AFTERWORD_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Afterword Author&quot;</span>
+    <span class="n">COLOPHON_ROLE</span> <span class="o">=</span> <span class="s2">&quot;Colophon Author&quot;</span>
+    <span class="n">UNKNOWN_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Unknown&#39;</span>
+    <span class="n">DIRECTOR_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Director&#39;</span>
+    <span class="n">PRODUCER_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Producer&#39;</span>
+    <span class="n">EXECUTIVE_PRODUCER_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Executive Producer&#39;</span>
+    <span class="n">ACTOR_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Actor&#39;</span>
+    <span class="n">LYRICIST_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Lyricist&#39;</span>
+    <span class="n">CONTRIBUTOR_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Contributor&#39;</span>
+    <span class="n">COMPOSER_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Composer&#39;</span>
+    <span class="n">NARRATOR_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Narrator&#39;</span>
+    <span class="n">COMPILER_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Compiler&#39;</span>
+    <span class="n">ADAPTER_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Adapter&#39;</span>
+    <span class="n">PERFORMER_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Performer&#39;</span>
+    <span class="n">MUSICIAN_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Musician&#39;</span>
+    <span class="n">ASSOCIATED_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Associated name&#39;</span>
+    <span class="n">COLLABORATOR_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Collaborator&#39;</span>
+    <span class="n">ENGINEER_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Engineer&#39;</span>
+    <span class="n">COPYRIGHT_HOLDER_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Copyright holder&#39;</span>
+    <span class="n">TRANSCRIBER_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Transcriber&#39;</span>
+    <span class="n">DESIGNER_ROLE</span> <span class="o">=</span> <span class="s1">&#39;Designer&#39;</span>
     <span class="n">AUTHOR_ROLES</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">PRIMARY_AUTHOR_ROLE</span><span class="p">,</span> <span class="n">AUTHOR_ROLE</span><span class="p">])</span>
 
     <span class="c1"># Map our recognized roles to MARC relators.</span>
@@ -200,9 +199,7 @@
             <span class="n">extra</span> <span class="o">+=</span> <span class="s2">&quot; lc=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">lc</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">viaf</span><span class="p">:</span>
             <span class="n">extra</span> <span class="o">+=</span> <span class="s2">&quot; viaf=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">viaf</span>
-        <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Contributor </span><span class="si">%d</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_name</span><span class="p">)</span>
-        <span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;Contributor </span><span class="si">%d</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_name</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Contributor.author_contributor_tiers"><a class="viewcode-back" href="../../../core.model.html#core.model.contributor.Contributor.author_contributor_tiers">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">author_contributor_tiers</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
@@ -337,7 +334,7 @@
             <span class="c1"># They&#39;re already the same.</span>
             <span class="k">return</span>
         <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;MERGING </span><span class="si">%r</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">) into </span><span class="si">%r</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;MERGING </span><span class="si">%r</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">) into </span><span class="si">%r</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">viaf</span><span class="p">,</span>
             <span class="n">destination</span><span class="p">,</span>
@@ -364,7 +361,7 @@
             <span class="n">destination</span><span class="o">.</span><span class="n">wikipedia_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wikipedia_name</span>
 
         <span class="c1"># merge non-name-related properties</span>
-        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">extra</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">destination</span><span class="o">.</span><span class="n">extra</span><span class="p">:</span>
                 <span class="n">destination</span><span class="o">.</span><span class="n">extra</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">destination</span><span class="o">.</span><span class="n">lc</span><span class="p">:</span>
@@ -399,11 +396,11 @@
     <span class="n">NUMBERS</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;[0-9]&quot;</span><span class="p">)</span>
 
     <span class="n">DATE_RES</span> <span class="o">=</span> <span class="p">[</span><span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;\(?&quot;</span> <span class="o">+</span> <span class="n">x</span> <span class="o">+</span> <span class="s2">&quot;\)?&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span>
-                <span class="s2">&quot;[0-9?]+-&quot;</span><span class="p">,</span>
+                <span class="p">(</span><span class="s2">&quot;[0-9?]+-&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;[0-9]+st cent&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;[0-9]+nd cent&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;[0-9]+th cent&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;</span><span class="se">\b</span><span class="s2">circa&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;</span><span class="se">\b</span><span class="s2">circa&quot;</span><span class="p">,)</span>
                 <span class="p">]</span>
 
 
@@ -560,7 +557,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

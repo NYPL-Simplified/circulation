@@ -35,7 +35,6 @@
   <h1>Source code for api.nyt</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Interface to the New York Times APIs.&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">isbnlib</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
 <span class="kn">import</span> <span class="nn">os</span>
@@ -47,7 +46,7 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">IntegrationException</span><span class="p">,</span>
 <span class="p">)</span>
@@ -130,7 +129,7 @@
                 <span class="n">metadata_client</span> <span class="o">=</span> <span class="n">MetadataWranglerOPDSLookup</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_db</span>
                 <span class="p">)</span>
-            <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                     <span class="s2">&quot;Metadata wrangler integration is not configured, proceeding without one.&quot;</span>
                 <span class="p">)</span>
@@ -173,7 +172,7 @@
             <span class="k">return</span> <span class="n">content</span>
 
         <span class="n">diagnostic</span> <span class="o">=</span> <span class="s2">&quot;Response from </span><span class="si">%s</span><span class="s2"> was: </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
-            <span class="n">url</span><span class="p">,</span> <span class="n">representation</span><span class="o">.</span><span class="n">content</span>
+            <span class="n">url</span><span class="p">,</span> <span class="n">representation</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">representation</span><span class="o">.</span><span class="n">content</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="mi">403</span><span class="p">:</span>
@@ -199,7 +198,7 @@
 
 <div class="viewcode-block" id="NYTBestSellerAPI.best_seller_list"><a class="viewcode-back" href="../../api.html#api.nyt.NYTBestSellerAPI.best_seller_list">[docs]</a>    <span class="k">def</span> <span class="nf">best_seller_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">list_info</span><span class="p">,</span> <span class="n">date</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create (but don&#39;t update) a NYTBestSellerList object.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">list_info</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">list_info</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">list_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_info</span><span class="p">(</span><span class="n">list_info</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">NYTBestSellerList</span><span class="p">(</span><span class="n">list_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_client</span><span class="p">)</span></div>
 
@@ -282,7 +281,7 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">items_by_isbn</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
                     <span class="c1"># self.log.debug(&quot;Newly seen ISBN: %r, %s&quot;, key, len(self))</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># Should only happen when the book has no identifier, which...</span>
                 <span class="c1"># should never happen.</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;No identifier for </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">li_data</span><span class="p">)</span>
@@ -337,13 +336,13 @@
             <span class="n">bestsellers_date</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;bestsellers_date&#39;</span><span class="p">))</span>
             <span class="n">first_appearance</span> <span class="o">=</span> <span class="n">bestsellers_date</span>
             <span class="n">most_recent_appearance</span> <span class="o">=</span> <span class="n">bestsellers_date</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">first_appearance</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">most_recent_appearance</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">published_date</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;published_date&#39;</span><span class="p">))</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">published_date</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="n">details</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;book_details&#39;</span><span class="p">]</span>
@@ -454,7 +453,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

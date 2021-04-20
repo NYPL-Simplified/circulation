@@ -33,8 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for api.admin.controller.sitewide_services</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">import</span> <span class="nn">flask</span>
+<span></span><span class="kn">import</span> <span class="nn">flask</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
@@ -124,9 +123,9 @@
         <span class="n">service</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
 
         <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SitewideServicesController.validate_form_fields"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.sitewide_services.SitewideServicesController.validate_form_fields">[docs]</a>    <span class="k">def</span> <span class="nf">validate_form_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">protocols</span><span class="p">,</span> <span class="o">**</span><span class="n">fields</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;The &#39;name&#39; and &#39;protocol&#39; fields cannot be blank, and the protocol must</span>
@@ -228,7 +227,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

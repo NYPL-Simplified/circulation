@@ -35,20 +35,20 @@
   <h1>Source code for core.opds</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">quote</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">defaultdict</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
-<span class="kn">from</span> <span class="nn">cdn</span> <span class="kn">import</span> <span class="n">cdnify</span>
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
-<span class="kn">from</span> <span class="nn">entrypoint</span> <span class="kn">import</span> <span class="n">EntryPoint</span>
-<span class="kn">from</span> <span class="nn">facets</span> <span class="kn">import</span> <span class="n">FacetConstants</span>
-<span class="kn">from</span> <span class="nn">lane</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.cdn</span> <span class="kn">import</span> <span class="n">cdnify</span>
+<span class="kn">from</span> <span class="nn">.classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">.entrypoint</span> <span class="kn">import</span> <span class="n">EntryPoint</span>
+<span class="kn">from</span> <span class="nn">.facets</span> <span class="kn">import</span> <span class="n">FacetConstants</span>
+<span class="kn">from</span> <span class="nn">.lane</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Facets</span><span class="p">,</span>
     <span class="n">FacetsWithEntryPoint</span><span class="p">,</span>
     <span class="n">FeaturedFacets</span><span class="p">,</span>
@@ -56,8 +56,8 @@
     <span class="n">Pagination</span><span class="p">,</span>
     <span class="n">SearchFacets</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">lcp.credential</span> <span class="kn">import</span> <span class="n">LCPCredentialFactory</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.lcp.credential</span> <span class="kn">import</span> <span class="n">LCPCredentialFactory</span>
+<span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CachedFeed</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
@@ -70,11 +70,11 @@
     <span class="n">Work</span><span class="p">,</span>
     <span class="n">ExternalIntegration</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util.flask_util</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.util.flask_util</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">OPDSEntryResponse</span><span class="p">,</span>
     <span class="n">OPDSFeedResponse</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.util.opds_writer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AtomFeed</span><span class="p">,</span>
     <span class="n">OPDSFeed</span><span class="p">,</span>
     <span class="n">OPDSMessage</span><span class="p">,</span>
@@ -196,7 +196,7 @@
         <span class="k">if</span> <span class="n">group_uri</span><span class="p">:</span>
             <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">add_link_to_entry</span><span class="p">(</span>
                 <span class="n">entry</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="n">OPDSFeed</span><span class="o">.</span><span class="n">GROUP_REL</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">group_uri</span><span class="p">,</span>
-                <span class="n">title</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">group_title</span><span class="p">)</span>
+                <span class="n">title</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">group_title</span><span class="p">)</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">updated</span> <span class="ow">and</span> <span class="n">work</span><span class="o">.</span><span class="n">last_update_time</span><span class="p">:</span>
@@ -291,7 +291,7 @@
 
         <span class="k">if</span> <span class="n">simplified_genres</span><span class="p">:</span>
             <span class="n">categories</span><span class="p">[</span><span class="n">Subject</span><span class="o">.</span><span class="n">SIMPLIFIED_GENRE</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="nb">dict</span><span class="p">(</span><span class="n">term</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">SIMPLIFIED_GENRE</span> <span class="o">+</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">x</span><span class="p">),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">term</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">SIMPLIFIED_GENRE</span> <span class="o">+</span> <span class="n">quote</span><span class="p">(</span><span class="n">x</span><span class="p">),</span>
                      <span class="n">label</span><span class="o">=</span><span class="n">x</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">simplified_genres</span>
             <span class="p">]</span>
@@ -415,7 +415,7 @@
         <span class="n">series_details</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="n">series_details</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">series_name</span>
         <span class="k">if</span> <span class="n">series_position</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">series_details</span><span class="p">[</span><span class="n">AtomFeed</span><span class="o">.</span><span class="n">schema_</span><span class="p">(</span><span class="s1">&#39;position&#39;</span><span class="p">)]</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">series_position</span><span class="p">)</span>
+            <span class="n">series_details</span><span class="p">[</span><span class="n">AtomFeed</span><span class="o">.</span><span class="n">schema_</span><span class="p">(</span><span class="s1">&#39;position&#39;</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">series_position</span><span class="p">)</span>
         <span class="n">series_tag</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">makeelement</span><span class="p">(</span><span class="n">AtomFeed</span><span class="o">.</span><span class="n">schema_</span><span class="p">(</span><span class="s2">&quot;Series&quot;</span><span class="p">),</span> <span class="o">**</span><span class="n">series_details</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">series_tag</span></div>
 
@@ -565,7 +565,7 @@
 
         <span class="c1"># Collapse by_scheme_and_term to by_scheme</span>
         <span class="n">by_scheme</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
-        <span class="k">for</span> <span class="p">(</span><span class="n">scheme</span><span class="p">,</span> <span class="n">term</span><span class="p">),</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">by_scheme_and_term</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">scheme</span><span class="p">,</span> <span class="n">term</span><span class="p">),</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">by_scheme_and_term</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">by_scheme</span><span class="p">[</span><span class="n">scheme</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
         <span class="n">by_scheme</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">super</span><span class="p">(</span><span class="n">VerboseAnnotator</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">categories</span><span class="p">(</span><span class="n">work</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">by_scheme</span></div>
@@ -1052,7 +1052,7 @@
             <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">opds_feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="s2">&quot;previous&quot;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">previous_url</span><span class="p">)</span>
 
         <span class="c1"># Add &quot;up&quot; link.</span>
-        <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">opds_feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="s2">&quot;up&quot;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">annotator</span><span class="o">.</span><span class="n">lane_url</span><span class="p">(</span><span class="n">lane</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">))</span>
+        <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">opds_feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="s2">&quot;up&quot;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">annotator</span><span class="o">.</span><span class="n">lane_url</span><span class="p">(</span><span class="n">lane</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">))</span>
 
         <span class="c1"># We do not add breadcrumbs to this feed since you&#39;re not</span>
         <span class="c1"># technically searching the this lane; you are searching the</span>
@@ -1060,7 +1060,7 @@
         <span class="c1"># imposed by this lane (notably language and audience).</span>
 
         <span class="n">annotator</span><span class="o">.</span><span class="n">annotate_feed</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">,</span> <span class="n">lane</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span><span class="n">response</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">),</span> <span class="o">**</span><span class="n">response_kwargs</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span><span class="n">response</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">),</span> <span class="o">**</span><span class="n">response_kwargs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="AcquisitionFeed.single_entry"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.single_entry">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">single_entry</span><span class="p">(</span>
@@ -1106,13 +1106,13 @@
         <span class="k">if</span> <span class="n">raw</span> <span class="ow">or</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">entry</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">OPDSMessage</span><span class="p">):</span>
-            <span class="n">entry</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+            <span class="n">entry</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
             <span class="c1"># This is probably an error message; don&#39;t cache it</span>
             <span class="c1"># even if it would otherwise be cached.</span>
             <span class="n">response_kwargs</span><span class="p">[</span><span class="s1">&#39;max_age&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="n">response_kwargs</span><span class="p">[</span><span class="s1">&#39;private&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">etree</span><span class="o">.</span><span class="n">_Element</span><span class="p">):</span>
-            <span class="n">entry</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+            <span class="n">entry</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;unicode&quot;</span><span class="p">)</span>
 
         <span class="c1"># It&#39;s common for a single OPDS entry to be returned as the</span>
         <span class="c1"># result of an unsafe operation, so we will default to setting</span>
@@ -1151,7 +1151,7 @@
                 <span class="c1"># or just weird junk data.</span>
                 <span class="k">continue</span>
             <span class="k">yield</span> <span class="bp">cls</span><span class="o">.</span><span class="n">facet_link</span><span class="p">(</span>
-                <span class="n">url</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">facet_title</span><span class="p">),</span> <span class="n">unicode</span><span class="p">(</span><span class="n">group_title</span><span class="p">),</span> <span class="n">selected</span>
+                <span class="n">url</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">facet_title</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">group_title</span><span class="p">),</span> <span class="n">selected</span>
             <span class="p">)</span></div>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">works</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -1237,7 +1237,7 @@
                 <span class="n">work</span><span class="p">,</span> <span class="n">active_license_pool</span><span class="p">,</span> <span class="n">active_edition</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span>
                 <span class="n">force_create</span><span class="p">,</span> <span class="n">use_cache</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">UnfulfillableWork</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">UnfulfillableWork</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="s2">&quot;Work </span><span class="si">%r</span><span class="s2"> is not fulfillable, refusing to create an &lt;entry&gt;.&quot;</span><span class="p">,</span>
                 <span class="n">work</span><span class="p">,</span>
@@ -1247,7 +1247,7 @@
                 <span class="mi">403</span><span class="p">,</span>
                 <span class="s2">&quot;I know about this work but can offer no way of fulfilling it.&quot;</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                 <span class="s2">&quot;Exception generating OPDS entry for </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span>
                 <span class="n">exc_info</span> <span class="o">=</span> <span class="n">e</span>
@@ -1387,16 +1387,16 @@
 
         <span class="n">categories_by_scheme</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotator</span><span class="o">.</span><span class="n">categories</span><span class="p">(</span><span class="n">work</span><span class="p">)</span>
         <span class="n">category_tags</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">scheme</span><span class="p">,</span> <span class="n">categories</span> <span class="ow">in</span> <span class="n">categories_by_scheme</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">scheme</span><span class="p">,</span> <span class="n">categories</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">categories_by_scheme</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">for</span> <span class="n">category</span> <span class="ow">in</span> <span class="n">categories</span><span class="p">:</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">category</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">category</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
                     <span class="n">category</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">term</span><span class="o">=</span><span class="n">category</span><span class="p">)</span>
-                <span class="n">category</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">unicode</span><span class="p">,</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">category</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+                <span class="n">category</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">category</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
                 <span class="n">category_tag</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">category</span><span class="p">(</span><span class="n">scheme</span><span class="o">=</span><span class="n">scheme</span><span class="p">,</span> <span class="o">**</span><span class="n">category</span><span class="p">)</span>
                 <span class="n">category_tags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">category_tag</span><span class="p">)</span>
         <span class="n">entry</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">category_tags</span><span class="p">)</span>
 
-        <span class="c1"># print &quot; ID %s TITLE %s AUTHORS %s&quot; % (tag, work.title, work.authors)</span>
+        <span class="c1"># print(&quot; ID %s TITLE %s AUTHORS %s&quot; % (tag, work.title, work.authors))</span>
         <span class="n">language</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">language_code</span>
         <span class="k">if</span> <span class="n">language</span><span class="p">:</span>
             <span class="n">language_tag</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">makeelement</span><span class="p">(</span><span class="s2">&quot;{</span><span class="si">%s</span><span class="s2">}language&quot;</span> <span class="o">%</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">DCTERMS_NS</span><span class="p">)</span>
@@ -1828,7 +1828,7 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_entry</span><span class="p">(</span>
                 <span class="n">work</span><span class="p">,</span> <span class="n">active_licensepool</span><span class="p">,</span> <span class="n">edition</span><span class="p">,</span> <span class="n">identifier</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">UnfulfillableWork</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">UnfulfillableWork</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="s2">&quot;Work </span><span class="si">%r</span><span class="s2"> is not fulfillable, refusing to create an &lt;entry&gt;.&quot;</span><span class="p">,</span>
                 <span class="n">work</span>
@@ -2076,7 +2076,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

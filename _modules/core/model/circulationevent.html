@@ -35,7 +35,7 @@
   <h1>Source code for core.model.circulationevent</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># CirculationEvent</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
@@ -127,34 +127,34 @@
     <span class="p">)</span>
 
     <span class="c1"># Constants for use in logging circulation events to JSON</span>
-    <span class="n">SOURCE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;source&quot;</span>
-    <span class="n">TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;event&quot;</span>
+    <span class="n">SOURCE</span> <span class="o">=</span> <span class="s2">&quot;source&quot;</span>
+    <span class="n">TYPE</span> <span class="o">=</span> <span class="s2">&quot;event&quot;</span>
 
     <span class="c1"># The names of the circulation events we recognize.</span>
     <span class="c1"># They may be sent to third-party analytics services</span>
     <span class="c1"># as well as used locally.</span>
 
     <span class="c1"># Events that happen in a circulation manager.</span>
-    <span class="n">NEW_PATRON</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;circulation_manager_new_patron&quot;</span>
-    <span class="n">CM_CHECKOUT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;circulation_manager_check_out&quot;</span>
-    <span class="n">CM_CHECKIN</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;circulation_manager_check_in&quot;</span>
-    <span class="n">CM_HOLD_PLACE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;circulation_manager_hold_place&quot;</span>
-    <span class="n">CM_HOLD_RELEASE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;circulation_manager_hold_release&quot;</span>
-    <span class="n">CM_FULFILL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;circulation_manager_fulfill&quot;</span>
+    <span class="n">NEW_PATRON</span> <span class="o">=</span> <span class="s2">&quot;circulation_manager_new_patron&quot;</span>
+    <span class="n">CM_CHECKOUT</span> <span class="o">=</span> <span class="s2">&quot;circulation_manager_check_out&quot;</span>
+    <span class="n">CM_CHECKIN</span> <span class="o">=</span> <span class="s2">&quot;circulation_manager_check_in&quot;</span>
+    <span class="n">CM_HOLD_PLACE</span> <span class="o">=</span> <span class="s2">&quot;circulation_manager_hold_place&quot;</span>
+    <span class="n">CM_HOLD_RELEASE</span> <span class="o">=</span> <span class="s2">&quot;circulation_manager_hold_release&quot;</span>
+    <span class="n">CM_FULFILL</span> <span class="o">=</span> <span class="s2">&quot;circulation_manager_fulfill&quot;</span>
 
     <span class="c1"># Events that we hear about from a distributor.</span>
-    <span class="n">DISTRIBUTOR_CHECKOUT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;distributor_check_out&quot;</span>
-    <span class="n">DISTRIBUTOR_CHECKIN</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;distributor_check_in&quot;</span>
-    <span class="n">DISTRIBUTOR_HOLD_PLACE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;distributor_hold_place&quot;</span>
-    <span class="n">DISTRIBUTOR_HOLD_RELEASE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;distributor_hold_release&quot;</span>
-    <span class="n">DISTRIBUTOR_LICENSE_ADD</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;distributor_license_add&quot;</span>
-    <span class="n">DISTRIBUTOR_LICENSE_REMOVE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;distributor_license_remove&quot;</span>
-    <span class="n">DISTRIBUTOR_AVAILABILITY_NOTIFY</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;distributor_availability_notify&quot;</span>
-    <span class="n">DISTRIBUTOR_TITLE_ADD</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;distributor_title_add&quot;</span>
-    <span class="n">DISTRIBUTOR_TITLE_REMOVE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;distributor_title_remove&quot;</span>
+    <span class="n">DISTRIBUTOR_CHECKOUT</span> <span class="o">=</span> <span class="s2">&quot;distributor_check_out&quot;</span>
+    <span class="n">DISTRIBUTOR_CHECKIN</span> <span class="o">=</span> <span class="s2">&quot;distributor_check_in&quot;</span>
+    <span class="n">DISTRIBUTOR_HOLD_PLACE</span> <span class="o">=</span> <span class="s2">&quot;distributor_hold_place&quot;</span>
+    <span class="n">DISTRIBUTOR_HOLD_RELEASE</span> <span class="o">=</span> <span class="s2">&quot;distributor_hold_release&quot;</span>
+    <span class="n">DISTRIBUTOR_LICENSE_ADD</span> <span class="o">=</span> <span class="s2">&quot;distributor_license_add&quot;</span>
+    <span class="n">DISTRIBUTOR_LICENSE_REMOVE</span> <span class="o">=</span> <span class="s2">&quot;distributor_license_remove&quot;</span>
+    <span class="n">DISTRIBUTOR_AVAILABILITY_NOTIFY</span> <span class="o">=</span> <span class="s2">&quot;distributor_availability_notify&quot;</span>
+    <span class="n">DISTRIBUTOR_TITLE_ADD</span> <span class="o">=</span> <span class="s2">&quot;distributor_title_add&quot;</span>
+    <span class="n">DISTRIBUTOR_TITLE_REMOVE</span> <span class="o">=</span> <span class="s2">&quot;distributor_title_remove&quot;</span>
 
     <span class="c1"># Events that we hear about from a client app.</span>
-    <span class="n">OPEN_BOOK</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;open_book&quot;</span>
+    <span class="n">OPEN_BOOK</span> <span class="o">=</span> <span class="s2">&quot;open_book&quot;</span>
 
     <span class="n">CLIENT_EVENTS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="n">OPEN_BOOK</span><span class="p">,</span>
@@ -250,7 +250,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

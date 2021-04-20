@@ -176,11 +176,11 @@
     <span class="k">def</span> <span class="nf">from_library</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
 
         <span class="n">enabled_facets</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">DEFAULT_ENABLED_FACETS</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">FacetConstants</span><span class="o">.</span><span class="n">DEFAULT_ENABLED_FACETS</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
             <span class="n">enabled_facets</span><span class="p">[</span><span class="n">group</span><span class="p">]</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">enabled_facets</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
 
         <span class="n">default_facets</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">DEFAULT_FACET</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">FacetConstants</span><span class="o">.</span><span class="n">DEFAULT_FACET</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
             <span class="n">default_facets</span><span class="p">[</span><span class="n">group</span><span class="p">]</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">default_facet</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">FacetConfig</span><span class="p">(</span><span class="n">enabled_facets</span><span class="p">,</span> <span class="n">default_facets</span><span class="p">)</span></div>
@@ -263,7 +263,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

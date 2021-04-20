@@ -33,10 +33,8 @@
           <div class="body" role="main">
             
   <h1>Source code for api.shared_collection</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">import</span> <span class="nn">logging</span>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">flask</span>
-<span class="kn">import</span> <span class="nn">base64</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
@@ -46,10 +44,11 @@
     <span class="n">IntegrationClient</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">.circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 <span class="kn">from</span> <span class="nn">core.config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
+<span class="kn">import</span> <span class="nn">base64</span>
 
 <div class="viewcode-block" id="SharedCollectionAPI"><a class="viewcode-back" href="../../api.html#api.shared_collection.SharedCollectionAPI">[docs]</a><span class="k">class</span> <span class="nc">SharedCollectionAPI</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Logic for circulating books to patrons of libraries on other</span>
@@ -86,10 +85,10 @@
                 <span class="n">api</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">api</span> <span class="o">=</span> <span class="n">api_map</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="p">](</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
-                <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                         <span class="s2">&quot;Error loading configuration for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
-                        <span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span>
+                        <span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
                     <span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">initialization_exceptions</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">e</span>
                 <span class="k">if</span> <span class="n">api</span><span class="p">:</span>
@@ -100,7 +99,7 @@
         <span class="sd">&quot;&quot;&quot;When you see a Collection that implements protocol X, instantiate</span>
 <span class="sd">        API class Y to handle that collection.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">odl</span> <span class="kn">import</span> <span class="n">ODLAPI</span>
+        <span class="kn">from</span> <span class="nn">.odl</span> <span class="kn">import</span> <span class="n">ODLAPI</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="n">ODLAPI</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">ODLAPI</span><span class="p">,</span>
         <span class="p">}</span>
@@ -130,7 +129,7 @@
         <span class="n">auth_response</span> <span class="o">=</span> <span class="n">do_get</span><span class="p">(</span><span class="n">auth_document_url</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;2xx&quot;</span><span class="p">,</span> <span class="s2">&quot;3xx&quot;</span><span class="p">])</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">auth_document</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">auth_response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Authentication document at </span><span class="si">%(auth_document_url)s</span><span class="s2"> was not valid JSON.&quot;</span><span class="p">,</span>
                   <span class="n">auth_document_url</span><span class="o">=</span><span class="n">auth_document_url</span><span class="p">),</span>
@@ -173,8 +172,8 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">client</span><span class="p">:</span>
             <span class="n">client</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">IntegrationClient</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">start_url</span><span class="p">)</span>
 
-        <span class="n">shared_secret</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">shared_secret</span>
-        <span class="n">encrypted_secret</span> <span class="o">=</span> <span class="n">encryptor</span><span class="o">.</span><span class="n">encrypt</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">shared_secret</span><span class="p">))</span>
+        <span class="n">shared_secret</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">shared_secret</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+        <span class="n">encrypted_secret</span> <span class="o">=</span> <span class="n">encryptor</span><span class="o">.</span><span class="n">encrypt</span><span class="p">(</span><span class="n">shared_secret</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">shared_secret</span><span class="o">=</span><span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">encrypted_secret</span><span class="p">)))</span></div>
 
 <div class="viewcode-block" id="SharedCollectionAPI.check_client_authorization"><a class="viewcode-back" href="../../api.html#api.shared_collection.SharedCollectionAPI.check_client_authorization">[docs]</a>    <span class="k">def</span> <span class="nf">check_client_authorization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">):</span>
@@ -314,7 +313,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

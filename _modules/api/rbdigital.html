@@ -33,34 +33,32 @@
           <div class="body" role="main">
             
   <h1>Source code for api.rbdigital</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">base64</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">from</span> <span class="nn">dateutil.relativedelta</span> <span class="kn">import</span> <span class="n">relativedelta</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">requests</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 <span class="kn">import</span> <span class="nn">string</span>
-<span class="kn">import</span> <span class="nn">urlparse</span>
+<span class="kn">import</span> <span class="nn">urllib.parse</span>
 <span class="kn">import</span> <span class="nn">uuid</span>
 
-<span class="kn">from</span> <span class="nn">circulation</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.circulation</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">APIAwareFulfillmentInfo</span><span class="p">,</span>
     <span class="n">BaseCirculationAPI</span><span class="p">,</span>
     <span class="n">FulfillmentInfo</span><span class="p">,</span>
     <span class="n">HoldInfo</span><span class="p">,</span>
     <span class="n">LoanInfo</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
 
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 
 <span class="kn">from</span> <span class="nn">core.analytics</span> <span class="kn">import</span> <span class="n">Analytics</span>
 
@@ -128,8 +126,9 @@
 <span class="kn">from</span> <span class="nn">core.util.web_publication_manifest</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AudiobookManifest</span> <span class="k">as</span> <span class="n">CoreAudiobookManifest</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.string_helpers</span> <span class="kn">import</span> <span class="n">random_string</span>
 
-<span class="kn">from</span> <span class="nn">selftest</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.selftest</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HasSelfTests</span><span class="p">,</span>
     <span class="n">SelfTestResult</span><span class="p">,</span>
 <span class="p">)</span>
@@ -225,10 +224,6 @@
             <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
                 <span class="s2">&quot;RBDigital configuration is incomplete.&quot;</span>
             <span class="p">)</span>
-
-        <span class="c1"># Use utf8 instead of unicode encoding</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf8&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">token</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf8&#39;</span><span class="p">)</span>
 
         <span class="c1"># Convert the nickname for a server into an actual URL.</span>
         <span class="n">base_url</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">url</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">PRODUCTION_BASE_URL</span>
@@ -333,7 +328,7 @@
                 <span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verbosity</span><span class="o">=</span><span class="s1">&#39;complete&#39;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Make an HTTP request.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">verbosity</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">RESPONSE_VERBOSITY</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">verbosity</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">RESPONSE_VERBOSITY</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
             <span class="n">verbosity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RESPONSE_VERBOSITY</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
 
         <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">extra_headers</span><span class="p">)</span>
@@ -357,7 +352,7 @@
             <span class="n">disallowed_response_codes</span><span class="o">=</span><span class="n">disallowed_response_codes</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span>
-            <span class="ow">and</span> <span class="s1">&#39;Invalid Basic Token or permission denied&#39;</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">):</span>
+            <span class="ow">and</span> <span class="s1">&#39;Invalid Basic Token or permission denied&#39;</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)):</span>
             <span class="k">raise</span> <span class="n">BadResponseException</span><span class="p">(</span>
                 <span class="n">url</span><span class="p">,</span> <span class="s2">&quot;Permission denied. This may be a temporary rate-limiting issue, or the credentials for this collection may be wrong.&quot;</span><span class="p">,</span>
                 <span class="n">debug_message</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
@@ -485,9 +480,9 @@
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resp_obj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                     <span class="n">message</span> <span class="o">=</span> <span class="n">resp_obj</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Item circulation request failed: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">action</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">validate_response</span><span class="p">(</span><span class="n">response</span><span class="o">=</span><span class="n">response</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="n">message</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">action</span><span class="p">)</span>
 
@@ -603,9 +598,9 @@
         <span class="c1"># successful holds return a numeric transaction id</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">transaction_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">resp_obj</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Item hold request failed: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">CannotHold</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">CannotHold</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Patron </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2"> reserved item </span><span class="si">%s</span><span class="s2"> with transaction id </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">,</span>
             <span class="n">patron_rbdigital_id</span><span class="p">,</span> <span class="n">item_rbdigital_id</span><span class="p">,</span> <span class="n">resp_obj</span><span class="p">)</span>
@@ -1136,7 +1131,7 @@
         <span class="c1"># account with the patron&#39;s email address, they&#39;ll be able to</span>
         <span class="c1"># recover their password. If not, at least we didn&#39;t claim</span>
         <span class="c1"># their barcode, and they can make a new account if they want.</span>
-        <span class="n">post_args</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">urandom</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;hex&#39;</span><span class="p">)</span>
+        <span class="n">post_args</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">random_string</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">post_args</span>
 
 <div class="viewcode-block" id="RBDigitalAPI.dummy_patron_identifier"><a class="viewcode-back" href="../../api.html#api.rbdigital.RBDigitalAPI.dummy_patron_identifier">[docs]</a>    <span class="k">def</span> <span class="nf">dummy_patron_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">authorization_identifier</span><span class="p">):</span>
@@ -1145,7 +1140,7 @@
 
 <span class="sd">        :return: A random identifier based on the input identifier.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">alphabet</span> <span class="o">=</span> <span class="n">string</span><span class="o">.</span><span class="n">digits</span> <span class="o">+</span> <span class="n">string</span><span class="o">.</span><span class="n">uppercase</span>
+        <span class="n">alphabet</span> <span class="o">=</span> <span class="n">string</span><span class="o">.</span><span class="n">digits</span> <span class="o">+</span> <span class="n">string</span><span class="o">.</span><span class="n">ascii_uppercase</span>
         <span class="n">addendum</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">alphabet</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">authorization_identifier</span> <span class="o">+</span> <span class="n">addendum</span></div>
 
@@ -1193,7 +1188,7 @@
         <span class="n">message</span> <span class="o">=</span> <span class="n">resp_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">validate_response</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">action</span><span class="p">)</span>
-        <span class="k">except</span> <span class="p">(</span><span class="n">PatronNotFoundOnRemote</span><span class="p">,</span> <span class="n">NotFoundOnRemote</span><span class="p">),</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">PatronNotFoundOnRemote</span><span class="p">,</span> <span class="n">NotFoundOnRemote</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># That&#39;s okay.</span>
             <span class="k">return</span> <span class="kc">None</span>
 
@@ -1228,9 +1223,9 @@
                 <span class="c1"># if we failed, then we got back a dictionary with an error message</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resp_obj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                     <span class="n">message</span> <span class="o">=</span> <span class="n">resp_obj</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Patron checkouts failed: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Patron checkouts failed: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">action</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">validate_response</span><span class="p">(</span><span class="n">response</span><span class="o">=</span><span class="n">response</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="n">message</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">action</span><span class="p">)</span>
 
@@ -1316,9 +1311,9 @@
                 <span class="c1"># if we failed, then we got back a dictionary with an error message</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resp_obj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                     <span class="n">message</span> <span class="o">=</span> <span class="n">resp_obj</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Patron holds failed: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Patron holds failed: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">action</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">validate_response</span><span class="p">(</span><span class="n">response</span><span class="o">=</span><span class="n">response</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="n">message</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">action</span><span class="p">)</span>
 
@@ -1477,7 +1472,7 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">respdict</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">BadResponseException</span><span class="p">(</span><span class="s2">&quot;availability_search&quot;</span><span class="p">,</span> <span class="s2">&quot;RBDigital availability response not parseable.&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">respdict</span><span class="p">:</span>
@@ -1519,7 +1514,7 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">resplist</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">BadResponseException</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="s2">&quot;RBDigital all catalog response not parseable.&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span></div>
@@ -1696,7 +1691,7 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">resplist</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">BadResponseException</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="s2">&quot;RBDigital availability response not parsable.&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">resplist</span></div>
 
@@ -1719,7 +1714,7 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">respdict</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">BadResponseException</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="s2">&quot;RBDigital isbn search response not parseable.&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">respdict</span><span class="p">:</span>
@@ -1944,7 +1939,7 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">part</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">part</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CannotPartiallyFulfill</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s1">&#39;&quot;</span><span class="si">%(part)s</span><span class="s1">&quot; is not a valid part number&#39;</span><span class="p">,</span> <span class="n">part</span><span class="o">=</span><span class="n">part</span><span class="p">),</span>
             <span class="p">)</span>
@@ -2000,7 +1995,7 @@
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fulfillment_proxy</span> <span class="ow">and</span> <span class="n">fulfillment_proxy</span><span class="o">.</span><span class="n">use_proxy_links</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_content</span> <span class="o">=</span> <span class="n">fulfillment_proxy</span><span class="o">.</span><span class="n">proxied_manifest</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">manifest</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_content</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">manifest</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_content</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">manifest</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># We have some other kind of file. The download link</span>
             <span class="c1"># points to an access document for that file.</span>
@@ -2044,13 +2039,13 @@
             <span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span>
             <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Test RBDigital Collection&quot;</span><span class="p">,</span>
             <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
-                <span class="n">external_account_id</span><span class="o">=</span><span class="sa">u</span><span class="s1">&#39;library_id_123&#39;</span><span class="p">,</span>
+                <span class="n">external_account_id</span><span class="o">=</span><span class="s1">&#39;library_id_123&#39;</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
         <span class="n">integration</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">create_external_integration</span><span class="p">(</span>
             <span class="n">protocol</span><span class="o">=</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">RB_DIGITAL</span>
         <span class="p">)</span>
-        <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;abcdef123hijklm&#39;</span>
+        <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="s1">&#39;abcdef123hijklm&#39;</span>
         <span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">library</span> <span class="ow">in</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Library</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span>
@@ -2389,9 +2384,9 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="n">response_dictionary</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_metadata_by_isbn</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">BadResponseException</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">error</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">error</span><span class="p">))</span>
         <span class="k">except</span> <span class="ne">IOError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">error</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">error</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">response_dictionary</span><span class="p">:</span>
             <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Cannot find RBDigital metadata for </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">identifier</span>
@@ -2749,7 +2744,7 @@
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span>
             <span class="n">response</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
             <span class="n">status</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span>
-            <span class="n">headers</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="n">headers</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
         <span class="p">)</span></div>
 
     <span class="c1"># The `_remove_api_base_url` and `_add_api_base_url` methods are used</span>
@@ -2779,9 +2774,9 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_make_proxy_url</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">token</span><span class="p">):</span>
         <span class="c1"># Transform a fulfillment URL to its proxy form</span>
-        <span class="n">url_components</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">url_components</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
         <span class="n">new_path</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/rbdproxy/</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">url_components</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>
-        <span class="n">url</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlunparse</span><span class="p">((</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlunparse</span><span class="p">((</span>
             <span class="n">url_components</span><span class="o">.</span><span class="n">scheme</span><span class="p">,</span>
             <span class="n">url_components</span><span class="o">.</span><span class="n">netloc</span><span class="p">,</span>
             <span class="n">new_path</span><span class="p">,</span>
@@ -2886,7 +2881,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

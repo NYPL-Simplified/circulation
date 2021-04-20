@@ -33,7 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for core.marc</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span></span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">BytesIO</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
@@ -44,16 +44,16 @@
     <span class="n">Record</span><span class="p">,</span>
     <span class="n">MARCWriter</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">lane</span> <span class="kn">import</span> <span class="n">BaseFacets</span>
-<span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.lane</span> <span class="kn">import</span> <span class="n">BaseFacets</span>
+<span class="kn">from</span> <span class="nn">.external_search</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ExternalSearchIndex</span><span class="p">,</span>
     <span class="n">SortKeyPagination</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">CachedMARCFile</span><span class="p">,</span>
@@ -67,11 +67,11 @@
     <span class="n">Session</span><span class="p">,</span>
     <span class="n">Work</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
-<span class="kn">from</span> <span class="nn">mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
-<span class="kn">from</span> <span class="nn">s3</span> <span class="kn">import</span> <span class="n">S3Uploader</span>
-<span class="kn">from</span> <span class="nn">lane</span> <span class="kn">import</span> <span class="n">Lane</span>
-<span class="kn">from</span> <span class="nn">util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">.classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">.mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
+<span class="kn">from</span> <span class="nn">.s3</span> <span class="kn">import</span> <span class="n">S3Uploader</span>
+<span class="kn">from</span> <span class="nn">.lane</span> <span class="kn">import</span> <span class="n">Lane</span>
+<span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
 
 <div class="viewcode-block" id="Annotator"><a class="viewcode-back" href="../../core.html#core.marc.Annotator">[docs]</a><span class="k">class</span> <span class="nc">Annotator</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;The Annotator knows how to add information about a Work to</span>
@@ -223,11 +223,11 @@
         <span class="k">if</span> <span class="n">non_filing_characters</span> <span class="o">&gt;</span> <span class="mi">9</span><span class="p">:</span>
             <span class="n">non_filing_characters</span> <span class="o">=</span> <span class="mi">0</span>
 
-        <span class="n">subfields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">title</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)]</span>
+        <span class="n">subfields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">title</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)]</span>
         <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">subtitle</span><span class="p">:</span>
-            <span class="n">subfields</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">subtitle</span><span class="p">)]</span>
+            <span class="n">subfields</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">subtitle</span><span class="p">)]</span>
         <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">author</span><span class="p">:</span>
-            <span class="n">subfields</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">author</span><span class="p">)]</span>
+            <span class="n">subfields</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">author</span><span class="p">)]</span>
         <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
             <span class="n">Field</span><span class="p">(</span>
                 <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;245&quot;</span><span class="p">,</span>
@@ -250,7 +250,7 @@
                     <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;100&quot;</span><span class="p">,</span>
                     <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;1&quot;</span><span class="p">,</span><span class="s2">&quot; &quot;</span><span class="p">],</span>
                     <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
-                        <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">sort_author</span><span class="p">),</span>
+                        <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">sort_author</span><span class="p">),</span>
                     <span class="p">]))</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">contributions</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
@@ -261,7 +261,7 @@
                         <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;700&quot;</span><span class="p">,</span>
                         <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;1&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">],</span>
                         <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
-                            <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="p">),</span>
+                            <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="p">),</span>
                             <span class="s2">&quot;e&quot;</span><span class="p">,</span> <span class="n">contribution</span><span class="o">.</span><span class="n">role</span><span class="p">,</span>
                         <span class="p">]))</span></div>
 
@@ -278,7 +278,7 @@
                     <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">],</span>
                     <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
                         <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;[Place of publication not identified]&quot;</span><span class="p">,</span>
-                        <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">publisher</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                        <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">publisher</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
                         <span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span>
                     <span class="p">]))</span></div>
 
@@ -290,7 +290,7 @@
                 <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;264&quot;</span><span class="p">,</span>
                 <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;2&quot;</span><span class="p">],</span>
                 <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
-                    <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+                    <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
                 <span class="p">]))</span></div>
 
 <div class="viewcode-block" id="Annotator.add_physical_description"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_physical_description">[docs]</a>    <span class="nd">@classmethod</span>
@@ -402,7 +402,7 @@
 <div class="viewcode-block" id="Annotator.add_series"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_series">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">add_series</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">edition</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">series</span><span class="p">:</span>
-            <span class="n">subfields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">series</span><span class="p">)]</span>
+            <span class="n">subfields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">series</span><span class="p">)]</span>
             <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">series_position</span><span class="p">:</span>
                 <span class="n">subfields</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s2">&quot;v&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">series_position</span><span class="p">)])</span>
             <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
@@ -515,9 +515,9 @@
     <span class="c1"># http://www.loc.gov/marc/organizations/org-search.php</span>
     <span class="n">MARC_ORGANIZATION_CODE</span> <span class="o">=</span> <span class="s2">&quot;marc_organization_code&quot;</span>
 
-    <span class="n">WEB_CLIENT_URL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;marc_web_client_url&#39;</span>
-    <span class="n">INCLUDE_SUMMARY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;include_summary&#39;</span>
-    <span class="n">INCLUDE_SIMPLIFIED_GENRES</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;include_simplified_genres&#39;</span>
+    <span class="n">WEB_CLIENT_URL</span> <span class="o">=</span> <span class="s1">&#39;marc_web_client_url&#39;</span>
+    <span class="n">INCLUDE_SUMMARY</span> <span class="o">=</span> <span class="s1">&#39;include_summary&#39;</span>
+    <span class="n">INCLUDE_SIMPLIFIED_GENRES</span> <span class="o">=</span> <span class="s1">&#39;include_simplified_genres&#39;</span>
 
     <span class="n">LIBRARY_SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">UPDATE_FREQUENCY</span><span class="p">,</span>
@@ -555,7 +555,7 @@
         <span class="p">},</span>
     <span class="p">]</span>
 
-    <span class="n">NO_MIRROR_INTEGRATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;NO_MIRROR&quot;</span>
+    <span class="n">NO_MIRROR_INTEGRATION</span> <span class="o">=</span> <span class="s2">&quot;NO_MIRROR&quot;</span>
     <span class="n">DEFAULT_MIRROR_INTEGRATION</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
         <span class="n">key</span><span class="o">=</span><span class="n">NO_MIRROR_INTEGRATION</span><span class="p">,</span>
         <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;None - Do not mirror MARC files&quot;</span><span class="p">)</span>
@@ -624,7 +624,7 @@
         <span class="n">record</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">existing_record</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="o">.</span><span class="n">marc_cache_field</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">existing_record</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force_create</span><span class="p">:</span>
-            <span class="n">record</span> <span class="o">=</span> <span class="n">Record</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">existing_record</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">),</span> <span class="n">force_utf8</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">record</span> <span class="o">=</span> <span class="n">Record</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">existing_record</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">),</span> <span class="n">force_utf8</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">record</span><span class="p">:</span>
             <span class="n">record</span> <span class="o">=</span> <span class="n">Record</span><span class="p">(</span><span class="n">leader</span><span class="o">=</span><span class="n">annotator</span><span class="o">.</span><span class="n">leader</span><span class="p">(</span><span class="n">work</span><span class="p">),</span> <span class="n">force_utf8</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -649,7 +649,6 @@
 
         <span class="c1"># Add additional fields that should not be cached.</span>
         <span class="n">annotator</span><span class="o">.</span><span class="n">annotate_work_record</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">edition</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">integration</span><span class="p">)</span>
-
         <span class="k">return</span> <span class="n">record</span></div>
 
 <div class="viewcode-block" id="MARCExporter.records"><a class="viewcode-back" href="../../core.html#core.marc.MARCExporter.records">[docs]</a>    <span class="k">def</span> <span class="nf">records</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">mirror_integration</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -802,7 +801,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

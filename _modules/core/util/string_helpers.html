@@ -42,8 +42,6 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 
-<span class="kn">import</span> <span class="nn">six</span>
-
 
 <div class="viewcode-block" id="UnicodeAwareBase64"><a class="viewcode-back" href="../../../core.util.html#core.util.string_helpers.UnicodeAwareBase64">[docs]</a><span class="k">class</span> <span class="nc">UnicodeAwareBase64</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Simulate the interface of the base64 module, but make it look as</span>
@@ -87,9 +85,10 @@
     <span class="n">urlsafe_b64encode</span> <span class="o">=</span> <span class="n">wrap</span><span class="p">(</span><span class="n">stdlib_base64</span><span class="o">.</span><span class="n">urlsafe_b64encode</span><span class="p">)</span>
     <span class="n">urlsafe_b64decode</span> <span class="o">=</span> <span class="n">wrap</span><span class="p">(</span><span class="n">stdlib_base64</span><span class="o">.</span><span class="n">urlsafe_b64decode</span><span class="p">)</span>
 
-    <span class="c1"># These are deprecated in base64 and we should stop using them.</span>
-    <span class="n">encodestring</span> <span class="o">=</span> <span class="n">wrap</span><span class="p">(</span><span class="n">stdlib_base64</span><span class="o">.</span><span class="n">encodestring</span><span class="p">)</span>
-    <span class="n">decodestring</span> <span class="o">=</span> <span class="n">wrap</span><span class="p">(</span><span class="n">stdlib_base64</span><span class="o">.</span><span class="n">decodestring</span><span class="p">)</span></div>
+    <span class="c1"># encodestring and decodestring are deprecated in base64</span>
+    <span class="c1"># and we should use these instead:</span>
+    <span class="n">encodebytes</span> <span class="o">=</span> <span class="n">wrap</span><span class="p">(</span><span class="n">stdlib_base64</span><span class="o">.</span><span class="n">encodebytes</span><span class="p">)</span>
+    <span class="n">decodebytes</span> <span class="o">=</span> <span class="n">wrap</span><span class="p">(</span><span class="n">stdlib_base64</span><span class="o">.</span><span class="n">decodebytes</span><span class="p">)</span></div>
     
 <span class="c1"># If you&#39;re okay with a Unicode strings being converted to/from UTF-8</span>
 <span class="c1"># when you try to encode/decode them, you can use this object instead of</span>
@@ -103,42 +102,6 @@
 <span class="sd">    :return: A Unicode string.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">binascii</span><span class="o">.</span><span class="n">hexlify</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">urandom</span><span class="p">(</span><span class="n">size</span><span class="p">))</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="native_string"><a class="viewcode-back" href="../../../core.util.html#core.util.string_helpers.native_string">[docs]</a><span class="k">def</span> <span class="nf">native_string</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Convert a bytestring or a Unicode string to the &#39;native string&#39;</span>
-<span class="sd">    class for this version of Python.</span>
-
-<span class="sd">    In Python 2, the native string class is a bytestring. In Python 3,</span>
-<span class="sd">    the native string class is a Unicode string.</span>
-
-<span class="sd">    This function exists to smooth the conversion process and can be</span>
-<span class="sd">    removed once we convert to Python 3.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="o">.</span><span class="n">major</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
-            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
-            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">x</span></div>
-
-
-<div class="viewcode-block" id="is_string"><a class="viewcode-back" href="../../../core.util.html#core.util.string_helpers.is_string">[docs]</a><span class="k">def</span> <span class="nf">is_string</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Return a boolean value indicating whether the value is a string or not.</span>
-
-<span class="sd">    This method is compatible with both Python 2.7 and Python 3.x.</span>
-<span class="sd">    NOTE:</span>
-<span class="sd">    1. We can&#39;t use isinstance(string_value, str) because strings in Python 2.7 can have &quot;unicode&quot; type.</span>
-<span class="sd">    2. We can&#39;t use isinstance(string_value, basestring) because &quot;basestring&quot; type is not available in Python 3.x.</span>
-
-<span class="sd">    :param value: Value</span>
-<span class="sd">    :type value: Any</span>
-
-<span class="sd">    :return: Boolean value indicating whether the value is a string or not</span>
-<span class="sd">    :rtype: bool</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">six</span><span class="o">.</span><span class="n">string_types</span><span class="p">)</span></div>
 </pre></div>
 
           </div>
@@ -197,7 +160,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

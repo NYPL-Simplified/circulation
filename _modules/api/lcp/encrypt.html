@@ -499,7 +499,7 @@
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s1">&#39;An unhandled exception occurred during running a local lcpencrypt binary&#39;</span><span class="p">)</span>
 
-            <span class="k">raise</span> <span class="n">LCPEncryptionException</span><span class="p">(</span><span class="n">exception</span><span class="o">.</span><span class="n">message</span><span class="p">,</span> <span class="n">inner_exception</span><span class="o">=</span><span class="n">exception</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">LCPEncryptionException</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exception</span><span class="p">),</span> <span class="n">inner_exception</span><span class="o">=</span><span class="n">exception</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="s1">&#39;Finished running a local lcpencrypt binary. File path: </span><span class="si">{0}</span><span class="s1">. Identifier: </span><span class="si">{1}</span><span class="s1">. Result: </span><span class="si">{2}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
@@ -588,7 +588,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

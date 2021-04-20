@@ -163,7 +163,7 @@
 <div class="viewcode-block" id="BICClassifier.genre"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bic.BICClassifier.genre">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">genre</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">fiction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">audience</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">prefixes</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PREFIX_LISTS</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">prefixes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">prefixes</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
                 <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">lower</span><span class="p">()):</span>
                     <span class="k">return</span> <span class="n">l</span>
         <span class="k">return</span> <span class="kc">None</span></div></div>
@@ -227,7 +227,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

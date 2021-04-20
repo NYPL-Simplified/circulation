@@ -34,7 +34,6 @@
             
   <h1>Source code for api.sip</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BasicAuthenticationProvider</span><span class="p">,</span>
@@ -203,9 +202,9 @@
             <span class="n">sip</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">info</span>
 
-        <span class="k">except</span> <span class="ne">IOError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">IOError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">RemoteIntegrationException</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">server</span> <span class="ow">or</span> <span class="s1">&#39;unknown server&#39;</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">server</span> <span class="ow">or</span> <span class="s1">&#39;unknown server&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
             <span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_remote_patron_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron_or_patrondata</span><span class="p">):</span>
@@ -243,7 +242,7 @@
                 <span class="n">use_ssl</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_ssl</span><span class="p">,</span> <span class="n">ssl_cert</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ssl_cert</span><span class="p">,</span> <span class="n">ssl_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ssl_key</span><span class="p">,</span>
                 <span class="n">dialect</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dialect</span>
             <span class="p">)</span>
-        
+
         <span class="n">connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
             <span class="p">(</span><span class="s2">&quot;Test Connection&quot;</span><span class="p">),</span>
             <span class="n">makeConnection</span><span class="p">,</span>
@@ -364,7 +363,7 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">date_value</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">format</span><span class="p">)</span>
                 <span class="k">break</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">continue</span>
         <span class="k">return</span> <span class="n">date_value</span></div></div>
 
@@ -428,7 +427,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

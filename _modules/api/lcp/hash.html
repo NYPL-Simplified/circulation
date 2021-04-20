@@ -50,10 +50,8 @@
     <span class="sd">&quot;&quot;&quot;Raised in the case of errors occurred during hashing&quot;&quot;&quot;</span></div>
 
 
-<div class="viewcode-block" id="Hasher"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.hash.Hasher">[docs]</a><span class="k">class</span> <span class="nc">Hasher</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<div class="viewcode-block" id="Hasher"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.hash.Hasher">[docs]</a><span class="k">class</span> <span class="nc">Hasher</span><span class="p">(</span><span class="nb">object</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">ABCMeta</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Base class for all implementations of different hashing algorithms&quot;&quot;&quot;</span>
-
-    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">ABCMeta</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hashing_algorithm</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initializes a new instance of Hasher class</span>
@@ -71,9 +69,9 @@
 <div class="viewcode-block" id="UniversalHasher"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.hash.UniversalHasher">[docs]</a><span class="k">class</span> <span class="nc">UniversalHasher</span><span class="p">(</span><span class="n">Hasher</span><span class="p">):</span>
 <div class="viewcode-block" id="UniversalHasher.hash"><a class="viewcode-back" href="../../../api.lcp.html#api.lcp.hash.UniversalHasher.hash">[docs]</a>    <span class="k">def</span> <span class="nf">hash</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hashing_algorithm</span> <span class="ow">in</span> <span class="p">[</span><span class="n">HashingAlgorithm</span><span class="o">.</span><span class="n">SHA256</span><span class="p">,</span> <span class="n">HashingAlgorithm</span><span class="o">.</span><span class="n">SHA256</span><span class="o">.</span><span class="n">value</span><span class="p">]:</span>
-            <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hashing_algorithm</span> <span class="ow">in</span> <span class="p">[</span><span class="n">HashingAlgorithm</span><span class="o">.</span><span class="n">SHA512</span><span class="p">,</span> <span class="n">HashingAlgorithm</span><span class="o">.</span><span class="n">SHA512</span><span class="o">.</span><span class="n">value</span><span class="p">]:</span>
-            <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha512</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha512</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">HashingError</span><span class="p">(</span><span class="s1">&#39;Unknown hashing algorithm </span><span class="si">{0}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hashing_algorithm</span><span class="p">))</span></div></div>
 
@@ -137,7 +135,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

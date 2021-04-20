@@ -33,8 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for api.admin.routes</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span>
+<span></span><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span>
 <span class="kn">import</span> <span class="nn">flask</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Response</span><span class="p">,</span>
@@ -53,8 +52,8 @@
     <span class="n">Library</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">controller</span> <span class="kn">import</span> <span class="n">setup_admin_controllers</span>
-<span class="kn">from</span> <span class="nn">templates</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.controller</span> <span class="kn">import</span> <span class="n">setup_admin_controllers</span>
+<span class="kn">from</span> <span class="nn">.templates</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">admin_sign_in_again</span> <span class="k">as</span> <span class="n">sign_in_again_template</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">api.routes</span> <span class="kn">import</span> <span class="p">(</span>
@@ -63,7 +62,7 @@
     <span class="n">allows_library</span>
 <span class="p">)</span>
 
-<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">import</span> <span class="nn">urllib.request</span><span class="o">,</span> <span class="nn">urllib.parse</span><span class="o">,</span> <span class="nn">urllib.error</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">timedelta</span>
 <span class="kn">from</span> <span class="nn">core.local_analytics_provider</span> <span class="kn">import</span> <span class="n">LocalAnalyticsProvider</span>
 
@@ -99,7 +98,7 @@
             <span class="c1"># setting_up needs to stay in the arguments for</span>
             <span class="c1"># the next decorator. Otherwise, it should be</span>
             <span class="c1"># removed before the route function.</span>
-            <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">func_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;requires_csrf_token&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;requires_csrf_token&quot;</span><span class="p">):</span>
                 <span class="n">setting_up</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;setting_up&#39;</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">setting_up</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;setting_up&#39;</span><span class="p">)</span>
@@ -116,7 +115,7 @@
     <span class="k">return</span> <span class="n">decorated</span></div>
 
 <div class="viewcode-block" id="requires_csrf_token"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.requires_csrf_token">[docs]</a><span class="k">def</span> <span class="nf">requires_csrf_token</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
-    <span class="n">f</span><span class="o">.</span><span class="n">func_dict</span><span class="p">[</span><span class="s2">&quot;requires_csrf_token&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">f</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;requires_csrf_token&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="nd">@wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">decorated</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="k">if</span> <span class="s1">&#39;setting_up&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
@@ -753,7 +752,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

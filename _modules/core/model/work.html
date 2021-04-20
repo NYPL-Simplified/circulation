@@ -69,21 +69,21 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
 
-<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.constants</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DataSourceConstants</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">contributor</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.contributor</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Contribution</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CoverageRecord</span><span class="p">,</span>
     <span class="n">WorkCoverageRecord</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
-<span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
-<span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
-<span class="kn">from</span> <span class="nn">measurement</span> <span class="kn">import</span> <span class="n">Measurement</span>
+<span class="kn">from</span> <span class="nn">.datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">.edition</span> <span class="kn">import</span> <span class="n">Edition</span>
+<span class="kn">from</span> <span class="nn">.identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
+<span class="kn">from</span> <span class="nn">.measurement</span> <span class="kn">import</span> <span class="n">Measurement</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">flush</span><span class="p">,</span>
@@ -99,7 +99,6 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">..config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
 <span class="kn">from</span> <span class="nn">..util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
 
 
 <div class="viewcode-block" id="WorkGenre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.WorkGenre">[docs]</a><span class="k">class</span> <span class="nc">WorkGenre</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
@@ -124,13 +123,13 @@
 <div class="viewcode-block" id="Work"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work">[docs]</a><span class="k">class</span> <span class="nc">Work</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="n">APPEALS_URI</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/appeals/&quot;</span>
 
-    <span class="n">CHARACTER_APPEAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Character&quot;</span>
-    <span class="n">LANGUAGE_APPEAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Language&quot;</span>
-    <span class="n">SETTING_APPEAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Setting&quot;</span>
-    <span class="n">STORY_APPEAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Story&quot;</span>
-    <span class="n">UNKNOWN_APPEAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Unknown&quot;</span>
-    <span class="n">NOT_APPLICABLE_APPEAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Not Applicable&quot;</span>
-    <span class="n">NO_APPEAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;None&quot;</span>
+    <span class="n">CHARACTER_APPEAL</span> <span class="o">=</span> <span class="s2">&quot;Character&quot;</span>
+    <span class="n">LANGUAGE_APPEAL</span> <span class="o">=</span> <span class="s2">&quot;Language&quot;</span>
+    <span class="n">SETTING_APPEAL</span> <span class="o">=</span> <span class="s2">&quot;Setting&quot;</span>
+    <span class="n">STORY_APPEAL</span> <span class="o">=</span> <span class="s2">&quot;Story&quot;</span>
+    <span class="n">UNKNOWN_APPEAL</span> <span class="o">=</span> <span class="s2">&quot;Unknown&quot;</span>
+    <span class="n">NOT_APPLICABLE_APPEAL</span> <span class="o">=</span> <span class="s2">&quot;Not Applicable&quot;</span>
+    <span class="n">NO_APPEAL</span> <span class="o">=</span> <span class="s2">&quot;None&quot;</span>
 
     <span class="n">CURRENTLY_AVAILABLE</span> <span class="o">=</span> <span class="s2">&quot;currently_available&quot;</span>
     <span class="n">ALL</span> <span class="o">=</span> <span class="s2">&quot;all&quot;</span>
@@ -357,12 +356,10 @@
         <span class="k">return</span> <span class="n">complaints</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s1">&#39;&lt;Work #</span><span class="si">%s</span><span class="s1"> &quot;</span><span class="si">%s</span><span class="s1">&quot; (by </span><span class="si">%s</span><span class="s1">) </span><span class="si">%s</span><span class="s1"> lang=</span><span class="si">%s</span><span class="s1"> (</span><span class="si">%s</span><span class="s1"> lp)&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">author</span><span class="p">,</span>
-                <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">g</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">genres</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">language</span><span class="p">,</span>
-                <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">license_pools</span><span class="p">)</span>
-            <span class="p">)</span>
+        <span class="k">return</span> <span class="s1">&#39;&lt;Work #</span><span class="si">%s</span><span class="s1"> &quot;</span><span class="si">%s</span><span class="s1">&quot; (by </span><span class="si">%s</span><span class="s1">) </span><span class="si">%s</span><span class="s1"> lang=</span><span class="si">%s</span><span class="s1"> (</span><span class="si">%s</span><span class="s1"> lp)&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">author</span><span class="p">,</span>
+            <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">g</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">genres</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">language</span><span class="p">,</span>
+            <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">license_pools</span><span class="p">)</span>
         <span class="p">)</span>
 
 <div class="viewcode-block" id="Work.missing_coverage_from"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.missing_coverage_from">[docs]</a>    <span class="nd">@classmethod</span>
@@ -386,11 +383,11 @@
 
 <div class="viewcode-block" id="Work.for_unchecked_subjects"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.for_unchecked_subjects">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">for_unchecked_subjects</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">.classification</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Classification</span><span class="p">,</span>
             <span class="n">Subject</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
+        <span class="kn">from</span> <span class="nn">.licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
         <span class="sd">&quot;&quot;&quot;Find all Works whose LicensePools have an Identifier that</span>
 <span class="sd">        is classified under an unchecked Subject.</span>
 <span class="sd">        This is a good indicator that the Work needs to be</span>
@@ -414,7 +411,7 @@
 <span class="sd">        Counter tallying the number of affected LicensePools</span>
 <span class="sd">        associated with a given work.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
+        <span class="kn">from</span> <span class="nn">.licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
             <span class="n">LicensePool</span><span class="o">.</span><span class="n">presentation_edition</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="o">==</span><span class="kc">True</span>
@@ -496,7 +493,7 @@
                 <span class="n">work</span><span class="o">.</span><span class="n">make_exclusive_open_access_for_permanent_work_id</span><span class="p">(</span>
                     <span class="n">pwid</span><span class="p">,</span> <span class="n">medium</span><span class="p">,</span> <span class="n">language</span>
                 <span class="p">)</span>
-                <span class="k">for</span> <span class="n">needs_merge</span> <span class="ow">in</span> <span class="n">licensepools_for_work</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">needs_merge</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">licensepools_for_work</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
                     <span class="k">if</span> <span class="n">needs_merge</span> <span class="o">!=</span> <span class="n">work</span><span class="p">:</span>
 
                         <span class="c1"># Make sure that Work we&#39;re about to merge has</span>
@@ -539,7 +536,7 @@
             <span class="k">elif</span> <span class="ow">not</span> <span class="n">pool</span><span class="o">.</span><span class="n">presentation_edition</span><span class="p">:</span>
                 <span class="c1"># A LicensePool with no presentation edition</span>
                 <span class="c1"># cannot have an associated Work.</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                     <span class="s2">&quot;LicensePool </span><span class="si">%r</span><span class="s2"> has no presentation edition, setting .work to None.&quot;</span><span class="p">,</span>
                     <span class="n">pool</span>
                 <span class="p">)</span>
@@ -550,7 +547,7 @@
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">this_pwid</span><span class="p">:</span>
                     <span class="c1"># A LicensePool with no permanent work ID</span>
                     <span class="c1"># cannot have an associated Work.</span>
-                    <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                         <span class="s2">&quot;Presentation edition for LicensePool </span><span class="si">%r</span><span class="s2"> has no PWID, setting .work to None.&quot;</span><span class="p">,</span>
                         <span class="n">pool</span>
                     <span class="p">)</span>
@@ -634,8 +631,8 @@
 <div class="viewcode-block" id="Work.with_genre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.with_genre">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">with_genre</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">genre</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find all Works classified under the given genre.&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="n">Genre</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">genre</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">.classification</span> <span class="kn">import</span> <span class="n">Genre</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">genre</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">genre</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Genre</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">genre</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Work</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">WorkGenre</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">WorkGenre</span><span class="o">.</span><span class="n">genre</span><span class="o">==</span><span class="n">genre</span><span class="p">)</span></div>
 
@@ -659,7 +656,7 @@
 <span class="sd">           Identifiers. By default, this method will be very strict</span>
 <span class="sd">           about equivalencies.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
+        <span class="kn">from</span> <span class="nn">.licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
         <span class="n">identifier_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">identifier</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier_ids</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
@@ -687,8 +684,8 @@
     <span class="k">def</span> <span class="nf">reject_covers</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">works_or_identifiers</span><span class="p">,</span>
                         <span class="n">search_index_client</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Suppresses the currently visible covers of a number of Works&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
-        <span class="kn">from</span> <span class="nn">resource</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">.licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
+        <span class="kn">from</span> <span class="nn">.resource</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Resource</span><span class="p">,</span>
             <span class="n">Hyperlink</span><span class="p">,</span>
         <span class="p">)</span>
@@ -767,7 +764,7 @@
 <span class="sd">           determine how far to go when looking for equivalent</span>
 <span class="sd">           Identifiers.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
+        <span class="kn">from</span> <span class="nn">.licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">identifier_ids_subquery</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">recursively_equivalent_identifier_ids_query</span><span class="p">(</span>
             <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">policy</span>
@@ -803,7 +800,7 @@
         <span class="p">)</span>
 
         <span class="n">all_identifier_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">equivs</span> <span class="ow">in</span> <span class="n">equivalent_lists</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">equivs</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">equivalent_lists</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
             <span class="n">all_identifier_ids</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">equivs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">all_identifier_ids</span></div>
 
@@ -1025,7 +1022,7 @@
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">summary_text</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">summary_text</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">summary_text</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="n">new_summary_text</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">summary_text</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">new_summary_text</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">summary_text</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
@@ -1167,7 +1164,7 @@
         <span class="k">def</span> <span class="nf">_ensure</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">s</span><span class="p">:</span>
                 <span class="k">return</span> <span class="s2">&quot;&quot;</span>
-            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">s</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">s</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">,</span> <span class="s2">&quot;replace&quot;</span><span class="p">)</span>
@@ -1178,7 +1175,7 @@
             <span class="n">l</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
 
         <span class="n">l</span> <span class="o">=</span> <span class="p">[</span><span class="n">_ensure</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">l</span><span class="p">]</span>
-        <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Work.calculate_opds_entries"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.calculate_opds_entries">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_opds_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="kn">from</span> <span class="nn">..opds</span> <span class="kn">import</span> <span class="p">(</span>
@@ -1328,7 +1325,7 @@
             <span class="c1"># processed, this work will be removed from the search</span>
             <span class="c1"># index.</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Work is not presentation ready: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Work is not presentation ready: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">set_presentation_ready</span><span class="p">(</span><span class="n">search_index_client</span><span class="o">=</span><span class="n">search_index_client</span><span class="p">)</span></div>
 
@@ -1341,7 +1338,7 @@
         <span class="n">quantities</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span>
             <span class="n">Measurement</span><span class="o">.</span><span class="n">POPULARITY</span><span class="p">,</span> <span class="n">Measurement</span><span class="o">.</span><span class="n">QUALITY</span><span class="p">,</span> <span class="n">Measurement</span><span class="o">.</span><span class="n">RATING</span>
         <span class="p">])</span>
-        <span class="n">quantities</span> <span class="o">=</span> <span class="n">quantities</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">Measurement</span><span class="o">.</span><span class="n">PERCENTILE_SCALES</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">quantities</span> <span class="o">=</span> <span class="n">quantities</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">Measurement</span><span class="o">.</span><span class="n">PERCENTILE_SCALES</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
         <span class="n">measurements</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Measurement</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">Measurement</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_ids</span><span class="p">))</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
                 <span class="n">Measurement</span><span class="o">.</span><span class="n">is_most_recent</span><span class="o">==</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
@@ -1392,7 +1389,7 @@
 
 <div class="viewcode-block" id="Work.assign_genres_from_weights"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.assign_genres_from_weights">[docs]</a>    <span class="k">def</span> <span class="nf">assign_genres_from_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">genre_weights</span><span class="p">):</span>
         <span class="c1"># Assign WorkGenre objects to the remainder.</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="n">Genre</span>
+        <span class="kn">from</span> <span class="nn">.classification</span> <span class="kn">import</span> <span class="n">Genre</span>
         <span class="n">changed</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">total_genre_weight</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">genre_weights</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
@@ -1401,7 +1398,7 @@
         <span class="n">by_genre</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">wg</span> <span class="ow">in</span> <span class="n">current_workgenres</span><span class="p">:</span>
             <span class="n">by_genre</span><span class="p">[</span><span class="n">wg</span><span class="o">.</span><span class="n">genre</span><span class="p">]</span> <span class="o">=</span> <span class="n">wg</span>
-        <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">score</span> <span class="ow">in</span> <span class="n">genre_weights</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">score</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">genre_weights</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">affinity</span> <span class="o">=</span> <span class="n">score</span> <span class="o">/</span> <span class="n">total_genre_weight</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">Genre</span><span class="p">):</span>
                 <span class="n">g</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Genre</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
@@ -1419,7 +1416,7 @@
 
         <span class="c1"># Any WorkGenre objects left over represent genres the Work</span>
         <span class="c1"># was once classified under, but is no longer. Delete them.</span>
-        <span class="k">for</span> <span class="n">wg</span> <span class="ow">in</span> <span class="n">by_genre</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">wg</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">by_genre</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
             <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">wg</span><span class="p">)</span>
             <span class="n">changed</span> <span class="o">=</span> <span class="kc">True</span>
 
@@ -1554,12 +1551,12 @@
 
         <span class="c1"># This subquery gets Collection IDs for collections</span>
         <span class="c1"># that own more than zero licenses for this book.</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">.classification</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Genre</span><span class="p">,</span>
             <span class="n">Subject</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="kn">from</span> <span class="nn">customlist</span> <span class="kn">import</span> <span class="n">CustomListEntry</span>
-        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
+        <span class="kn">from</span> <span class="nn">.customlist</span> <span class="kn">import</span> <span class="n">CustomListEntry</span>
+        <span class="kn">from</span> <span class="nn">.licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
 
         <span class="c1"># We need information about LicensePools for a few reasons:</span>
         <span class="c1">#</span>
@@ -1701,7 +1698,7 @@
 
         <span class="c1"># Map our constants for Subject type to their URIs.</span>
         <span class="n">scheme_column</span> <span class="o">=</span> <span class="n">case</span><span class="p">(</span>
-            <span class="p">[(</span><span class="n">Subject</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="n">key</span><span class="p">,</span> <span class="n">literal_column</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">val</span><span class="p">))</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">Subject</span><span class="o">.</span><span class="n">uri_lookup</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
+            <span class="p">[(</span><span class="n">Subject</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="n">key</span><span class="p">,</span> <span class="n">literal_column</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">val</span><span class="p">))</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">uri_lookup</span><span class="o">.</span><span class="n">items</span><span class="p">())]</span>
         <span class="p">)</span>
 
         <span class="c1"># If the Subject has a name, use that, otherwise use the Subject&#39;s identifier.</span>
@@ -1710,7 +1707,7 @@
         <span class="n">term_column</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">case</span><span class="p">([(</span><span class="n">Subject</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Subject</span><span class="o">.</span><span class="n">name</span><span class="p">)],</span> <span class="n">else_</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">identifier</span><span class="p">),</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span>
 
         <span class="c1"># Normalize by dividing each weight by the sum of the weights for that Identifier&#39;s Classifications.</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="n">Classification</span>
+        <span class="kn">from</span> <span class="nn">.classification</span> <span class="kn">import</span> <span class="n">Classification</span>
         <span class="n">weight_column</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">Classification</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span> <span class="o">/</span> <span class="n">func</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">Classification</span><span class="o">.</span><span class="n">weight</span><span class="p">))</span><span class="o">.</span><span class="n">over</span><span class="p">()</span>
 
         <span class="c1"># The subquery for Subjects, with those three columns. The labels will become keys in json objects.</span>
@@ -1890,7 +1887,7 @@
         <span class="k">return</span> <span class="n">qu</span>
 
 <div class="viewcode-block" id="Work.classifications_with_genre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.classifications_with_genre">[docs]</a>    <span class="k">def</span> <span class="nf">classifications_with_genre</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">.classification</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Classification</span><span class="p">,</span>
             <span class="n">Subject</span><span class="p">,</span>
         <span class="p">)</span>
@@ -1903,7 +1900,7 @@
             <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Classification</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">desc</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="Work.top_genre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.top_genre">[docs]</a>    <span class="k">def</span> <span class="nf">top_genre</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="n">Genre</span>
+        <span class="kn">from</span> <span class="nn">.classification</span> <span class="kn">import</span> <span class="n">Genre</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">genre</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Genre</span><span class="p">)</span> \
             <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">WorkGenre</span><span class="p">)</span> \
@@ -1919,7 +1916,7 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="kn">from</span> <span class="nn">..external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
                 <span class="n">search_index</span> <span class="o">=</span> <span class="n">ExternalSearchIndex</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># No search index is configured. This is fine -- just skip that part.</span>
                 <span class="k">pass</span>
         <span class="k">if</span> <span class="n">search_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1983,7 +1980,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

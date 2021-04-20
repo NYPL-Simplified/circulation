@@ -35,22 +35,22 @@
   <h1>Source code for core.lane</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">quote_plus</span>
 
 <span class="kn">from</span> <span class="nn">psycopg2.extras</span> <span class="kn">import</span> <span class="n">NumericRange</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="kn">import</span> <span class="n">select</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">Select</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="kn">import</span> <span class="n">JSON</span>
 
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">import</span> <span class="nn">classifier</span>
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">classifier</span>
+<span class="kn">from</span> <span class="nn">.classifier</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Classifier</span><span class="p">,</span>
     <span class="n">GenreData</span><span class="p">,</span>
 <span class="p">)</span>
@@ -82,11 +82,11 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">literal</span>
 
-<span class="kn">from</span> <span class="nn">entrypoint</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.entrypoint</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">EntryPoint</span><span class="p">,</span>
     <span class="n">EverythingEntryPoint</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">directly_modified</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">numericrange_to_tuple</span><span class="p">,</span>
@@ -109,16 +109,16 @@
     <span class="n">Work</span><span class="p">,</span>
     <span class="n">WorkGenre</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model.constants</span> <span class="kn">import</span> <span class="n">EditionConstants</span>
-<span class="kn">from</span> <span class="nn">facets</span> <span class="kn">import</span> <span class="n">FacetConstants</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">util</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.model.constants</span> <span class="kn">import</span> <span class="n">EditionConstants</span>
+<span class="kn">from</span> <span class="nn">.facets</span> <span class="kn">import</span> <span class="n">FacetConstants</span>
+<span class="kn">from</span> <span class="nn">.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">fast_query_count</span><span class="p">,</span>
     <span class="n">LanguageCodes</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">util.accept_language</span> <span class="kn">import</span> <span class="n">parse_accept_language</span>
-<span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="kn">import</span> <span class="n">OPDSFeed</span>
+<span class="kn">from</span> <span class="nn">.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">.util.accept_language</span> <span class="kn">import</span> <span class="n">parse_accept_language</span>
+<span class="kn">from</span> <span class="nn">.util.opds_writer</span> <span class="kn">import</span> <span class="n">OPDSFeed</span>
 
 <span class="kn">import</span> <span class="nn">elasticsearch</span>
 
@@ -376,7 +376,7 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">value</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># At the moment, the only acceptable value that can be set</span>
@@ -405,7 +405,7 @@
                 <span class="n">value</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_cache_age</span>
-            <span class="k">yield</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX_CACHE_AGE_NAME</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">value</span><span class="p">))</span></div>
+            <span class="k">yield</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX_CACHE_AGE_NAME</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="FacetsWithEntryPoint.modify_search_filter"><a class="viewcode-back" href="../../core.html#core.lane.FacetsWithEntryPoint.modify_search_filter">[docs]</a>    <span class="k">def</span> <span class="nf">modify_search_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">filter</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Modify the given external_search.Filter object</span>
@@ -589,7 +589,7 @@
 
 
 <div class="viewcode-block" id="Facets.items"><a class="viewcode-back" href="../../core.html#core.lane.Facets.items">[docs]</a>    <span class="k">def</span> <span class="nf">items</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">k</span><span class="p">,</span><span class="n">v</span> <span class="ow">in</span> <span class="nb">super</span><span class="p">(</span><span class="n">Facets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span><span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">super</span><span class="p">(</span><span class="n">Facets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">yield</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">:</span>
             <span class="k">yield</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ORDER_FACET_GROUP_NAME</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">)</span>
@@ -770,7 +770,7 @@
         <span class="c1"># adding it if necessary.</span>
         <span class="n">order</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DEFAULT_SORT_ORDER</span>
         <span class="k">if</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">default</span><span class="p">:</span>
-            <span class="n">default</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">!=</span><span class="n">order</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
+            <span class="n">default</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">default</span> <span class="k">if</span> <span class="n">x</span><span class="o">!=</span><span class="n">order</span><span class="p">]</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">order</span><span class="p">]</span> <span class="o">+</span> <span class="n">default</span></div>
 
 <div class="viewcode-block" id="DefaultSortOrderFacets.default_facet"><a class="viewcode-back" href="../../core.html#core.lane.DefaultSortOrderFacets.default_facet">[docs]</a>    <span class="nd">@classmethod</span>
@@ -1023,7 +1023,7 @@
             <span class="k">if</span> <span class="n">language_header</span><span class="p">:</span>
                 <span class="n">languages</span> <span class="o">=</span> <span class="n">parse_accept_language</span><span class="p">(</span><span class="n">language_header</span><span class="p">)</span>
                 <span class="n">languages</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">languages</span><span class="p">]</span>
-                <span class="n">languages</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">LanguageCodes</span><span class="o">.</span><span class="n">iso_639_2_for_locale</span><span class="p">,</span> <span class="n">languages</span><span class="p">)</span>
+                <span class="n">languages</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">LanguageCodes</span><span class="o">.</span><span class="n">iso_639_2_for_locale</span><span class="p">,</span> <span class="n">languages</span><span class="p">))</span>
                 <span class="n">languages</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">languages</span> <span class="k">if</span> <span class="n">l</span><span class="p">]</span>
             <span class="n">languages</span> <span class="o">=</span> <span class="n">languages</span> <span class="ow">or</span> <span class="kc">None</span>
 
@@ -1032,7 +1032,7 @@
         <span class="k">if</span> <span class="n">min_score</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">min_score</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">min_score</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">min_score</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">min_score</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">extra</span><span class="p">[</span><span class="s1">&#39;min_score&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">min_score</span>
@@ -1117,13 +1117,13 @@
 <span class="sd">        This means the EntryPoint (handled by the superclass)</span>
 <span class="sd">        as well as possible settings for &#39;media&#39; and &quot;min_score&quot;.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">super</span><span class="p">(</span><span class="n">SearchFacets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">super</span><span class="p">(</span><span class="n">SearchFacets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">yield</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_argument</span><span class="p">:</span>
             <span class="k">yield</span> <span class="p">(</span><span class="s2">&quot;media&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_argument</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_score</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">yield</span> <span class="p">(</span><span class="s1">&#39;min_score&#39;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">min_score</span><span class="p">))</span></div>
+            <span class="k">yield</span> <span class="p">(</span><span class="s1">&#39;min_score&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">min_score</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="SearchFacets.navigate"><a class="viewcode-back" href="../../core.html#core.lane.SearchFacets.navigate">[docs]</a>    <span class="k">def</span> <span class="nf">navigate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">min_score</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;min_score&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_score</span><span class="p">)</span>
@@ -1211,7 +1211,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">query_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-       <span class="k">return</span> <span class="s2">&quot;&amp;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+       <span class="k">return</span> <span class="s2">&quot;&amp;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">first_page</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1610,7 +1610,7 @@
         <span class="sd">&quot;&quot;&quot;A human-readable identifier for this WorkList that</span>
 <span class="sd">        captures its position within the heirarchy.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">full_parentage</span> <span class="o">=</span> <span class="p">[</span><span class="n">unicode</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">display_name</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hierarchy</span><span class="p">]</span>
+        <span class="n">full_parentage</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">display_name</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hierarchy</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;library&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
             <span class="c1"># This WorkList is associated with a specific library.</span>
             <span class="c1"># incorporate the library&#39;s name to distinguish between it</span>
@@ -1632,12 +1632,12 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">audience_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Translates audiences list into url-safe string&quot;&quot;&quot;</span>
-        <span class="n">key</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;&#39;</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
         <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">audiences</span> <span class="ow">and</span>
             <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">audiences</span><span class="p">)):</span>
             <span class="c1"># There are audiences and they&#39;re not the default</span>
             <span class="c1"># &quot;any audience&quot;, so add them to the URL.</span>
-            <span class="n">audiences</span> <span class="o">=</span> <span class="p">[</span><span class="n">urllib</span><span class="o">.</span><span class="n">quote_plus</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">audiences</span><span class="p">)]</span>
+            <span class="n">audiences</span> <span class="o">=</span> <span class="p">[</span><span class="n">quote_plus</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">audiences</span><span class="p">)]</span>
             <span class="n">key</span> <span class="o">+=</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">audiences</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">key</span>
 
@@ -1780,7 +1780,7 @@
 <span class="sd">            that generates such a list when executed.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">.external_search</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Filter</span><span class="p">,</span>
             <span class="n">ExternalSearchIndex</span><span class="p">,</span>
         <span class="p">)</span>
@@ -1798,7 +1798,7 @@
 <span class="sd">        Using this ensures that modify_search_filter_hook() is always</span>
 <span class="sd">        called.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="n">Filter</span>
+        <span class="kn">from</span> <span class="nn">.external_search</span> <span class="kn">import</span> <span class="n">Filter</span>
         <span class="nb">filter</span> <span class="o">=</span> <span class="n">Filter</span><span class="o">.</span><span class="n">from_worklist</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
         <span class="n">modified</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">modify_search_filter_hook</span><span class="p">(</span><span class="nb">filter</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">modified</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1834,7 +1834,7 @@
         <span class="sd">&quot;&quot;&quot;Convert a list of lists of Hit objects into a list</span>
 <span class="sd">        of lists of Work objects.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">.external_search</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Filter</span><span class="p">,</span>
             <span class="n">WorkSearchResult</span><span class="p">,</span>
         <span class="p">)</span>
@@ -1896,7 +1896,7 @@
 
         <span class="n">b</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;Obtained </span><span class="si">%s</span><span class="s2">xWork in </span><span class="si">%.2f</span><span class="s2">sec&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_works</span><span class="p">),</span> <span class="n">b</span><span class="o">-</span><span class="n">a</span>
+            <span class="s2">&quot;Obtained </span><span class="si">%s</span><span class="s2">xWork in </span><span class="si">%.2f</span><span class="s2">sec&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_works</span><span class="p">),</span> <span class="n">b</span><span class="o">-</span><span class="n">a</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">work_lists</span></div>
 
@@ -1933,7 +1933,7 @@
             <span class="n">hits</span> <span class="o">=</span> <span class="n">search_client</span><span class="o">.</span><span class="n">query_works</span><span class="p">(</span>
                 <span class="n">query</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span> <span class="n">debug</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">elasticsearch</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">ElasticsearchException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">elasticsearch</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">ElasticsearchException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                 <span class="s2">&quot;Problem communicating with ElasticSearch. Returning empty list of search results.&quot;</span><span class="p">,</span>
                 <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
@@ -1981,7 +1981,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">target_size</span> <span class="o">=</span> <span class="n">pagination</span><span class="o">.</span><span class="n">size</span>
 
-        <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
+        <span class="kn">from</span> <span class="nn">.external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
         <span class="n">search_engine</span> <span class="o">=</span> <span class="n">search_engine</span> <span class="ow">or</span> <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Lane</span><span class="p">):</span>
@@ -2008,7 +2008,7 @@
                 <span class="c1"># previous lane to fill out this lane. Stick</span>
                 <span class="c1"># them at the end.</span>
                 <span class="n">by_lane</span><span class="p">[</span><span class="n">lane</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
-                    <span class="n">might_need_to_reuse</span><span class="o">.</span><span class="n">values</span><span class="p">()[:</span><span class="n">num_missing</span><span class="p">]</span>
+                    <span class="nb">list</span><span class="p">(</span><span class="n">might_need_to_reuse</span><span class="o">.</span><span class="n">values</span><span class="p">())[:</span><span class="n">num_missing</span><span class="p">]</span>
                 <span class="p">)</span>
 
         <span class="n">used_works</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
@@ -2098,7 +2098,7 @@
         <span class="n">queries</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">lane</span> <span class="ow">in</span> <span class="n">lanes</span><span class="p">:</span>
             <span class="n">overview_facets</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">overview_facets</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
-            <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="n">Filter</span>
+            <span class="kn">from</span> <span class="nn">.external_search</span> <span class="kn">import</span> <span class="n">Filter</span>
             <span class="nb">filter</span> <span class="o">=</span> <span class="n">Filter</span><span class="o">.</span><span class="n">from_worklist</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">overview_facets</span><span class="p">)</span>
             <span class="n">queries</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span><span class="p">))</span>
         <span class="n">resultsets</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">search_engine</span><span class="o">.</span><span class="n">query_works_multi</span><span class="p">(</span><span class="n">queries</span><span class="p">))</span>
@@ -2755,7 +2755,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_audiences</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_target_age</span> <span class="ow">and</span> <span class="n">value</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_audiences</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot modify Lane.audiences when Lane.target_age is set!&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">value</span> <span class="o">=</span> <span class="p">[</span><span class="n">value</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_audiences</span> <span class="o">=</span> <span class="n">value</span>
 
@@ -2865,7 +2865,7 @@
 <div class="viewcode-block" id="Lane.update_size"><a class="viewcode-back" href="../../core.html#core.lane.Lane.update_size">[docs]</a>    <span class="k">def</span> <span class="nf">update_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Update the stored estimate of the number of Works in this Lane.&quot;&quot;&quot;</span>
         <span class="n">library</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_library</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
-        <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
+        <span class="kn">from</span> <span class="nn">.external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
         <span class="n">search_engine</span> <span class="o">=</span> <span class="n">search_engine</span> <span class="ow">or</span> <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
 
         <span class="c1"># Do the estimate for every known entry point.</span>
@@ -2989,7 +2989,7 @@
 <span class="sd">        Mainly used in tests.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">genre</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">genre</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">genre</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Genre</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">genre</span><span class="p">)</span>
         <span class="n">lanegenre</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">LaneGenre</span><span class="p">,</span> <span class="n">lane</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">genre</span><span class="o">=</span><span class="n">genre</span>
@@ -3221,7 +3221,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

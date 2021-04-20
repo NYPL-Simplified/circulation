@@ -39,8 +39,7 @@
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">sys</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
-<span class="kn">import</span> <span class="nn">urlparse</span>
+<span class="kn">import</span> <span class="nn">urllib.parse</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">date</span><span class="p">,</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 
 <span class="kn">import</span> <span class="nn">flask</span>
@@ -52,7 +51,6 @@
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="kn">import</span> <span class="n">func</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">desc</span><span class="p">,</span> <span class="n">nullslast</span><span class="p">,</span> <span class="n">and_</span><span class="p">,</span> <span class="n">distinct</span><span class="p">,</span> <span class="n">select</span><span class="p">,</span> <span class="n">join</span>
-
 <span class="kn">from</span> <span class="nn">api.admin.exceptions</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">api.admin.google_oauth_admin_authentication_provider</span> <span class="kn">import</span> <span class="n">GoogleOAuthAdminAuthenticationProvider</span>
 <span class="kn">from</span> <span class="nn">api.admin.opds</span> <span class="kn">import</span> <span class="n">AdminAnnotator</span><span class="p">,</span> <span class="n">AdminFeed</span>
@@ -131,7 +129,7 @@
     <span class="k">if</span> <span class="ow">not</span> <span class="n">manager</span><span class="o">.</span><span class="n">testing</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">manager</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">manager</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Could not load configuration file: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
             <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
 
@@ -178,7 +176,7 @@
     <span class="n">manager</span><span class="o">.</span><span class="n">admin_library_settings_controller</span> <span class="o">=</span> <span class="n">LibrarySettingsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.individual_admin_settings</span> <span class="kn">import</span> <span class="n">IndividualAdminSettingsController</span>
     <span class="n">manager</span><span class="o">.</span><span class="n">admin_individual_admin_settings_controller</span> <span class="o">=</span> <span class="n">IndividualAdminSettingsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
-    <span class="kn">from</span> <span class="nn">api.admin.controller.sitewide_services</span> <span class="kn">import</span> <span class="o">*</span>
+    <span class="kn">from</span> <span class="nn">api.admin.controller.sitewide_services</span> <span class="kn">import</span> <span class="n">SitewideServicesController</span><span class="p">,</span> <span class="n">LoggingServicesController</span><span class="p">,</span> <span class="n">SearchServicesController</span>
     <span class="n">manager</span><span class="o">.</span><span class="n">admin_sitewide_services_controller</span> <span class="o">=</span> <span class="n">SitewideServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
     <span class="n">manager</span><span class="o">.</span><span class="n">admin_logging_services_controller</span> <span class="o">=</span> <span class="n">LoggingServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.search_service_self_tests</span> <span class="kn">import</span> <span class="n">SearchServiceSelfTestsController</span>
@@ -186,7 +184,7 @@
     <span class="n">manager</span><span class="o">.</span><span class="n">admin_search_services_controller</span> <span class="o">=</span> <span class="n">SearchServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.storage_services</span> <span class="kn">import</span> <span class="n">StorageServicesController</span>
     <span class="n">manager</span><span class="o">.</span><span class="n">admin_storage_services_controller</span> <span class="o">=</span> <span class="n">StorageServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
-    <span class="kn">from</span> <span class="nn">api.admin.controller.catalog_services</span> <span class="kn">import</span> <span class="o">*</span>
+    <span class="kn">from</span> <span class="nn">api.admin.controller.catalog_services</span> <span class="kn">import</span> <span class="n">CatalogServicesController</span>
     <span class="n">manager</span><span class="o">.</span><span class="n">admin_catalog_services_controller</span> <span class="o">=</span> <span class="n">CatalogServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="AdminController"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.AdminController">[docs]</a><span class="k">class</span> <span class="nc">AdminController</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -279,7 +277,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">BASE_URL_KEY</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">base_url</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
-            <span class="n">base_url</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="s1">&#39;/&#39;</span><span class="p">)</span>
+            <span class="n">base_url</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="s1">&#39;/&#39;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">admin</span></div>
 
@@ -299,7 +297,7 @@
 
 <div class="viewcode-block" id="AdminController.generate_csrf_token"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.AdminController.generate_csrf_token">[docs]</a>    <span class="k">def</span> <span class="nf">generate_csrf_token</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Generate a random CSRF token.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">urandom</span><span class="p">(</span><span class="mi">24</span><span class="p">))</span></div></div>
+        <span class="k">return</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">urandom</span><span class="p">(</span><span class="mi">24</span><span class="p">))</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span></div></div>
 
 <div class="viewcode-block" id="AdminCirculationManagerController"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.AdminCirculationManagerController">[docs]</a><span class="k">class</span> <span class="nc">AdminCirculationManagerController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Parent class that provides methods for verifying an admin&#39;s roles.&quot;&quot;&quot;</span>
@@ -342,12 +340,12 @@
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">admin</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
                 <span class="n">redirect_url</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">url</span>
                 <span class="k">if</span> <span class="p">(</span><span class="n">collection</span><span class="p">):</span>
-                    <span class="n">quoted_collection</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+                    <span class="n">quoted_collection</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
                     <span class="n">redirect_url</span> <span class="o">=</span> <span class="n">redirect_url</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
                         <span class="n">quoted_collection</span><span class="p">,</span>
                         <span class="n">quoted_collection</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">%2F</span><span class="s2">&quot;</span><span class="p">))</span>
                 <span class="k">if</span> <span class="p">(</span><span class="n">book</span><span class="p">):</span>
-                    <span class="n">quoted_book</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">book</span><span class="p">)</span>
+                    <span class="n">quoted_book</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">book</span><span class="p">)</span>
                     <span class="n">redirect_url</span> <span class="o">=</span> <span class="n">redirect_url</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
                         <span class="n">quoted_book</span><span class="p">,</span>
                         <span class="n">quoted_book</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">%2F</span><span class="s2">&quot;</span><span class="p">))</span>
@@ -416,7 +414,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">require_system_admin</span><span class="p">()</span>
         <span class="n">timestamps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Timestamp</span><span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Timestamp</span><span class="o">.</span><span class="n">start</span><span class="p">)</span>
         <span class="nb">sorted</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sort_by_type</span><span class="p">(</span><span class="n">timestamps</span><span class="p">)</span>
-        <span class="k">for</span> <span class="nb">type</span><span class="p">,</span> <span class="n">services</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="nb">type</span><span class="p">,</span> <span class="n">services</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">sorted</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">for</span> <span class="n">service</span> <span class="ow">in</span> <span class="n">services</span><span class="p">:</span>
                 <span class="n">by_collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sort_by_collection</span><span class="p">(</span><span class="nb">sorted</span><span class="p">[</span><span class="nb">type</span><span class="p">][</span><span class="n">service</span><span class="p">])</span>
                 <span class="nb">sorted</span><span class="p">[</span><span class="nb">type</span><span class="p">][</span><span class="n">service</span><span class="p">]</span> <span class="o">=</span> <span class="n">by_collection</span>
@@ -432,7 +430,7 @@
             <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_info</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span>
             <span class="n">result</span><span class="o">.</span><span class="n">setdefault</span><span class="p">((</span><span class="n">ts</span><span class="o">.</span><span class="n">service_type</span> <span class="ow">or</span> <span class="s2">&quot;other&quot;</span><span class="p">),</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
 
-        <span class="k">for</span> <span class="nb">type</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="nb">type</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">result</span><span class="p">[</span><span class="nb">type</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sort_by_service</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">result</span>
@@ -643,7 +641,7 @@
             <span class="n">patron</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">patrondata</span><span class="o">.</span><span class="n">get_or_create_patron</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">id</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">CannotCreateLocalPatron</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">CannotCreateLocalPatron</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">NO_SUCH_PATRON</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Could not create local patron object for </span><span class="si">%(patron_identifier)s</span><span class="s2">&quot;</span><span class="p">,</span>
                   <span class="n">patron_identifier</span><span class="o">=</span><span class="n">patrondata</span><span class="o">.</span><span class="n">authorization_identifier</span>
@@ -658,7 +656,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">identifier</span> <span class="o">=</span> <span class="s2">&quot;with identifier &quot;</span> <span class="o">+</span> <span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span>
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span>
-            <span class="n">unicode</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Adobe ID for patron </span><span class="si">%(name_or_auth_id)s</span><span class="s2"> has been reset.&quot;</span><span class="p">,</span> <span class="n">name_or_auth_id</span><span class="o">=</span><span class="n">identifier</span><span class="p">)),</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Adobe ID for patron </span><span class="si">%(name_or_auth_id)s</span><span class="s2"> has been reset.&quot;</span><span class="p">,</span> <span class="n">name_or_auth_id</span><span class="o">=</span><span class="n">identifier</span><span class="p">)),</span>
             <span class="mi">200</span>
         <span class="p">)</span></div></div>
 
@@ -815,9 +813,9 @@
         <span class="nb">list</span><span class="o">.</span><span class="n">collections</span> <span class="o">=</span> <span class="n">new_collections</span>
 
         <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="nb">list</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="nb">list</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="nb">list</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="nb">list</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span>
 
 <div class="viewcode-block" id="CustomListsController.url_for_custom_list"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.CustomListsController.url_for_custom_list">[docs]</a>    <span class="k">def</span> <span class="nf">url_for_custom_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
         <span class="k">def</span> <span class="nf">url_fn</span><span class="p">(</span><span class="n">after</span><span class="p">):</span>
@@ -864,7 +862,7 @@
             <span class="p">)</span>
             <span class="n">annotator</span><span class="o">.</span><span class="n">annotate_feed</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">worklist</span><span class="p">)</span>
 
-            <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">),</span> <span class="n">max_age</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">feed</span><span class="p">),</span> <span class="n">max_age</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
         <span class="k">elif</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;POST&quot;</span><span class="p">:</span>
             <span class="n">name</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span>
@@ -898,7 +896,7 @@
             <span class="c1"># CustomList which _weren&#39;t_ deleted.</span>
             <span class="k">for</span> <span class="n">lane</span> <span class="ow">in</span> <span class="n">surviving_lanes</span><span class="p">:</span>
                 <span class="n">lane</span><span class="o">.</span><span class="n">update_size</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_engine</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Deleted&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div></div>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Deleted&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="LanesController"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.LanesController">[docs]</a><span class="k">class</span> <span class="nc">LanesController</span><span class="p">(</span><span class="n">AdminCirculationManagerController</span><span class="p">):</span>
@@ -987,9 +985,9 @@
             <span class="n">lane</span><span class="o">.</span><span class="n">update_size</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_engine</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
+                <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LanesController.lane"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.LanesController.lane">[docs]</a>    <span class="k">def</span> <span class="nf">lane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane_identifier</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;DELETE&quot;</span><span class="p">:</span>
@@ -1009,7 +1007,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span>
 
             <span class="n">delete_lane_and_sublanes</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Deleted&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Deleted&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LanesController.show_lane"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.LanesController.show_lane">[docs]</a>    <span class="k">def</span> <span class="nf">show_lane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane_identifier</span><span class="p">):</span>
         <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
@@ -1021,7 +1019,7 @@
         <span class="k">if</span> <span class="n">lane</span><span class="o">.</span><span class="n">parent</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">lane</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">visible</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">CANNOT_SHOW_LANE_WITH_HIDDEN_PARENT</span>
         <span class="n">lane</span><span class="o">.</span><span class="n">visible</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LanesController.hide_lane"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.LanesController.hide_lane">[docs]</a>    <span class="k">def</span> <span class="nf">hide_lane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane_identifier</span><span class="p">):</span>
         <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
@@ -1031,13 +1029,13 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">lane</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">MISSING_LANE</span>
         <span class="n">lane</span><span class="o">.</span><span class="n">visible</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LanesController.reset"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.LanesController.reset">[docs]</a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">require_library_manager</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
 
         <span class="n">create_default_lanes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LanesController.change_order"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.LanesController.change_order">[docs]</a>    <span class="k">def</span> <span class="nf">change_order</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">require_library_manager</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
@@ -1053,7 +1051,7 @@
 
         <span class="n">update_lane_order</span><span class="p">(</span><span class="n">submitted_lanes</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="DashboardController"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.DashboardController">[docs]</a><span class="k">class</span> <span class="nc">DashboardController</span><span class="p">(</span><span class="n">AdminCirculationManagerController</span><span class="p">):</span>
@@ -1224,22 +1222,22 @@
 
         <span class="n">total_patrons</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span>
             <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;patrons&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;total&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="n">library_stats</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
+            <span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">library_stats</span><span class="o">.</span><span class="n">values</span><span class="p">())])</span>
         <span class="n">total_with_active_loans</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span>
             <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;patrons&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;with_active_loans&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="n">library_stats</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
+            <span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">library_stats</span><span class="o">.</span><span class="n">values</span><span class="p">())])</span>
         <span class="n">total_with_active_loans_or_holds</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span>
             <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;patrons&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;with_active_loans_or_holds&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="n">library_stats</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
+            <span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">library_stats</span><span class="o">.</span><span class="n">values</span><span class="p">())])</span>
 
         <span class="c1"># TODO: show shared collection loans and holds for libraries outside this</span>
         <span class="c1"># circ manager?</span>
         <span class="n">total_loans</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span>
             <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;patrons&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;loans&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="n">library_stats</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
+            <span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">library_stats</span><span class="o">.</span><span class="n">values</span><span class="p">())])</span>
         <span class="n">total_holds</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span>
             <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;patrons&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;holds&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="n">library_stats</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
+            <span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">library_stats</span><span class="o">.</span><span class="n">values</span><span class="p">())])</span>
 
         <span class="n">library_stats</span><span class="p">[</span><span class="s2">&quot;total&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
             <span class="n">patrons</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
@@ -1272,7 +1270,7 @@
             <span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="n">num</span><span class="p">)</span> \
             <span class="o">.</span><span class="n">all</span><span class="p">()</span>
 
-        <span class="n">events</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="p">{</span>
+        <span class="n">events</span> <span class="o">=</span> <span class="p">[{</span>
             <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
             <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">start</span><span class="p">,</span>
@@ -1280,7 +1278,7 @@
                 <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">work</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
                 <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">annotator</span><span class="o">.</span><span class="n">permalink_for</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">work</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">license_pool</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
             <span class="p">}</span>
-        <span class="p">},</span> <span class="n">results</span><span class="p">)</span>
+        <span class="p">}</span> <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="nb">dict</span><span class="p">({</span> <span class="s2">&quot;circulation_events&quot;</span><span class="p">:</span> <span class="n">events</span> <span class="p">})</span></div>
 
@@ -1295,7 +1293,7 @@
                 <span class="k">return</span> <span class="n">today</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">date_format</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># This won&#39;t happen in real life since the format is</span>
                 <span class="c1"># controlled by the calendar widget. There&#39;s no need</span>
                 <span class="c1"># to send an error message -- just use the default</span>
@@ -1326,7 +1324,7 @@
 
     <span class="n">METADATA_SERVICE_URI_TYPE</span> <span class="o">=</span> <span class="s1">&#39;application/opds+json;profile=https://librarysimplified.org/rel/profile/metadata-service&#39;</span>
 
-    <span class="n">NO_MIRROR_INTEGRATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;NO_MIRROR&quot;</span>
+    <span class="n">NO_MIRROR_INTEGRATION</span> <span class="o">=</span> <span class="s2">&quot;NO_MIRROR&quot;</span>
 
     <span class="n">PROVIDER_APIS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="n">OPDSImporter</span><span class="p">,</span>
@@ -1484,7 +1482,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
 
-        <span class="k">for</span> <span class="n">form_item_key</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">form_item_key</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
             <span class="k">if</span> <span class="n">setting_key</span> <span class="ow">in</span> <span class="n">form_item_key</span><span class="p">:</span>
                 <span class="n">value</span> <span class="o">=</span> <span class="n">form_item_key</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">setting_key</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)</span>
 
@@ -1521,7 +1519,7 @@
                         <span class="s2">&quot;The configuration value for </span><span class="si">%(setting)s</span><span class="s2"> is invalid.&quot;</span><span class="p">,</span>
                         <span class="n">setting</span><span class="o">=</span><span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">),</span>
                     <span class="p">))</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;required&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="s2">&quot;default&quot;</span> <span class="ow">in</span> <span class="n">setting</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;required&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="s2">&quot;default&quot;</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">setting</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
             <span class="k">return</span> <span class="n">INCOMPLETE_CONFIGURATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The configuration is missing a required setting: </span><span class="si">%(setting)s</span><span class="s2">&quot;</span><span class="p">,</span>
                   <span class="n">setting</span><span class="o">=</span><span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">)))</span>
@@ -1586,7 +1584,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">integration</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">MISSING_SERVICE</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Deleted&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Deleted&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_get_collection_protocols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_apis</span><span class="p">):</span>
         <span class="n">protocols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_protocols</span><span class="p">(</span><span class="n">provider_apis</span><span class="p">,</span> <span class="n">protocol_name_attr</span><span class="o">=</span><span class="s2">&quot;NAME&quot;</span><span class="p">)</span>
@@ -1653,14 +1651,15 @@
                         <span class="n">disabled</span><span class="o">=</span><span class="kc">True</span>
                     <span class="p">)</span>
 
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-        <span class="c1">#     # This is bad, but not so bad that we should short-circuit</span>
-        <span class="c1">#     # this whole process -- that might prevent an admin from</span>
-        <span class="c1">#     # making the configuration changes necessary to fix</span>
-        <span class="c1">#     # this problem.</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># This is bad, but not so bad that we should short-circuit</span>
+            <span class="c1"># this whole process -- that might prevent an admin from</span>
+            <span class="c1"># making the configuration changes necessary to fix</span>
+            <span class="c1"># this problem.</span>
             <span class="n">message</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Exception getting self-test results for </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
+            <span class="n">error_message</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">error_message</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">error_message</span><span class="p">)</span>
             <span class="n">self_test_results</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">exception</span><span class="o">=</span><span class="n">message</span> <span class="o">%</span> <span class="n">args</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">self_test_results</span>
@@ -1958,7 +1957,7 @@
         <span class="n">ignore</span><span class="p">,</span> <span class="n">private_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">sitewide_key_pair</span>
         <span class="n">decryptor</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">cipher</span><span class="p">(</span><span class="n">private_key</span><span class="p">)</span>
         <span class="n">shared_secret</span> <span class="o">=</span> <span class="n">decryptor</span><span class="o">.</span><span class="n">decrypt</span><span class="p">(</span><span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">shared_secret</span><span class="p">))</span>
-        <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">shared_secret</span><span class="p">)</span></div>
+        <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="n">shared_secret</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SitewideRegistrationController.get_catalog"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.SitewideRegistrationController.get_catalog">[docs]</a>    <span class="k">def</span> <span class="nf">get_catalog</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">do_get</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get the catalog for this service.&quot;&quot;&quot;</span>
@@ -1966,7 +1965,7 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="n">response</span> <span class="o">=</span> <span class="n">do_get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">REMOTE_INTEGRATION_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">REMOTE_INTEGRATION_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">response</span>
@@ -1989,7 +1988,7 @@
             <span class="n">l</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">)</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">METADATA_SERVICE_URI_TYPE</span>
         <span class="p">)</span>
 
-        <span class="n">register_urls</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span><span class="n">register_link_filter</span><span class="p">,</span> <span class="n">links</span><span class="p">)</span>
+        <span class="n">register_urls</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="n">register_link_filter</span><span class="p">,</span> <span class="n">links</span><span class="p">))</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">register_urls</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">REMOTE_INTEGRATION_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s1">&#39;The service did not provide a register link.&#39;</span><span class="p">)</span>
@@ -2000,7 +1999,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">register_url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;http&#39;</span><span class="p">):</span>
             <span class="c1"># We have a relative path. Create a full registration url.</span>
             <span class="n">base_url</span> <span class="o">=</span> <span class="n">catalog</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;id&#39;</span><span class="p">)</span>
-            <span class="n">register_url</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="n">register_url</span><span class="p">)</span>
+            <span class="n">register_url</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="n">register_url</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">register_url</span></div>
 
@@ -2026,7 +2025,7 @@
                 <span class="n">headers</span><span class="o">=</span><span class="n">headers</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">REMOTE_INTEGRATION_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">REMOTE_INTEGRATION_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">response</span></div>
 
 <div class="viewcode-block" id="SitewideRegistrationController.get_shared_secret"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.SitewideRegistrationController.get_shared_secret">[docs]</a>    <span class="k">def</span> <span class="nf">get_shared_secret</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
@@ -2035,7 +2034,6 @@
 
         <span class="n">registration_info</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
         <span class="n">shared_secret</span> <span class="o">=</span> <span class="n">registration_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;metadata&#39;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;shared_secret&#39;</span><span class="p">)</span>
-
         <span class="k">if</span> <span class="ow">not</span> <span class="n">shared_secret</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">REMOTE_INTEGRATION_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s1">&#39;The service did not provide registration information.&#39;</span><span class="p">)</span>
@@ -2117,7 +2115,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

@@ -110,6 +110,24 @@
 </dd></dl>
 
 <dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLConfiguration.patron_id_attributes">
+<code class="descname">patron_id_attributes</code><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.patron_id_attributes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contains configuration metadata</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLConfiguration.patron_id_regular_expression">
+<code class="descname">patron_id_regular_expression</code><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.patron_id_regular_expression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contains configuration metadata</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.saml.configuration.model.SAMLConfiguration.patron_id_use_name_id">
+<code class="descname">patron_id_use_name_id</code><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.patron_id_use_name_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contains configuration metadata</p>
+</dd></dl>
+
+<dl class="attribute">
 <dt id="api.saml.configuration.model.SAMLConfiguration.service_provider_debug_mode">
 <code class="descname">service_provider_debug_mode</code><a class="headerlink" href="#api.saml.configuration.model.SAMLConfiguration.service_provider_debug_mode" title="Permalink to this definition">¶</a></dt>
 <dd><p>Contains configuration metadata</p>
@@ -155,7 +173,7 @@
 <p>Factory creating new instances of SAMLConfiguration class.</p>
 <dl class="method">
 <dt id="api.saml.configuration.model.SAMLConfigurationFactory.create">
-<code class="descname">create</code><span class="sig-paren">(</span><em>**kwds</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/model.html#SAMLConfigurationFactory.create"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.model.SAMLConfigurationFactory.create" title="Permalink to this definition">¶</a></dt>
+<code class="descname">create</code><span class="sig-paren">(</span><em>configuration_storage</em>, <em>db</em>, <em>configuration_grouping_class</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/configuration/model.html#SAMLConfigurationFactory.create"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.model.SAMLConfigurationFactory.create" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a new instance of SAMLConfiguration.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -370,6 +388,7 @@ this class updates SAMLConfiguration with a list of available federated IdPs.</p
 <dt id="api.saml.configuration.validator.ProviderType">
 <em class="property">class </em><code class="descclassname">api.saml.configuration.validator.</code><code class="descname">ProviderType</code><a class="reference internal" href="_modules/api/saml/configuration/validator.html#ProviderType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.configuration.validator.ProviderType" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<p>An enumeration.</p>
 <dl class="attribute">
 <dt id="api.saml.configuration.validator.ProviderType.IdentityProvider">
 <code class="descname">IdentityProvider</code><em class="property"> = 'IdP'</em><a class="headerlink" href="#api.saml.configuration.validator.ProviderType.IdentityProvider" title="Permalink to this definition">¶</a></dt>
@@ -486,7 +505,7 @@ this class updates SAMLConfiguration with a list of available federated IdPs.</p
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

@@ -33,9 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for api.registry</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">import</span> <span class="nn">base64</span>
-<span class="kn">import</span> <span class="nn">feedparser</span>
+<span></span><span class="kn">import</span> <span class="nn">feedparser</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">html_sanitizer</span> <span class="kn">import</span> <span class="n">Sanitizer</span>
 <span class="kn">import</span> <span class="nn">json</span>
@@ -56,6 +54,7 @@
     <span class="n">ProblemDetail</span><span class="p">,</span>
     <span class="n">JSON_MEDIA_TYPE</span> <span class="k">as</span> <span class="n">PROBLEM_DETAIL_JSON_MEDIA_TYPE</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">import</span> <span class="nn">base64</span>
 
 <span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="kn">import</span> <span class="n">AuthdataUtility</span>
 <span class="kn">from</span> <span class="nn">api.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
@@ -225,14 +224,14 @@
             <span class="n">url</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;href&#39;</span><span class="p">)</span>
             <span class="n">is_http</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
                 <span class="p">[</span><span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">protocol</span> <span class="o">+</span> <span class="s2">&quot;://&quot;</span><span class="p">)</span>
-                 <span class="k">for</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="s2">&quot;http&quot;</span><span class="p">,</span> <span class="s2">&quot;https&quot;</span><span class="p">]</span>
+                 <span class="k">for</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;http&quot;</span><span class="p">,</span> <span class="s2">&quot;https&quot;</span><span class="p">)]</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">is_http</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">tos_link</span><span class="p">:</span>
                 <span class="n">tos_link</span> <span class="o">=</span> <span class="n">url</span>
             <span class="k">elif</span> <span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;data:&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">tos_html</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">tos_html</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_decode_data_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="n">tos_html</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="n">tos_link</span><span class="p">,</span> <span class="n">tos_html</span>
 
@@ -282,7 +281,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Unsupported media type in data: URL: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">media_type</span>
             <span class="p">)</span>
-        <span class="n">html</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">encoded</span><span class="p">)</span>
+        <span class="n">html</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">encoded</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Sanitizer</span><span class="p">()</span><span class="o">.</span><span class="n">sanitize</span><span class="p">(</span><span class="n">html</span><span class="p">)</span></div>
 
 
@@ -297,9 +296,9 @@
 
     <span class="c1"># A library may be succesfully registered with a registry, or the</span>
     <span class="c1"># registration may have failed.</span>
-    <span class="n">LIBRARY_REGISTRATION_STATUS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;library-registration-status&quot;</span>
-    <span class="n">SUCCESS_STATUS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;success&quot;</span>
-    <span class="n">FAILURE_STATUS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;failure&quot;</span>
+    <span class="n">LIBRARY_REGISTRATION_STATUS</span> <span class="o">=</span> <span class="s2">&quot;library-registration-status&quot;</span>
+    <span class="n">SUCCESS_STATUS</span> <span class="o">=</span> <span class="s2">&quot;success&quot;</span>
+    <span class="n">FAILURE_STATUS</span> <span class="o">=</span> <span class="s2">&quot;failure&quot;</span>
 
     <span class="c1"># A library may be registered in a &#39;testing&#39; stage or a</span>
     <span class="c1"># &#39;production&#39; stage. This represents the _library&#39;s_ opinion</span>
@@ -311,7 +310,7 @@
     <span class="c1"># &#39;production&#39; because there is no UI for specifying which stage</span>
     <span class="c1"># to use.  When registration happens through a script, the admin gets</span>
     <span class="c1"># to specify &#39;testing&#39; or &#39;production&#39;.</span>
-    <span class="n">LIBRARY_REGISTRATION_STAGE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;library-registration-stage&quot;</span>
+    <span class="n">LIBRARY_REGISTRATION_STAGE</span> <span class="o">=</span> <span class="s2">&quot;library-registration-stage&quot;</span>
     <span class="n">TESTING_STAGE</span> <span class="o">=</span> <span class="s2">&quot;testing&quot;</span>
     <span class="n">PRODUCTION_STAGE</span> <span class="o">=</span> <span class="s2">&quot;production&quot;</span>
     <span class="n">VALID_REGISTRATION_STAGES</span> <span class="o">=</span> <span class="p">[</span><span class="n">TESTING_STAGE</span><span class="p">,</span> <span class="n">PRODUCTION_STAGE</span><span class="p">]</span>
@@ -320,7 +319,7 @@
     <span class="c1"># the URL so we can enable CORS headers in requests from that client,</span>
     <span class="c1"># and use it in MARC records so the library&#39;s main catalog can link</span>
     <span class="c1"># to it.</span>
-    <span class="n">LIBRARY_REGISTRATION_WEB_CLIENT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;library-registration-web-client&quot;</span>
+    <span class="n">LIBRARY_REGISTRATION_WEB_CLIENT</span> <span class="o">=</span> <span class="s2">&quot;library-registration-web-client&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">registry</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">registry</span> <span class="o">=</span> <span class="n">registry</span>
@@ -503,7 +502,7 @@
                     <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Remote service returned: </span><span class="se">\&quot;</span><span class="si">%(problem)s</span><span class="se">\&quot;</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">problem</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;detail&quot;</span><span class="p">)))</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">INTEGRATION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
-                    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Remote service returned: </span><span class="se">\&quot;</span><span class="si">%(problem)s</span><span class="se">\&quot;</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">problem</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">))</span>
+                    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Remote service returned: </span><span class="se">\&quot;</span><span class="si">%(problem)s</span><span class="se">\&quot;</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">problem</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)))</span>
         <span class="k">return</span> <span class="n">response</span>
 
     <span class="nd">@classmethod</span>
@@ -511,13 +510,15 @@
         <span class="sd">&quot;&quot;&quot;Attempt to decrypt an encrypted shared secret.</span>
 
 <span class="sd">        :param cipher: A Cipher object.</span>
+<span class="sd">        </span>
+<span class="sd">        :param shared_secret: A byte string.</span>
 
 <span class="sd">        :return: The decrypted shared secret, or a ProblemDetail if</span>
 <span class="sd">        it could not be decrypted.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">shared_secret</span> <span class="o">=</span> <span class="n">cipher</span><span class="o">.</span><span class="n">decrypt</span><span class="p">(</span><span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">shared_secret</span><span class="p">))</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">SHARED_SECRET_DECRYPTION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Could not decrypt shared secret </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="n">shared_secret</span>
             <span class="p">)</span>
@@ -642,7 +643,7 @@
         <span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">result</span> <span class="o">=</span> <span class="n">registration</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">url_for</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Exception during registration&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
@@ -710,7 +711,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

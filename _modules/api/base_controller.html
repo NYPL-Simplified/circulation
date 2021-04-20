@@ -39,7 +39,7 @@
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Library</span><span class="p">,</span>
     <span class="n">Loan</span><span class="p">,</span>
@@ -47,7 +47,7 @@
     <span class="n">get_one</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 
 
 <div class="viewcode-block" id="BaseCirculationManagerController"><a class="viewcode-back" href="../../api.html#api.base_controller.BaseCirculationManagerController">[docs]</a><span class="k">class</span> <span class="nc">BaseCirculationManagerController</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -116,7 +116,7 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">patron</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticated_patron</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">RemoteInitiatedServerError</span><span class="p">,</span><span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">RemoteInitiatedServerError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">REMOTE_INTEGRATION_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Error in authentication service&quot;</span><span class="p">)</span>
             <span class="p">)</span>
@@ -253,7 +253,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

@@ -166,7 +166,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_validator</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">federation</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span>
 
-        <span class="n">parsing_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="nb">bytes</span><span class="p">(</span><span class="n">metadata</span><span class="p">))</span>
+        <span class="n">parsing_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">parsing_result</span> <span class="ow">in</span> <span class="n">parsing_results</span><span class="p">:</span>
             <span class="n">idp</span> <span class="o">=</span> <span class="n">parsing_result</span><span class="o">.</span><span class="n">provider</span>
@@ -186,7 +186,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">display_name</span> <span class="o">=</span> <span class="n">idp</span><span class="o">.</span><span class="n">entity_id</span>
 
-            <span class="n">xml_metadata</span> <span class="o">=</span> <span class="n">tostring</span><span class="p">(</span><span class="n">parsing_result</span><span class="o">.</span><span class="n">xml_node</span><span class="p">)</span>
+            <span class="n">xml_metadata</span> <span class="o">=</span> <span class="n">tostring</span><span class="p">(</span><span class="n">parsing_result</span><span class="o">.</span><span class="n">xml_node</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;unicode&quot;</span><span class="p">)</span>
             <span class="n">federated_idp</span> <span class="o">=</span> <span class="n">SAMLFederatedIdentityProvider</span><span class="p">(</span>
                 <span class="n">federation</span><span class="p">,</span> <span class="n">idp</span><span class="o">.</span><span class="n">entity_id</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span> <span class="n">display_name</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span> <span class="n">xml_metadata</span>
             <span class="p">)</span>
@@ -256,7 +256,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

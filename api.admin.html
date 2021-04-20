@@ -171,7 +171,7 @@ this value.</li>
 <dl class="exception">
 <dt id="api.admin.exceptions.AdminNotAuthorized">
 <em class="property">exception </em><code class="descclassname">api.admin.exceptions.</code><code class="descname">AdminNotAuthorized</code><a class="reference internal" href="_modules/api/admin/exceptions.html#AdminNotAuthorized"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.exceptions.AdminNotAuthorized" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">exceptions.Exception</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
 <dl class="method">
 <dt id="api.admin.exceptions.AdminNotAuthorized.as_problem_detail_document">
 <code class="descname">as_problem_detail_document</code><span class="sig-paren">(</span><em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/exceptions.html#AdminNotAuthorized.as_problem_detail_document"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.exceptions.AdminNotAuthorized.as_problem_detail_document" title="Permalink to this definition">¶</a></dt>
@@ -193,7 +193,7 @@ this value.</li>
 <dd><p>Bases: <a class="reference internal" href="#api.admin.validator.Validator" title="api.admin.validator.Validator"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.validator.Validator</span></code></a></p>
 <dl class="method">
 <dt id="api.admin.geographic_validator.GeographicValidator.ask_registry">
-<code class="descname">ask_registry</code><span class="sig-paren">(</span><em>service_area_object</em>, <em>db</em>, <em>do_get=&lt;bound method type.debuggable_get of &lt;class 'core.util.http.HTTP'&gt;&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/geographic_validator.html#GeographicValidator.ask_registry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.geographic_validator.GeographicValidator.ask_registry" title="Permalink to this definition">¶</a></dt>
+<code class="descname">ask_registry</code><span class="sig-paren">(</span><em>service_area_object</em>, <em>db</em>, <em>do_get=&lt;bound method HTTP.debuggable_get of &lt;class 'core.util.http.HTTP'&gt;&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/geographic_validator.html#GeographicValidator.ask_registry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.geographic_validator.GeographicValidator.ask_registry" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -307,17 +307,17 @@ this value.</li>
 
 <dl class="attribute">
 <dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.LIBRARY_SETTINGS">
-<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'type': 'list', 'description': l'Anyone who logs in with an email address from one of these domains will automatically have librarian-level access to this library. Library manager roles must still be granted individually by other admins. If you want to set up admins individually but still allow them to log in with Google, you can create the admin authentication service without adding any libraries.', 'key': 'domains', 'label': l'Allowed Domains'}]</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'key': 'domains', 'label': l'Allowed Domains', 'description': l'Anyone who logs in with an email address from one of these domains will automatically have librarian-level access to this library. Library manager roles must still be granted individually by other admins. If you want to set up admins individually but still allow them to log in with Google, you can create the admin authentication service without adding any libraries.', 'type': 'list'}]</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.NAME">
-<code class="descname">NAME</code><em class="property"> = u'Google OAuth'</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.NAME" title="Permalink to this definition">¶</a></dt>
+<code class="descname">NAME</code><em class="property"> = 'Google OAuth'</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'default': 'https://accounts.google.com/o/oauth2/auth', 'format': 'url', 'required': True, 'key': u'url', 'label': l'Authentication URI'}, {'required': True, 'key': u'username', 'label': l'Client ID'}, {'required': True, 'key': u'password', 'label': l'Client Secret'}]</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'url', 'label': l'Authentication URI', 'default': 'https://accounts.google.com/o/oauth2/auth', 'required': True, 'format': 'url'}, {'key': 'username', 'label': l'Client ID', 'required': True}, {'key': 'password', 'label': l'Client Secret', 'required': True}]</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -497,12 +497,12 @@ to the feed.</li>
 <span id="api-admin-routes-module"></span><h2>api.admin.routes module<a class="headerlink" href="#module-api.admin.routes" title="Permalink to this headline">¶</a></h2>
 <dl class="function">
 <dt id="api.admin.routes.admin_auth_service">
-<code class="descclassname">api.admin.routes.</code><code class="descname">admin_auth_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_auth_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_auth_service" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_auth_service</code><span class="sig-paren">(</span><em>protocol</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_auth_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_auth_service" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.admin_auth_services">
-<code class="descclassname">api.admin.routes.</code><code class="descname">admin_auth_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_auth_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_auth_services" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_auth_services</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_auth_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_auth_services" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
@@ -512,22 +512,22 @@ to the feed.</li>
 
 <dl class="function">
 <dt id="api.admin.routes.admin_change_password">
-<code class="descclassname">api.admin.routes.</code><code class="descname">admin_change_password</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_change_password"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_change_password" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_change_password</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_change_password"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_change_password" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.admin_css">
-<code class="descclassname">api.admin.routes.</code><code class="descname">admin_css</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_css"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_css" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_css</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_css"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_css" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.admin_js">
-<code class="descclassname">api.admin.routes.</code><code class="descname">admin_js</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_js"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_js" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_js</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_js"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_js" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.admin_sign_in">
-<code class="descclassname">api.admin.routes.</code><code class="descname">admin_sign_in</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_sign_in"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_sign_in" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_sign_in</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_sign_in"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_sign_in" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
@@ -539,7 +539,7 @@ from a new browser tab so they won’t lose changes.</p>
 
 <dl class="function">
 <dt id="api.admin.routes.admin_sign_out">
-<code class="descclassname">api.admin.routes.</code><code class="descname">admin_sign_out</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_sign_out"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_sign_out" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_sign_out</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_sign_out"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_sign_out" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
@@ -554,231 +554,231 @@ from a new browser tab so they won’t lose changes.</p>
 
 <dl class="function">
 <dt id="api.admin.routes.analytics_service">
-<code class="descclassname">api.admin.routes.</code><code class="descname">analytics_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#analytics_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.analytics_service" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">analytics_service</code><span class="sig-paren">(</span><em>service_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#analytics_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.analytics_service" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.analytics_services">
-<code class="descclassname">api.admin.routes.</code><code class="descname">analytics_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#analytics_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.analytics_services" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">analytics_services</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#analytics_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.analytics_services" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.bulk_circulation_events">
-<code class="descclassname">api.admin.routes.</code><code class="descname">bulk_circulation_events</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#bulk_circulation_events"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.bulk_circulation_events" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">bulk_circulation_events</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#bulk_circulation_events"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.bulk_circulation_events" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a CSV representation of all circulation events with optional
 start and end times.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.catalog_service">
-<code class="descclassname">api.admin.routes.</code><code class="descname">catalog_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#catalog_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.catalog_service" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">catalog_service</code><span class="sig-paren">(</span><em>service_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#catalog_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.catalog_service" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.catalog_services">
-<code class="descclassname">api.admin.routes.</code><code class="descname">catalog_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#catalog_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.catalog_services" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">catalog_services</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#catalog_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.catalog_services" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.cdn_service">
-<code class="descclassname">api.admin.routes.</code><code class="descname">cdn_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#cdn_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.cdn_service" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">cdn_service</code><span class="sig-paren">(</span><em>service_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#cdn_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.cdn_service" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.cdn_services">
-<code class="descclassname">api.admin.routes.</code><code class="descname">cdn_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#cdn_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.cdn_services" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">cdn_services</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#cdn_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.cdn_services" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.change_lane_order">
-<code class="descclassname">api.admin.routes.</code><code class="descname">change_lane_order</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#change_lane_order"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.change_lane_order" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">change_lane_order</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#change_lane_order"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.change_lane_order" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.circulation_events">
-<code class="descclassname">api.admin.routes.</code><code class="descname">circulation_events</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#circulation_events"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.circulation_events" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">circulation_events</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#circulation_events"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.circulation_events" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a JSON representation of the most recent circulation events.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.collection">
-<code class="descclassname">api.admin.routes.</code><code class="descname">collection</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.collection" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">collection</code><span class="sig-paren">(</span><em>collection_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.collection" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.collection_library_registrations">
-<code class="descclassname">api.admin.routes.</code><code class="descname">collection_library_registrations</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#collection_library_registrations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.collection_library_registrations" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">collection_library_registrations</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#collection_library_registrations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.collection_library_registrations" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.collection_self_tests">
-<code class="descclassname">api.admin.routes.</code><code class="descname">collection_self_tests</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#collection_self_tests"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.collection_self_tests" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">collection_self_tests</code><span class="sig-paren">(</span><em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#collection_self_tests"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.collection_self_tests" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.collections">
-<code class="descclassname">api.admin.routes.</code><code class="descname">collections</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#collections"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.collections" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">collections</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#collections"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.collections" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.complaints">
-<code class="descclassname">api.admin.routes.</code><code class="descname">complaints</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#complaints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.complaints" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">complaints</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#complaints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.complaints" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.custom_list">
-<code class="descclassname">api.admin.routes.</code><code class="descname">custom_list</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#custom_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.custom_list" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">custom_list</code><span class="sig-paren">(</span><em>list_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#custom_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.custom_list" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.custom_lists">
-<code class="descclassname">api.admin.routes.</code><code class="descname">custom_lists</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#custom_lists"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.custom_lists" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">custom_lists</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#custom_lists"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.custom_lists" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.diagnostics">
-<code class="descclassname">api.admin.routes.</code><code class="descname">diagnostics</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#diagnostics"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.diagnostics" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">diagnostics</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#diagnostics"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.diagnostics" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.discovery_service">
-<code class="descclassname">api.admin.routes.</code><code class="descname">discovery_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#discovery_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.discovery_service" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">discovery_service</code><span class="sig-paren">(</span><em>service_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#discovery_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.discovery_service" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.discovery_service_library_registrations">
-<code class="descclassname">api.admin.routes.</code><code class="descname">discovery_service_library_registrations</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#discovery_service_library_registrations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.discovery_service_library_registrations" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">discovery_service_library_registrations</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#discovery_service_library_registrations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.discovery_service_library_registrations" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.discovery_services">
-<code class="descclassname">api.admin.routes.</code><code class="descname">discovery_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#discovery_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.discovery_services" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">discovery_services</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#discovery_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.discovery_services" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.edit">
-<code class="descclassname">api.admin.routes.</code><code class="descname">edit</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#edit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.edit" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">edit</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#edit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.edit" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.edit_classifications">
-<code class="descclassname">api.admin.routes.</code><code class="descname">edit_classifications</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#edit_classifications"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.edit_classifications" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">edit_classifications</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#edit_classifications"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.edit_classifications" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.genres">
-<code class="descclassname">api.admin.routes.</code><code class="descname">genres</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#genres"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.genres" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">genres</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#genres"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.genres" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a JSON representation of complete genre tree.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.google_auth_callback">
-<code class="descclassname">api.admin.routes.</code><code class="descname">google_auth_callback</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#google_auth_callback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.google_auth_callback" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">google_auth_callback</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#google_auth_callback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.google_auth_callback" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.individual_admin">
-<code class="descclassname">api.admin.routes.</code><code class="descname">individual_admin</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#individual_admin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.individual_admin" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">individual_admin</code><span class="sig-paren">(</span><em>email</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#individual_admin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.individual_admin" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.individual_admins">
-<code class="descclassname">api.admin.routes.</code><code class="descname">individual_admins</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#individual_admins"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.individual_admins" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">individual_admins</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#individual_admins"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.individual_admins" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.lane">
-<code class="descclassname">api.admin.routes.</code><code class="descname">lane</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lane"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lane" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">lane</code><span class="sig-paren">(</span><em>lane_identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lane"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lane" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.lane_hide">
-<code class="descclassname">api.admin.routes.</code><code class="descname">lane_hide</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lane_hide"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lane_hide" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">lane_hide</code><span class="sig-paren">(</span><em>lane_identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lane_hide"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lane_hide" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.lane_show">
-<code class="descclassname">api.admin.routes.</code><code class="descname">lane_show</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lane_show"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lane_show" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">lane_show</code><span class="sig-paren">(</span><em>lane_identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lane_show"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lane_show" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.lanes">
-<code class="descclassname">api.admin.routes.</code><code class="descname">lanes</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lanes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lanes" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">lanes</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lanes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lanes" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.languages">
-<code class="descclassname">api.admin.routes.</code><code class="descname">languages</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#languages"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.languages" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">languages</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#languages"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.languages" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.libraries">
-<code class="descclassname">api.admin.routes.</code><code class="descname">libraries</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#libraries"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.libraries" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">libraries</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#libraries"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.libraries" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.library">
-<code class="descclassname">api.admin.routes.</code><code class="descname">library</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#library"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.library" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">library</code><span class="sig-paren">(</span><em>library_uuid</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#library"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.library" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.logging_service">
-<code class="descclassname">api.admin.routes.</code><code class="descname">logging_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#logging_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.logging_service" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">logging_service</code><span class="sig-paren">(</span><em>key</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#logging_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.logging_service" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.logging_services">
-<code class="descclassname">api.admin.routes.</code><code class="descname">logging_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#logging_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.logging_services" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">logging_services</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#logging_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.logging_services" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.lookup_patron">
-<code class="descclassname">api.admin.routes.</code><code class="descname">lookup_patron</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lookup_patron"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lookup_patron" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">lookup_patron</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lookup_patron"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lookup_patron" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.media">
-<code class="descclassname">api.admin.routes.</code><code class="descname">media</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#media"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.media" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">media</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#media"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.media" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.metadata_service">
-<code class="descclassname">api.admin.routes.</code><code class="descname">metadata_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#metadata_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.metadata_service" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">metadata_service</code><span class="sig-paren">(</span><em>service_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#metadata_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.metadata_service" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.metadata_service_self_tests">
-<code class="descclassname">api.admin.routes.</code><code class="descname">metadata_service_self_tests</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#metadata_service_self_tests"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.metadata_service_self_tests" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">metadata_service_self_tests</code><span class="sig-paren">(</span><em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#metadata_service_self_tests"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.metadata_service_self_tests" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.metadata_services">
-<code class="descclassname">api.admin.routes.</code><code class="descname">metadata_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#metadata_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.metadata_services" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">metadata_services</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#metadata_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.metadata_services" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.password_auth">
-<code class="descclassname">api.admin.routes.</code><code class="descname">password_auth</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#password_auth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.password_auth" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">password_auth</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#password_auth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.password_auth" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.patron_auth_self_tests">
-<code class="descclassname">api.admin.routes.</code><code class="descname">patron_auth_self_tests</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#patron_auth_self_tests"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.patron_auth_self_tests" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">patron_auth_self_tests</code><span class="sig-paren">(</span><em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#patron_auth_self_tests"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.patron_auth_self_tests" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.patron_auth_service">
-<code class="descclassname">api.admin.routes.</code><code class="descname">patron_auth_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#patron_auth_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.patron_auth_service" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">patron_auth_service</code><span class="sig-paren">(</span><em>service_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#patron_auth_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.patron_auth_service" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.patron_auth_services">
-<code class="descclassname">api.admin.routes.</code><code class="descname">patron_auth_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#patron_auth_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.patron_auth_services" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">patron_auth_services</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#patron_auth_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.patron_auth_services" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.refresh">
-<code class="descclassname">api.admin.routes.</code><code class="descname">refresh</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#refresh"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.refresh" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">refresh</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#refresh"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.refresh" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
@@ -793,17 +793,17 @@ start and end times.</p>
 
 <dl class="function">
 <dt id="api.admin.routes.reset_adobe_id">
-<code class="descclassname">api.admin.routes.</code><code class="descname">reset_adobe_id</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#reset_adobe_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.reset_adobe_id" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">reset_adobe_id</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#reset_adobe_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.reset_adobe_id" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.reset_lanes">
-<code class="descclassname">api.admin.routes.</code><code class="descname">reset_lanes</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#reset_lanes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.reset_lanes" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">reset_lanes</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#reset_lanes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.reset_lanes" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.resolve_complaints">
-<code class="descclassname">api.admin.routes.</code><code class="descname">resolve_complaints</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#resolve_complaints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.resolve_complaints" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">resolve_complaints</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#resolve_complaints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.resolve_complaints" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
@@ -813,27 +813,27 @@ start and end times.</p>
 
 <dl class="function">
 <dt id="api.admin.routes.rights_status">
-<code class="descclassname">api.admin.routes.</code><code class="descname">rights_status</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#rights_status"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.rights_status" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">rights_status</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#rights_status"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.rights_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.roles">
-<code class="descclassname">api.admin.routes.</code><code class="descname">roles</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#roles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.roles" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">roles</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#roles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.roles" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.search_service">
-<code class="descclassname">api.admin.routes.</code><code class="descname">search_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#search_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.search_service" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">search_service</code><span class="sig-paren">(</span><em>service_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#search_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.search_service" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.search_service_self_tests">
-<code class="descclassname">api.admin.routes.</code><code class="descname">search_service_self_tests</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#search_service_self_tests"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.search_service_self_tests" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">search_service_self_tests</code><span class="sig-paren">(</span><em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#search_service_self_tests"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.search_service_self_tests" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.search_services">
-<code class="descclassname">api.admin.routes.</code><code class="descname">search_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#search_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.search_services" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">search_services</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#search_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.search_services" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
@@ -843,73 +843,73 @@ start and end times.</p>
 
 <dl class="function">
 <dt id="api.admin.routes.sitewide_setting">
-<code class="descclassname">api.admin.routes.</code><code class="descname">sitewide_setting</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#sitewide_setting"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.sitewide_setting" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">sitewide_setting</code><span class="sig-paren">(</span><em>key</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#sitewide_setting"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.sitewide_setting" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.sitewide_settings">
-<code class="descclassname">api.admin.routes.</code><code class="descname">sitewide_settings</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#sitewide_settings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.sitewide_settings" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">sitewide_settings</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#sitewide_settings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.sitewide_settings" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.stats">
-<code class="descclassname">api.admin.routes.</code><code class="descname">stats</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#stats"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.stats" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">stats</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#stats"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.stats" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.storage_service">
-<code class="descclassname">api.admin.routes.</code><code class="descname">storage_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#storage_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.storage_service" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">storage_service</code><span class="sig-paren">(</span><em>service_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#storage_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.storage_service" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.storage_services">
-<code class="descclassname">api.admin.routes.</code><code class="descname">storage_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#storage_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.storage_services" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">storage_services</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#storage_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.storage_services" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.suppress">
-<code class="descclassname">api.admin.routes.</code><code class="descname">suppress</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#suppress"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.suppress" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">suppress</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#suppress"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.suppress" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.suppressed">
-<code class="descclassname">api.admin.routes.</code><code class="descname">suppressed</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#suppressed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.suppressed" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">suppressed</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#suppressed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.suppressed" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a feed of suppressed works.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.unsuppress">
-<code class="descclassname">api.admin.routes.</code><code class="descname">unsuppress</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#unsuppress"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.unsuppress" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">unsuppress</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#unsuppress"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.unsuppress" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.work_change_book_cover">
-<code class="descclassname">api.admin.routes.</code><code class="descname">work_change_book_cover</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_change_book_cover"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_change_book_cover" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">work_change_book_cover</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_change_book_cover"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_change_book_cover" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.work_classifications">
-<code class="descclassname">api.admin.routes.</code><code class="descname">work_classifications</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_classifications"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_classifications" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">work_classifications</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_classifications"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_classifications" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.work_complaints">
-<code class="descclassname">api.admin.routes.</code><code class="descname">work_complaints</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_complaints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_complaints" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">work_complaints</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_complaints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_complaints" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.work_custom_lists">
-<code class="descclassname">api.admin.routes.</code><code class="descname">work_custom_lists</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_custom_lists"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_custom_lists" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">work_custom_lists</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_custom_lists"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_custom_lists" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.work_details">
-<code class="descclassname">api.admin.routes.</code><code class="descname">work_details</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_details"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_details" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">work_details</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_details"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_details" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="api.admin.routes.work_preview_book_cover">
-<code class="descclassname">api.admin.routes.</code><code class="descname">work_preview_book_cover</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_preview_book_cover"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_preview_book_cover" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">api.admin.routes.</code><code class="descname">work_preview_book_cover</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_preview_book_cover"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_preview_book_cover" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </div>
@@ -1070,7 +1070,7 @@ they are in a valid format.</p>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

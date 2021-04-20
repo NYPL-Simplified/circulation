@@ -33,14 +33,13 @@
           <div class="body" role="main">
             
   <h1>Source code for core.overdrive</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span></span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">isbnlib</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">urlparse</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlsplit</span><span class="p">,</span> <span class="n">quote</span><span class="p">,</span> <span class="n">urlunsplit</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="kn">import</span> <span class="p">(</span>
@@ -48,14 +47,14 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">temp_config</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">Configuration</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">Classification</span><span class="p">,</span>
@@ -76,7 +75,7 @@
     <span class="n">Subject</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CirculationData</span><span class="p">,</span>
     <span class="n">ContributorData</span><span class="p">,</span>
     <span class="n">FormatData</span><span class="p">,</span>
@@ -87,20 +86,20 @@
     <span class="n">SubjectData</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BibliographicCoverageProvider</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">testing</span> <span class="kn">import</span> <span class="n">DatabaseTest</span>
+<span class="kn">from</span> <span class="nn">.testing</span> <span class="kn">import</span> <span class="n">DatabaseTest</span>
 
-<span class="kn">from</span> <span class="nn">util.http</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.util.http</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HTTP</span><span class="p">,</span>
     <span class="n">BadResponseException</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util.string_helpers</span> <span class="kn">import</span> <span class="n">base64</span>
-<span class="kn">from</span> <span class="nn">util.worker_pools</span> <span class="kn">import</span> <span class="n">RLock</span>
+<span class="kn">from</span> <span class="nn">.util.string_helpers</span> <span class="kn">import</span> <span class="n">base64</span>
+<span class="kn">from</span> <span class="nn">.util.worker_pools</span> <span class="kn">import</span> <span class="n">RLock</span>
 
-<span class="kn">from</span> <span class="nn">testing</span> <span class="kn">import</span> <span class="n">MockRequestsResponse</span>
+<span class="kn">from</span> <span class="nn">.testing</span> <span class="kn">import</span> <span class="n">MockRequestsResponse</span>
 
 <div class="viewcode-block" id="OverdriveAPI"><a class="viewcode-back" href="../../core.html#core.overdrive.OverdriveAPI">[docs]</a><span class="k">class</span> <span class="nc">OverdriveAPI</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -129,7 +128,7 @@
     <span class="c1"># Authentication and Patron Authentication, but we use the same</span>
     <span class="c1"># system as for other hostnames to give a consistent look to the</span>
     <span class="c1"># templates.</span>
-    <span class="k">for</span> <span class="n">host</span> <span class="ow">in</span> <span class="n">HOSTS</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">host</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">HOSTS</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
         <span class="n">host</span><span class="p">[</span><span class="s1">&#39;oauth_patron_host&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;https://oauth-patron.overdrive.com&quot;</span>
         <span class="n">host</span><span class="p">[</span><span class="s1">&#39;oauth_host&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;https://oauth.overdrive.com&quot;</span>
 
@@ -181,14 +180,14 @@
 
     <span class="n">TIME_FORMAT</span> <span class="o">=</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">T%H:%M:%SZ&quot;</span>
 
-    <span class="n">WEBSITE_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;website_id&quot;</span>
+    <span class="n">WEBSITE_ID</span> <span class="o">=</span> <span class="s2">&quot;website_id&quot;</span>
 
     <span class="c1"># When associating an Overdrive account with a library, it&#39;s</span>
     <span class="c1"># necessary to also specify an &quot;ILS name&quot; obtained from</span>
     <span class="c1"># Overdrive. Components that don&#39;t authenticate patrons (such as</span>
     <span class="c1"># the metadata wrangler) don&#39;t need to set this value.</span>
-    <span class="n">ILS_NAME_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;ils_name&quot;</span>
-    <span class="n">ILS_NAME_DEFAULT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;default&quot;</span>
+    <span class="n">ILS_NAME_KEY</span> <span class="o">=</span> <span class="s2">&quot;ils_name&quot;</span>
+    <span class="n">ILS_NAME_DEFAULT</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">:</span>
@@ -484,7 +483,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># We don&#39;t cache this because it changes constantly.</span>
         <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">link</span><span class="p">,</span> <span class="p">{})</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
 
         <span class="c1"># Find the link to the next page of results, if any.</span>
@@ -540,7 +539,7 @@
             <span class="n">item_id</span><span class="o">=</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
         <span class="p">)</span>
         <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="p">{})</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">content</span></div>
 
@@ -551,7 +550,7 @@
             <span class="n">item_id</span><span class="o">=</span><span class="n">identifier</span>
         <span class="p">)</span>
         <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="p">{})</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="n">unicode</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">OverdriveRepresentationExtractor</span><span class="o">.</span><span class="n">book_info_to_metadata</span><span class="p">(</span><span class="n">content</span><span class="p">)</span></div>
 
@@ -566,8 +565,8 @@
 <span class="sd">        The availability part is to make sure we always use v2 of the</span>
 <span class="sd">        availability API, even if Overdrive sent us a link to v1.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">parts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">urlparse</span><span class="o">.</span><span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">))</span>
-        <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">))</span>
+        <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">quote</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
         <span class="n">endings</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;/availability&quot;</span><span class="p">,</span> <span class="s2">&quot;/availability/&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;/v1/collections/&quot;</span><span class="p">)</span>
             <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">endings</span><span class="p">)):</span>
@@ -580,7 +579,7 @@
         <span class="n">query_string</span> <span class="o">=</span> <span class="n">query_string</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;{&quot;</span><span class="p">,</span> <span class="s2">&quot;%7B&quot;</span><span class="p">)</span>
         <span class="n">query_string</span> <span class="o">=</span> <span class="n">query_string</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;}&quot;</span><span class="p">,</span> <span class="s2">&quot;%7D&quot;</span><span class="p">)</span>
         <span class="n">parts</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">query_string</span>
-        <span class="k">return</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlunsplit</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">parts</span><span class="p">))</span></div>
+        <span class="k">return</span> <span class="n">urlunsplit</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">parts</span><span class="p">))</span></div>
 
     <span class="k">def</span> <span class="nf">_do_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;This method is overridden in MockOverdriveAPI.&quot;&quot;&quot;</span>
@@ -600,8 +599,8 @@
 <div class="viewcode-block" id="MockOverdriveAPI.mock_collection"><a class="viewcode-back" href="../../core.html#core.overdrive.MockOverdriveAPI.mock_collection">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">mock_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                         <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Test Overdrive Collection&quot;</span><span class="p">,</span>
-                        <span class="n">client_key</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">client_secret</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;b&quot;</span><span class="p">,</span>
-                        <span class="n">library_id</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="n">website_id</span><span class="o">=</span><span class="s2">&quot;d&quot;</span><span class="p">,</span>
+                        <span class="n">client_key</span><span class="o">=</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">client_secret</span><span class="o">=</span><span class="s2">&quot;b&quot;</span><span class="p">,</span>
+                        <span class="n">library_id</span><span class="o">=</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="n">website_id</span><span class="o">=</span><span class="s2">&quot;d&quot;</span><span class="p">,</span>
                         <span class="n">ils_name</span><span class="o">=</span><span class="s2">&quot;e&quot;</span><span class="p">,</span>
                         <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a mock Overdrive collection for use in tests.&quot;&quot;&quot;</span>
@@ -1315,7 +1314,7 @@
             <span class="n">parent</span> <span class="o">=</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_protocol</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
                 <span class="n">Collection</span><span class="o">.</span><span class="n">external_account_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">parent_library_id</span>
             <span class="p">)</span><span class="o">.</span><span class="n">one</span><span class="p">()</span>
-        <span class="k">except</span> <span class="n">NoResultFound</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">NoResultFound</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># Without the parent&#39;s credentials we can&#39;t access the child.</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Cannot create a Collection whose parent does not already exist.&quot;</span>
@@ -1455,7 +1454,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

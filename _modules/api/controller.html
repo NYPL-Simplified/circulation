@@ -33,16 +33,13 @@
           <div class="body" role="main">
             
   <h1>Source code for api.controller</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">base64</span>
-<span class="kn">import</span> <span class="nn">datetime</span>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">email</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">sys</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
-<span class="kn">import</span> <span class="nn">urlparse</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">urllib.parse</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">mktime</span>
 <span class="kn">from</span> <span class="nn">wsgiref.handlers</span> <span class="kn">import</span> <span class="n">format_date_time</span>
@@ -58,12 +55,12 @@
 <span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">eagerload</span>
 
-<span class="kn">from</span> <span class="nn">adobe_vendor_id</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.adobe_vendor_id</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AdobeVendorIDController</span><span class="p">,</span>
     <span class="n">DeviceManagementProtocolController</span><span class="p">,</span>
     <span class="n">AuthdataUtility</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">annotations</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.annotations</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AnnotationWriter</span><span class="p">,</span>
     <span class="n">AnnotationParser</span><span class="p">,</span>
 <span class="p">)</span>
@@ -72,15 +69,15 @@
     <span class="n">RBDProxyException</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">api.saml.controller</span> <span class="kn">import</span> <span class="n">SAMLController</span>
-<span class="kn">from</span> <span class="nn">authenticator</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.authenticator</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Authenticator</span><span class="p">,</span>
     <span class="n">CirculationPatronProfileStorage</span><span class="p">,</span>
     <span class="n">OAuthController</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">base_controller</span> <span class="kn">import</span> <span class="n">BaseCirculationManagerController</span>
-<span class="kn">from</span> <span class="nn">circulation</span> <span class="kn">import</span> <span class="n">CirculationAPI</span><span class="p">,</span> <span class="n">FulfillmentInfo</span>
-<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.base_controller</span> <span class="kn">import</span> <span class="n">BaseCirculationManagerController</span>
+<span class="kn">from</span> <span class="nn">.circulation</span> <span class="kn">import</span> <span class="n">CirculationAPI</span><span class="p">,</span> <span class="n">FulfillmentInfo</span>
+<span class="kn">from</span> <span class="nn">.circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
 <span class="p">)</span>
@@ -151,8 +148,9 @@
     <span class="n">OPDSFeed</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">custom_index</span> <span class="kn">import</span> <span class="n">CustomIndexView</span>
-<span class="kn">from</span> <span class="nn">lanes</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.util.string_helpers</span> <span class="kn">import</span> <span class="n">base64</span>
+<span class="kn">from</span> <span class="nn">.custom_index</span> <span class="kn">import</span> <span class="n">CustomIndexView</span>
+<span class="kn">from</span> <span class="nn">.lanes</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">load_lanes</span><span class="p">,</span>
     <span class="n">ContributorFacets</span><span class="p">,</span>
     <span class="n">ContributorLane</span><span class="p">,</span>
@@ -167,17 +165,17 @@
     <span class="n">CrawlableCustomListBasedLane</span><span class="p">,</span>
     <span class="n">CrawlableFacets</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">odl</span> <span class="kn">import</span> <span class="n">ODLAPI</span>
-<span class="kn">from</span> <span class="nn">opds</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.odl</span> <span class="kn">import</span> <span class="n">ODLAPI</span>
+<span class="kn">from</span> <span class="nn">.opds</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CirculationManagerAnnotator</span><span class="p">,</span>
     <span class="n">LibraryAnnotator</span><span class="p">,</span>
     <span class="n">SharedCollectionAnnotator</span><span class="p">,</span>
     <span class="n">LibraryLoanAndHoldAnnotator</span><span class="p">,</span>
     <span class="n">SharedCollectionLoanAndHoldAnnotator</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">shared_collection</span> <span class="kn">import</span> <span class="n">SharedCollectionAPI</span>
-<span class="kn">from</span> <span class="nn">testing</span> <span class="kn">import</span> <span class="n">MockCirculationAPI</span><span class="p">,</span> <span class="n">MockSharedCollectionAPI</span>
+<span class="kn">from</span> <span class="nn">.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.shared_collection</span> <span class="kn">import</span> <span class="n">SharedCollectionAPI</span>
+<span class="kn">from</span> <span class="nn">.testing</span> <span class="kn">import</span> <span class="n">MockCirculationAPI</span><span class="p">,</span> <span class="n">MockSharedCollectionAPI</span>
 
 <div class="viewcode-block" id="CirculationManager"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManager">[docs]</a><span class="k">class</span> <span class="nc">CirculationManager</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -314,7 +312,7 @@
             <span class="n">url</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">url</span> <span class="o">==</span> <span class="s2">&quot;*&quot;</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">url</span>
-            <span class="n">scheme</span><span class="p">,</span> <span class="n">netloc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">fragment</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+            <span class="n">scheme</span><span class="p">,</span> <span class="n">netloc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">fragment</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">scheme</span> <span class="ow">and</span> <span class="n">netloc</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">scheme</span> <span class="o">+</span> <span class="s2">&quot;://&quot;</span> <span class="o">+</span> <span class="n">netloc</span>
             <span class="k">else</span><span class="p">:</span>
@@ -328,7 +326,7 @@
                 <span class="k">if</span> <span class="n">domain</span><span class="p">:</span>
                     <span class="n">patron_web_domains</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
 
-        <span class="kn">from</span> <span class="nn">registry</span> <span class="kn">import</span> <span class="n">Registration</span>
+        <span class="kn">from</span> <span class="nn">.registry</span> <span class="kn">import</span> <span class="n">Registration</span>
         <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
             <span class="n">ConfigurationSetting</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">key</span><span class="o">==</span><span class="n">Registration</span><span class="o">.</span><span class="n">LIBRARY_REGISTRATION_WEB_CLIENT</span><span class="p">):</span>
@@ -340,11 +338,14 @@
         <span class="n">authentication_document_cache_time</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
             <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">AUTHENTICATION_DOCUMENT_CACHE_TIME</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span><span class="mi">3600</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">authentication_for_opds_documents</span> <span class="o">=</span> <span class="n">ExpiringDict</span><span class="p">(</span>
             <span class="n">max_len</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">max_age_seconds</span><span class="o">=</span><span class="n">authentication_document_cache_time</span>
-        <span class="p">)</span></div>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wsgi_debug</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">WSGI_DEBUG_KEY</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">bool_value</span> <span class="ow">or</span> <span class="kc">False</span></div>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">external_search</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -362,7 +363,7 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_external_search</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setup_search</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">external_search_initialization_exception</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                 <span class="s2">&quot;Exception initializing search engine: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span>
             <span class="p">)</span>
@@ -525,11 +526,11 @@
         <span class="k">if</span> <span class="n">registry</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">authdata</span> <span class="o">=</span> <span class="n">AuthdataUtility</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">_db</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">short_client_token_initialization_exceptions</span><span class="p">[</span><span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">e</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                     <span class="s2">&quot;Short Client Token configuration for </span><span class="si">%s</span><span class="s2"> is present but not working. This may be cause for concern. Original error: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
-                    <span class="n">library</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">e</span>
+                    <span class="n">library</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
                 <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">short_client_token_initialization_exceptions</span> <span class="o">=</span> <span class="n">short_client_token_initialization_exceptions</span>
         <span class="k">return</span> <span class="n">authdata</span></div>
@@ -576,6 +577,15 @@
     <span class="k">def</span> <span class="nf">authentication_for_opds_document</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Make sure the current request&#39;s library has an Authentication For</span>
 <span class="sd">        OPDS document in the cache, then return the cached version.</span>
+
+<span class="sd">        If the cache is disabled, a fresh document is created every time.</span>
+
+<span class="sd">        If the query argument `debug` is provided and the</span>
+<span class="sd">        WSGI_DEBUG_KEY site-wide setting is set to True, the</span>
+<span class="sd">        authentication document is annotated with a &#39;_debug&#39; section</span>
+<span class="sd">        describing the current WSGI environment. Since this can reveal</span>
+<span class="sd">        internal details of deployment, it should only be enabled when</span>
+<span class="sd">        diagnosing deployment problems.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">name</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authentication_for_opds_documents</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -586,6 +596,20 @@
             <span class="c1"># time.</span>
             <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">auth</span><span class="o">.</span><span class="n">create_authentication_document</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">authentication_for_opds_documents</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">wsgi_debug</span> <span class="ow">and</span> <span class="s1">&#39;debug&#39;</span> <span class="ow">in</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
+            <span class="c1"># Annotate with debugging information about the WSGI</span>
+            <span class="c1"># environment and the authentication document cache</span>
+            <span class="c1"># itself.</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="n">value</span><span class="p">[</span><span class="s1">&#39;_debug&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+                <span class="n">url</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span>
+                    <span class="s1">&#39;authentication_document&#39;</span><span class="p">,</span> <span class="n">library_short_name</span><span class="o">=</span><span class="n">name</span>
+                <span class="p">),</span>
+                <span class="n">environ</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">environ</span><span class="p">)),</span>
+                <span class="n">cache</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">authentication_for_opds_documents</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">value</span>
 
     <span class="nd">@property</span>
@@ -710,7 +734,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">lane_identifier</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">pass</span>
 
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
@@ -1172,7 +1196,7 @@
         <span class="c1"># We&#39;ll call this one way if there is no query string in the</span>
         <span class="c1"># request arguments, and another way if there is a query</span>
         <span class="c1"># string.</span>
-        <span class="n">make_url_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">facets</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="n">make_url_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">facets</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
         <span class="n">make_url</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span>
             <span class="s1">&#39;lane_search&#39;</span><span class="p">,</span> <span class="n">lane_identifier</span><span class="o">=</span><span class="n">lane_identifier</span><span class="p">,</span>
             <span class="n">library_short_name</span><span class="o">=</span><span class="n">library_short_name</span><span class="p">,</span>
@@ -1304,7 +1328,7 @@
         <span class="n">exporter</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">exporter</span> <span class="o">=</span> <span class="n">MARCExporter</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">body</span> <span class="o">+=</span> <span class="s2">&quot;&lt;p&gt;&quot;</span> <span class="o">+</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;No MARC exporter is currently configured for this library.&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;&lt;/p&gt;&quot;</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">library</span><span class="o">.</span><span class="n">cachedmarcfiles</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">exporter</span><span class="p">:</span>
@@ -1321,7 +1345,7 @@
 
         <span class="c1"># TODO: By default the MARC script only caches one level of lanes,</span>
         <span class="c1"># so sorting by priority is good enough.</span>
-        <span class="n">lanes</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">files_by_lane</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">priority</span> <span class="k">if</span> <span class="n">x</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">lanes</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">files_by_lane</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">priority</span> <span class="k">if</span> <span class="n">x</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">lane</span> <span class="ow">in</span> <span class="n">lanes</span><span class="p">:</span>
             <span class="n">files</span> <span class="o">=</span> <span class="n">files_by_lane</span><span class="p">[</span><span class="n">lane</span><span class="p">]</span>
@@ -1387,7 +1411,7 @@
             <span class="n">credential</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">auth</span><span class="o">.</span><span class="n">get_credential_from_header</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">sync_bookshelf</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">credential</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># If anything goes wrong, omit the sync step and just</span>
                 <span class="c1"># display the current active loans, as we understand them.</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
@@ -1429,38 +1453,38 @@
             <span class="n">loan</span><span class="p">,</span> <span class="n">hold</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">borrow</span><span class="p">(</span>
                 <span class="n">patron</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">mechanism</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">NoOpenAccessDownload</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">NoOpenAccessDownload</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">NO_LICENSES</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Couldn&#39;t find an open-access download link for this book.&quot;</span><span class="p">),</span>
                 <span class="n">status_code</span><span class="o">=</span><span class="mi">404</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">PatronAuthorizationFailedException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">PatronAuthorizationFailedException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">INVALID_CREDENTIALS</span>
-        <span class="k">except</span> <span class="p">(</span><span class="n">PatronLoanLimitReached</span><span class="p">,</span> <span class="n">PatronHoldLimitReached</span><span class="p">),</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">()</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">DeliveryMechanismError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">PatronLoanLimitReached</span><span class="p">,</span> <span class="n">PatronHoldLimitReached</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">()</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">DeliveryMechanismError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">BAD_DELIVERY_MECHANISM</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span>
-                <span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">OutstandingFines</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">OutstandingFines</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">OUTSTANDING_FINES</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You must pay your $</span><span class="si">%(fine_amount).2f</span><span class="s2"> outstanding fines before you can borrow more books.&quot;</span><span class="p">,</span> <span class="n">fine_amount</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">fines</span><span class="p">)</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">AuthorizationExpired</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">AuthorizationExpired</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">AuthorizationBlocked</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">AuthorizationBlocked</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">CannotLoan</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">CHECKOUT_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">CannotHold</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">HOLD_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">CannotRenew</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">RENEW_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">NotFoundOnRemote</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">CannotLoan</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">CHECKOUT_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">CannotHold</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">HOLD_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">CannotRenew</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">RENEW_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">NotFoundOnRemote</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">NOT_FOUND_ON_REMOTE</span>
-        <span class="k">except</span> <span class="n">CirculationException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">CirculationException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># Generic circulation error.</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">CHECKOUT_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">CHECKOUT_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">problem_doc</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">problem_doc</span>
@@ -1638,7 +1662,7 @@
                 <span class="s2">&quot;fulfill&quot;</span><span class="p">,</span> <span class="n">license_pool_id</span><span class="o">=</span><span class="n">requested_license_pool</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
                 <span class="n">mechanism_id</span><span class="o">=</span><span class="n">mechanism</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
                 <span class="n">library_short_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
-                <span class="n">part</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">part</span><span class="p">),</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span>
+                <span class="n">part</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">part</span><span class="p">),</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span>
             <span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
@@ -1646,24 +1670,24 @@
                 <span class="n">patron</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">requested_license_pool</span><span class="p">,</span> <span class="n">mechanism</span><span class="p">,</span>
                 <span class="n">part</span><span class="o">=</span><span class="n">part</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="o">=</span><span class="n">fulfill_part_url</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">DeliveryMechanismConflict</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">DELIVERY_CONFLICT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">NoActiveLoan</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">DeliveryMechanismConflict</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">DELIVERY_CONFLICT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">NoActiveLoan</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">NO_ACTIVE_LOAN</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                     <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Can</span><span class="se">\&#39;</span><span class="s1">t fulfill loan because you have no active loan for this book.&#39;</span><span class="p">),</span>
                     <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">CannotFulfill</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">CannotFulfill</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">CANNOT_FULFILL</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span>
-                <span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">FormatNotAvailable</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">FormatNotAvailable</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">NO_ACCEPTABLE_FORMAT</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span>
-                <span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">DeliveryMechanismError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">DeliveryMechanismError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">BAD_DELIVERY_MECHANISM</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span>
-                <span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
             <span class="p">)</span>
 
         <span class="c1"># A subclass of FulfillmentInfo may want to bypass the whole</span>
@@ -1687,7 +1711,7 @@
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">Response</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">feed</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">OPDSFeed</span><span class="p">):</span>
-                <span class="n">content</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">content</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
             <span class="n">status_code</span> <span class="o">=</span> <span class="mi">200</span>
@@ -1709,7 +1733,7 @@
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="n">do_get</span><span class="p">(</span><span class="n">fulfillment</span><span class="o">.</span><span class="n">content_link</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">encoding_header</span><span class="p">)</span>
                     <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>
-                <span class="k">except</span> <span class="n">RemoteIntegrationException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">except</span> <span class="n">RemoteIntegrationException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">status_code</span> <span class="o">=</span> <span class="mi">200</span>
@@ -1774,21 +1798,21 @@
         <span class="k">if</span> <span class="n">loan</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">revoke_loan</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">pool</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">RemoteRefusedReturn</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">RemoteRefusedReturn</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">title</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Loan deleted locally but remote refused. Loan is likely to show up again on next sync.&quot;</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">COULD_NOT_MIRROR_TO_REMOTE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="mi">503</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">CannotReturn</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">CannotReturn</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">title</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Loan deleted locally but remote failed.&quot;</span><span class="p">)</span>
-                <span class="k">return</span> <span class="n">COULD_NOT_MIRROR_TO_REMOTE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="mi">503</span><span class="p">)</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+                <span class="k">return</span> <span class="n">COULD_NOT_MIRROR_TO_REMOTE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="mi">503</span><span class="p">)</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
         <span class="k">elif</span> <span class="n">hold</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">can_revoke_hold</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">hold</span><span class="p">):</span>
                 <span class="n">title</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Cannot release a hold once it enters reserved state.&quot;</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">CANNOT_RELEASE_HOLD</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="mi">400</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">release_hold</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">pool</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">CannotReleaseHold</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">CannotReleaseHold</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">title</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Hold released locally but remote failed.&quot;</span><span class="p">)</span>
-                <span class="k">return</span> <span class="n">CANNOT_RELEASE_HOLD</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="mi">503</span><span class="p">)</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+                <span class="k">return</span> <span class="n">CANNOT_RELEASE_HOLD</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="mi">503</span><span class="p">)</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
 
         <span class="n">work</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">work</span>
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
@@ -1907,7 +1931,7 @@
         <span class="k">if</span> <span class="n">languages</span><span class="p">:</span>
             <span class="n">languages</span> <span class="o">=</span> <span class="n">languages</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">audiences</span><span class="p">:</span>
-            <span class="n">audiences</span> <span class="o">=</span> <span class="p">[</span><span class="n">urllib</span><span class="o">.</span><span class="n">unquote_plus</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">audiences</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)]</span>
+            <span class="n">audiences</span> <span class="o">=</span> <span class="p">[</span><span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">unquote_plus</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">audiences</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)]</span>
 
         <span class="k">return</span> <span class="n">languages</span><span class="p">,</span> <span class="n">audiences</span>
 
@@ -2028,7 +2052,7 @@
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># No related books were found.</span>
-            <span class="k">return</span> <span class="n">NO_SUCH_LANE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">NO_SUCH_LANE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
 
         <span class="n">facets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">load_facets_from_request</span><span class="p">(</span>
             <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">FeaturedFacets</span><span class="p">,</span>
@@ -2070,7 +2094,7 @@
                 <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">,</span> <span class="n">work</span><span class="o">=</span><span class="n">work</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="n">lane_name</span><span class="p">,</span>
                 <span class="n">novelist_api</span><span class="o">=</span><span class="n">novelist_api</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># NoveList isn&#39;t configured.</span>
             <span class="k">return</span> <span class="n">NO_SUCH_LANE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Recommendations not available&quot;</span><span class="p">))</span>
 
@@ -2280,11 +2304,11 @@
         <span class="n">url</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;url&quot;</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">InvalidInputException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">INVALID_REGISTRATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">AuthorizationFailedException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">RemoteInitiatedServerError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">InvalidInputException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_REGISTRATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">AuthorizationFailedException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">RemoteInitiatedServerError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">response</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
@@ -2343,13 +2367,13 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">loan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection</span><span class="o">.</span><span class="n">borrow</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">hold</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">AuthorizationFailedException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">NoAvailableCopies</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">NO_AVAILABLE_LICENSE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">CannotLoan</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">CHECKOUT_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">RemoteIntegrationException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">AuthorizationFailedException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">NoAvailableCopies</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">NO_AVAILABLE_LICENSE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">CannotLoan</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">CHECKOUT_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">RemoteIntegrationException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">loan</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">SharedCollectionLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_item_feed</span><span class="p">(</span>
@@ -2369,12 +2393,12 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection</span><span class="o">.</span><span class="n">revoke_loan</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">loan</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">AuthorizationFailedException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">NotCheckedOut</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">NO_ACTIVE_LOAN</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">CannotReturn</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">COULD_NOT_MIRROR_TO_REMOTE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">AuthorizationFailedException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">NotCheckedOut</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">NO_ACTIVE_LOAN</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">CannotReturn</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">COULD_NOT_MIRROR_TO_REMOTE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SharedCollectionController.fulfill"><a class="viewcode-back" href="../../api.html#api.controller.SharedCollectionController.fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">loan_id</span><span class="p">,</span> <span class="n">mechanism_id</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="n">HTTP</span><span class="o">.</span><span class="n">get_with_timeout</span><span class="p">):</span>
@@ -2407,11 +2431,11 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">fulfillment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection</span><span class="o">.</span><span class="n">fulfill</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">mechanism</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">AuthorizationFailedException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">CannotFulfill</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">CANNOT_FULFILL</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">RemoteIntegrationException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">AuthorizationFailedException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">CannotFulfill</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">CANNOT_FULFILL</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">RemoteIntegrationException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="n">content</span> <span class="o">=</span> <span class="n">fulfillment</span><span class="o">.</span><span class="n">content</span>
@@ -2424,7 +2448,7 @@
                 <span class="n">status_code</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span>
                 <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">)</span>
                 <span class="n">content</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
-            <span class="k">except</span> <span class="n">RemoteIntegrationException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">RemoteIntegrationException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">status_code</span> <span class="o">=</span> <span class="mi">200</span>
@@ -2461,12 +2485,12 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection</span><span class="o">.</span><span class="n">revoke_hold</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">hold</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">AuthorizationFailedException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">NotOnHold</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">NO_ACTIVE_HOLD</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">CannotReleaseHold</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">CANNOT_RELEASE_HOLD</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">AuthorizationFailedException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">NotOnHold</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">NO_ACTIVE_HOLD</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">CannotReleaseHold</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">CANNOT_RELEASE_HOLD</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div></div>
 
 <div class="viewcode-block" id="StaticFileController"><a class="viewcode-back" href="../../api.html#api.controller.StaticFileController">[docs]</a><span class="k">class</span> <span class="nc">StaticFileController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
@@ -2495,8 +2519,8 @@
             <span class="n">response</span> <span class="o">=</span> <span class="n">RBDigitalFulfillmentProxy</span><span class="o">.</span><span class="n">proxy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">bearer</span><span class="p">,</span> <span class="n">fulfillment_url</span><span class="p">,</span>
                                                        <span class="n">api_class</span><span class="o">=</span><span class="n">api_class</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">RBDProxyException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">status</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;status&#39;</span><span class="p">,</span> <span class="mi">500</span><span class="p">)</span>
-            <span class="n">message</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">,</span> <span class="s1">&#39;unspecified error&#39;</span><span class="p">)</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;status&#39;</span><span class="p">,</span> <span class="mi">500</span><span class="p">)</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">,</span> <span class="s1">&#39;unspecified error&#39;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;RBDProxyException: </span><span class="si">{}</span><span class="s1"> </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="n">message</span><span class="p">))</span>
             <span class="n">response</span> <span class="o">=</span> <span class="n">Response</span><span class="p">(</span>
                 <span class="n">response</span><span class="o">=</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="n">message</span><span class="p">}),</span>
@@ -2560,7 +2584,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

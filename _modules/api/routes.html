@@ -33,8 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for api.routes</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span><span class="p">,</span> <span class="n">update_wrapper</span>
+<span></span><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span><span class="p">,</span> <span class="n">update_wrapper</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 
@@ -48,13 +47,13 @@
 <span class="kn">from</span> <span class="nn">flask_cors.core</span> <span class="kn">import</span> <span class="n">get_cors_options</span><span class="p">,</span> <span class="n">set_cors_headers</span>
 <span class="kn">from</span> <span class="nn">werkzeug.exceptions</span> <span class="kn">import</span> <span class="n">HTTPException</span>
 
-<span class="kn">from</span> <span class="nn">app</span> <span class="kn">import</span> <span class="n">app</span><span class="p">,</span> <span class="n">babel</span>
+<span class="kn">from</span> <span class="nn">.app</span> <span class="kn">import</span> <span class="n">app</span><span class="p">,</span> <span class="n">babel</span>
 
 <span class="c1"># We use URIs as identifiers throughout the application, meaning that</span>
 <span class="c1"># we never want werkzeug&#39;s merge_slashes feature.</span>
 <span class="n">app</span><span class="o">.</span><span class="n">url_map</span><span class="o">.</span><span class="n">merge_slashes</span> <span class="o">=</span> <span class="kc">False</span>
 
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 <span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ErrorHandler</span><span class="p">,</span>
     <span class="n">compressible</span><span class="p">,</span>
@@ -62,8 +61,8 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">ConfigurationSetting</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">controller</span> <span class="kn">import</span> <span class="n">CirculationManager</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="n">REMOTE_INTEGRATION_FAILED</span>
+<span class="kn">from</span> <span class="nn">.controller</span> <span class="kn">import</span> <span class="n">CirculationManager</span>
+<span class="kn">from</span> <span class="nn">.problem_details</span> <span class="kn">import</span> <span class="n">REMOTE_INTEGRATION_FAILED</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
 <div class="viewcode-block" id="initialize_circulation_manager"><a class="viewcode-back" href="../../api.html#api.routes.initialize_circulation_manager">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">before_first_request</span>
@@ -746,7 +745,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

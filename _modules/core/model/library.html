@@ -36,20 +36,20 @@
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Library</span>
 <span class="kn">from</span> <span class="nn">expiringdict</span> <span class="kn">import</span> <span class="n">ExpiringDict</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">..config</span> <span class="kn">import</span> <span class="n">Configuration</span>
-<span class="kn">from</span> <span class="nn">circulationevent</span> <span class="kn">import</span> <span class="n">CirculationEvent</span>
-<span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
+<span class="kn">from</span> <span class="nn">.circulationevent</span> <span class="kn">import</span> <span class="n">CirculationEvent</span>
+<span class="kn">from</span> <span class="nn">.edition</span> <span class="kn">import</span> <span class="n">Edition</span>
 <span class="kn">from</span> <span class="nn">..entrypoint</span> <span class="kn">import</span> <span class="n">EntryPoint</span>
 <span class="kn">from</span> <span class="nn">..facets</span> <span class="kn">import</span> <span class="n">FacetConstants</span>
-<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
-<span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
-<span class="kn">from</span> <span class="nn">work</span> <span class="kn">import</span> <span class="n">Work</span>
+<span class="kn">from</span> <span class="nn">.hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">.licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
+<span class="kn">from</span> <span class="nn">.work</span> <span class="kn">import</span> <span class="n">Work</span>
 
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
 <span class="kn">import</span> <span class="nn">logging</span>
@@ -229,7 +229,7 @@
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="s2">&quot;Library registry short name cannot contain the pipe character.&quot;</span>
                 <span class="p">)</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_library_registry_short_name</span> <span class="o">=</span> <span class="n">value</span>
 
 <div class="viewcode-block" id="Library.setting"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.setting">[docs]</a>    <span class="k">def</span> <span class="nf">setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
@@ -237,7 +237,7 @@
 <span class="sd">        :param key: Name of the setting.</span>
 <span class="sd">        :return: A ConfigurationSetting</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">configuration</span> <span class="kn">import</span> <span class="n">ConfigurationSetting</span>
+        <span class="kn">from</span> <span class="nn">.configuration</span> <span class="kn">import</span> <span class="n">ConfigurationSetting</span>
         <span class="k">return</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span>
             <span class="n">key</span><span class="p">,</span> <span class="bp">self</span>
         <span class="p">)</span></div>
@@ -320,7 +320,7 @@
         <span class="n">setting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enabled_facets_setting</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">value</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">json_value</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Invalid list of enabled facets for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
                           <span class="n">group_name</span><span class="p">,</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -377,7 +377,7 @@
 <span class="sd">        :param show_suppressed: Include titles that have nothing but</span>
 <span class="sd">        suppressed LicensePools.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">collection</span> <span class="kn">import</span> <span class="n">Collection</span>
+        <span class="kn">from</span> <span class="nn">.collection</span> <span class="kn">import</span> <span class="n">Collection</span>
         <span class="n">collection_ids</span> <span class="o">=</span> <span class="n">collection_ids</span> <span class="ow">or</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_collections</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">Collection</span><span class="o">.</span><span class="n">restrict_to_ready_deliverable_works</span><span class="p">(</span>
             <span class="n">query</span><span class="p">,</span> <span class="n">collection_ids</span><span class="o">=</span><span class="n">collection_ids</span><span class="p">,</span>
@@ -555,7 +555,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

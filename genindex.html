@@ -454,7 +454,7 @@
 </li>
       <li><a href="api.html#api.adobe_vendor_id.AdobeVendorIDRequestHandler">AdobeVendorIDRequestHandler (class in api.adobe_vendor_id)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.ADULT_AGE_CUTOFF">ADULT_AGE_CUTOFF (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.ADULT_AGE_CUTOFF">ADULT_AGE_CUTOFF (core.classifier.ClassifierConstants attribute)</a>
 </li>
       <li><a href="core.html#core.overdrive.OverdriveAPI.ADVANTAGE_LIBRARY_ENDPOINT">ADVANTAGE_LIBRARY_ENDPOINT (core.overdrive.OverdriveAPI attribute)</a>
 </li>
@@ -480,7 +480,7 @@
       </ul></li>
       <li><a href="core.model.html#core.model.patron.Patron.age_appropriate_match">age_appropriate_match() (core.model.patron.Patron class method)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.AGE_RANGE">AGE_RANGE (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.AGE_RANGE">AGE_RANGE (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.AGE_RANGE">(core.model.classification.Subject attribute)</a>
@@ -516,9 +516,9 @@
         <li><a href="core.html#core.monitor.CollectionMonitor.all">(core.monitor.CollectionMonitor class method)</a>
 </li>
       </ul></li>
-      <li><a href="core.html#core.config.Configuration.ALL_ACCESS">ALL_ACCESS (core.config.Configuration attribute)</a>
+      <li><a href="core.html#core.config.ConfigurationConstants.ALL_ACCESS">ALL_ACCESS (core.config.ConfigurationConstants attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.ALL_AGES_AGE_CUTOFF">ALL_AGES_AGE_CUTOFF (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.ALL_AGES_AGE_CUTOFF">ALL_AGES_AGE_CUTOFF (core.classifier.ClassifierConstants attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.library.Library.all_collections">all_collections (core.model.library.Library attribute)</a>
 </li>
@@ -848,10 +848,10 @@
 </li>
       <li><a href="api.lcp.html#module-api.lcp.utils">api.lcp.utils (module)</a>
 </li>
-      <li><a href="api.html#module-api.local_analytics_exporter">api.local_analytics_exporter (module)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#module-api.local_analytics_exporter">api.local_analytics_exporter (module)</a>
+</li>
       <li><a href="api.html#module-api.marc">api.marc (module)</a>
 </li>
       <li><a href="api.html#module-api.metadata_wrangler">api.metadata_wrangler (module)</a>
@@ -1061,11 +1061,15 @@
       <ul>
         <li><a href="api.html#api.adobe_vendor_id.VendorIDLibraryConfigurationScript.arg_parser">(api.adobe_vendor_id.VendorIDLibraryConfigurationScript class method)</a>
 </li>
+        <li><a href="api.html#api.bibliotheca.RunBibliothecaMonitorScript.arg_parser">(api.bibliotheca.RunBibliothecaMonitorScript class method)</a>
+</li>
         <li><a href="api.proquest.html#api.proquest.scripts.ProQuestOPDS2ImportScript.arg_parser">(api.proquest.scripts.ProQuestOPDS2ImportScript class method)</a>
 </li>
         <li><a href="api.html#api.registry.LibraryRegistrationScript.arg_parser">(api.registry.LibraryRegistrationScript class method)</a>
 </li>
         <li><a href="core.html#core.scripts.AddClassificationScript.arg_parser">(core.scripts.AddClassificationScript class method)</a>
+</li>
+        <li><a href="core.html#core.scripts.CollectionArgumentsScript.arg_parser">(core.scripts.CollectionArgumentsScript class method)</a>
 </li>
         <li><a href="core.html#core.scripts.CollectionInputScript.arg_parser">(core.scripts.CollectionInputScript class method)</a>
 </li>
@@ -1226,19 +1230,15 @@
 </li>
       <li><a href="core.util.html#core.util.opds_writer.AtomFeed">AtomFeed (class in core.util.opds_writer)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.ATOS_SCORE">ATOS_SCORE (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.ATOS_SCORE">ATOS_SCORE (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.ATOS_SCORE">(core.model.classification.Subject attribute)</a>
 </li>
       </ul></li>
-      <li><a href="api.proquest.html#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.attribute">attribute (api.proquest.importer.ProQuestOPDS2ImporterConfiguration attribute)</a>
-</li>
       <li><a href="api.saml.metadata.html#api.saml.metadata.model.SAMLSubject.attribute_statement">attribute_statement (api.saml.metadata.model.SAMLSubject attribute)</a>
 </li>
       <li><a href="api.saml.metadata.html#api.saml.metadata.model.SAMLAttributeStatement.attributes">attributes (api.saml.metadata.model.SAMLAttributeStatement attribute)</a>
-</li>
-      <li><a href="api.proquest.html#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.audience">audience (api.proquest.importer.ProQuestOPDS2ImporterConfiguration attribute)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.bisac.BISACClassifier.AUDIENCE">AUDIENCE (core.classifier.bisac.BISACClassifier attribute)</a>
 </li>
@@ -1248,8 +1248,6 @@
         <li><a href="core.model.html#core.model.resource.Resource.Work.audience">(core.model.resource.Resource.Work attribute)</a>
 </li>
         <li><a href="core.model.html#core.model.work.Work.audience">(core.model.work.Work attribute)</a>
-</li>
-        <li><a href="core.html#core.opds_import.OPDSImporter.audience">(core.opds_import.OPDSImporter attribute)</a>
 </li>
       </ul></li>
       <li><a href="core.classifier.html#core.classifier.age.AgeClassifier.audience">audience() (core.classifier.age.AgeClassifier class method)</a>
@@ -1284,13 +1282,13 @@
         <li><a href="core.classifier.html#core.classifier.rbdigital.RBDigitalSubjectClassifier.audience">(core.classifier.rbdigital.RBDigitalSubjectClassifier class method)</a>
 </li>
       </ul></li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.AUDIENCE_ADULT">AUDIENCE_ADULT (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.AUDIENCE_ADULT">AUDIENCE_ADULT (core.classifier.ClassifierConstants attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.AUDIENCE_ADULTS_ONLY">AUDIENCE_ADULTS_ONLY (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.AUDIENCE_ADULTS_ONLY">AUDIENCE_ADULTS_ONLY (core.classifier.ClassifierConstants attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.AUDIENCE_ALL_AGES">AUDIENCE_ALL_AGES (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.AUDIENCE_ALL_AGES">AUDIENCE_ALL_AGES (core.classifier.ClassifierConstants attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.AUDIENCE_CHILDREN">AUDIENCE_CHILDREN (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.AUDIENCE_CHILDREN">AUDIENCE_CHILDREN (core.classifier.ClassifierConstants attribute)</a>
 </li>
       <li><a href="core.html#core.lane.DatabaseBackedWorkList.audience_filter_clauses">audience_filter_clauses() (core.lane.DatabaseBackedWorkList method)</a>
 </li>
@@ -1304,15 +1302,15 @@
         <li><a href="core.classifier.html#core.classifier.keyword.KeywordBasedClassifier.audience_match">(core.classifier.keyword.KeywordBasedClassifier class method)</a>
 </li>
       </ul></li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.AUDIENCE_RESEARCH">AUDIENCE_RESEARCH (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.AUDIENCE_RESEARCH">AUDIENCE_RESEARCH (core.classifier.ClassifierConstants attribute)</a>
 </li>
       <li><a href="core.html#core.marc.Annotator.AUDIENCE_TERMS">AUDIENCE_TERMS (core.marc.Annotator attribute)</a>
 </li>
       <li><a href="api.html#api.onix.ONIXExtractor.AUDIENCE_TYPES">AUDIENCE_TYPES (api.onix.ONIXExtractor attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.AUDIENCE_YOUNG_ADULT">AUDIENCE_YOUNG_ADULT (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.AUDIENCE_YOUNG_ADULT">AUDIENCE_YOUNG_ADULT (core.classifier.ClassifierConstants attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.AUDIENCES">AUDIENCES (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.AUDIENCES">AUDIENCES (core.classifier.ClassifierConstants attribute)</a>
 </li>
       <li><a href="core.html#core.external_search.Filter.audiences">audiences (core.external_search.Filter attribute)</a>
 
@@ -1320,15 +1318,15 @@
         <li><a href="core.html#core.lane.Lane.audiences">(core.lane.Lane attribute)</a>
 </li>
       </ul></li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.AUDIENCES_ADULT">AUDIENCES_ADULT (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.AUDIENCES_ADULT">AUDIENCES_ADULT (core.classifier.ClassifierConstants attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.AUDIENCES_JUVENILE">AUDIENCES_JUVENILE (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.AUDIENCES_JUVENILE">AUDIENCES_JUVENILE (core.classifier.ClassifierConstants attribute)</a>
 </li>
       <li><a href="api.html#api.lanes.WorkBasedLane.audiences_list_from_source">audiences_list_from_source() (api.lanes.WorkBasedLane method)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.Classifier.AUDIENCES_NO_RESEARCH">AUDIENCES_NO_RESEARCH (core.classifier.Classifier attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.AUDIENCES_YOUNG_CHILDREN">AUDIENCES_YOUNG_CHILDREN (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.AUDIENCES_YOUNG_CHILDREN">AUDIENCES_YOUNG_CHILDREN (core.classifier.ClassifierConstants attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.EditionConstants.AUDIO_MEDIUM">AUDIO_MEDIUM (core.model.constants.EditionConstants attribute)</a>
 </li>
@@ -1614,7 +1612,7 @@
         <li><a href="core.model.html#core.model.constants.DataSourceConstants.AXIS_360">(core.model.constants.DataSourceConstants attribute)</a>
 </li>
       </ul></li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.AXIS_360_AUDIENCE">AXIS_360_AUDIENCE (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.AXIS_360_AUDIENCE">AXIS_360_AUDIENCE (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.AXIS_360_AUDIENCE">(core.model.classification.Subject attribute)</a>
@@ -1814,7 +1812,7 @@
 </li>
       <li><a href="api.html#api.bibliotheca.BibliothecaParser">BibliothecaParser (class in api.bibliotheca)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.BIC">BIC (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.BIC">BIC (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.BIC">(core.model.classification.Subject attribute)</a>
@@ -1840,7 +1838,7 @@
 </li>
       <li><a href="core.model.html#core.model.contributor.Contributor.BIRTH_DATE">BIRTH_DATE (core.model.contributor.Contributor attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.BISAC">BISAC (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.BISAC">BISAC (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.BISAC">(core.model.classification.Subject attribute)</a>
@@ -2536,6 +2534,8 @@
       </ul></li>
       <li><a href="core.classifier.html#core.classifier.Classifier">Classifier (class in core.classifier)</a>
 </li>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants">ClassifierConstants (class in core.classifier)</a>
+</li>
       <li><a href="core.classifier.html#core.classifier.Classifier.classifiers">classifiers (core.classifier.Classifier attribute)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.Classifier.classify">classify() (core.classifier.Classifier class method)</a>
@@ -2700,6 +2700,8 @@
         <li><a href="core.html#core.overdrive.OverdriveAPI.collection_token">(core.overdrive.OverdriveAPI attribute)</a>
 </li>
       </ul></li>
+      <li><a href="core.html#core.scripts.CollectionArgumentsScript">CollectionArgumentsScript (class in core.scripts)</a>
+</li>
       <li><a href="core.model.html#core.model.collection.CollectionConfigurationStorage">CollectionConfigurationStorage (class in core.model.collection)</a>
 </li>
       <li><a href="core.html#core.coverage.CollectionCoverageProvider">CollectionCoverageProvider (class in core.coverage)</a>
@@ -2715,6 +2717,8 @@
       <li><a href="core.model.html#core.model.collection.CollectionMissing">CollectionMissing</a>
 </li>
       <li><a href="core.html#core.monitor.CollectionMonitor">CollectionMonitor (class in core.monitor)</a>
+</li>
+      <li><a href="core.html#core.monitor.CollectionMonitorLogger">CollectionMonitorLogger (class in core.monitor)</a>
 </li>
       <li><a href="core.html#core.monitor.CollectionReaper">CollectionReaper (class in core.monitor)</a>
 </li>
@@ -2794,12 +2798,12 @@
 </li>
       <li><a href="core.html#core.scripts.CheckContributorNamesInDB.COMPLAINT_SOURCE">COMPLAINT_SOURCE (core.scripts.CheckContributorNamesInDB attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.scripts.CheckContributorNamesInDB.COMPLAINT_TYPE">COMPLAINT_TYPE (core.scripts.CheckContributorNamesInDB attribute)</a>
 </li>
       <li><a href="core.html#core.app_server.ComplaintController">ComplaintController (class in core.app_server)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.licensing.LicensePool.complaints">complaints (core.model.licensing.LicensePool attribute)</a>
 
       <ul>
@@ -3410,8 +3414,6 @@
       </ul></li>
       <li><a href="api.html#api.lanes.create_default_lanes">create_default_lanes() (in module api.lanes)</a>
 </li>
-      <li><a href="api.html#api.bibliotheca.BibliothecaEventMonitor.create_default_start_time">create_default_start_time() (api.bibliotheca.BibliothecaEventMonitor method)</a>
-</li>
       <li><a href="core.html#core.opds.AcquisitionFeed.create_entry">create_entry() (core.opds.AcquisitionFeed method)</a>
 
       <ul>
@@ -3816,7 +3818,7 @@
 </li>
       <li><a href="core.util.html#core.util.opds_writer.AtomFeed.DCTERMS_NS">DCTERMS_NS (core.util.opds_writer.AtomFeed attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.DDC">DDC (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.DDC">DDC (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.DDC">(core.model.classification.Subject attribute)</a>
@@ -3858,7 +3860,7 @@
 </li>
       <li><a href="api.html#api.adobe_vendor_id.AuthdataUtility.decode_two_part_short_client_token">decode_two_part_short_client_token() (api.adobe_vendor_id.AuthdataUtility method)</a>
 </li>
-      <li><a href="core.util.html#core.util.string_helpers.UnicodeAwareBase64.decodestring">decodestring() (core.util.string_helpers.UnicodeAwareBase64 method)</a>
+      <li><a href="core.util.html#core.util.string_helpers.UnicodeAwareBase64.decodebytes">decodebytes() (core.util.string_helpers.UnicodeAwareBase64 method)</a>
 </li>
       <li><a href="core.model.html#core.model.configuration.ConfigurationAttribute.DEFAULT">DEFAULT (core.model.configuration.ConfigurationAttribute attribute)</a>
 </li>
@@ -4190,6 +4192,8 @@
 </li>
       <li><a href="api.html#api.config.Configuration.DEFAULT_TOS_HREF">DEFAULT_TOS_HREF (api.config.Configuration attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.DEFAULT_TOS_TEXT">DEFAULT_TOS_TEXT (api.config.Configuration attribute)</a>
 </li>
       <li><a href="core.util.html#core.util.web_publication_manifest.AudiobookManifest.DEFAULT_TYPE">DEFAULT_TYPE (core.util.web_publication_manifest.AudiobookManifest attribute)</a>
@@ -4198,8 +4202,6 @@
         <li><a href="core.util.html#core.util.web_publication_manifest.Manifest.DEFAULT_TYPE">(core.util.web_publication_manifest.Manifest attribute)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.util.html#core.util.opds_writer.AtomFeed.default_typemap">default_typemap (core.util.opds_writer.AtomFeed attribute)</a>
 </li>
       <li><a href="core.html#core.marc.MARCExporter.DEFAULT_UPDATE_FREQUENCY">DEFAULT_UPDATE_FREQUENCY (core.marc.MARCExporter attribute)</a>
@@ -4353,12 +4355,8 @@
 </li>
         <li><a href="api.html#api.simple_authentication.SimpleAuthenticationProvider.DESCRIPTION">(api.simple_authentication.SimpleAuthenticationProvider attribute)</a>
 </li>
-      </ul></li>
-      <li><a href="core.html#core.config.Configuration.description">description (core.config.Configuration attribute)</a>
+        <li><a href="core.html#core.local_analytics_provider.LocalAnalyticsProvider.DESCRIPTION">(core.local_analytics_provider.LocalAnalyticsProvider attribute)</a>
 </li>
-      <li><a href="core.html#core.local_analytics_provider.LocalAnalyticsProvider.DESCRIPTION">DESCRIPTION (core.local_analytics_provider.LocalAnalyticsProvider attribute)</a>
-
-      <ul>
         <li><a href="core.html#core.marc.MARCExporter.DESCRIPTION">(core.marc.MARCExporter attribute)</a>
 </li>
         <li><a href="core.model.html#core.model.configuration.ConfigurationAttribute.DESCRIPTION">(core.model.configuration.ConfigurationAttribute attribute)</a>
@@ -4503,8 +4501,6 @@
       <li><a href="api.saml.metadata.federations.html#api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.display_name">display_name (api.saml.metadata.federations.model.SAMLFederatedIdentityProvider attribute)</a>
 
       <ul>
-        <li><a href="core.html#core.config.Configuration.display_name">(core.config.Configuration attribute)</a>
-</li>
         <li><a href="core.html#core.lane.Lane.display_name">(core.lane.Lane attribute)</a>
 </li>
         <li><a href="core.model.html#core.model.contributor.Contributor.display_name">(core.model.contributor.Contributor attribute)</a>
@@ -4700,12 +4696,6 @@
 </li>
       <li><a href="core.model.html#core.model.measurement.Measurement.DOWNLOADS">DOWNLOADS (core.model.measurement.Measurement attribute)</a>
 </li>
-      <li><a href="api.html#api.opds_for_distributors.OPDSForDistributorsAPI.drm">drm (api.opds_for_distributors.OPDSForDistributorsAPI attribute)</a>
-
-      <ul>
-        <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.drm">(core.model.licensing.DeliveryMechanism attribute)</a>
-</li>
-      </ul></li>
       <li><a href="core.model.html#core.model.credential.Credential.drm_device_identifiers">drm_device_identifiers (core.model.credential.Credential attribute)</a>
 </li>
       <li><a href="api.html#api.opds.LibraryLoanAndHoldAnnotator.drm_device_registration_feed_tags">drm_device_registration_feed_tags() (api.opds.LibraryLoanAndHoldAnnotator method)</a>
@@ -4924,7 +4914,7 @@
 </li>
       <li><a href="api.html#api.adobe_vendor_id.AuthdataUtility.encode_short_client_token">encode_short_client_token() (api.adobe_vendor_id.AuthdataUtility method)</a>
 </li>
-      <li><a href="core.util.html#core.util.string_helpers.UnicodeAwareBase64.encodestring">encodestring() (core.util.string_helpers.UnicodeAwareBase64 method)</a>
+      <li><a href="core.util.html#core.util.string_helpers.UnicodeAwareBase64.encodebytes">encodebytes() (core.util.string_helpers.UnicodeAwareBase64 method)</a>
 </li>
       <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptor.encrypt">encrypt() (api.lcp.encrypt.LCPEncryptor method)</a>
 </li>
@@ -5047,8 +5037,6 @@
       <li><a href="core.util.html#core.util.opds_writer.OPDSFeed.ENTRY_TYPE">ENTRY_TYPE (core.util.opds_writer.OPDSFeed attribute)</a>
 </li>
       <li><a href="core.html#core.entrypoint.EntryPoint">EntryPoint (class in core.entrypoint)</a>
-</li>
-      <li><a href="core.html#core.config.Configuration.entrypoint">entrypoint (core.config.Configuration attribute)</a>
 </li>
       <li><a href="core.html#core.lane.Lane.entrypoints">entrypoints (core.lane.Lane attribute)</a>
 
@@ -5378,7 +5366,7 @@
         <li><a href="core.model.html#core.model.edition.Edition.extra">(core.model.edition.Edition attribute)</a>
 </li>
       </ul></li>
-      <li><a href="api.saml.metadata.html#api.saml.metadata.model.SAMLSubjectUIDExtractor.extract">extract() (api.saml.metadata.model.SAMLSubjectUIDExtractor method)</a>
+      <li><a href="api.saml.metadata.html#api.saml.metadata.model.SAMLSubjectPatronIDExtractor.extract">extract() (api.saml.metadata.model.SAMLSubjectPatronIDExtractor method)</a>
 </li>
       <li><a href="core.html#core.scripts.RunCoverageProviderScript.extract_additional_command_line_arguments">extract_additional_command_line_arguments() (core.scripts.RunCoverageProviderScript method)</a>
 </li>
@@ -5456,8 +5444,6 @@
 <h2 id="F">F</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="core.html#core.config.Configuration.facet">facet (core.config.Configuration attribute)</a>
-</li>
       <li><a href="core.html#core.facets.FacetConstants.FACET_DISPLAY_TITLES">FACET_DISPLAY_TITLES (core.facets.FacetConstants attribute)</a>
 </li>
       <li><a href="core.html#core.lane.BaseFacets.facet_groups">facet_groups (core.lane.BaseFacets attribute)</a>
@@ -5540,7 +5526,7 @@
 </li>
       <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.family_name_match">family_name_match() (api.millenium_patron.MilleniumPatronAPI class method)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.FAST">FAST (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.FAST">FAST (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.FAST">(core.model.classification.Subject attribute)</a>
@@ -5878,12 +5864,8 @@
 </li>
       <li><a href="core.model.html#core.model.contributor.Contributor.FOREWORD_ROLE">FOREWORD_ROLE (core.model.contributor.Contributor attribute)</a>
 </li>
-      <li><a href="api.html#api.opds_for_distributors.OPDSForDistributorsAPI.format">format (api.opds_for_distributors.OPDSForDistributorsAPI attribute)</a>
-
-      <ul>
-        <li><a href="api.html#api.testing.AnnouncementTest.format">(api.testing.AnnouncementTest attribute)</a>
+      <li><a href="api.html#api.testing.AnnouncementTest.format">format (api.testing.AnnouncementTest attribute)</a>
 </li>
-      </ul></li>
       <li><a href="core.model.html#core.model.configuration.ConfigurationAttribute.FORMAT">FORMAT (core.model.configuration.ConfigurationAttribute attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata.format">format (core.model.configuration.ConfigurationMetadata attribute)</a>
@@ -5932,7 +5914,7 @@
 </li>
       <li><a href="core.html#core.log.JSONFormatter.fqdn">fqdn (core.log.JSONFormatter attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.FREEFORM_AUDIENCE">FREEFORM_AUDIENCE (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.FREEFORM_AUDIENCE">FREEFORM_AUDIENCE (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.FREEFORM_AUDIENCE">(core.model.classification.Subject attribute)</a>
@@ -6548,7 +6530,7 @@
 </li>
       <li><a href="api.admin.html#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider">GoogleOAuthAdminAuthenticationProvider (class in api.admin.google_oauth_admin_authentication_provider)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.GRADE_LEVEL">GRADE_LEVEL (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.GRADE_LEVEL">GRADE_LEVEL (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.GRADE_LEVEL">(core.model.classification.Subject attribute)</a>
@@ -6565,8 +6547,6 @@
       <li><a href="core.python_expression_dsl.html#core.python_expression_dsl.ast.Operator.GREATER_OR_EQUAL">GREATER_OR_EQUAL (core.python_expression_dsl.ast.Operator attribute)</a>
 </li>
       <li><a href="core.python_expression_dsl.html#core.python_expression_dsl.parser.DSLParser.GREATER_OR_EQUAL_OPERATOR">GREATER_OR_EQUAL_OPERATOR (core.python_expression_dsl.parser.DSLParser attribute)</a>
-</li>
-      <li><a href="core.html#core.config.Configuration.group">group (core.config.Configuration attribute)</a>
 </li>
       <li><a href="core.html#core.log.CloudwatchLogs.GROUP">GROUP (core.log.CloudwatchLogs attribute)</a>
 </li>
@@ -6620,7 +6600,7 @@
         <li><a href="core.model.html#core.model.constants.DataSourceConstants.GUTENBERG">(core.model.constants.DataSourceConstants attribute)</a>
 </li>
       </ul></li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.GUTENBERG_BOOKSHELF">GUTENBERG_BOOKSHELF (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.GUTENBERG_BOOKSHELF">GUTENBERG_BOOKSHELF (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.GUTENBERG_BOOKSHELF">(core.model.classification.Subject attribute)</a>
@@ -7232,10 +7212,10 @@
         <li><a href="core.html#core.log.LogConfiguration.INFO">(core.log.LogConfiguration attribute)</a>
 </li>
       </ul></li>
-      <li><a href="api.html#api.controller.SharedCollectionController.info">info() (api.controller.SharedCollectionController method)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#api.controller.SharedCollectionController.info">info() (api.controller.SharedCollectionController method)</a>
+</li>
       <li><a href="api.sip.html#api.sip.SIP2AuthenticationProvider.info_to_patrondata">info_to_patrondata() (api.sip.SIP2AuthenticationProvider method)</a>
 </li>
       <li><a href="api.saml.metadata.html#api.saml.metadata.model.SAMLUIInfo.information_urls">information_urls (api.saml.metadata.model.SAMLUIInfo attribute)</a>
@@ -7338,8 +7318,6 @@
 </li>
       <li><a href="core.model.html#core.model.configuration.ConfigurationSetting.int_value">int_value (core.model.configuration.ConfigurationSetting attribute)</a>
 </li>
-      <li><a href="core.html#core.testing.ExternalSearchTest.integration">integration (core.testing.ExternalSearchTest attribute)</a>
-</li>
       <li><a href="core.html#core.config.Configuration.integration">integration() (core.config.Configuration class method)</a>
 </li>
       <li><a href="core.html#core.mirror.MirrorUploader.integration_by_name">integration_by_name() (core.mirror.MirrorUploader class method)</a>
@@ -7372,7 +7350,7 @@
 </li>
       <li><a href="core.classifier.html#core.classifier.bisac.Interchangeable">Interchangeable (class in core.classifier.bisac)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.INTEREST_LEVEL">INTEREST_LEVEL (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.INTEREST_LEVEL">INTEREST_LEVEL (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.INTEREST_LEVEL">(core.model.classification.Subject attribute)</a>
@@ -7555,8 +7533,6 @@
       <li><a href="core.model.html#core.model.admin.Admin.is_sitewide_library_manager">is_sitewide_library_manager() (core.model.admin.Admin method)</a>
 </li>
       <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.is_streaming">is_streaming (core.model.licensing.DeliveryMechanism attribute)</a>
-</li>
-      <li><a href="core.util.html#core.util.string_helpers.is_string">is_string() (in module core.util.string_helpers)</a>
 </li>
       <li><a href="core.model.html#core.model.admin.Admin.is_system_admin">is_system_admin() (core.model.admin.Admin method)</a>
 </li>
@@ -7924,7 +7900,7 @@
 </li>
       <li><a href="core.model.html#core.model.contributor.Contributor.lc">lc (core.model.contributor.Contributor attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.LCC">LCC (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.LCC">LCC (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.LCC">(core.model.classification.Subject attribute)</a>
@@ -8006,7 +7982,7 @@
 </li>
       <li><a href="api.lcp.html#api.lcp.factory.LCPServerFactory">LCPServerFactory (class in api.lcp.factory)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.LCSH">LCSH (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.LCSH">LCSH (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.LCSH">(core.model.classification.Subject attribute)</a>
@@ -8040,8 +8016,6 @@
 </li>
       <li><a href="core.model.html#core.model.contributor.Contributor.LETTERER_ROLE">LETTERER_ROLE (core.model.contributor.Contributor attribute)</a>
 </li>
-      <li><a href="core.html#core.testing.LogCaptureHandler.level">level (core.testing.LogCaptureHandler attribute)</a>
-</li>
       <li><a href="core.classifier.html#core.classifier.keyword.KeywordBasedClassifier.LEVEL_1_NONFICTION_INDICATORS">LEVEL_1_NONFICTION_INDICATORS (core.classifier.keyword.KeywordBasedClassifier attribute)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.bic.BICClassifier.LEVEL_1_PREFIXES">LEVEL_1_PREFIXES (core.classifier.bic.BICClassifier attribute)</a>
@@ -8062,7 +8036,7 @@
 </li>
       <li><a href="core.html#core.testing.LogCaptureHandler.LEVEL_NAMES">LEVEL_NAMES (core.testing.LogCaptureHandler attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.LEXILE_SCORE">LEXILE_SCORE (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.LEXILE_SCORE">LEXILE_SCORE (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.LEXILE_SCORE">(core.model.classification.Subject attribute)</a>
@@ -8312,8 +8286,6 @@
       </ul></li>
       <li><a href="core.model.html#core.model.complaint.Complaint.LICENSE_POOL_TYPES">LICENSE_POOL_TYPES (core.model.complaint.Complaint attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.datasource.DataSource.license_pools">license_pools (core.model.datasource.DataSource attribute)</a>
 
       <ul>
@@ -8326,6 +8298,8 @@
         <li><a href="core.model.html#core.model.work.Work.license_pools">(core.model.work.Work attribute)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegration.LICENSE_PROTOCOLS">LICENSE_PROTOCOLS (core.model.configuration.ExternalIntegration attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.IdentifierConstants.LICENSE_PROVIDING_IDENTIFIER_TYPES">LICENSE_PROVIDING_IDENTIFIER_TYPES (core.model.constants.IdentifierConstants attribute)</a>
@@ -8688,6 +8662,8 @@
       </ul></li>
       <li><a href="core.html#core.config.Configuration.LOG_DATA_FORMAT">LOG_DATA_FORMAT (core.config.Configuration attribute)</a>
 </li>
+      <li><a href="api.html#api.bibliotheca.BibliothecaEventMonitor.LOG_DATE_FORMAT">LOG_DATE_FORMAT (api.bibliotheca.BibliothecaEventMonitor attribute)</a>
+</li>
       <li><a href="core.html#core.log.SysLogger.LOG_FORMAT">LOG_FORMAT (core.log.SysLogger attribute)</a>
 </li>
       <li><a href="core.html#core.config.Configuration.LOG_FORMAT_JSON">LOG_FORMAT_JSON (core.config.Configuration attribute)</a>
@@ -8938,7 +8914,7 @@
 </li>
       <li><a href="core.util.html#core.util.web_publication_manifest.Manifest">Manifest (class in core.util.web_publication_manifest)</a>
 </li>
-      <li><a href="api.html#api.overdrive.OverdriveAPI.MANIFEST_INTERNAL_FORMATS">MANIFEST_INTERNAL_FORMATS (api.overdrive.OverdriveAPI attribute)</a>
+      <li><a href="api.html#api.overdrive.OverdriveAPIConstants.MANIFEST_INTERNAL_FORMATS">MANIFEST_INTERNAL_FORMATS (api.overdrive.OverdriveAPIConstants attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegration.MANUAL">MANUAL (core.model.configuration.ExternalIntegration attribute)</a>
 
@@ -9153,8 +9129,6 @@
       <li><a href="core.model.html#core.model.constants.MediaTypes.media_type">media_type (core.model.constants.MediaTypes attribute)</a>
 
       <ul>
-        <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.media_type">(core.model.licensing.DeliveryMechanism attribute)</a>
-</li>
         <li><a href="core.model.html#core.model.resource.Representation.media_type">(core.model.resource.Representation attribute)</a>
 </li>
       </ul></li>
@@ -9902,8 +9876,6 @@
 </li>
       <li><a href="core.util.html#core.util.languages.LanguageCodes.NATIVE_NAMES_RAW_DATA">NATIVE_NAMES_RAW_DATA (core.util.languages.LanguageCodes attribute)</a>
 </li>
-      <li><a href="core.util.html#core.util.string_helpers.native_string">native_string() (in module core.util.string_helpers)</a>
-</li>
       <li><a href="core.html#core.lane.Facets.navigate">navigate() (core.lane.Facets method)</a>
 
       <ul>
@@ -10170,7 +10142,7 @@
 </li>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.numerics">numerics (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.NYPL_APPEAL">NYPL_APPEAL (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.NYPL_APPEAL">NYPL_APPEAL (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.NYPL_APPEAL">(core.model.classification.Subject attribute)</a>
@@ -10516,7 +10488,7 @@
 </li>
       <li><a href="api.saml.metadata.html#api.saml.metadata.model.SAMLProviderMetadata.organization">organization (api.saml.metadata.model.SAMLProviderMetadata attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.ORGANIZATION">ORGANIZATION (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.ORGANIZATION">ORGANIZATION (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.ORGANIZATION">(core.model.classification.Subject attribute)</a>
@@ -10558,7 +10530,7 @@
 </li>
       <li><a href="core.html#core.scripts.DatabaseMigrationScript.overall_timestamp">overall_timestamp (core.scripts.DatabaseMigrationScript attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.OVERDRIVE">OVERDRIVE (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.OVERDRIVE">OVERDRIVE (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.OVERDRIVE">(core.model.classification.Subject attribute)</a>
@@ -10598,6 +10570,8 @@
         <li><a href="core.html#core.overdrive.OverdriveAPI">(class in core.overdrive)</a>
 </li>
       </ul></li>
+      <li><a href="api.html#api.overdrive.OverdriveAPIConstants">OverdriveAPIConstants (class in api.overdrive)</a>
+</li>
       <li><a href="core.html#core.overdrive.OverdriveBibliographicCoverageProvider">OverdriveBibliographicCoverageProvider (class in core.overdrive)</a>
 </li>
       <li><a href="api.html#api.overdrive.OverdriveCirculationMonitor">OverdriveCirculationMonitor (class in api.overdrive)</a>
@@ -10644,10 +10618,6 @@
 <h2 id="P">P</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="core.html#core.testing.package_setup">package_setup() (in module core.testing)</a>
-</li>
-      <li><a href="core.html#core.testing.package_teardown">package_teardown() (in module core.testing)</a>
-</li>
       <li><a href="core.html#core.opds.AcquisitionFeed.page">page() (core.opds.AcquisitionFeed class method)</a>
 </li>
       <li><a href="core.model.html#core.model.measurement.Measurement.PAGE_COUNT">PAGE_COUNT (core.model.measurement.Measurement attribute)</a>
@@ -10760,9 +10730,11 @@
 </li>
       <li><a href="api.html#api.axis.Axis360FulfillmentInfoResponseParser.parse_axisnow">parse_axisnow() (api.axis.Axis360FulfillmentInfoResponseParser method)</a>
 </li>
-      <li><a href="core.html#core.scripts.CollectionInputScript.parse_command_line">parse_command_line() (core.scripts.CollectionInputScript class method)</a>
+      <li><a href="api.html#api.bibliotheca.RunBibliothecaMonitorScript.parse_command_line">parse_command_line() (api.bibliotheca.RunBibliothecaMonitorScript class method)</a>
 
       <ul>
+        <li><a href="core.html#core.scripts.CollectionInputScript.parse_command_line">(core.scripts.CollectionInputScript class method)</a>
+</li>
         <li><a href="core.html#core.scripts.ConfigureCollectionScript.parse_command_line">(core.scripts.ConfigureCollectionScript class method)</a>
 </li>
         <li><a href="core.html#core.scripts.ConfigureIntegrationScript.parse_command_line">(core.scripts.ConfigureIntegrationScript class method)</a>
@@ -10958,6 +10930,14 @@
         <li><a href="core.model.html#core.model.patron.Loan.patron_id">(core.model.patron.Loan attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.saml.configuration.html#api.saml.configuration.model.SAMLConfiguration.patron_id_attributes">patron_id_attributes (api.saml.configuration.model.SAMLConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.configuration.html#api.saml.configuration.model.SAMLConfiguration.patron_id_regular_expression">patron_id_regular_expression (api.saml.configuration.model.SAMLConfiguration attribute)</a>
+</li>
+      <li><a href="api.saml.metadata.html#api.saml.metadata.model.SAMLSubjectPatronIDExtractor.PATRON_ID_REGULAR_EXPRESSION_NAMED_GROUP">PATRON_ID_REGULAR_EXPRESSION_NAMED_GROUP (api.saml.metadata.model.SAMLSubjectPatronIDExtractor attribute)</a>
+</li>
+      <li><a href="api.saml.configuration.html#api.saml.configuration.model.SAMLConfiguration.patron_id_use_name_id">patron_id_use_name_id (api.saml.configuration.model.SAMLConfiguration attribute)</a>
+</li>
       <li><a href="api.sip.html#api.sip.client.named.patron_identifier">patron_identifier (api.sip.client.named attribute)</a>
 
       <ul>
@@ -11098,7 +11078,7 @@
 </li>
       <li><a href="core.model.html#core.model.credential.Credential.persistent_token_create">persistent_token_create() (core.model.credential.Credential class method)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.PERSON">PERSON (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.PERSON">PERSON (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.PERSON">(core.model.classification.Subject attribute)</a>
@@ -11116,7 +11096,7 @@
 </li>
       <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.PIN_AUTHENTICATION_MODE">PIN_AUTHENTICATION_MODE (api.millenium_patron.MilleniumPatronAPI attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.PLACE">PLACE (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.PLACE">PLACE (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.PLACE">(core.model.classification.Subject attribute)</a>
@@ -11363,7 +11343,11 @@
       <li><a href="core.util.html#core.util.problem_detail.ProblemError">ProblemError</a>
 </li>
       <li><a href="api.html#api.adobe_vendor_id.AdobeRequestParser.process">process() (api.adobe_vendor_id.AdobeRequestParser method)</a>
+
+      <ul>
+        <li><a href="core.html#core.monitor.CollectionMonitorLogger.process">(core.monitor.CollectionMonitorLogger method)</a>
 </li>
+      </ul></li>
       <li><a href="api.html#api.rbdigital.RBFulfillmentInfo.process_access_document">process_access_document() (api.rbdigital.RBFulfillmentInfo class method)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.admin_auth_services.AdminAuthServicesController.process_admin_auth_services">process_admin_auth_services() (api.admin.controller.admin_auth_services.AdminAuthServicesController method)</a>
@@ -12022,6 +12006,10 @@
       </ul></li>
       <li><a href="core.html#core.scripts.DatabaseMigrationScript.PY_TIMESTAMP_SERVICE_NAME">PY_TIMESTAMP_SERVICE_NAME (core.scripts.DatabaseMigrationScript attribute)</a>
 </li>
+      <li><a href="core.html#core.testing.pytest_configure">pytest_configure() (in module core.testing)</a>
+</li>
+      <li><a href="core.html#core.testing.ExternalSearchTest.pytestmark">pytestmark (core.testing.ExternalSearchTest attribute)</a>
+</li>
       <li><a href="core.html#core.scripts.DatabaseMigrationScript.python_timestamp">python_timestamp (core.scripts.DatabaseMigrationScript attribute)</a>
 </li>
   </ul></td>
@@ -12228,13 +12216,13 @@
 </li>
       <li><a href="api.html#api.controller.RBDFulfillmentProxyController">RBDFulfillmentProxyController (class in api.controller)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.RBDIGITAL">RBDIGITAL (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.RBDIGITAL">RBDIGITAL (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.RBDIGITAL">(core.model.classification.Subject attribute)</a>
 </li>
       </ul></li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.RBDIGITAL_AUDIENCE">RBDIGITAL_AUDIENCE (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.RBDIGITAL_AUDIENCE">RBDIGITAL_AUDIENCE (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.RBDIGITAL_AUDIENCE">(core.model.classification.Subject attribute)</a>
@@ -13086,6 +13074,8 @@
       </ul></li>
       <li><a href="scripts.html#scripts.DirectoryImportScript.run_with_arguments">run_with_arguments() (scripts.DirectoryImportScript method)</a>
 </li>
+      <li><a href="api.html#api.bibliotheca.RunBibliothecaMonitorScript">RunBibliothecaMonitorScript (class in api.bibliotheca)</a>
+</li>
       <li><a href="core.html#core.scripts.RunCollectionCoverageProviderScript">RunCollectionCoverageProviderScript (class in core.scripts)</a>
 </li>
       <li><a href="core.html#core.scripts.RunCollectionMonitorScript">RunCollectionMonitorScript (class in core.scripts)</a>
@@ -13244,7 +13234,7 @@
 </li>
       <li><a href="api.saml.metadata.html#api.saml.metadata.parser.SAMLSubjectParser">SAMLSubjectParser (class in api.saml.metadata.parser)</a>
 </li>
-      <li><a href="api.saml.metadata.html#api.saml.metadata.model.SAMLSubjectUIDExtractor">SAMLSubjectUIDExtractor (class in api.saml.metadata.model)</a>
+      <li><a href="api.saml.metadata.html#api.saml.metadata.model.SAMLSubjectPatronIDExtractor">SAMLSubjectPatronIDExtractor (class in api.saml.metadata.model)</a>
 </li>
       <li><a href="api.saml.metadata.html#api.saml.metadata.model.SAMLUIInfo">SAMLUIInfo (class in api.saml.metadata.model)</a>
 </li>
@@ -13389,6 +13379,8 @@
       <li><a href="core.html#core.opensearch.OpenSearchDocument.search_info">search_info() (core.opensearch.OpenSearchDocument class method)</a>
 </li>
       <li><a href="core.html#core.external_search.ExternalSearchIndex.search_integration">search_integration() (core.external_search.ExternalSearchIndex class method)</a>
+</li>
+      <li><a href="core.html#core.testing.DatabaseTest.search_mock">search_mock() (core.testing.DatabaseTest method)</a>
 </li>
       <li><a href="core.html#core.external_search.Query.SEARCH_RELEVANT_ROLES">SEARCH_RELEVANT_ROLES (core.external_search.Query attribute)</a>
 </li>
@@ -13668,6 +13660,8 @@
 </li>
       <li><a href="core.model.html#core.model.SessionManager.session">session() (core.model.SessionManager class method)</a>
 </li>
+      <li><a href="core.html#core.testing.session_fixture">session_fixture() (in module core.testing)</a>
+</li>
       <li><a href="api.saml.configuration.html#api.saml.configuration.model.SAMLConfiguration.session_lifetime">session_lifetime (api.saml.configuration.model.SAMLConfiguration attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.SessionManager.sessionmaker">sessionmaker() (core.model.SessionManager class method)</a>
@@ -13926,16 +13920,6 @@
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.SettingsController">SettingsController (class in api.admin.controller)</a>
 </li>
-      <li><a href="api.html#api.novelist.MockNoveListAPI.setup">setup() (api.novelist.MockNoveListAPI method)</a>
-
-      <ul>
-        <li><a href="core.html#core.testing.DatabaseTest.setup">(core.testing.DatabaseTest method)</a>
-</li>
-        <li><a href="core.html#core.testing.EndToEndSearchTest.setup">(core.testing.EndToEndSearchTest method)</a>
-</li>
-        <li><a href="core.html#core.testing.ExternalSearchTest.setup">(core.testing.ExternalSearchTest method)</a>
-</li>
-      </ul></li>
       <li><a href="api.admin.html#api.admin.routes.setup_admin">setup_admin() (in module api.admin.routes)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.setup_admin_controllers">setup_admin_controllers() (in module api.admin.controller)</a>
@@ -13958,6 +13942,16 @@
         <li><a href="core.html#core.testing.ExternalSearchTest.setup_index">(core.testing.ExternalSearchTest method)</a>
 </li>
         <li><a href="core.html#core.testing.SearchClientForTesting.setup_index">(core.testing.SearchClientForTesting method)</a>
+</li>
+      </ul></li>
+      <li><a href="api.html#api.novelist.MockNoveListAPI.setup_method">setup_method() (api.novelist.MockNoveListAPI method)</a>
+
+      <ul>
+        <li><a href="core.html#core.testing.DatabaseTest.setup_method">(core.testing.DatabaseTest method)</a>
+</li>
+        <li><a href="core.html#core.testing.EndToEndSearchTest.setup_method">(core.testing.EndToEndSearchTest method)</a>
+</li>
+        <li><a href="core.html#core.testing.ExternalSearchTest.setup_method">(core.testing.ExternalSearchTest method)</a>
 </li>
       </ul></li>
       <li><a href="api.html#api.controller.CirculationManager.setup_one_time_controllers">setup_one_time_controllers() (api.controller.CirculationManager method)</a>
@@ -14013,6 +14007,8 @@
       <li><a href="api.html#api.axis.Axis360Parser.SHORT_DATE_FORMAT">SHORT_DATE_FORMAT (api.axis.Axis360Parser attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.LinkRelations.SHORT_DESCRIPTION">SHORT_DESCRIPTION (core.model.constants.LinkRelations attribute)</a>
+</li>
+      <li><a href="core.html#core.config.Configuration.SHORT_NAME">SHORT_NAME (core.config.Configuration attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.library.Library.short_name">short_name (core.model.library.Library attribute)</a>
 </li>
@@ -14114,13 +14110,13 @@
 </li>
       <li><a href="core.util.html#core.util.opds_writer.AtomFeed.SIMPLIFIED">SIMPLIFIED (core.util.opds_writer.AtomFeed attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.SIMPLIFIED_FICTION_STATUS">SIMPLIFIED_FICTION_STATUS (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.SIMPLIFIED_FICTION_STATUS">SIMPLIFIED_FICTION_STATUS (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.SIMPLIFIED_FICTION_STATUS">(core.model.classification.Subject attribute)</a>
 </li>
       </ul></li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.SIMPLIFIED_GENRE">SIMPLIFIED_GENRE (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.SIMPLIFIED_GENRE">SIMPLIFIED_GENRE (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.SIMPLIFIED_GENRE">(core.model.classification.Subject attribute)</a>
@@ -14530,7 +14526,7 @@
 </li>
       <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.STREAMING_DRM">STREAMING_DRM (core.model.licensing.DeliveryMechanism attribute)</a>
 </li>
-      <li><a href="api.html#api.overdrive.OverdriveAPI.STREAMING_FORMATS">STREAMING_FORMATS (api.overdrive.OverdriveAPI attribute)</a>
+      <li><a href="api.html#api.overdrive.OverdriveAPIConstants.STREAMING_FORMATS">STREAMING_FORMATS (api.overdrive.OverdriveAPIConstants attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.STREAMING_PROFILE">STREAMING_PROFILE (core.model.licensing.DeliveryMechanism attribute)</a>
 </li>
@@ -14696,9 +14692,9 @@
 </li>
       <li><a href="core.html#core.user_profile.ProfileStorage.SYNCHRONIZE_ANNOTATIONS">SYNCHRONIZE_ANNOTATIONS (core.user_profile.ProfileStorage attribute)</a>
 </li>
-      <li><a href="core.html#core.config.Configuration.SYS_ADMIN_ONLY">SYS_ADMIN_ONLY (core.config.Configuration attribute)</a>
+      <li><a href="core.html#core.config.ConfigurationConstants.SYS_ADMIN_ONLY">SYS_ADMIN_ONLY (core.config.ConfigurationConstants attribute)</a>
 </li>
-      <li><a href="core.html#core.config.Configuration.SYS_ADMIN_OR_MANAGER">SYS_ADMIN_OR_MANAGER (core.config.Configuration attribute)</a>
+      <li><a href="core.html#core.config.ConfigurationConstants.SYS_ADMIN_OR_MANAGER">SYS_ADMIN_OR_MANAGER (core.config.ConfigurationConstants attribute)</a>
 </li>
       <li><a href="core.html#core.log.SysLogger">SysLogger (class in core.log)</a>
 </li>
@@ -14710,7 +14706,7 @@
 <h2 id="T">T</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="core.classifier.html#core.classifier.Classifier.TAG">TAG (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.TAG">TAG (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.TAG">(core.model.classification.Subject attribute)</a>
@@ -14786,14 +14782,14 @@
 </li>
       <li><a href="core.html#core.testing.TaskIgnoringCoverageProvider">TaskIgnoringCoverageProvider (class in core.testing)</a>
 </li>
-      <li><a href="core.html#core.testing.DatabaseTest.teardown">teardown() (core.testing.DatabaseTest method)</a>
-
-      <ul>
-        <li><a href="core.html#core.testing.ExternalSearchTest.teardown">(core.testing.ExternalSearchTest method)</a>
-</li>
-      </ul></li>
       <li><a href="core.html#core.testing.DatabaseTest.teardown_class">teardown_class() (core.testing.DatabaseTest class method)</a>
 </li>
+      <li><a href="core.html#core.testing.DatabaseTest.teardown_method">teardown_method() (core.testing.DatabaseTest method)</a>
+
+      <ul>
+        <li><a href="core.html#core.testing.ExternalSearchTest.teardown_method">(core.testing.ExternalSearchTest method)</a>
+</li>
+      </ul></li>
       <li><a href="api.html#api.config.temp_config">temp_config() (in module api.config)</a>
 
       <ul>
@@ -14944,8 +14940,12 @@
         <li><a href="core.model.html#core.model.patron.Annotation.timestamp">(core.model.patron.Annotation attribute)</a>
 </li>
       </ul></li>
-      <li><a href="core.html#core.monitor.Monitor.timestamp">timestamp() (core.monitor.Monitor method)</a>
+      <li><a href="api.html#api.bibliotheca.BibliothecaEventMonitor.timestamp">timestamp() (api.bibliotheca.BibliothecaEventMonitor method)</a>
+
+      <ul>
+        <li><a href="core.html#core.monitor.Monitor.timestamp">(core.monitor.Monitor method)</a>
 </li>
+      </ul></li>
       <li><a href="api.html#api.monitor.IdlingAnnotationReaper.TIMESTAMP_FIELD">TIMESTAMP_FIELD (api.monitor.IdlingAnnotationReaper attribute)</a>
 
       <ul>
@@ -15013,6 +15013,8 @@
       <li><a href="core.util.html#core.util.TitleProcessor">TitleProcessor (class in core.util)</a>
 </li>
       <li><a href="api.lcp.html#api.lcp.encrypt.LCPEncryptor.Parameters.to_array">to_array() (api.lcp.encrypt.LCPEncryptor.Parameters method)</a>
+</li>
+      <li><a href="core.model.html#core.model.configuration.ConfigurationMetadata.to_bool">to_bool() (core.model.configuration.ConfigurationMetadata static method)</a>
 </li>
       <li><a href="scripts.html#scripts.CreateWorksForIdentifiersScript.to_check">to_check (scripts.CreateWorksForIdentifiersScript attribute)</a>
 </li>
@@ -15178,7 +15180,7 @@
       </ul></li>
       <li><a href="core.classifier.html#core.classifier.WorkClassifier.top_tier_values">top_tier_values() (core.classifier.WorkClassifier class method)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.TOPIC">TOPIC (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.TOPIC">TOPIC (core.classifier.ClassifierConstants attribute)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.classification.Subject.TOPIC">(core.model.classification.Subject attribute)</a>
@@ -16162,33 +16164,13 @@
 </li>
       <li><a href="api.html#api.bibliotheca.ErrorParser.wrong_status">wrong_status (api.bibliotheca.ErrorParser attribute)</a>
 </li>
+      <li><a href="api.html#api.config.Configuration.WSGI_DEBUG_KEY">WSGI_DEBUG_KEY (api.config.Configuration attribute)</a>
+</li>
   </ul></td>
 </tr></table>
 
 <h2 id="X">X</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.x">x (api.millenium_patron.MilleniumPatronAPI attribute)</a>
-
-      <ul>
-        <li><a href="api.html#api.overdrive.OverdriveAPI.x">(api.overdrive.OverdriveAPI attribute)</a>
-</li>
-        <li><a href="core.classifier.html#core.classifier.Classifier.x">(core.classifier.Classifier attribute)</a>
-</li>
-        <li><a href="core.classifier.html#core.classifier.age.AgeClassifier.x">(core.classifier.age.AgeClassifier attribute)</a>
-</li>
-        <li><a href="core.classifier.html#core.classifier.age.GradeLevelClassifier.x">(core.classifier.age.GradeLevelClassifier attribute)</a>
-</li>
-        <li><a href="core.html#core.config.Configuration.x">(core.config.Configuration attribute)</a>
-</li>
-        <li><a href="core.model.html#core.model.complaint.Complaint.x">(core.model.complaint.Complaint attribute)</a>
-</li>
-        <li><a href="core.model.html#core.model.contributor.Contributor.x">(core.model.contributor.Contributor attribute)</a>
-</li>
-        <li><a href="core.util.html#core.util.languages.LanguageCodes.x">(core.util.languages.LanguageCodes attribute)</a>
-</li>
-      </ul></li>
-  </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.saml.configuration.html#api.saml.configuration.model.SAMLOneLoginConfiguration.X509_CERT">X509_CERT (api.saml.configuration.model.SAMLOneLoginConfiguration attribute)</a>
 </li>
@@ -16196,6 +16178,8 @@
 </li>
       <li><a href="api.saml.metadata.html#api.saml.metadata.model.SAMLNameIDFormat.X509_SUBJECT_NAME">X509_SUBJECT_NAME (api.saml.metadata.model.SAMLNameIDFormat attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.constants.DataSourceConstants.XID">XID (core.model.constants.DataSourceConstants attribute)</a>
 </li>
       <li><a href="api.saml.metadata.federations.html#api.saml.metadata.federations.model.SAMLFederatedIdentityProvider.xml_metadata">xml_metadata (api.saml.metadata.federations.model.SAMLFederatedIdentityProvider attribute)</a>
@@ -16220,7 +16204,7 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.testing.AnnouncementTest.yesterday">yesterday (api.testing.AnnouncementTest attribute)</a>
 </li>
-      <li><a href="core.classifier.html#core.classifier.Classifier.YOUNG_ADULT_AGE_CUTOFF">YOUNG_ADULT_AGE_CUTOFF (core.classifier.Classifier attribute)</a>
+      <li><a href="core.classifier.html#core.classifier.ClassifierConstants.YOUNG_ADULT_AGE_CUTOFF">YOUNG_ADULT_AGE_CUTOFF (core.classifier.ClassifierConstants attribute)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.keyword.KeywordBasedClassifier.YOUNG_ADULT_INDICATORS">YOUNG_ADULT_INDICATORS (core.classifier.keyword.KeywordBasedClassifier attribute)</a>
 </li>
@@ -16289,7 +16273,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

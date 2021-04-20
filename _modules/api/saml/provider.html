@@ -53,11 +53,15 @@
     <span class="n">SAMLNameIDFormat</span><span class="p">,</span>
     <span class="n">SAMLSubject</span><span class="p">,</span>
     <span class="n">SAMLSubjectJSONEncoder</span><span class="p">,</span>
-    <span class="n">SAMLSubjectUIDExtractor</span><span class="p">,</span>
+    <span class="n">SAMLSubjectPatronIDExtractor</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">api.saml.metadata.parser</span> <span class="kn">import</span> <span class="n">SAMLMetadataParser</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Credential</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">get_one_or_create</span>
-<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">ConfigurationStorage</span><span class="p">,</span> <span class="n">HasExternalIntegration</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Credential</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">Session</span><span class="p">,</span> <span class="n">get_one_or_create</span>
+<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ConfigurationMetadata</span><span class="p">,</span>
+    <span class="n">ConfigurationStorage</span><span class="p">,</span>
+    <span class="n">HasExternalIntegration</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.python_expression_dsl.evaluator</span> <span class="kn">import</span> <span class="n">DSLEvaluationVisitor</span><span class="p">,</span> <span class="n">DSLEvaluator</span>
 <span class="kn">from</span> <span class="nn">core.python_expression_dsl.parser</span> <span class="kn">import</span> <span class="n">DSLParser</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
@@ -108,6 +112,21 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_storage</span> <span class="o">=</span> <span class="n">ConfigurationStorage</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_configuration_factory</span> <span class="o">=</span> <span class="n">SAMLConfigurationFactory</span><span class="p">(</span><span class="n">SAMLMetadataParser</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_authentication_manager_factory</span> <span class="o">=</span> <span class="n">SAMLAuthenticationManagerFactory</span><span class="p">()</span>
+
+        <span class="n">db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_configuration</span><span class="p">(</span><span class="n">db</span><span class="p">)</span> <span class="k">as</span> <span class="n">configuration</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_patron_id_use_name_id</span> <span class="o">=</span> <span class="n">ConfigurationMetadata</span><span class="o">.</span><span class="n">to_bool</span><span class="p">(</span>
+                <span class="n">configuration</span><span class="o">.</span><span class="n">patron_id_use_name_id</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_patron_id_attributes</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">configuration</span><span class="o">.</span><span class="n">patron_id_attributes</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">configuration</span><span class="o">.</span><span class="n">patron_id_attributes</span>
+                <span class="k">else</span> <span class="p">[]</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_patron_id_regular_expression</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">configuration</span><span class="o">.</span><span class="n">patron_id_regular_expression</span>
+            <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_authentication_flow_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Creates a Authentication Flow object for use in an Authentication for OPDS document.</span>
@@ -444,7 +463,11 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">SAMLSubject</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">SAML_INVALID_SUBJECT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="s2">&quot;Incorrect subject type&quot;</span><span class="p">)</span>
 
-        <span class="n">extractor</span> <span class="o">=</span> <span class="n">SAMLSubjectUIDExtractor</span><span class="p">()</span>
+        <span class="n">extractor</span> <span class="o">=</span> <span class="n">SAMLSubjectPatronIDExtractor</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_patron_id_use_name_id</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_patron_id_attributes</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_patron_id_regular_expression</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="n">uid</span> <span class="o">=</span> <span class="n">extractor</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">uid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -483,7 +506,7 @@
             <span class="k">return</span> <span class="n">patron_data</span>
 
         <span class="c1"># Convert the PatronData into a Patron object</span>
-        <span class="n">patron</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">patron_data</span><span class="o">.</span><span class="n">get_or_create_patron</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="p">)</span>
+        <span class="n">patron</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">patron_data</span><span class="o">.</span><span class="n">get_or_create_patron</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">)</span>
 
         <span class="c1"># Create a credential for the Patron</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_configuration</span><span class="p">(</span><span class="n">db</span><span class="p">)</span> <span class="k">as</span> <span class="n">configuration</span><span class="p">:</span>
@@ -561,7 +584,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

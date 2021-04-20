@@ -33,13 +33,12 @@
           <div class="body" role="main">
             
   <h1>Source code for api.selftest</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">import</span> <span class="nn">sys</span>
+<span></span><span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
-<span class="kn">from</span> <span class="nn">authenticator</span> <span class="kn">import</span> <span class="n">LibraryAuthenticator</span>
-<span class="kn">from</span> <span class="nn">circulation</span> <span class="kn">import</span> <span class="n">CirculationAPI</span>
-<span class="kn">from</span> <span class="nn">feedbooks</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.authenticator</span> <span class="kn">import</span> <span class="n">LibraryAuthenticator</span>
+<span class="kn">from</span> <span class="nn">.circulation</span> <span class="kn">import</span> <span class="n">CirculationAPI</span>
+<span class="kn">from</span> <span class="nn">.feedbooks</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">FeedbooksOPDSImporter</span><span class="p">,</span>
     <span class="n">FeedbooksImportMonitor</span><span class="p">,</span>
 <span class="p">)</span>
@@ -105,9 +104,9 @@
                     <span class="k">continue</span>
 
                 <span class="k">yield</span> <span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">IntegrationException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">IntegrationException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_failure</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_failure</span><span class="p">(</span>
                     <span class="n">task</span><span class="p">,</span> <span class="s2">&quot;Exception getting default patron: </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">e</span>
                 <span class="p">)</span></div></div>
@@ -132,8 +131,8 @@
             <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">test_collection</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">api_map</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;  Exception while running self-test: </span><span class="si">%r</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">e</span><span class="p">)</span></div>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;  Exception while running self-test: &#39;</span><span class="si">%s</span><span class="s2">&#39;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">e</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="RunSelfTestsScript.test_collection"><a class="viewcode-back" href="../../api.html#api.selftest.RunSelfTestsScript.test_collection">[docs]</a>    <span class="k">def</span> <span class="nf">test_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_map</span><span class="p">,</span> <span class="n">extra_args</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">tester</span> <span class="o">=</span> <span class="n">api_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="p">)</span>
@@ -169,10 +168,10 @@
                 <span class="n">success</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">duration</span>
             <span class="p">)</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">result</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">result</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;   Result: </span><span class="si">%s</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">result</span><span class="o">.</span><span class="n">result</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">exception</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;   Exception: </span><span class="si">%r</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">result</span><span class="o">.</span><span class="n">exception</span><span class="p">)</span></div></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;   Exception: &#39;</span><span class="si">%s</span><span class="s2">&#39;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">result</span><span class="o">.</span><span class="n">exception</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="HasCollectionSelfTests"><a class="viewcode-back" href="../../api.html#api.selftest.HasCollectionSelfTests">[docs]</a><span class="k">class</span> <span class="nc">HasCollectionSelfTests</span><span class="p">(</span><span class="n">HasSelfTests</span><span class="p">):</span>
@@ -267,7 +266,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

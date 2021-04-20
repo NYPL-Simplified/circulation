@@ -35,7 +35,7 @@
   <h1>Source code for core.model.resource</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Resource, ResourceTransformation, Hyperlink, Representation</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
@@ -43,19 +43,18 @@
     <span class="n">get_one_or_create</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">..config</span> <span class="kn">import</span> <span class="n">Configuration</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.constants</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DataSourceConstants</span><span class="p">,</span>
     <span class="n">IdentifierConstants</span><span class="p">,</span>
     <span class="n">LinkRelations</span><span class="p">,</span>
     <span class="n">MediaTypes</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
-<span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.edition</span> <span class="kn">import</span> <span class="n">Edition</span>
+<span class="kn">from</span> <span class="nn">.licensing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">LicensePool</span><span class="p">,</span>
     <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">..util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
 
 <span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">BytesIO</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
@@ -86,8 +85,7 @@
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">or_</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">traceback</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
-<span class="kn">import</span> <span class="nn">urlparse</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span><span class="p">,</span> <span class="n">urlsplit</span><span class="p">,</span> <span class="n">quote</span>
 
 <div class="viewcode-block" id="Resource"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Resource">[docs]</a><span class="k">class</span> <span class="nc">Resource</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;An external resource that may be mirrored locally.</span>
@@ -116,7 +114,7 @@
 
     <span class="c1"># Many Works may use this resource (as opposed to other resources</span>
     <span class="c1"># linked to them with rel=&quot;description&quot;) as their summary.</span>
-    <span class="kn">from</span> <span class="nn">work</span> <span class="kn">import</span> <span class="n">Work</span>
+    <span class="kn">from</span> <span class="nn">.work</span> <span class="kn">import</span> <span class="n">Work</span>
     <span class="n">summary_works</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Work&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;summary&quot;</span><span class="p">,</span> <span class="n">foreign_keys</span><span class="o">=</span><span class="p">[</span><span class="n">Work</span><span class="o">.</span><span class="n">summary_id</span><span class="p">])</span>
 
     <span class="c1"># Many LicensePools (but probably one at most) may use this</span>
@@ -451,7 +449,7 @@
 <span class="sd">        thumbnail was created of it. (We do cover the case where the thumbnail</span>
 <span class="sd">        was created but not mirrored.)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
+        <span class="kn">from</span> <span class="nn">.identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Hyperlink</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
             <span class="n">Hyperlink</span><span class="o">.</span><span class="n">identifier</span>
@@ -489,10 +487,10 @@
 <span class="sd">        given link relation for a given identifier), you&#39;ll need some</span>
 <span class="sd">        other way of coming up with generic URIs.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">l</span> <span class="o">=</span> <span class="p">[</span><span class="n">identifier</span><span class="o">.</span><span class="n">urn</span><span class="p">,</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">rel</span><span class="p">)]</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="p">[</span><span class="n">identifier</span><span class="o">.</span><span class="n">urn</span><span class="p">,</span> <span class="n">quote</span><span class="p">(</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="n">quote</span><span class="p">(</span><span class="n">rel</span><span class="p">)]</span>
         <span class="k">if</span> <span class="n">content</span><span class="p">:</span>
             <span class="n">m</span> <span class="o">=</span> <span class="n">md5</span><span class="p">()</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
             <span class="n">m</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
             <span class="n">l</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">())</span>
@@ -652,7 +650,7 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource</span><span class="p">:</span>
             <span class="c1"># This really shouldn&#39;t happen.</span>
             <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource</span><span class="o">.</span><span class="n">url</span>
-        <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">url</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">is_usable</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -689,7 +687,7 @@
         <span class="sd">&quot;&quot;&quot;Guess a likely media type from the URL&#39;s path component.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">url</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="n">path</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">path</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">path</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">guess_media_type</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Representation.guess_media_type"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.guess_media_type">[docs]</a>    <span class="nd">@classmethod</span>
@@ -698,7 +696,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">filename</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="n">filename</span> <span class="o">=</span> <span class="n">filename</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">extension</span><span class="p">,</span> <span class="n">media_type</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">MEDIA_TYPE_FOR_EXTENSION</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">extension</span><span class="p">,</span> <span class="n">media_type</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">MEDIA_TYPE_FOR_EXTENSION</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">if</span> <span class="n">filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">extension</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">media_type</span>
         <span class="k">return</span> <span class="kc">None</span></div>
@@ -846,7 +844,7 @@
                 <span class="n">response_reviewer</span><span class="p">((</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">))</span>
             <span class="n">exception</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">media_type</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_best_media_type</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">presumed_media_type</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># This indicates there was a problem with making the HTTP</span>
@@ -870,7 +868,7 @@
             <span class="ow">or</span> <span class="n">normalized_url</span> <span class="o">!=</span> <span class="n">representation</span><span class="o">.</span><span class="n">url</span><span class="p">):</span>
             <span class="n">representation</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
                 <span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">normalized_url</span><span class="p">,</span>
-                <span class="n">media_type</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">media_type</span><span class="p">)</span>
+                <span class="n">media_type</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">media_type</span><span class="p">)</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">fetch_exception</span><span class="p">:</span>
@@ -910,7 +908,6 @@
                 <span class="nb">setattr</span><span class="p">(</span><span class="n">representation</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
             <span class="n">representation</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">headers_to_string</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>
-            <span class="n">representation</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
             <span class="n">representation</span><span class="o">.</span><span class="n">update_image_size</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">representation</span><span class="p">,</span> <span class="kc">False</span>
 
@@ -1023,7 +1020,7 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">encoding</span><span class="p">)</span>
                 <span class="k">break</span>
-            <span class="k">except</span> <span class="ne">UnicodeDecodeError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">UnicodeDecodeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">pass</span>
         <span class="k">return</span> <span class="n">content</span>
 
@@ -1032,7 +1029,7 @@
 <span class="sd">        This is used when the content of the representation is obtained</span>
 <span class="sd">        through some other means.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
 
@@ -1171,7 +1168,7 @@
             <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">domain</span> <span class="o">==</span> <span class="n">x</span> <span class="ow">or</span> <span class="n">domain</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">x</span><span class="p">)</span>
                        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">check_against</span><span class="p">)</span>
 
-        <span class="n">netloc</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">netloc</span>
+        <span class="n">netloc</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">netloc</span>
         <span class="k">if</span> <span class="n">has_domain</span><span class="p">(</span><span class="n">netloc</span><span class="p">,</span> <span class="n">do_not_access</span><span class="p">):</span>
             <span class="c1"># The link points directly to a domain we don&#39;t want to</span>
             <span class="c1"># access.</span>
@@ -1193,7 +1190,7 @@
         <span class="c1"># Yes, it&#39;s a redirect. Does it redirect to a</span>
         <span class="c1"># domain we don&#39;t want to access?</span>
         <span class="n">location</span> <span class="o">=</span> <span class="n">head_response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;location&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
-        <span class="n">netloc</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">location</span><span class="p">)</span><span class="o">.</span><span class="n">netloc</span>
+        <span class="n">netloc</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">location</span><span class="p">)</span><span class="o">.</span><span class="n">netloc</span>
         <span class="k">return</span> <span class="ow">not</span> <span class="n">has_domain</span><span class="p">(</span><span class="n">netloc</span><span class="p">,</span> <span class="n">do_not_access</span><span class="p">)</span></div>
 
     <span class="nd">@property</span>
@@ -1219,11 +1216,11 @@
     <span class="k">def</span> <span class="nf">url_extension</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;The file extension in this representation&#39;s original url.&quot;&quot;&quot;</span>
 
-        <span class="n">url_path</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">path</span>
+        <span class="n">url_path</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">path</span>
 
         <span class="c1"># Known extensions can be followed by a version number (.epub3)</span>
         <span class="c1"># or an additional extension (.epub.noimages)</span>
-        <span class="n">known_extensions</span> <span class="o">=</span> <span class="s2">&quot;|&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">FILE_EXTENSIONS</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">known_extensions</span> <span class="o">=</span> <span class="s2">&quot;|&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">FILE_EXTENSIONS</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
         <span class="n">known_extension_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;\.(</span><span class="si">%s</span><span class="s2">)\d?\.?[\w\d]*$&quot;</span> <span class="o">%</span> <span class="n">known_extensions</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">I</span><span class="p">)</span>
 
         <span class="n">known_match</span> <span class="o">=</span> <span class="n">known_extension_re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">url_path</span><span class="p">)</span>
@@ -1284,7 +1281,7 @@
 <div class="viewcode-block" id="Representation.default_filename"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.default_filename">[docs]</a>    <span class="k">def</span> <span class="nf">default_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">link</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">destination_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Try to come up with a good filename for this representation.&quot;&quot;&quot;</span>
 
-        <span class="n">scheme</span><span class="p">,</span> <span class="n">netloc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">fragment</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlsplit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">scheme</span><span class="p">,</span> <span class="n">netloc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">fragment</span> <span class="o">=</span> <span class="n">urlsplit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
         <span class="n">path_parts</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
         <span class="n">filename</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">path_parts</span><span class="p">:</span>
@@ -1323,6 +1320,8 @@
 <span class="sd">        or in a file on disk.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">BytesIO</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_path</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_path</span><span class="p">):</span>
@@ -1369,7 +1368,7 @@
         <span class="n">image</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_image</span><span class="p">()</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">scale_exception</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">scaled_at</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="c1"># This most likely indicates an error during the fetch</span>
@@ -1416,17 +1415,17 @@
         <span class="n">thumbnail</span><span class="o">.</span><span class="n">mirrored_at</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">thumbnail</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="n">args</span> <span class="o">=</span> <span class="p">[(</span><span class="n">max_width</span><span class="p">,</span> <span class="n">max_height</span><span class="p">),</span>
-                <span class="n">Image</span><span class="o">.</span><span class="n">ANTIALIAS</span><span class="p">]</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[(</span><span class="n">max_width</span><span class="p">,</span> <span class="n">max_height</span><span class="p">),</span> <span class="n">Image</span><span class="o">.</span><span class="n">LANCZOS</span><span class="p">]</span>
+
         <span class="k">try</span><span class="p">:</span>
             <span class="n">image</span><span class="o">.</span><span class="n">thumbnail</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">IOError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">IOError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># I&#39;m not sure why, but sometimes just trying</span>
             <span class="c1"># it again works.</span>
             <span class="n">original_exception</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">image</span><span class="o">.</span><span class="n">thumbnail</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">IOError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">IOError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">scale_exception</span> <span class="o">=</span> <span class="n">original_exception</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">scaled_at</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="k">return</span> <span class="bp">self</span><span class="p">,</span> <span class="kc">False</span>
@@ -1438,7 +1437,7 @@
             <span class="n">image</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s1">&#39;RGB&#39;</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">image</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">pil_format</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">scale_exception</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">scaled_at</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="c1"># This most likely indicates a problem during the fetch phase,</span>
@@ -1586,7 +1585,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

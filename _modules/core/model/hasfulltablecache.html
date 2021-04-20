@@ -35,7 +35,7 @@
   <h1>Source code for core.model.hasfulltablecache</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># HasFullTableCache</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">get_one</span>
 
 <span class="kn">import</span> <span class="nn">logging</span>
@@ -73,7 +73,7 @@
                 <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">obj</span>
             <span class="k">if</span> <span class="n">id_cache</span> <span class="o">!=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">RESET</span><span class="p">:</span>
                 <span class="n">id_cache</span><span class="p">[</span><span class="nb">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">obj</span>
-        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># The cache was reset in between the time we checked for a</span>
             <span class="c1"># reset and the time we tried to put an object in the</span>
             <span class="c1"># cache. Stop trying to mess with the cache.</span>
@@ -112,7 +112,7 @@
         <span class="k">if</span> <span class="n">cache</span> <span class="o">!=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">RESET</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">obj</span> <span class="o">=</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cache_key</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># This shouldn&#39;t happen. Even if the actual cache was</span>
                 <span class="c1"># reset just now, we still have a copy of the &#39;old&#39;</span>
                 <span class="c1"># cache which passed the &#39;cache != cls.RESET&#39; test.</span>
@@ -140,7 +140,7 @@
         <span class="k">if</span> <span class="n">obj</span> <span class="ow">and</span> <span class="n">obj</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_db</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">obj</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                     <span class="s2">&quot;Unable to merge cached object </span><span class="si">%r</span><span class="s2"> into database session&quot;</span><span class="p">,</span>
                     <span class="n">obj</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
@@ -229,7 +229,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

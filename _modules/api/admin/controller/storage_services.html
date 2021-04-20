@@ -55,7 +55,7 @@
         <span class="nb">super</span><span class="p">(</span><span class="n">StorageServicesController</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">goal</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">STORAGE_GOAL</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">protocols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_protocols</span><span class="p">(</span>
-            <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">IMPLEMENTATION_REGISTRY</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">MirrorUploader</span><span class="o">.</span><span class="n">IMPLEMENTATION_REGISTRY</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span>
             <span class="n">protocol_name_attr</span><span class="o">=</span><span class="s2">&quot;NAME&quot;</span>
         <span class="p">)</span>
 
@@ -105,9 +105,9 @@
         <span class="n">storage_service</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
 
         <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">storage_service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">storage_service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">storage_service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">storage_service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="StorageServicesController.process_delete"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.storage_services.StorageServicesController.process_delete">[docs]</a>    <span class="k">def</span> <span class="nf">process_delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service_id</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delete_integration</span><span class="p">(</span>
@@ -171,7 +171,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

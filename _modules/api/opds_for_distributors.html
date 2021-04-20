@@ -33,10 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for api.opds_for_distributors</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-
-<span class="kn">import</span> <span class="nn">base64</span>
-<span class="kn">import</span> <span class="nn">datetime</span>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">feedparser</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
@@ -65,18 +62,19 @@
     <span class="n">TimestampData</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.selftest</span> <span class="kn">import</span> <span class="n">HasSelfTests</span>
-<span class="kn">from</span> <span class="nn">circulation</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.circulation</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BaseCirculationAPI</span><span class="p">,</span>
     <span class="n">LoanInfo</span><span class="p">,</span>
     <span class="n">FulfillmentInfo</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
+<span class="kn">from</span> <span class="nn">core.util.string_helpers</span> <span class="kn">import</span> <span class="n">base64</span>
 <span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DatabaseTest</span><span class="p">,</span>
     <span class="n">MockRequestsResponse</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">IntegrationException</span>
-<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="n">IntegrationException</span>
+<span class="kn">from</span> <span class="nn">.circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
 
 <div class="viewcode-block" id="OPDSForDistributorsAPI"><a class="viewcode-back" href="../../api.html#api.opds_for_distributors.OPDSForDistributorsAPI">[docs]</a><span class="k">class</span> <span class="nc">OPDSForDistributorsAPI</span><span class="p">(</span><span class="n">BaseCirculationAPI</span><span class="p">,</span> <span class="n">HasSelfTests</span><span class="p">):</span>
     <span class="n">NAME</span> <span class="o">=</span> <span class="s2">&quot;OPDS for Distributors&quot;</span>
@@ -161,7 +159,7 @@
 
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">auth_doc</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">LibraryAuthorizationFailedException</span><span class="p">(</span><span class="s2">&quot;Could not load authentication document from </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">current_url</span><span class="p">)</span>
             <span class="n">auth_types</span> <span class="o">=</span> <span class="n">auth_doc</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;authentication&#39;</span><span class="p">,</span> <span class="p">[])</span>
             <span class="n">credentials_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">auth_types</span> <span class="k">if</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;http://opds-spec.org/auth/oauth/client_credentials&quot;</span><span class="p">]</span>
@@ -187,7 +185,8 @@
             <span class="k">if</span> <span class="ow">not</span> <span class="n">access_token</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">expires_in</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">LibraryAuthorizationFailedException</span><span class="p">(</span>
                     <span class="s2">&quot;Document retrieved from </span><span class="si">%s</span><span class="s2"> is not a bearer token: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">auth_url</span><span class="p">,</span> <span class="n">token_response</span><span class="o">.</span><span class="n">content</span>
+                        <span class="c1"># Response comes in as a byte string.</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">auth_url</span><span class="p">,</span> <span class="n">token_response</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
             <span class="n">credential</span><span class="o">.</span><span class="n">credential</span> <span class="o">=</span> <span class="n">access_token</span>
@@ -230,7 +229,7 @@
                 <span class="n">license_pool_id</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">loan</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># The patron didn&#39;t have this book checked out.</span>
             <span class="k">pass</span></div>
 
@@ -402,7 +401,7 @@
         <span class="n">identifiers</span><span class="p">,</span> <span class="n">failures</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">parse_urns</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">seen_identifiers</span>
         <span class="p">)</span>
-        <span class="n">identifier_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+        <span class="n">identifier_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">identifiers</span><span class="o">.</span><span class="n">values</span><span class="p">())]</span>
 
         <span class="c1"># At this point we&#39;ve gone through the feed and collected all the identifiers.</span>
         <span class="c1"># If there&#39;s anything we didn&#39;t see, we know it&#39;s no longer available.</span>
@@ -438,14 +437,14 @@
         <span class="n">collection</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span>
             <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Test OPDS For Distributors Collection&quot;</span><span class="p">,</span> <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
-                <span class="n">external_account_id</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;http://opds&quot;</span><span class="p">,</span>
+                <span class="n">external_account_id</span><span class="o">=</span><span class="s2">&quot;http://opds&quot;</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
         <span class="n">integration</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">create_external_integration</span><span class="p">(</span>
             <span class="n">protocol</span><span class="o">=</span><span class="n">OPDSForDistributorsAPI</span><span class="o">.</span><span class="n">NAME</span>
         <span class="p">)</span>
-        <span class="n">integration</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;a&#39;</span>
-        <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;b&#39;</span>
+        <span class="n">integration</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="s1">&#39;a&#39;</span>
+        <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="s1">&#39;b&#39;</span>
         <span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">collection</span></div>
 
@@ -524,7 +523,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

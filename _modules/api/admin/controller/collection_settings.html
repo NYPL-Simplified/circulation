@@ -33,8 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for api.admin.controller.collection_settings</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">SettingsController</span>
+<span></span><span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">SettingsController</span>
 <span class="kn">import</span> <span class="nn">flask</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
@@ -204,9 +203,9 @@
             <span class="k">return</span> <span class="n">libraries_error</span>
 
         <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="CollectionSettingsController.validate_form_fields"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.collection_settings.CollectionSettingsController.validate_form_fields">[docs]</a>    <span class="k">def</span> <span class="nf">validate_form_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">is_new</span><span class="p">,</span> <span class="n">protocols</span><span class="p">,</span> <span class="o">**</span><span class="n">fields</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Check that 1) the required fields aren&#39;t blank, 2) the protocol is on the</span>
@@ -374,7 +373,7 @@
 
         <span class="c1"># Flag the collection to be deleted by script in the background.</span>
         <span class="n">collection</span><span class="o">.</span><span class="n">marked_for_deletion</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Deleted&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Deleted&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>
@@ -433,7 +432,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

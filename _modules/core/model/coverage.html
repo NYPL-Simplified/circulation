@@ -35,7 +35,7 @@
   <h1>Source code for core.model.coverage</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># BaseCoverageRecord, Timestamp, CoverageRecord, WorkCoverageRecord</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
@@ -68,10 +68,10 @@
 <span class="sd">    WorkCoverageRecord.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">SUCCESS</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;success&#39;</span>
-    <span class="n">TRANSIENT_FAILURE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;transient failure&#39;</span>
-    <span class="n">PERSISTENT_FAILURE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;persistent failure&#39;</span>
-    <span class="n">REGISTERED</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;registered&#39;</span>
+    <span class="n">SUCCESS</span> <span class="o">=</span> <span class="s1">&#39;success&#39;</span>
+    <span class="n">TRANSIENT_FAILURE</span> <span class="o">=</span> <span class="s1">&#39;transient failure&#39;</span>
+    <span class="n">PERSISTENT_FAILURE</span> <span class="o">=</span> <span class="s1">&#39;persistent failure&#39;</span>
+    <span class="n">REGISTERED</span> <span class="o">=</span> <span class="s1">&#39;registered&#39;</span>
 
     <span class="n">ALL_STATUSES</span> <span class="o">=</span> <span class="p">[</span><span class="n">REGISTERED</span><span class="p">,</span> <span class="n">SUCCESS</span><span class="p">,</span> <span class="n">TRANSIENT_FAILURE</span><span class="p">,</span> <span class="n">PERSISTENT_FAILURE</span><span class="p">]</span>
 
@@ -101,7 +101,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">count_as_covered</span><span class="p">:</span>
             <span class="n">count_as_covered</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DEFAULT_COUNT_AS_COVERED</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">count_as_covered</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">count_as_covered</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">count_as_covered</span> <span class="o">=</span> <span class="p">[</span><span class="n">count_as_covered</span><span class="p">]</span>
 
         <span class="c1"># If there is no coverage record, then of course the item is</span>
@@ -200,7 +200,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">collection</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="n">message</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;&lt;Timestamp </span><span class="si">%s</span><span class="s2">: collection=</span><span class="si">%s</span><span class="s2">, start=</span><span class="si">%s</span><span class="s2"> finish=</span><span class="si">%s</span><span class="s2"> counter=</span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;&lt;Timestamp </span><span class="si">%s</span><span class="s2">: collection=</span><span class="si">%s</span><span class="s2">, start=</span><span class="si">%s</span><span class="s2"> finish=</span><span class="si">%s</span><span class="s2"> counter=</span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">finish</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">message</span>
@@ -319,13 +319,13 @@
     <span class="sd">&quot;&quot;&quot;A record of a Identifier being used as input into some process.&quot;&quot;&quot;</span>
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;coveragerecords&#39;</span>
 
-    <span class="n">SET_EDITION_METADATA_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;set-edition-metadata&#39;</span>
-    <span class="n">CHOOSE_COVER_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;choose-cover&#39;</span>
-    <span class="n">REAP_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;reap&#39;</span>
-    <span class="n">IMPORT_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;import&#39;</span>
-    <span class="n">RESOLVE_IDENTIFIER_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;resolve-identifier&#39;</span>
-    <span class="n">REPAIR_SORT_NAME_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;repair-sort-name&#39;</span>
-    <span class="n">METADATA_UPLOAD_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;metadata-upload&#39;</span>
+    <span class="n">SET_EDITION_METADATA_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;set-edition-metadata&#39;</span>
+    <span class="n">CHOOSE_COVER_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;choose-cover&#39;</span>
+    <span class="n">REAP_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;reap&#39;</span>
+    <span class="n">IMPORT_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;import&#39;</span>
+    <span class="n">RESOLVE_IDENTIFIER_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;resolve-identifier&#39;</span>
+    <span class="n">REPAIR_SORT_NAME_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;repair-sort-name&#39;</span>
+    <span class="n">METADATA_UPLOAD_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;metadata-upload&#39;</span>
 
     <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">identifier_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
@@ -389,9 +389,9 @@
 <div class="viewcode-block" id="CoverageRecord.lookup"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.CoverageRecord.lookup">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">edition_or_identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
-        <span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
-        <span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
+        <span class="kn">from</span> <span class="nn">.datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
+        <span class="kn">from</span> <span class="nn">.edition</span> <span class="kn">import</span> <span class="n">Edition</span>
+        <span class="kn">from</span> <span class="nn">.identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
 
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">edition_or_identifier</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">edition_or_identifier</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">):</span>
@@ -402,7 +402,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Cannot look up a coverage record for </span><span class="si">%r</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">get_one</span><span class="p">(</span>
@@ -417,8 +417,8 @@
 <div class="viewcode-block" id="CoverageRecord.add_for"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.CoverageRecord.add_for">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">add_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">edition</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                 <span class="n">status</span><span class="o">=</span><span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">SUCCESS</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
-        <span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
+        <span class="kn">from</span> <span class="nn">.edition</span> <span class="kn">import</span> <span class="n">Edition</span>
+        <span class="kn">from</span> <span class="nn">.identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
 
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">edition</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">edition</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">):</span>
@@ -449,7 +449,7 @@
         <span class="sd">&quot;&quot;&quot;Create and update CoverageRecords so that every Identifier in</span>
 <span class="sd">        `identifiers` has an identical record.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
+        <span class="kn">from</span> <span class="nn">.identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">identifiers</span><span class="p">:</span>
             <span class="c1"># Nothing to do.</span>
@@ -536,9 +536,7 @@
                 <span class="n">new_and_updated_record_ids</span>
             <span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
 
-        <span class="n">ignored_identifiers</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span>
-            <span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">.</span><span class="n">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">impacted_identifier_ids</span><span class="p">,</span> <span class="n">identifiers</span>
-        <span class="p">)</span>
+        <span class="n">ignored_identifiers</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">identifiers</span> <span class="k">if</span> <span class="n">i</span><span class="o">.</span><span class="n">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">impacted_identifier_ids</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="n">new_records</span><span class="p">,</span> <span class="n">ignored_identifiers</span></div></div>
 
@@ -553,13 +551,13 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;workcoveragerecords&#39;</span>
 
-    <span class="n">CHOOSE_EDITION_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;choose-edition&#39;</span>
-    <span class="n">CLASSIFY_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;classify&#39;</span>
-    <span class="n">SUMMARY_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;summary&#39;</span>
-    <span class="n">QUALITY_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;quality&#39;</span>
-    <span class="n">GENERATE_OPDS_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;generate-opds&#39;</span>
-    <span class="n">GENERATE_MARC_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;generate-marc&#39;</span>
-    <span class="n">UPDATE_SEARCH_INDEX_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;update-search-index&#39;</span>
+    <span class="n">CHOOSE_EDITION_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;choose-edition&#39;</span>
+    <span class="n">CLASSIFY_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;classify&#39;</span>
+    <span class="n">SUMMARY_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;summary&#39;</span>
+    <span class="n">QUALITY_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;quality&#39;</span>
+    <span class="n">GENERATE_OPDS_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;generate-opds&#39;</span>
+    <span class="n">GENERATE_MARC_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;generate-marc&#39;</span>
+    <span class="n">UPDATE_SEARCH_INDEX_OPERATION</span> <span class="o">=</span> <span class="s1">&#39;update-search-index&#39;</span>
 
     <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">work_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;works.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -617,7 +615,7 @@
         <span class="sd">&quot;&quot;&quot;Create and update WorkCoverageRecords so that every Work in</span>
 <span class="sd">        `works` has an identical record.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">work</span> <span class="kn">import</span> <span class="n">Work</span>
+        <span class="kn">from</span> <span class="nn">.work</span> <span class="kn">import</span> <span class="n">Work</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">works</span><span class="p">:</span>
             <span class="c1"># Nothing to do.</span>
@@ -733,7 +731,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

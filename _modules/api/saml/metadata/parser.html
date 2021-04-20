@@ -39,7 +39,7 @@
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">lxml.etree</span> <span class="kn">import</span> <span class="n">XMLSyntaxError</span>
 <span class="kn">from</span> <span class="nn">onelogin.saml2.constants</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_Constants</span>
-<span class="kn">from</span> <span class="nn">onelogin.saml2.utils</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_Utils</span>
+<span class="kn">from</span> <span class="nn">onelogin.saml2.utils</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_XML</span>
 
 <span class="kn">from</span> <span class="nn">api.saml.metadata.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">SAMLAttribute</span><span class="p">,</span>
@@ -138,7 +138,7 @@
         <span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">metadata_dom</span> <span class="o">=</span> <span class="n">fromstring</span><span class="p">(</span><span class="nb">bytes</span><span class="p">(</span><span class="n">xml_metadata</span><span class="p">),</span> <span class="n">forbid_dtd</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">metadata_dom</span> <span class="o">=</span> <span class="n">fromstring</span><span class="p">(</span><span class="n">xml_metadata</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">),</span> <span class="n">forbid_dtd</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">except</span> <span class="p">(</span>
             <span class="ne">ValueError</span><span class="p">,</span>
             <span class="n">XMLSyntaxError</span><span class="p">,</span>
@@ -175,7 +175,7 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">certificate_node</span> <span class="ow">in</span> <span class="n">certificate_nodes</span><span class="p">:</span>
                 <span class="n">certificate</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-                    <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">element_text</span><span class="p">(</span><span class="n">certificate_node</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                    <span class="n">OneLogin_Saml2_XML</span><span class="o">.</span><span class="n">element_text</span><span class="p">(</span><span class="n">certificate_node</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
                 <span class="p">)</span>
 
                 <span class="bp">self</span><span class="o">.</span><span class="n">_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
@@ -253,7 +253,7 @@
 
 <span class="sd">        :raise: MetadataParsingError</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">localizable_metadata_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+        <span class="n">localizable_metadata_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_XML</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
             <span class="n">provider_descriptor_node</span><span class="p">,</span> <span class="n">xpath</span>
         <span class="p">)</span>
 
@@ -356,12 +356,12 @@
 <span class="sd">        :rtype: string</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">name_id_format</span> <span class="o">=</span> <span class="n">SAMLNameIDFormat</span><span class="o">.</span><span class="n">UNSPECIFIED</span><span class="o">.</span><span class="n">value</span>
-        <span class="n">name_id_format_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+        <span class="n">name_id_format_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_XML</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
             <span class="n">provider_node</span><span class="p">,</span> <span class="s2">&quot;./ md:NameIDFormat&quot;</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">name_id_format_nodes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="c1"># OneLogin&#39;s python-saml supports only one name ID format so we select the first one</span>
-            <span class="n">name_id_format</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">element_text</span><span class="p">(</span><span class="n">name_id_format_nodes</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">name_id_format</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_XML</span><span class="o">.</span><span class="n">element_text</span><span class="p">(</span><span class="n">name_id_format_nodes</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
 
         <span class="k">return</span> <span class="n">name_id_format</span>
 
@@ -405,7 +405,7 @@
         <span class="n">name_id_format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_name_id_format</span><span class="p">(</span><span class="n">provider_node</span><span class="p">)</span>
 
         <span class="n">sso_service</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">sso_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+        <span class="n">sso_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_XML</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
             <span class="n">provider_node</span><span class="p">,</span>
             <span class="s2">&quot;./md:SingleSignOnService[@Binding=&#39;</span><span class="si">%s</span><span class="s2">&#39;]&quot;</span> <span class="o">%</span> <span class="n">required_sso_binding</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
         <span class="p">)</span>
@@ -423,7 +423,7 @@
             <span class="p">)</span>
 
         <span class="n">slo_service</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">slo_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+        <span class="n">slo_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_XML</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
             <span class="n">provider_node</span><span class="p">,</span>
             <span class="s2">&quot;./md:SingleLogoutService[@Binding=&#39;</span><span class="si">%s</span><span class="s2">&#39;]&quot;</span> <span class="o">%</span> <span class="n">required_slo_binding</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
         <span class="p">)</span>
@@ -432,13 +432,13 @@
             <span class="n">slo_url</span> <span class="o">=</span> <span class="n">slo_node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Location&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="n">slo_service</span> <span class="o">=</span> <span class="n">SAMLService</span><span class="p">(</span><span class="n">slo_url</span><span class="p">,</span> <span class="n">required_slo_binding</span><span class="p">)</span>
 
-        <span class="n">signing_certificate_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+        <span class="n">signing_certificate_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_XML</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
             <span class="n">provider_node</span><span class="p">,</span>
             <span class="s1">&#39;./md:KeyDescriptor[not(contains(@use, &quot;encryption&quot;))]/ds:KeyInfo/ds:X509Data/ds:X509Certificate&#39;</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">signing_certificates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_certificates</span><span class="p">(</span><span class="n">signing_certificate_nodes</span><span class="p">)</span>
 
-        <span class="n">encryption_certificate_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+        <span class="n">encryption_certificate_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_XML</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
             <span class="n">provider_node</span><span class="p">,</span>
             <span class="s1">&#39;./md:KeyDescriptor[not(contains(@use, &quot;signing&quot;))]/ds:KeyInfo/ds:X509Data/ds:X509Certificate&#39;</span><span class="p">,</span>
         <span class="p">)</span>
@@ -495,7 +495,7 @@
         <span class="n">name_id_format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_name_id_format</span><span class="p">(</span><span class="n">provider_node</span><span class="p">)</span>
 
         <span class="n">acs_service</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">acs_service_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+        <span class="n">acs_service_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_XML</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
             <span class="n">provider_node</span><span class="p">,</span>
             <span class="s2">&quot;./md:AssertionConsumerService[@Binding=&#39;</span><span class="si">%s</span><span class="s2">&#39;]&quot;</span> <span class="o">%</span> <span class="n">required_acs_binding</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
         <span class="p">)</span>
@@ -514,7 +514,7 @@
                 <span class="p">)</span>
             <span class="p">)</span>
 
-        <span class="n">certificate_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+        <span class="n">certificate_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_XML</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
             <span class="n">provider_node</span><span class="p">,</span>
             <span class="s2">&quot;./md:KeyDescriptor/ds:KeyInfo/ds:X509Data/ds:X509Certificate&quot;</span><span class="p">,</span>
         <span class="p">)</span>
@@ -609,12 +609,12 @@
         <span class="n">parsing_results</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">entity_descriptor_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">entity_descriptor_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_XML</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
                 <span class="n">metadata_dom</span><span class="p">,</span> <span class="s2">&quot;//md:EntityDescriptor&quot;</span>
             <span class="p">)</span>
 
             <span class="k">for</span> <span class="n">entity_descriptor_node</span> <span class="ow">in</span> <span class="n">entity_descriptor_nodes</span><span class="p">:</span>
-                <span class="n">idp_descriptor_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+                <span class="n">idp_descriptor_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_XML</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
                     <span class="n">entity_descriptor_node</span><span class="p">,</span> <span class="s2">&quot;./md:IDPSSODescriptor&quot;</span>
                 <span class="p">)</span>
                 <span class="n">idps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_providers</span><span class="p">(</span>
@@ -629,7 +629,7 @@
                     <span class="p">)</span>
                     <span class="n">parsing_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parsing_result</span><span class="p">)</span>
 
-                <span class="n">sp_descriptor_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+                <span class="n">sp_descriptor_nodes</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_XML</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
                     <span class="n">entity_descriptor_node</span><span class="p">,</span> <span class="s2">&quot;./md:SPSSODescriptor&quot;</span>
                 <span class="p">)</span>
                 <span class="n">sps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_providers</span><span class="p">(</span>
@@ -713,7 +713,7 @@
             <span class="n">attribute</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">attribute</span> <span class="k">for</span> <span class="n">attribute</span> <span class="ow">in</span> <span class="n">SAMLAttributeType</span>
         <span class="p">}</span>
 
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">attribute_values</span> <span class="ow">in</span> <span class="n">attributes</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">attribute_values</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">attributes</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">attribute_names</span><span class="p">:</span>
                 <span class="n">name</span> <span class="o">=</span> <span class="n">attribute_names</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
 
@@ -816,7 +816,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

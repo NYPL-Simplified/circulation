@@ -102,7 +102,7 @@
 
     <span class="k">if</span> <span class="n">length_limit</span><span class="p">:</span>
         <span class="n">slug</span> <span class="o">=</span> <span class="n">slug</span><span class="p">[:</span><span class="n">length_limit</span><span class="p">]</span>
-    <span class="k">return</span> <span class="n">unicode</span><span class="p">(</span><span class="n">slug</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">slug</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="MetadataSimilarity"><a class="viewcode-back" href="../../core.util.html#core.util.MetadataSimilarity">[docs]</a><span class="k">class</span> <span class="nc">MetadataSimilarity</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -138,7 +138,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">total</span><span class="p">:</span>
             <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">histogram</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
         <span class="n">total</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">total</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">histogram</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">histogram</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">histogram</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">/</span><span class="n">total</span>
         <span class="k">return</span> <span class="n">histogram</span></div>
 
@@ -172,13 +172,13 @@
         <span class="n">differences</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="c1"># For every item that appears in histogram 1, compare its</span>
         <span class="c1"># frequency against the frequency of that item in histogram 2.</span>
-        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">counter1</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">counter1</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">difference</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">v</span> <span class="o">-</span> <span class="n">counter2</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
             <span class="n">differences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">difference</span><span class="p">)</span>
 
         <span class="c1"># Add the frequency of every item that appears in histogram 2</span>
         <span class="c1"># titles but not in histogram 1.</span>
-        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">counter2</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">counter2</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">counter1</span><span class="p">:</span>
                 <span class="n">differences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
 
@@ -310,15 +310,15 @@
 
 <div class="viewcode-block" id="Bigrams.difference_from"><a class="viewcode-back" href="../../core.util.html#core.util.Bigrams.difference_from">[docs]</a>    <span class="k">def</span> <span class="nf">difference_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other_bigrams</span><span class="p">):</span>
         <span class="n">total_difference</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">bigram</span><span class="p">,</span> <span class="n">proportion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">proportional</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">bigram</span><span class="p">,</span> <span class="n">proportion</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">proportional</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">other_proportion</span> <span class="o">=</span> <span class="n">other_bigrams</span><span class="o">.</span><span class="n">proportional</span><span class="p">[</span><span class="n">bigram</span><span class="p">]</span>
             <span class="n">difference</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">other_proportion</span> <span class="o">-</span> <span class="n">proportion</span><span class="p">)</span>
             <span class="n">total_difference</span> <span class="o">+=</span> <span class="n">difference</span>
-            <span class="c1"># print &quot;%s %.4f-%.4f = %.4f =&gt; %.4f&quot; % (bigram, other_proportion, proportion, difference, total_difference)</span>
-        <span class="k">for</span> <span class="n">bigram</span><span class="p">,</span> <span class="n">proportion</span> <span class="ow">in</span> <span class="n">other_bigrams</span><span class="o">.</span><span class="n">proportional</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># print(&quot;%s %.4f-%.4f = %.4f =&gt; %.4f&quot; % (bigram, other_proportion, proportion, difference, total_difference))</span>
+        <span class="k">for</span> <span class="n">bigram</span><span class="p">,</span> <span class="n">proportion</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">other_bigrams</span><span class="o">.</span><span class="n">proportional</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">if</span> <span class="n">bigram</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">proportional</span><span class="p">:</span>
                 <span class="n">total_difference</span> <span class="o">+=</span> <span class="n">proportion</span>
-                <span class="c1"># print &quot;%s MISSING %.4f =&gt; %.4f&quot; % (bigram, proportion, total_difference)</span>
+                <span class="c1"># print(&quot;%s MISSING %.4f =&gt; %.4f&quot; % (bigram, proportion, total_difference))</span>
         <span class="k">return</span> <span class="n">total_difference</span></div>
 
 <div class="viewcode-block" id="Bigrams.from_text_files"><a class="viewcode-back" href="../../core.util.html#core.util.Bigrams.from_text_files">[docs]</a>    <span class="nd">@classmethod</span>
@@ -562,7 +562,7 @@
         <span class="n">currency</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DEFAULT_CURRENCY</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">amount</span><span class="p">:</span>
             <span class="n">amount</span> <span class="o">=</span> <span class="s1">&#39;0&#39;</span>
-        <span class="n">amount</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">amount</span><span class="p">)</span>
+        <span class="n">amount</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">amount</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">amount</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;$&#39;</span><span class="p">:</span>
             <span class="n">currency</span> <span class="o">=</span> <span class="s1">&#39;USD&#39;</span>
             <span class="n">amount</span> <span class="o">=</span> <span class="n">amount</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
@@ -660,7 +660,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

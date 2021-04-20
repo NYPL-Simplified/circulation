@@ -34,7 +34,6 @@
             
   <h1>Source code for api.adobe_vendor_id</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">argparse</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">uuid</span>
@@ -44,16 +43,16 @@
 <span class="kn">import</span> <span class="nn">jwt</span>
 <span class="kn">from</span> <span class="nn">jwt.algorithms</span> <span class="kn">import</span> <span class="n">HMACAlgorithm</span>
 <span class="kn">import</span> <span class="nn">sys</span>
-
 <span class="kn">import</span> <span class="nn">flask</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">Configuration</span><span class="p">,</span>
 <span class="p">)</span>
+
 <span class="kn">from</span> <span class="nn">api.base_controller</span> <span class="kn">import</span> <span class="n">BaseCirculationManagerController</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
@@ -170,7 +169,7 @@
                     <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Expected </span><span class="si">%(media_type)s</span><span class="s2"> document.&quot;</span><span class="p">,</span>
                       <span class="n">media_type</span><span class="o">=</span><span class="n">device_ids</span><span class="p">)</span>
                 <span class="p">)</span>
-            <span class="n">output</span> <span class="o">=</span> <span class="n">handler</span><span class="o">.</span><span class="n">register_device</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">handler</span><span class="o">.</span><span class="n">register_device</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">as_text</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">output</span>
             <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PLAIN_TEXT_HEADERS</span><span class="p">)</span>
@@ -225,9 +224,9 @@
         <span class="n">parser</span> <span class="o">=</span> <span class="n">AdobeSignInRequestParser</span><span class="p">()</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Error processing </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_document</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">AUTH_ERROR_TYPE</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_document</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">AUTH_ERROR_TYPE</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
         <span class="n">user_id</span> <span class="o">=</span> <span class="n">label</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_document</span><span class="p">(</span>
@@ -262,9 +261,9 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">ACCOUNT_INFO_ERROR_TYPE</span><span class="p">,</span>
                     <span class="s2">&quot;Could not find user identifer in request document.&quot;</span><span class="p">)</span>
             <span class="n">label</span> <span class="o">=</span> <span class="n">urn_to_label</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;user&#39;</span><span class="p">])</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_document</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">ACCOUNT_INFO_ERROR_TYPE</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ACCOUNT_INFO_ERROR_TYPE</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">label</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ACCOUNT_INFO_RESPONSE_TEMPLATE</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span>
@@ -330,6 +329,8 @@
                 <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
                 <span class="k">if</span> <span class="n">transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">v</span> <span class="o">=</span> <span class="n">transform</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
         <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span></div>
 
 <div class="viewcode-block" id="AdobeSignInRequestParser"><a class="viewcode-back" href="../../api.html#api.adobe_vendor_id.AdobeSignInRequestParser">[docs]</a><span class="k">class</span> <span class="nc">AdobeSignInRequestParser</span><span class="p">(</span><span class="n">AdobeRequestParser</span><span class="p">):</span>
@@ -381,7 +382,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">authenticator</span> <span class="o">=</span> <span class="n">authenticator</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">temporary_token_duration</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">temporary_token_duration</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">10</span><span class="p">))</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node_value</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node_value</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">node_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">node_value</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">node_value</span> <span class="o">=</span> <span class="n">node_value</span>
 
@@ -503,7 +504,7 @@
                 <span class="n">library_uri</span><span class="p">,</span> <span class="n">foreign_patron_identifier</span> <span class="o">=</span> <span class="n">utility</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span>
                     <span class="n">authdata</span>
                 <span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># Not a problem -- we&#39;ll try the old system.</span>
                 <span class="k">pass</span>
 
@@ -538,7 +539,7 @@
             <span class="c1"># another library&#39;s circulation manager.</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">library_uri</span><span class="p">,</span> <span class="n">foreign_patron_identifier</span> <span class="o">=</span> <span class="n">utility</span><span class="o">.</span><span class="n">decode_two_part_short_client_token</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">signature</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># This didn&#39;t work--either the incoming data was wrong</span>
                 <span class="c1"># or this technique wasn&#39;t the right one to use.</span>
                 <span class="k">pass</span>
@@ -688,7 +689,7 @@
 
         <span class="c1"># Fill in secrets_by_library_uri and library_uris_by_short_name</span>
         <span class="c1"># for other libraries.</span>
-        <span class="k">for</span> <span class="n">uri</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">other_libraries</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">uri</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">other_libraries</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">short_name</span><span class="p">,</span> <span class="n">secret</span> <span class="o">=</span> <span class="n">v</span>
             <span class="n">short_name</span> <span class="o">=</span> <span class="n">short_name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">short_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_uris_by_short_name</span><span class="p">:</span>
@@ -707,8 +708,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">secret</span>
         <span class="p">)</span>
 
-    <span class="n">VENDOR_ID_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;vendor_id&#39;</span>
-    <span class="n">OTHER_LIBRARIES_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;other_libraries&#39;</span>
+    <span class="n">VENDOR_ID_KEY</span> <span class="o">=</span> <span class="s1">&#39;vendor_id&#39;</span>
+    <span class="n">OTHER_LIBRARIES_KEY</span> <span class="o">=</span> <span class="s1">&#39;other_libraries&#39;</span>
 
 <div class="viewcode-block" id="AuthdataUtility.from_config"><a class="viewcode-back" href="../../api.html#api.adobe_vendor_id.AuthdataUtility.from_config">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -830,12 +831,12 @@
             <span class="n">payload</span><span class="p">[</span><span class="s1">&#39;iat&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numericdate</span><span class="p">(</span><span class="n">iat</span><span class="p">)</span> <span class="c1"># Issued At</span>
         <span class="k">if</span> <span class="n">exp</span><span class="p">:</span>
             <span class="n">payload</span><span class="p">[</span><span class="s1">&#39;exp&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numericdate</span><span class="p">(</span><span class="n">exp</span><span class="p">)</span> <span class="c1"># Expiration Time</span>
-        <span class="k">return</span> <span class="n">base64</span><span class="o">.</span><span class="n">encodestring</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">base64</span><span class="o">.</span><span class="n">encodebytes</span><span class="p">(</span>
             <span class="n">jwt</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">secret</span><span class="p">,</span> <span class="n">algorithm</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ALGORITHM</span><span class="p">)</span>
         <span class="p">)</span>
 
 <div class="viewcode-block" id="AuthdataUtility.adobe_base64_encode"><a class="viewcode-back" href="../../api.html#api.adobe_vendor_id.AuthdataUtility.adobe_base64_encode">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">adobe_base64_encode</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">adobe_base64_encode</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">str_to_encode</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;A modified base64 encoding that avoids triggering an Adobe bug.</span>
 
 <span class="sd">        The bug seems to happen when the &#39;password&#39; portion of a</span>
@@ -843,14 +844,16 @@
 <span class="sd">        with :. We also replace / (another &quot;suspicious&quot; character)</span>
 <span class="sd">        with ;. and strip newlines.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">encoded</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">encodestring</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">encoded</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;:&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">,</span> <span class="s2">&quot;@&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></div>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">str_to_encode</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">str_to_encode</span> <span class="o">=</span> <span class="n">str_to_encode</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+        <span class="n">encoded</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">encodebytes</span><span class="p">(</span><span class="n">str_to_encode</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">encoded</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;:&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">,</span> <span class="s2">&quot;@&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="AuthdataUtility.adobe_base64_decode"><a class="viewcode-back" href="../../api.html#api.adobe_vendor_id.AuthdataUtility.adobe_base64_decode">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">adobe_base64_decode</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Undoes adobe_base64_encode.&quot;&quot;&quot;</span>
         <span class="n">encoded</span> <span class="o">=</span> <span class="nb">str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">,</span> <span class="s2">&quot;/&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">,</span> <span class="s2">&quot;=&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">base64</span><span class="o">.</span><span class="n">decodestring</span><span class="p">(</span><span class="n">encoded</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">base64</span><span class="o">.</span><span class="n">decodebytes</span><span class="p">(</span><span class="n">encoded</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="AuthdataUtility.decode"><a class="viewcode-back" href="../../api.html#api.adobe_vendor_id.AuthdataUtility.decode">[docs]</a>    <span class="k">def</span> <span class="nf">decode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">authdata</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Decode and verify an authdata JWT from one of the libraries managed</span>
@@ -868,9 +871,9 @@
         <span class="c1"># try to decode it ourselves and verify it that way.</span>
         <span class="n">potential_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="n">authdata</span><span class="p">]</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">decoded</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">decodestring</span><span class="p">(</span><span class="n">authdata</span><span class="p">)</span>
+            <span class="n">decoded</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">decodebytes</span><span class="p">(</span><span class="n">authdata</span><span class="p">)</span>
             <span class="n">potential_tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">decoded</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># Do nothing -- the authdata was not encoded to begin with.</span>
             <span class="k">pass</span>
 
@@ -879,7 +882,7 @@
         <span class="k">for</span> <span class="n">authdata</span> <span class="ow">in</span> <span class="n">potential_tokens</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decode</span><span class="p">(</span><span class="n">authdata</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Error decoding </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">authdata</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
                 <span class="n">exceptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
 
@@ -912,7 +915,7 @@
         <span class="k">return</span> <span class="n">library_uri</span><span class="p">,</span> <span class="n">decoded</span><span class="p">[</span><span class="s1">&#39;sub&#39;</span><span class="p">]</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">_adobe_patron_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_adobe_patron_identifier</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Take patron object and return identifier for Adobe ID purposes&quot;&quot;&quot;</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
         <span class="n">internal</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">INTERNAL_PROCESSING</span><span class="p">)</span>
@@ -961,7 +964,7 @@
                                    <span class="n">patron_identifier</span><span class="p">,</span> <span class="n">expires</span><span class="p">):</span>
         <span class="n">base</span> <span class="o">=</span> <span class="n">library_short_name</span> <span class="o">+</span> <span class="s2">&quot;|&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">expires</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;|&quot;</span> <span class="o">+</span> <span class="n">patron_identifier</span>
         <span class="n">signature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_token_signer</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span>
-            <span class="n">base</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_token_signing_key</span>
+            <span class="n">base</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_token_signing_key</span>
         <span class="p">)</span>
         <span class="n">signature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">adobe_base64_encode</span><span class="p">(</span><span class="n">signature</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">base</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">80</span><span class="p">:</span>
@@ -1041,7 +1044,7 @@
 
         <span class="c1"># Sign the token and check against the provided signature.</span>
         <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_token_signer</span><span class="o">.</span><span class="n">prepare_key</span><span class="p">(</span><span class="n">secret</span><span class="p">)</span>
-        <span class="n">actual_signature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_token_signer</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="n">actual_signature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_token_signer</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">),</span> <span class="n">key</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">actual_signature</span> <span class="o">!=</span> <span class="n">supposed_signature</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -1139,7 +1142,7 @@
 
         <span class="n">chosen_website</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">website_url</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">chosen_website</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">website</span> <span class="ow">in</span> <span class="n">other_libraries</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">website</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">other_libraries</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">other_libraries</span><span class="p">,</span> <span class="n">website</span><span class="p">)</span>
             <span class="k">return</span>
 
@@ -1326,7 +1329,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

@@ -43,10 +43,10 @@
     <span class="n">or_</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">import</span> <span class="nn">log</span> <span class="c1"># This sets the appropriate log format and level.</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
-<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="kn">import</span> <span class="n">TimestampData</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">log</span> <span class="c1"># This sets the appropriate log format and level.</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">.metadata_layer</span> <span class="kn">import</span> <span class="n">TimestampData</span>
+<span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CachedFeed</span><span class="p">,</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
@@ -66,7 +66,21 @@
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="kn">import</span> <span class="n">ConfigurationSetting</span>
+<span class="kn">from</span> <span class="nn">.model.configuration</span> <span class="kn">import</span> <span class="n">ConfigurationSetting</span>
+
+
+<div class="viewcode-block" id="CollectionMonitorLogger"><a class="viewcode-back" href="../../core.html#core.monitor.CollectionMonitorLogger">[docs]</a><span class="k">class</span> <span class="nc">CollectionMonitorLogger</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">LoggerAdapter</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Prefix log messages with a collection, if one is present.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">extra</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">extra</span> <span class="o">=</span> <span class="n">extra</span>
+        <span class="n">collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;collection&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_prefix</span> <span class="o">=</span> <span class="s1">&#39;[</span><span class="si">{}</span><span class="s1">] &#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="k">if</span> <span class="n">collection</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">warn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">warning</span>
+
+<div class="viewcode-block" id="CollectionMonitorLogger.process"><a class="viewcode-back" href="../../core.html#core.monitor.CollectionMonitorLogger.process">[docs]</a>    <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s1">&#39;</span><span class="si">{}{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_prefix</span><span class="p">,</span> <span class="n">msg</span><span class="p">),</span> <span class="n">kwargs</span></div></div>
 
 
 <div class="viewcode-block" id="Monitor"><a class="viewcode-back" href="../../core.html#core.monitor.Monitor">[docs]</a><span class="k">class</span> <span class="nc">Monitor</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -134,7 +148,10 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">log</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_log&#39;</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_log</span> <span class="o">=</span> <span class="n">CollectionMonitorLogger</span><span class="p">(</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">),</span>
+                <span class="p">{</span><span class="s1">&#39;collection&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">},</span>
+            <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log</span>
 
     <span class="nd">@property</span>
@@ -156,7 +173,6 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_start_time</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_start_time</span>
         <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
-
 
 <div class="viewcode-block" id="Monitor.timestamp"><a class="viewcode-back" href="../../core.html#core.monitor.Monitor.timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find or create a Timestamp for this Monitor.</span>
@@ -363,40 +379,66 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">collection</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">CollectionMissing</span><span class="p">()</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span> <span class="ow">and</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">:</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_validate_collection</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">CollectionMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_validate_collection</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">protocol</span> <span class="ow">or</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PROTOCOL</span>
+        <span class="k">if</span> <span class="n">protocol</span> <span class="ow">and</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="n">protocol</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Collection protocol (</span><span class="si">%s</span><span class="s2">) does not match Monitor protocol (</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
-                    <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PROTOCOL</span>
+                    <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="n">protocol</span>
                 <span class="p">)</span>
             <span class="p">)</span>
 
-        <span class="nb">super</span><span class="p">(</span><span class="n">CollectionMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
-
 <div class="viewcode-block" id="CollectionMonitor.all"><a class="viewcode-back" href="../../core.html#core.monitor.CollectionMonitor.all">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">all</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="o">**</span><span class="n">constructor_kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">all</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collections</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">constructor_kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Yield a sequence of CollectionMonitor objects: one for every</span>
 <span class="sd">        Collection associated with cls.PROTOCOL.</span>
+
+<span class="sd">        If `collections` is specified, then there must be a Monitor</span>
+<span class="sd">        for each one and Monitors will be yielded in the same order</span>
+<span class="sd">        that the collections are specified. Otherwise, Monitors will</span>
+<span class="sd">        be yielded as follows...</span>
 
 <span class="sd">        Monitors that have no Timestamp will be yielded first. After</span>
 <span class="sd">        that, Monitors with older values for Timestamp.start will be</span>
 <span class="sd">        yielded before Monitors with newer values.</span>
 
+<span class="sd">        :param _db: Database session object.</span>
+<span class="sd">        :param collections: An optional list of collections. If None,</span>
+<span class="sd">            we&#39;ll process all collections.</span>
+<span class="sd">        :type collections: List[Collection]</span>
 <span class="sd">        :param constructor_kwargs: These keyword arguments will be passed</span>
 <span class="sd">            into the CollectionMonitor constructor.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">service_match</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span><span class="n">Timestamp</span><span class="o">.</span><span class="n">service</span><span class="o">==</span><span class="bp">cls</span><span class="o">.</span><span class="n">SERVICE_NAME</span><span class="p">,</span>
                             <span class="n">Timestamp</span><span class="o">.</span><span class="n">service</span><span class="o">==</span><span class="kc">None</span><span class="p">)</span>
-        <span class="n">collections</span> <span class="o">=</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_protocol</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PROTOCOL</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span>
+        <span class="n">collections_for_protocol</span> <span class="o">=</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_protocol</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PROTOCOL</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span>
             <span class="n">Timestamp</span><span class="p">,</span>
             <span class="n">and_</span><span class="p">(</span>
                 <span class="n">Timestamp</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="n">Collection</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
                 <span class="n">service_match</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
-        <span class="n">collections</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span>
-            <span class="n">Timestamp</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">asc</span><span class="p">()</span><span class="o">.</span><span class="n">nullsfirst</span><span class="p">()</span>
-        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">collections</span><span class="p">:</span>
+            <span class="c1"># verify that each specified collection exists in this context</span>
+            <span class="k">for</span> <span class="n">coll</span> <span class="ow">in</span> <span class="n">collections</span><span class="p">:</span>  <span class="c1"># type: str</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">cls</span><span class="o">.</span><span class="n">_validate_collection</span><span class="p">(</span><span class="n">coll</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PROTOCOL</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">additional_info</span> <span class="o">=</span> <span class="s1">&#39;Only the following collections are available: </span><span class="si">{!r}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">collections_for_protocol</span><span class="p">]</span>
+                    <span class="p">)</span>
+                    <span class="n">e</span><span class="o">.</span><span class="n">args</span> <span class="o">+=</span> <span class="p">(</span><span class="n">additional_info</span><span class="p">,)</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">additional_info</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">collections</span> <span class="o">=</span> <span class="n">collections_for_protocol</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span>
+                <span class="n">Timestamp</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">asc</span><span class="p">()</span><span class="o">.</span><span class="n">nullsfirst</span><span class="p">()</span>
+            <span class="p">)</span>
         <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">collections</span><span class="p">:</span>
             <span class="k">yield</span> <span class="bp">cls</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span> <span class="o">**</span><span class="n">constructor_kwargs</span><span class="p">)</span></div></div>
 
@@ -703,13 +745,13 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">work</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">CoverageProvidersFailed</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">CoverageProvidersFailed</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">exception</span> <span class="o">=</span> <span class="s2">&quot;Provider(s) failed: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">e</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                 <span class="s2">&quot;Exception processing work </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
             <span class="p">)</span>
-            <span class="n">exception</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">exception</span><span class="p">:</span>
             <span class="c1"># Unlike with most Monitors, an exception is not a good</span>
@@ -889,7 +931,7 @@
     <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">Work</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
+        <span class="kn">from</span> <span class="nn">.external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
         <span class="n">search_index_client</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;search_index_client&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">WorkReaper</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">search_index_client</span> <span class="o">=</span> <span class="p">(</span>
@@ -948,7 +990,7 @@
 <div class="viewcode-block" id="MeasurementReaper.run_once"><a class="viewcode-back" href="../../core.html#core.monitor.MeasurementReaper.run_once">[docs]</a>    <span class="k">def</span> <span class="nf">run_once</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">rows_deleted</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">()</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">TimestampData</span><span class="p">(</span><span class="n">achievements</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Items deleted: </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">rows_deleted</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">TimestampData</span><span class="p">(</span><span class="n">achievements</span><span class="o">=</span><span class="s2">&quot;Items deleted: </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">rows_deleted</span><span class="p">)</span></div></div>
 
 <span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MeasurementReaper</span><span class="p">)</span>
 
@@ -1082,7 +1124,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

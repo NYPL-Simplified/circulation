@@ -43,11 +43,14 @@
 <span class="sd">        :param inner_exception: (Optional) Inner exception</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">inner_exception</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">message</span><span class="p">:</span>
-            <span class="n">message</span> <span class="o">=</span> <span class="n">inner_exception</span><span class="o">.</span><span class="n">message</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">inner_exception</span><span class="p">)</span>
 
         <span class="nb">super</span><span class="p">(</span><span class="n">BaseError</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_inner_exception</span> <span class="o">=</span> <span class="n">inner_exception</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_inner_exception</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">inner_exception</span><span class="p">)</span> <span class="k">if</span> <span class="n">inner_exception</span> <span class="k">else</span> <span class="kc">None</span>
+    
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">inner_exception</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -70,11 +73,11 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">BaseError</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">False</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">message</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s1">&#39;&lt;BaseError(message=</span><span class="si">{0}</span><span class="s1">, inner_exception=</span><span class="si">{1}</span><span class="s1">)&gt;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">,</span>
+            <span class="p">(</span><span class="bp">self</span><span class="p">),</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">inner_exception</span>
         <span class="p">)</span></div>
 
@@ -134,7 +137,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

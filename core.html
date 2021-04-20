@@ -145,7 +145,7 @@
 
 <dl class="attribute">
 <dt id="core.analytics.Analytics.LIBRARY_ENABLED">
-<code class="descname">LIBRARY_ENABLED</code><em class="property"> = set([])</em><a class="headerlink" href="#core.analytics.Analytics.LIBRARY_ENABLED" title="Permalink to this definition">¶</a></dt>
+<code class="descname">LIBRARY_ENABLED</code><em class="property"> = {}</em><a class="headerlink" href="#core.analytics.Analytics.LIBRARY_ENABLED" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -435,11 +435,6 @@ server.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="core.config.Configuration.ALL_ACCESS">
-<code class="descname">ALL_ACCESS</code><em class="property"> = 1</em><a class="headerlink" href="#core.config.Configuration.ALL_ACCESS" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
 <dt id="core.config.Configuration.ANALYTICS_POLICY">
 <code class="descname">ANALYTICS_POLICY</code><em class="property"> = 'analytics'</em><a class="headerlink" href="#core.config.Configuration.ANALYTICS_POLICY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -456,7 +451,7 @@ server.</p>
 
 <dl class="attribute">
 <dt id="core.config.Configuration.BASE_URL_KEY">
-<code class="descname">BASE_URL_KEY</code><em class="property"> = u'base_url'</em><a class="headerlink" href="#core.config.Configuration.BASE_URL_KEY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">BASE_URL_KEY</code><em class="property"> = 'base_url'</em><a class="headerlink" href="#core.config.Configuration.BASE_URL_KEY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -466,17 +461,17 @@ server.</p>
 
 <dl class="attribute">
 <dt id="core.config.Configuration.CDN_MIRRORED_DOMAIN_KEY">
-<code class="descname">CDN_MIRRORED_DOMAIN_KEY</code><em class="property"> = u'mirrored_domain'</em><a class="headerlink" href="#core.config.Configuration.CDN_MIRRORED_DOMAIN_KEY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">CDN_MIRRORED_DOMAIN_KEY</code><em class="property"> = 'mirrored_domain'</em><a class="headerlink" href="#core.config.Configuration.CDN_MIRRORED_DOMAIN_KEY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.config.Configuration.CONTENT_SERVER_INTEGRATION">
-<code class="descname">CONTENT_SERVER_INTEGRATION</code><em class="property"> = u'Content Server'</em><a class="headerlink" href="#core.config.Configuration.CONTENT_SERVER_INTEGRATION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">CONTENT_SERVER_INTEGRATION</code><em class="property"> = 'Content Server'</em><a class="headerlink" href="#core.config.Configuration.CONTENT_SERVER_INTEGRATION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.config.Configuration.DATABASE_INTEGRATION">
-<code class="descname">DATABASE_INTEGRATION</code><em class="property"> = u'Postgres'</em><a class="headerlink" href="#core.config.Configuration.DATABASE_INTEGRATION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DATABASE_INTEGRATION</code><em class="property"> = 'Postgres'</em><a class="headerlink" href="#core.config.Configuration.DATABASE_INTEGRATION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -571,7 +566,7 @@ server.</p>
 
 <dl class="attribute">
 <dt id="core.config.Configuration.LIBRARY_SETTINGS">
-<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'required': True, 'description': l'The library's main website, e.g. &quot;https://www.nypl.org/&quot; (not this Circulation Manager's URL).', 'level': 3, 'format': 'url', 'label': l'URL of the library's website', 'key': u'website'}, {'category': 'Loans, Holds, &amp; Fines', 'level': 3, 'default': 'true', 'label': l'Allow books to be put on hold', 'key': 'allow_holds', 'type': 'select', 'options': [{'key': 'true', 'label': l'Allow holds'}, {'key': 'false', 'label': l'Disable holds'}]}, {'category': 'Lanes &amp; Filters', 'readOnly': True, 'description': l'Patrons will see the selected entry points at the top level and in search results. &lt;p&gt;Currently supported audiobook vendors: Bibliotheca, Axis 360', 'key': 'enabled_entry_points', 'format': 'narrow', 'default': ['Book'], 'level': 3, 'type': 'list', 'options': [{'key': 'All', 'label': 'All'}, {'key': 'Book', 'label': 'eBooks'}, {'key': 'Audio', 'label': 'Audiobooks'}], 'label': l'Enabled entry points'}, {'category': 'Lanes &amp; Filters', 'level': 1, 'default': 15, 'label': l'Maximum number of books in the 'featured' lanes', 'key': 'featured_lane_size', 'type': 'number'}, {'category': 'Lanes &amp; Filters', 'description': l'Between 0 and 1.', 'key': 'minimum_featured_quality', 'level': 1, 'default': 0.65, 'max': 1, 'type': 'number', 'label': l'Minimum quality for books that show up in 'featured' lanes'}, {'category': 'Lanes &amp; Filters', 'paired': 'facets_default_available', 'key': 'facets_enabled_available', 'level': 2, 'default': ['now', 'all', 'always'], 'type': 'list', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}], 'label': l'Allow patrons to filter availability to'}, {'category': 'Lanes &amp; Filters', 'paired': 'facets_default_order', 'key': 'facets_enabled_order', 'level': 2, 'default': ['title', 'author', 'added', 'random'], 'type': 'list', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}], 'label': l'Allow patrons to sort by'}, {'category': 'Lanes &amp; Filters', 'paired': 'facets_default_collection', 'key': 'facets_enabled_collection', 'level': 2, 'default': ['full', 'featured'], 'type': 'list', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}], 'label': l'Allow patrons to filter collection to'}, {'category': 'Lanes &amp; Filters', 'default': 'all', 'skip': True, 'label': l'Default Availability', 'key': 'facets_default_available', 'type': 'select', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}]}, {'category': 'Lanes &amp; Filters', 'default': 'author', 'skip': True, 'label': l'Default Sort by', 'key': 'facets_default_order', 'type': 'select', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}]}, {'category': 'Lanes &amp; Filters', 'default': 'full', 'skip': True, 'label': l'Default Collection', 'key': 'facets_default_collection', 'type': 'select', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}]}]</em><a class="headerlink" href="#core.config.Configuration.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'key': 'name', 'label': l'Name', 'description': l'The human-readable name of this library.', 'category': 'Basic Information', 'level': 3, 'required': True}, {'key': 'short_name', 'label': l'Short name', 'description': l'A short name of this library, to use when identifying it in scripts or URLs, e.g. 'NYPL'.', 'category': 'Basic Information', 'level': 3, 'required': True}, {'key': 'website', 'label': l'URL of the library's website', 'description': l'The library's main website, e.g. &quot;https://www.nypl.org/&quot; (not this Circulation Manager's URL).', 'required': True, 'format': 'url', 'level': 3, 'category': 'Basic Information'}, {'key': 'allow_holds', 'label': l'Allow books to be put on hold', 'type': 'select', 'options': [{'key': 'true', 'label': l'Allow holds'}, {'key': 'false', 'label': l'Disable holds'}], 'default': 'true', 'category': 'Loans, Holds, &amp; Fines', 'level': 3}, {'key': 'enabled_entry_points', 'label': l'Enabled entry points', 'description': l'Patrons will see the selected entry points at the top level and in search results. &lt;p&gt;Currently supported audiobook vendors: Bibliotheca, Axis 360', 'type': 'list', 'options': [{'key': 'All', 'label': 'All'}, {'key': 'Book', 'label': 'eBooks'}, {'key': 'Audio', 'label': 'Audiobooks'}], 'default': ['Book'], 'category': 'Lanes &amp; Filters', 'format': 'narrow', 'readOnly': True, 'level': 3}, {'key': 'featured_lane_size', 'label': l'Maximum number of books in the 'featured' lanes', 'type': 'number', 'default': 15, 'category': 'Lanes &amp; Filters', 'level': 1}, {'key': 'minimum_featured_quality', 'label': l'Minimum quality for books that show up in 'featured' lanes', 'description': l'Between 0 and 1.', 'type': 'number', 'max': 1, 'default': 0.65, 'category': 'Lanes &amp; Filters', 'level': 1}, {'key': 'facets_enabled_order', 'label': l'Allow patrons to sort by', 'type': 'list', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}], 'default': ['title', 'author', 'added', 'random'], 'category': 'Lanes &amp; Filters', 'paired': 'facets_default_order', 'level': 2}, {'key': 'facets_enabled_available', 'label': l'Allow patrons to filter availability to', 'type': 'list', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}], 'default': ['now', 'all', 'always'], 'category': 'Lanes &amp; Filters', 'paired': 'facets_default_available', 'level': 2}, {'key': 'facets_enabled_collection', 'label': l'Allow patrons to filter collection to', 'type': 'list', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}], 'default': ['full', 'featured'], 'category': 'Lanes &amp; Filters', 'paired': 'facets_default_collection', 'level': 2}, {'key': 'facets_default_order', 'label': l'Default Sort by', 'type': 'select', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}], 'default': 'author', 'category': 'Lanes &amp; Filters', 'skip': True}, {'key': 'facets_default_available', 'label': l'Default Availability', 'type': 'select', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}], 'default': 'all', 'category': 'Lanes &amp; Filters', 'skip': True}, {'key': 'facets_default_collection', 'label': l'Default Collection', 'type': 'select', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}], 'default': 'full', 'category': 'Lanes &amp; Filters', 'skip': True}]</em><a class="headerlink" href="#core.config.Configuration.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -665,8 +660,13 @@ server.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.config.Configuration.SHORT_NAME">
+<code class="descname">SHORT_NAME</code><em class="property"> = 'short_name'</em><a class="headerlink" href="#core.config.Configuration.SHORT_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.config.Configuration.SITEWIDE_SETTINGS">
-<code class="descname">SITEWIDE_SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'key': u'base_url', 'label': l'Base url of the application'}, {'default': 'INFO', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'key': 'log_level', 'label': l'Log Level'}, {'default': 'simplified', 'required': True, 'description': l'Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems.', 'key': 'log_app', 'label': l'Application name'}, {'description': l'Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages.', 'default': 'WARN', 'label': l'Database Log Level', 'key': 'database_log_level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}]}, {'default': None, 'required': True, 'description': l'Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available.', 'key': 'excluded_audio_data_sources', 'label': l'Excluded audiobook sources'}, {'description': l'If this settings is 'true' old book measurement data will be cleaned out of the database. Some sites may want to keep this data for later analysis.', 'default': 'true', 'label': l'Cleanup old measurement data', 'key': 'measurement_reaper_enabled', 'type': 'select', 'options': {'false': 'false', 'true': 'true'}}]</em><a class="headerlink" href="#core.config.Configuration.SITEWIDE_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SITEWIDE_SETTINGS</code><em class="property"> = [{'key': 'base_url', 'label': l'Base url of the application', 'required': True, 'format': 'url'}, {'key': 'log_level', 'label': l'Log Level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'default': 'INFO'}, {'key': 'log_app', 'label': l'Application name', 'description': l'Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems.', 'default': 'simplified', 'required': True}, {'key': 'database_log_level', 'label': l'Database Log Level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'description': l'Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages.', 'default': 'WARN'}, {'key': 'excluded_audio_data_sources', 'label': l'Excluded audiobook sources', 'description': l'Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available.', 'default': None, 'required': True}, {'key': 'measurement_reaper_enabled', 'label': l'Cleanup old measurement data', 'type': 'select', 'description': l'If this settings is 'true' old book measurement data will be cleaned out of the database. Some sites may want to keep this data for later analysis.', 'options': {'true': 'true', 'false': 'false'}, 'default': 'true'}]</em><a class="headerlink" href="#core.config.Configuration.SITEWIDE_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -682,16 +682,6 @@ server.</p>
 <dl class="attribute">
 <dt id="core.config.Configuration.SITE_CONFIGURATION_TIMEOUT">
 <code class="descname">SITE_CONFIGURATION_TIMEOUT</code><em class="property"> = 'site_configuration_timeout'</em><a class="headerlink" href="#core.config.Configuration.SITE_CONFIGURATION_TIMEOUT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.config.Configuration.SYS_ADMIN_ONLY">
-<code class="descname">SYS_ADMIN_ONLY</code><em class="property"> = 3</em><a class="headerlink" href="#core.config.Configuration.SYS_ADMIN_ONLY" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.config.Configuration.SYS_ADMIN_OR_MANAGER">
-<code class="descname">SYS_ADMIN_OR_MANAGER</code><em class="property"> = 2</em><a class="headerlink" href="#core.config.Configuration.SYS_ADMIN_OR_MANAGER" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -721,7 +711,7 @@ server.</p>
 
 <dl class="attribute">
 <dt id="core.config.Configuration.WEBSITE_URL">
-<code class="descname">WEBSITE_URL</code><em class="property"> = u'website'</em><a class="headerlink" href="#core.config.Configuration.WEBSITE_URL" title="Permalink to this definition">¶</a></dt>
+<code class="descname">WEBSITE_URL</code><em class="property"> = 'website'</em><a class="headerlink" href="#core.config.Configuration.WEBSITE_URL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -758,35 +748,9 @@ site configuration first.</p>
 variable.</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="core.config.Configuration.description">
-<code class="descname">description</code><em class="property"> = l'Allow patrons to filter collection to'</em><a class="headerlink" href="#core.config.Configuration.description" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.config.Configuration.display_name">
-<code class="descname">display_name</code><em class="property"> = l'Collection'</em><a class="headerlink" href="#core.config.Configuration.display_name" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.config.Configuration.entrypoint">
-<code class="descname">entrypoint</code><a class="headerlink" href="#core.config.Configuration.entrypoint" title="Permalink to this definition">¶</a></dt>
-<dd><p>alias of <a class="reference internal" href="#core.entrypoint.AudiobooksEntryPoint" title="core.entrypoint.AudiobooksEntryPoint"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.entrypoint.AudiobooksEntryPoint</span></code></a></p>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="core.config.Configuration.facet">
-<code class="descname">facet</code><em class="property"> = 'featured'</em><a class="headerlink" href="#core.config.Configuration.facet" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
 <dl class="classmethod">
 <dt id="core.config.Configuration.get">
 <em class="property">classmethod </em><code class="descname">get</code><span class="sig-paren">(</span><em>key</em>, <em>default=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/config.html#Configuration.get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.config.Configuration.get" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.config.Configuration.group">
-<code class="descname">group</code><em class="property"> = 'collection'</em><a class="headerlink" href="#core.config.Configuration.group" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -840,7 +804,7 @@ database.</p>
 
 <dl class="attribute">
 <dt id="core.config.Configuration.log">
-<code class="descname">log</code><em class="property"> = &lt;logging.Logger object&gt;</em><a class="headerlink" href="#core.config.Configuration.log" title="Permalink to this definition">¶</a></dt>
+<code class="descname">log</code><em class="property"> = &lt;Logger Configuration file loader (WARNING)&gt;</em><a class="headerlink" href="#core.config.Configuration.log" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -884,18 +848,17 @@ the database every time.</li>
 </table>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="core.config.Configuration.x">
-<code class="descname">x</code><a class="headerlink" href="#core.config.Configuration.x" title="Permalink to this definition">¶</a></dt>
-<dd><p>alias of <a class="reference internal" href="#core.entrypoint.EbooksEntryPoint" title="core.entrypoint.EbooksEntryPoint"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.entrypoint.EbooksEntryPoint</span></code></a></p>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="class">
 <dt id="core.config.ConfigurationConstants">
 <em class="property">class </em><code class="descclassname">core.config.</code><code class="descname">ConfigurationConstants</code><a class="reference internal" href="_modules/core/config.html#ConfigurationConstants"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.config.ConfigurationConstants" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="attribute">
+<dt id="core.config.ConfigurationConstants.ALL_ACCESS">
+<code class="descname">ALL_ACCESS</code><em class="property"> = 1</em><a class="headerlink" href="#core.config.ConfigurationConstants.ALL_ACCESS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="attribute">
 <dt id="core.config.ConfigurationConstants.DEFAULT_FACET_KEY_PREFIX">
 <code class="descname">DEFAULT_FACET_KEY_PREFIX</code><em class="property"> = 'facets_default_'</em><a class="headerlink" href="#core.config.ConfigurationConstants.DEFAULT_FACET_KEY_PREFIX" title="Permalink to this definition">¶</a></dt>
@@ -906,16 +869,26 @@ the database every time.</li>
 <code class="descname">ENABLED_FACETS_KEY_PREFIX</code><em class="property"> = 'facets_enabled_'</em><a class="headerlink" href="#core.config.ConfigurationConstants.ENABLED_FACETS_KEY_PREFIX" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="attribute">
+<dt id="core.config.ConfigurationConstants.SYS_ADMIN_ONLY">
+<code class="descname">SYS_ADMIN_ONLY</code><em class="property"> = 3</em><a class="headerlink" href="#core.config.ConfigurationConstants.SYS_ADMIN_ONLY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.config.ConfigurationConstants.SYS_ADMIN_OR_MANAGER">
+<code class="descname">SYS_ADMIN_OR_MANAGER</code><em class="property"> = 2</em><a class="headerlink" href="#core.config.ConfigurationConstants.SYS_ADMIN_OR_MANAGER" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
 <dl class="function">
 <dt id="core.config.empty_config">
-<code class="descclassname">core.config.</code><code class="descname">empty_config</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwds</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/config.html#empty_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.config.empty_config" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">core.config.</code><code class="descname">empty_config</code><span class="sig-paren">(</span><em>replacement_classes=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/config.html#empty_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.config.empty_config" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="core.config.temp_config">
-<code class="descclassname">core.config.</code><code class="descname">temp_config</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwds</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/config.html#temp_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.config.temp_config" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">core.config.</code><code class="descname">temp_config</code><span class="sig-paren">(</span><em>new_config=None</em>, <em>replacement_classes=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/config.html#temp_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.config.temp_config" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </div>
@@ -1642,7 +1615,7 @@ record.</p>
 
 <dl class="attribute">
 <dt id="core.coverage.MARCRecordWorkCoverageProvider.OPERATION">
-<code class="descname">OPERATION</code><em class="property"> = u'generate-marc'</em><a class="headerlink" href="#core.coverage.MARCRecordWorkCoverageProvider.OPERATION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">OPERATION</code><em class="property"> = 'generate-marc'</em><a class="headerlink" href="#core.coverage.MARCRecordWorkCoverageProvider.OPERATION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -1677,7 +1650,7 @@ covered.</p>
 
 <dl class="attribute">
 <dt id="core.coverage.OPDSEntryWorkCoverageProvider.OPERATION">
-<code class="descname">OPERATION</code><em class="property"> = u'generate-opds'</em><a class="headerlink" href="#core.coverage.OPDSEntryWorkCoverageProvider.OPERATION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">OPERATION</code><em class="property"> = 'generate-opds'</em><a class="headerlink" href="#core.coverage.OPDSEntryWorkCoverageProvider.OPERATION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -1740,7 +1713,7 @@ the coverage record to delete is CLASSIFY_OPERATION.</p>
 
 <dl class="attribute">
 <dt id="core.coverage.WorkClassificationCoverageProvider.OPERATION">
-<code class="descname">OPERATION</code><em class="property"> = u'classify'</em><a class="headerlink" href="#core.coverage.WorkClassificationCoverageProvider.OPERATION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">OPERATION</code><em class="property"> = 'classify'</em><a class="headerlink" href="#core.coverage.WorkClassificationCoverageProvider.OPERATION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -1841,7 +1814,7 @@ Work and building a composite Edition.</p>
 classification – are reserved for WorkClassificationCoverageProvider</p>
 <dl class="attribute">
 <dt id="core.coverage.WorkPresentationEditionCoverageProvider.OPERATION">
-<code class="descname">OPERATION</code><em class="property"> = u'choose-edition'</em><a class="headerlink" href="#core.coverage.WorkPresentationEditionCoverageProvider.OPERATION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">OPERATION</code><em class="property"> = 'choose-edition'</em><a class="headerlink" href="#core.coverage.WorkPresentationEditionCoverageProvider.OPERATION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -1895,7 +1868,7 @@ providers give back the ‘missing’ coverage.</p>
 
 <dl class="attribute">
 <dt id="core.entrypoint.AudiobooksEntryPoint.URI">
-<code class="descname">URI</code><em class="property"> = u'http://bib.schema.org/Audiobook'</em><a class="headerlink" href="#core.entrypoint.AudiobooksEntryPoint.URI" title="Permalink to this definition">¶</a></dt>
+<code class="descname">URI</code><em class="property"> = 'http://bib.schema.org/Audiobook'</em><a class="headerlink" href="#core.entrypoint.AudiobooksEntryPoint.URI" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -1911,7 +1884,7 @@ providers give back the ‘missing’ coverage.</p>
 
 <dl class="attribute">
 <dt id="core.entrypoint.EbooksEntryPoint.URI">
-<code class="descname">URI</code><em class="property"> = u'http://schema.org/EBook'</em><a class="headerlink" href="#core.entrypoint.EbooksEntryPoint.URI" title="Permalink to this definition">¶</a></dt>
+<code class="descname">URI</code><em class="property"> = 'http://schema.org/EBook'</em><a class="headerlink" href="#core.entrypoint.EbooksEntryPoint.URI" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -2072,7 +2045,7 @@ titles available through this EntryPoint.</p>
 <dl class="exception">
 <dt id="core.exceptions.BaseError">
 <em class="property">exception </em><code class="descclassname">core.exceptions.</code><code class="descname">BaseError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/exceptions.html#BaseError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.exceptions.BaseError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">exceptions.Exception</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
 <p>Base class for all errors</p>
 <dl class="attribute">
 <dt id="core.exceptions.BaseError.inner_exception">
@@ -2238,7 +2211,7 @@ availability as a boolean, but not detailed availability information)</li>
 
 <dl class="attribute">
 <dt id="core.external_search.CurrentMapping.CHAR_FILTERS">
-<code class="descname">CHAR_FILTERS</code><em class="property"> = {'collapse_three_initials': {'pattern': ' ([A-Z]) ([A-Z]) ([A-Z])$', 'replacement': ' $1$2$3', 'type': 'pattern_replace'}, 'collapse_two_initials': {'pattern': ' ([A-Z]) ([A-Z])$', 'replacement': ' $1$2', 'type': 'pattern_replace'}, 'primary_author_only': {'pattern': '\\s+;.*', 'replacement': '', 'type': 'pattern_replace'}, 'remove_apostrophes': {'pattern': &quot;'&quot;, 'replacement': '', 'type': 'pattern_replace'}, 'strip_parentheticals': {'pattern': '\\s+\\([^)]+\\)', 'replacement': '', 'type': 'pattern_replace'}, 'strip_periods': {'pattern': '\\.', 'replacement': '', 'type': 'pattern_replace'}, 'unknown_author': {'pattern': '\\[Unknown\\]', 'replacement': u'\ufffd', 'type': 'pattern_replace'}}</em><a class="headerlink" href="#core.external_search.CurrentMapping.CHAR_FILTERS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">CHAR_FILTERS</code><em class="property"> = {'collapse_three_initials': {'pattern': ' ([A-Z]) ([A-Z]) ([A-Z])$', 'replacement': ' $1$2$3', 'type': 'pattern_replace'}, 'collapse_two_initials': {'pattern': ' ([A-Z]) ([A-Z])$', 'replacement': ' $1$2', 'type': 'pattern_replace'}, 'primary_author_only': {'pattern': '\\s+;.*', 'replacement': '', 'type': 'pattern_replace'}, 'remove_apostrophes': {'pattern': &quot;'&quot;, 'replacement': '', 'type': 'pattern_replace'}, 'strip_parentheticals': {'pattern': '\\s+\\([^)]+\\)', 'replacement': '', 'type': 'pattern_replace'}, 'strip_periods': {'pattern': '\\.', 'replacement': '', 'type': 'pattern_replace'}, 'unknown_author': {'pattern': '\\[Unknown\\]', 'replacement': '�', 'type': 'pattern_replace'}}</em><a class="headerlink" href="#core.external_search.CurrentMapping.CHAR_FILTERS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2291,12 +2264,12 @@ defined below.</p>
 
 <dl class="attribute">
 <dt id="core.external_search.ExternalSearchIndex.DEFAULT_TEST_SEARCH_TERM">
-<code class="descname">DEFAULT_TEST_SEARCH_TERM</code><em class="property"> = u'test'</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.DEFAULT_TEST_SEARCH_TERM" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DEFAULT_TEST_SEARCH_TERM</code><em class="property"> = 'test'</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.DEFAULT_TEST_SEARCH_TERM" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.external_search.ExternalSearchIndex.DEFAULT_WORKS_INDEX_PREFIX">
-<code class="descname">DEFAULT_WORKS_INDEX_PREFIX</code><em class="property"> = u'circulation-works'</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.DEFAULT_WORKS_INDEX_PREFIX" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DEFAULT_WORKS_INDEX_PREFIX</code><em class="property"> = 'circulation-works'</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.DEFAULT_WORKS_INDEX_PREFIX" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2306,12 +2279,12 @@ defined below.</p>
 
 <dl class="attribute">
 <dt id="core.external_search.ExternalSearchIndex.NAME">
-<code class="descname">NAME</code><em class="property"> = u'Elasticsearch'</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.NAME" title="Permalink to this definition">¶</a></dt>
+<code class="descname">NAME</code><em class="property"> = 'Elasticsearch'</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.external_search.ExternalSearchIndex.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'key': u'url', 'label': l'URL'}, {'default': u'circulation-works', 'required': True, 'description': l'Any Elasticsearch indexes needed for this application will be created with this unique prefix. In most cases, the default will work fine. You may need to change this if you have multiple application servers using a single Elasticsearch server.', 'key': u'works_index_prefix', 'label': l'Index prefix'}, {'default': u'test', 'description': l'Self tests will use this value as the search term.', 'key': u'test_search_term', 'label': l'Test search term'}]</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'url', 'label': l'URL', 'required': True, 'format': 'url'}, {'key': 'works_index_prefix', 'label': l'Index prefix', 'default': 'circulation-works', 'required': True, 'description': l'Any Elasticsearch indexes needed for this application will be created with this unique prefix. In most cases, the default will work fine. You may need to change this if you have multiple application servers using a single Elasticsearch server.'}, {'key': 'test_search_term', 'label': l'Test search term', 'default': 'test', 'description': l'Self tests will use this value as the search term.'}]</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2321,17 +2294,17 @@ defined below.</p>
 
 <dl class="attribute">
 <dt id="core.external_search.ExternalSearchIndex.TEST_SEARCH_TERM_KEY">
-<code class="descname">TEST_SEARCH_TERM_KEY</code><em class="property"> = u'test_search_term'</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.TEST_SEARCH_TERM_KEY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">TEST_SEARCH_TERM_KEY</code><em class="property"> = 'test_search_term'</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.TEST_SEARCH_TERM_KEY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.external_search.ExternalSearchIndex.VERSION_RE">
-<code class="descname">VERSION_RE</code><em class="property"> = &lt;_sre.SRE_Pattern object&gt;</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.VERSION_RE" title="Permalink to this definition">¶</a></dt>
+<code class="descname">VERSION_RE</code><em class="property"> = re.compile('-v([0-9]+)$')</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.VERSION_RE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.external_search.ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY">
-<code class="descname">WORKS_INDEX_PREFIX_KEY</code><em class="property"> = u'works_index_prefix'</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">WORKS_INDEX_PREFIX_KEY</code><em class="property"> = 'works_index_prefix'</em><a class="headerlink" href="#core.external_search.ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -2528,7 +2501,7 @@ by a specific field (e.g. author) as described by a Facets object.</p>
 presenting the search results.</p>
 <dl class="attribute">
 <dt id="core.external_search.Filter.AUTHOR_MATCH_ROLES">
-<code class="descname">AUTHOR_MATCH_ROLES</code><em class="property"> = [u'Primary Author', u'Author', u'Narrator', u'Editor', u'Director', u'Actor']</em><a class="headerlink" href="#core.external_search.Filter.AUTHOR_MATCH_ROLES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">AUTHOR_MATCH_ROLES</code><em class="property"> = ['Author', 'Primary Author', 'Narrator', 'Editor', 'Director', 'Actor']</em><a class="headerlink" href="#core.external_search.Filter.AUTHOR_MATCH_ROLES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2958,7 +2931,7 @@ MockExternalSearchIndex.</p>
 
 <dl class="attribute">
 <dt id="core.external_search.Query.SEARCH_RELEVANT_ROLES">
-<code class="descname">SEARCH_RELEVANT_ROLES</code><em class="property"> = [u'Primary Author', u'Author', u'Narrator']</em><a class="headerlink" href="#core.external_search.Query.SEARCH_RELEVANT_ROLES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SEARCH_RELEVANT_ROLES</code><em class="property"> = ['Primary Author', 'Author', 'Narrator']</em><a class="headerlink" href="#core.external_search.Query.SEARCH_RELEVANT_ROLES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -3198,7 +3171,7 @@ search index.</p>
 
 <dl class="attribute">
 <dt id="core.external_search.SearchIndexCoverageProvider.OPERATION">
-<code class="descname">OPERATION</code><em class="property"> = u'update-search-index'</em><a class="headerlink" href="#core.external_search.SearchIndexCoverageProvider.OPERATION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">OPERATION</code><em class="property"> = 'update-search-index'</em><a class="headerlink" href="#core.external_search.SearchIndexCoverageProvider.OPERATION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -3329,7 +3302,7 @@ the context of a specific lane.</p>
 
 <dl class="function">
 <dt id="core.external_search.mock_search_index">
-<code class="descclassname">core.external_search.</code><code class="descname">mock_search_index</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwds</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/external_search.html#mock_search_index"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.external_search.mock_search_index" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">core.external_search.</code><code class="descname">mock_search_index</code><span class="sig-paren">(</span><em>mock=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/external_search.html#mock_search_index"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.external_search.mock_search_index" title="Permalink to this definition">¶</a></dt>
 <dd><p>Temporarily mock the ExternalSearchIndex implementation
 returned by the load() class method.</p>
 </dd></dl>
@@ -4054,7 +4027,7 @@ featurable’ items are at the front.</p>
 AcquisitionFeed.groups().</p>
 <dl class="attribute">
 <dt id="core.lane.FeaturedFacets.CACHED_FEED_TYPE">
-<code class="descname">CACHED_FEED_TYPE</code><em class="property"> = u'groups'</em><a class="headerlink" href="#core.lane.FeaturedFacets.CACHED_FEED_TYPE" title="Permalink to this definition">¶</a></dt>
+<code class="descname">CACHED_FEED_TYPE</code><em class="property"> = 'groups'</em><a class="headerlink" href="#core.lane.FeaturedFacets.CACHED_FEED_TYPE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -4455,7 +4428,9 @@ CustomLists?</p>
 <dl class="attribute">
 <dt id="core.lane.Lane.visible_children">
 <code class="descname">visible_children</code><a class="headerlink" href="#core.lane.Lane.visible_children" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>A WorkList’s children can be used to create a grouped acquisition
+feed for that WorkList.</p>
+</dd></dl>
 
 </dd></dl>
 
@@ -5146,7 +5121,7 @@ of lists of Work objects.</p>
 
 <dl class="attribute">
 <dt id="core.local_analytics_provider.LocalAnalyticsProvider.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'description': l'Local analytics events may have a geographic location associated with them. How should the location be determined?&lt;p&gt;Note: to use the patron's neighborhood as the event location, you must also tell your patron authentication mechanism how to &lt;i&gt;gather&lt;/i&gt; a patron's neighborhood information.', 'default': '', 'label': l'Geographic location of events', 'key': 'location_source', 'type': 'select', 'options': [{'key': '', 'label': l'Disable this feature.'}, {'key': 'neighborhood', 'label': l'Use the patron's neighborhood as the event location.'}]}]</em><a class="headerlink" href="#core.local_analytics_provider.LocalAnalyticsProvider.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'location_source', 'label': l'Geographic location of events', 'description': l'Local analytics events may have a geographic location associated with them. How should the location be determined?&lt;p&gt;Note: to use the patron's neighborhood as the event location, you must also tell your patron authentication mechanism how to &lt;i&gt;gather&lt;/i&gt; a patron's neighborhood information.', 'default': '', 'type': 'select', 'options': [{'key': '', 'label': l'Disable this feature.'}, {'key': 'neighborhood', 'label': l'Use the patron's neighborhood as the event location.'}]}]</em><a class="headerlink" href="#core.local_analytics_provider.LocalAnalyticsProvider.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -5222,7 +5197,7 @@ of lists of Work objects.</p>
 
 <dl class="attribute">
 <dt id="core.log.CloudwatchLogs.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'default': 'simplified', 'required': True, 'key': 'group', 'label': l'Log Group'}, {'default': 'simplified', 'required': True, 'key': 'stream', 'label': l'Log Stream'}, {'default': 60, 'required': True, 'key': 'interval', 'label': l'Update Interval Seconds'}, {'default': 'us-west-2', 'required': True, 'label': l'AWS Region', 'key': 'region', 'type': 'select', 'options': [{'key': 'us-east-2', 'label': l'US East (Ohio)'}, {'key': 'us-east-1', 'label': l'US East (N. Virginia)'}, {'key': 'us-west-1', 'label': l'US West (N. California)'}, {'key': 'us-west-2', 'label': l'US West (Oregon)'}, {'key': 'ap-south-1', 'label': l'Asia Pacific (Mumbai)'}, {'key': 'ap-northeast-3', 'label': l'Asia Pacific (Osaka-Local)'}, {'key': 'ap-northeast-2', 'label': l'Asia Pacific (Seoul)'}, {'key': 'ap-southeast-1', 'label': l'Asia Pacific (Singapore)'}, {'key': 'ap-southeast-2', 'label': l'Asia Pacific (Sydney)'}, {'key': 'ap-northeast-1', 'label': l'Asia Pacific (Tokyo)'}, {'key': 'ca-central-1', 'label': l'Canada (Central)'}, {'key': 'cn-north-1', 'label': l'China (Beijing)'}, {'key': 'cn-northwest-1', 'label': l'China (Ningxia)'}, {'key': 'eu-central-1', 'label': l'EU (Frankfurt)'}, {'key': 'eu-west-1', 'label': l'EU (Ireland)'}, {'key': 'eu-west-2', 'label': l'EU (London)'}, {'key': 'eu-west-3', 'label': l'EU (Paris)'}, {'key': 'sa-east-1', 'label': l'South America (Sao Paulo)'}]}, {'default': True, 'required': True, 'label': l'Automatically Create Log Group', 'key': 'create_group', 'type': 'select', 'options': [{'key': 'TRUE', 'label': l'Yes'}, {'key': 'FALSE', 'label': l'No'}]}]</em><a class="headerlink" href="#core.log.CloudwatchLogs.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'group', 'label': l'Log Group', 'default': 'simplified', 'required': True}, {'key': 'stream', 'label': l'Log Stream', 'default': 'simplified', 'required': True}, {'key': 'interval', 'label': l'Update Interval Seconds', 'default': 60, 'required': True}, {'key': 'region', 'label': l'AWS Region', 'type': 'select', 'options': [{'key': 'us-east-2', 'label': l'US East (Ohio)'}, {'key': 'us-east-1', 'label': l'US East (N. Virginia)'}, {'key': 'us-west-1', 'label': l'US West (N. California)'}, {'key': 'us-west-2', 'label': l'US West (Oregon)'}, {'key': 'ap-south-1', 'label': l'Asia Pacific (Mumbai)'}, {'key': 'ap-northeast-3', 'label': l'Asia Pacific (Osaka-Local)'}, {'key': 'ap-northeast-2', 'label': l'Asia Pacific (Seoul)'}, {'key': 'ap-southeast-1', 'label': l'Asia Pacific (Singapore)'}, {'key': 'ap-southeast-2', 'label': l'Asia Pacific (Sydney)'}, {'key': 'ap-northeast-1', 'label': l'Asia Pacific (Tokyo)'}, {'key': 'ca-central-1', 'label': l'Canada (Central)'}, {'key': 'cn-north-1', 'label': l'China (Beijing)'}, {'key': 'cn-northwest-1', 'label': l'China (Ningxia)'}, {'key': 'eu-central-1', 'label': l'EU (Frankfurt)'}, {'key': 'eu-west-1', 'label': l'EU (Ireland)'}, {'key': 'eu-west-2', 'label': l'EU (London)'}, {'key': 'eu-west-3', 'label': l'EU (Paris)'}, {'key': 'sa-east-1', 'label': l'South America (Sao Paulo)'}], 'default': 'us-west-2', 'required': True}, {'key': 'create_group', 'label': l'Automatically Create Log Group', 'type': 'select', 'options': [{'key': 'TRUE', 'label': l'Yes'}, {'key': 'FALSE', 'label': l'No'}], 'default': True, 'required': True}]</em><a class="headerlink" href="#core.log.CloudwatchLogs.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5269,12 +5244,12 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.fqdn">
-<code class="descname">fqdn</code><em class="property"> = 'localhost'</em><a class="headerlink" href="#core.log.JSONFormatter.fqdn" title="Permalink to this definition">¶</a></dt>
+<code class="descname">fqdn</code><em class="property"> = 'fv-az193-651.internal.cloudapp.net'</em><a class="headerlink" href="#core.log.JSONFormatter.fqdn" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-621b54e9-fb35-42b8-889a-22fb7fac8014'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'fv-az193-651.internal.cloudapp.net'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -5332,12 +5307,12 @@ configuration from the database.</p>
 
 <dl class="attribute">
 <dt id="core.log.LogConfiguration.LOG_LEVEL_UI">
-<code class="descname">LOG_LEVEL_UI</code><em class="property"> = [{'value': l'Debug', 'key': 'DEBUG'}, {'value': l'Info', 'key': 'INFO'}, {'value': l'Warn', 'key': 'WARN'}, {'value': l'Error', 'key': 'ERROR'}]</em><a class="headerlink" href="#core.log.LogConfiguration.LOG_LEVEL_UI" title="Permalink to this definition">¶</a></dt>
+<code class="descname">LOG_LEVEL_UI</code><em class="property"> = [{'key': 'DEBUG', 'value': l'Debug'}, {'key': 'INFO', 'value': l'Info'}, {'key': 'WARN', 'value': l'Warn'}, {'key': 'ERROR', 'value': l'Error'}]</em><a class="headerlink" href="#core.log.LogConfiguration.LOG_LEVEL_UI" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.log.LogConfiguration.SITEWIDE_SETTINGS">
-<code class="descname">SITEWIDE_SETTINGS</code><em class="property"> = [{'default': 'INFO', 'type': 'select', 'options': [{'value': l'Debug', 'key': 'DEBUG'}, {'value': l'Info', 'key': 'INFO'}, {'value': l'Warn', 'key': 'WARN'}, {'value': l'Error', 'key': 'ERROR'}], 'key': 'log_level', 'label': l'Log Level'}, {'default': 'simplified', 'description': l'Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems.', 'key': 'log_app', 'label': l'Log Application name'}, {'description': l'Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages.', 'default': 'WARN', 'label': l'Database Log Level', 'key': 'database_log_level', 'type': 'select', 'options': [{'value': l'Debug', 'key': 'DEBUG'}, {'value': l'Info', 'key': 'INFO'}, {'value': l'Warn', 'key': 'WARN'}, {'value': l'Error', 'key': 'ERROR'}]}]</em><a class="headerlink" href="#core.log.LogConfiguration.SITEWIDE_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SITEWIDE_SETTINGS</code><em class="property"> = [{'key': 'log_level', 'label': l'Log Level', 'type': 'select', 'options': [{'key': 'DEBUG', 'value': l'Debug'}, {'key': 'INFO', 'value': l'Info'}, {'key': 'WARN', 'value': l'Warn'}, {'key': 'ERROR', 'value': l'Error'}], 'default': 'INFO'}, {'key': 'log_app', 'label': l'Log Application name', 'description': l'Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems.', 'default': 'simplified'}, {'key': 'database_log_level', 'label': l'Database Log Level', 'type': 'select', 'options': [{'key': 'DEBUG', 'value': l'Debug'}, {'key': 'INFO', 'value': l'Info'}, {'key': 'WARN', 'value': l'Warn'}, {'key': 'ERROR', 'value': l'Error'}], 'description': l'Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages.', 'default': 'WARN'}]</em><a class="headerlink" href="#core.log.LogConfiguration.SITEWIDE_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5459,7 +5434,7 @@ certain way.</p>
 
 <dl class="attribute">
 <dt id="core.log.Loggly.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'required': True, 'key': 'user', 'label': l'Username'}, {'required': True, 'key': 'password', 'label': l'Password'}, {'format': 'url', 'required': True, 'key': 'url', 'label': l'URL'}]</em><a class="headerlink" href="#core.log.Loggly.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'user', 'label': l'Username', 'required': True}, {'key': 'password', 'label': l'Password', 'required': True}, {'key': 'url', 'label': l'URL', 'required': True, 'format': 'url'}]</em><a class="headerlink" href="#core.log.Loggly.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5500,11 +5475,9 @@ certain way.</p>
 
 <dl class="class">
 <dt id="core.log.StringFormatter">
-<em class="property">class </em><code class="descclassname">core.log.</code><code class="descname">StringFormatter</code><span class="sig-paren">(</span><em>fmt=None</em>, <em>datefmt=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/log.html#StringFormatter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.log.StringFormatter" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.log.</code><code class="descname">StringFormatter</code><span class="sig-paren">(</span><em>fmt=None</em>, <em>datefmt=None</em>, <em>style='%'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/log.html#StringFormatter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.log.StringFormatter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">logging.Formatter</span></code></p>
 <p>Encode all output as a string.</p>
-<p>In Python 2, this means a UTF-8 bytestring. In Python 3, it means a
-Unicode string.</p>
 <dl class="method">
 <dt id="core.log.StringFormatter.format">
 <code class="descname">format</code><span class="sig-paren">(</span><em>record</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/log.html#StringFormatter.format"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.log.StringFormatter.format" title="Permalink to this definition">¶</a></dt>
@@ -5542,7 +5515,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.SysLogger.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'type': 'select', 'options': [{'key': 'json', 'label': l'json'}, {'key': 'text', 'label': l'text'}], 'key': 'log_format', 'label': l'Log Format'}, {'default': '%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message)s', 'required': True, 'key': 'message_template', 'label': l'template'}]</em><a class="headerlink" href="#core.log.SysLogger.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'log_format', 'label': l'Log Format', 'type': 'select', 'options': [{'key': 'json', 'label': l'json'}, {'key': 'text', 'label': l'text'}]}, {'key': 'message_template', 'label': l'template', 'default': '%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message)s', 'required': True}]</em><a class="headerlink" href="#core.log.SysLogger.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5574,7 +5547,7 @@ a MARC record.</p>
 
 <dl class="attribute">
 <dt id="core.marc.Annotator.FORMAT_TERMS">
-<code class="descname">FORMAT_TERMS</code><em class="property"> = {(u'application/epub+zip', None): 'EPUB eBook', (u'application/epub+zip', u'application/vnd.adobe.adept+xml'): 'Adobe EPUB eBook', (u'application/pdf', None): 'PDF eBook', (u'application/pdf', u'application/vnd.adobe.adept+xml'): 'Adobe PDF eBook'}</em><a class="headerlink" href="#core.marc.Annotator.FORMAT_TERMS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">FORMAT_TERMS</code><em class="property"> = {('application/epub+zip', None): 'EPUB eBook', ('application/epub+zip', 'application/vnd.adobe.adept+xml'): 'Adobe EPUB eBook', ('application/pdf', None): 'PDF eBook', ('application/pdf', 'application/vnd.adobe.adept+xml'): 'Adobe PDF eBook'}</em><a class="headerlink" href="#core.marc.Annotator.FORMAT_TERMS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -5700,7 +5673,7 @@ Work, the client has expressed interest in this one.</td>
 <p>Turn a work into a record for a MARC file.</p>
 <dl class="attribute">
 <dt id="core.marc.MARCExporter.DEFAULT_MIRROR_INTEGRATION">
-<code class="descname">DEFAULT_MIRROR_INTEGRATION</code><em class="property"> = {'key': u'NO_MIRROR', 'label': l'None - Do not mirror MARC files'}</em><a class="headerlink" href="#core.marc.MARCExporter.DEFAULT_MIRROR_INTEGRATION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DEFAULT_MIRROR_INTEGRATION</code><em class="property"> = {'key': 'NO_MIRROR', 'label': l'None - Do not mirror MARC files'}</em><a class="headerlink" href="#core.marc.MARCExporter.DEFAULT_MIRROR_INTEGRATION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5715,17 +5688,17 @@ Work, the client has expressed interest in this one.</td>
 
 <dl class="attribute">
 <dt id="core.marc.MARCExporter.INCLUDE_SIMPLIFIED_GENRES">
-<code class="descname">INCLUDE_SIMPLIFIED_GENRES</code><em class="property"> = u'include_simplified_genres'</em><a class="headerlink" href="#core.marc.MARCExporter.INCLUDE_SIMPLIFIED_GENRES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">INCLUDE_SIMPLIFIED_GENRES</code><em class="property"> = 'include_simplified_genres'</em><a class="headerlink" href="#core.marc.MARCExporter.INCLUDE_SIMPLIFIED_GENRES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.marc.MARCExporter.INCLUDE_SUMMARY">
-<code class="descname">INCLUDE_SUMMARY</code><em class="property"> = u'include_summary'</em><a class="headerlink" href="#core.marc.MARCExporter.INCLUDE_SUMMARY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">INCLUDE_SUMMARY</code><em class="property"> = 'include_summary'</em><a class="headerlink" href="#core.marc.MARCExporter.INCLUDE_SUMMARY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.marc.MARCExporter.LIBRARY_SETTINGS">
-<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'default': 30, 'type': 'number', 'description': l'The circulation manager will wait this number of days between generating MARC files.', 'key': 'marc_update_frequency', 'label': l'Update frequency (in days)'}, {'description': l'MARC organization codes are assigned by the Library of Congress.', 'key': 'marc_organization_code', 'label': l'The MARC organization code for this library (003 field).'}, {'description': l'If using a library registry that provides a web catalog, this can be left blank.', 'key': u'marc_web_client_url', 'label': l'The base URL for the web catalog for this library, for the 856 field.'}, {'default': 'false', 'type': 'select', 'options': [{'key': 'false', 'label': l'Do not include summaries'}, {'key': 'true', 'label': l'Include summaries'}], 'key': u'include_summary', 'label': l'Include summaries in MARC records (520 field)'}, {'default': 'false', 'type': 'select', 'options': [{'key': 'false', 'label': l'Do not include Library Simplified genres'}, {'key': 'true', 'label': l'Include Library Simplified genres'}], 'key': u'include_simplified_genres', 'label': l'Include Library Simplified genres in MARC records (650 fields)'}]</em><a class="headerlink" href="#core.marc.MARCExporter.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'key': 'marc_update_frequency', 'label': l'Update frequency (in days)', 'description': l'The circulation manager will wait this number of days between generating MARC files.', 'type': 'number', 'default': 30}, {'key': 'marc_organization_code', 'label': l'The MARC organization code for this library (003 field).', 'description': l'MARC organization codes are assigned by the Library of Congress.'}, {'key': 'marc_web_client_url', 'label': l'The base URL for the web catalog for this library, for the 856 field.', 'description': l'If using a library registry that provides a web catalog, this can be left blank.'}, {'key': 'include_summary', 'label': l'Include summaries in MARC records (520 field)', 'type': 'select', 'options': [{'key': 'false', 'label': l'Do not include summaries'}, {'key': 'true', 'label': l'Include summaries'}], 'default': 'false'}, {'key': 'include_simplified_genres', 'label': l'Include Library Simplified genres in MARC records (650 fields)', 'type': 'select', 'options': [{'key': 'false', 'label': l'Do not include Library Simplified genres'}, {'key': 'true', 'label': l'Include Library Simplified genres'}], 'default': 'false'}]</em><a class="headerlink" href="#core.marc.MARCExporter.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5735,17 +5708,17 @@ Work, the client has expressed interest in this one.</td>
 
 <dl class="attribute">
 <dt id="core.marc.MARCExporter.NAME">
-<code class="descname">NAME</code><em class="property"> = u'MARC Export'</em><a class="headerlink" href="#core.marc.MARCExporter.NAME" title="Permalink to this definition">¶</a></dt>
+<code class="descname">NAME</code><em class="property"> = 'MARC Export'</em><a class="headerlink" href="#core.marc.MARCExporter.NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.marc.MARCExporter.NO_MIRROR_INTEGRATION">
-<code class="descname">NO_MIRROR_INTEGRATION</code><em class="property"> = u'NO_MIRROR'</em><a class="headerlink" href="#core.marc.MARCExporter.NO_MIRROR_INTEGRATION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">NO_MIRROR_INTEGRATION</code><em class="property"> = 'NO_MIRROR'</em><a class="headerlink" href="#core.marc.MARCExporter.NO_MIRROR_INTEGRATION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.marc.MARCExporter.SETTING">
-<code class="descname">SETTING</code><em class="property"> = {'description': l'Storage protocol to use for uploading generated MARC files. The service must already be configured under 'Storage Services'.', 'key': 'mirror_integration_id', 'label': l'MARC Mirror', 'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror MARC files'}], 'type': 'select'}</em><a class="headerlink" href="#core.marc.MARCExporter.SETTING" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTING</code><em class="property"> = {'description': l'Storage protocol to use for uploading generated MARC files. The service must already be configured under 'Storage Services'.', 'key': 'mirror_integration_id', 'label': l'MARC Mirror', 'options': [{'key': 'NO_MIRROR', 'label': l'None - Do not mirror MARC files'}], 'type': 'select'}</em><a class="headerlink" href="#core.marc.MARCExporter.SETTING" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5755,7 +5728,7 @@ Work, the client has expressed interest in this one.</td>
 
 <dl class="attribute">
 <dt id="core.marc.MARCExporter.WEB_CLIENT_URL">
-<code class="descname">WEB_CLIENT_URL</code><em class="property"> = u'marc_web_client_url'</em><a class="headerlink" href="#core.marc.MARCExporter.WEB_CLIENT_URL" title="Permalink to this definition">¶</a></dt>
+<code class="descname">WEB_CLIENT_URL</code><em class="property"> = 'marc_web_client_url'</em><a class="headerlink" href="#core.marc.MARCExporter.WEB_CLIENT_URL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -5835,12 +5808,12 @@ the information into this format.</p>
 
 <dl class="class">
 <dt id="core.metadata_layer.CSVMetadataImporter">
-<em class="property">class </em><code class="descclassname">core.metadata_layer.</code><code class="descname">CSVMetadataImporter</code><span class="sig-paren">(</span><em>data_source_name, title_field='title', language_field='language', default_language='eng', medium_field='medium', default_medium=u'Book', series_field='series', publisher_field='publisher', imprint_field='imprint', issued_field='issued', published_field=['published', 'publication year'], identifier_fields={u'Axis 360 ID': ('axis 360 id', 0.75), u'Bibliotheca ID': ('3m id', 0.75), u'ISBN': ('isbn', 0.75), u'Overdrive ID': ('overdrive id', 0.75)}, subject_fields={'age': ('schema:typicalAgeRange', 100.0), 'audience': ('schema:audience', 100.0), 'tags': ('tag', 100.0)}, sort_author_field='file author as', display_author_field=['author', 'display author as']</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/metadata_layer.html#CSVMetadataImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.metadata_layer.CSVMetadataImporter" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.metadata_layer.</code><code class="descname">CSVMetadataImporter</code><span class="sig-paren">(</span><em>data_source_name, title_field='title', language_field='language', default_language='eng', medium_field='medium', default_medium='Book', series_field='series', publisher_field='publisher', imprint_field='imprint', issued_field='issued', published_field=['published', 'publication year'], identifier_fields={'Axis 360 ID': ('axis 360 id', 0.75), 'Bibliotheca ID': ('3m id', 0.75), 'ISBN': ('isbn', 0.75), 'Overdrive ID': ('overdrive id', 0.75)}, subject_fields={'age': ('schema:typicalAgeRange', 100.0), 'audience': ('schema:audience', 100.0), 'tags': ('tag', 100.0)}, sort_author_field='file author as', display_author_field=['author', 'display author as']</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/metadata_layer.html#CSVMetadataImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.metadata_layer.CSVMetadataImporter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Turn a CSV file into a list of Metadata objects.</p>
 <dl class="attribute">
 <dt id="core.metadata_layer.CSVMetadataImporter.DEFAULT_IDENTIFIER_FIELD_NAMES">
-<code class="descname">DEFAULT_IDENTIFIER_FIELD_NAMES</code><em class="property"> = {u'Axis 360 ID': ('axis 360 id', 0.75), u'Bibliotheca ID': ('3m id', 0.75), u'ISBN': ('isbn', 0.75), u'Overdrive ID': ('overdrive id', 0.75)}</em><a class="headerlink" href="#core.metadata_layer.CSVMetadataImporter.DEFAULT_IDENTIFIER_FIELD_NAMES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DEFAULT_IDENTIFIER_FIELD_NAMES</code><em class="property"> = {'Axis 360 ID': ('axis 360 id', 0.75), 'Bibliotheca ID': ('3m id', 0.75), 'ISBN': ('isbn', 0.75), 'Overdrive ID': ('overdrive id', 0.75)}</em><a class="headerlink" href="#core.metadata_layer.CSVMetadataImporter.DEFAULT_IDENTIFIER_FIELD_NAMES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5850,7 +5823,7 @@ the information into this format.</p>
 
 <dl class="attribute">
 <dt id="core.metadata_layer.CSVMetadataImporter.IDENTIFIER_PRECEDENCE">
-<code class="descname">IDENTIFIER_PRECEDENCE</code><em class="property"> = [u'Axis 360 ID', u'Overdrive ID', u'Bibliotheca ID', u'ISBN']</em><a class="headerlink" href="#core.metadata_layer.CSVMetadataImporter.IDENTIFIER_PRECEDENCE" title="Permalink to this definition">¶</a></dt>
+<code class="descname">IDENTIFIER_PRECEDENCE</code><em class="property"> = ['Axis 360 ID', 'Overdrive ID', 'Bibliotheca ID', 'ISBN']</em><a class="headerlink" href="#core.metadata_layer.CSVMetadataImporter.IDENTIFIER_PRECEDENCE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5867,7 +5840,7 @@ the information into this format.</p>
 
 <dl class="attribute">
 <dt id="core.metadata_layer.CSVMetadataImporter.log">
-<code class="descname">log</code><em class="property"> = &lt;logging.Logger object&gt;</em><a class="headerlink" href="#core.metadata_layer.CSVMetadataImporter.log" title="Permalink to this definition">¶</a></dt>
+<code class="descname">log</code><em class="property"> = &lt;Logger CSV metadata importer (WARNING)&gt;</em><a class="headerlink" href="#core.metadata_layer.CSVMetadataImporter.log" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -5960,7 +5933,7 @@ will be tracked with this.</li>
 
 <dl class="attribute">
 <dt id="core.metadata_layer.CirculationData.log">
-<code class="descname">log</code><em class="property"> = &lt;logging.Logger object&gt;</em><a class="headerlink" href="#core.metadata_layer.CirculationData.log" title="Permalink to this definition">¶</a></dt>
+<code class="descname">log</code><em class="property"> = &lt;Logger Abstract metadata layer - Circulation data (WARNING)&gt;</em><a class="headerlink" href="#core.metadata_layer.CirculationData.log" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -6097,7 +6070,7 @@ the best available information in the database.</p>
 <p>This is not totally general, but it’s a good start.</p>
 <dl class="attribute">
 <dt id="core.metadata_layer.MARCExtractor.END_OF_AUTHOR_NAME_RES">
-<code class="descname">END_OF_AUTHOR_NAME_RES</code><em class="property"> = [&lt;_sre.SRE_Pattern object&gt;, &lt;_sre.SRE_Pattern object&gt;, &lt;_sre.SRE_Pattern object&gt;, &lt;_sre.SRE_Pattern object&gt;]</em><a class="headerlink" href="#core.metadata_layer.MARCExtractor.END_OF_AUTHOR_NAME_RES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">END_OF_AUTHOR_NAME_RES</code><em class="property"> = [re.compile(',\\s+[0-9]+-'), re.compile(',\\s+active '), re.compile(',\\s+graf,'), re.compile(',\\s+author.')]</em><a class="headerlink" href="#core.metadata_layer.MARCExtractor.END_OF_AUTHOR_NAME_RES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -6131,7 +6104,7 @@ the best available information in the database.</p>
 <p>Contains functionality common to both CirculationData and Metadata.</p>
 <dl class="attribute">
 <dt id="core.metadata_layer.MetaToModelUtility.log">
-<code class="descname">log</code><em class="property"> = &lt;logging.Logger object&gt;</em><a class="headerlink" href="#core.metadata_layer.MetaToModelUtility.log" title="Permalink to this definition">¶</a></dt>
+<code class="descname">log</code><em class="property"> = &lt;Logger Abstract metadata layer - mirror code (WARNING)&gt;</em><a class="headerlink" href="#core.metadata_layer.MetaToModelUtility.log" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -6157,12 +6130,12 @@ mirror that too.</p>
 
 <dl class="attribute">
 <dt id="core.metadata_layer.Metadata.REL_REQUIRES_FULL_RECALCULATION">
-<code class="descname">REL_REQUIRES_FULL_RECALCULATION</code><em class="property"> = [u'http://schema.org/description']</em><a class="headerlink" href="#core.metadata_layer.Metadata.REL_REQUIRES_FULL_RECALCULATION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">REL_REQUIRES_FULL_RECALCULATION</code><em class="property"> = ['http://schema.org/description']</em><a class="headerlink" href="#core.metadata_layer.Metadata.REL_REQUIRES_FULL_RECALCULATION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.metadata_layer.Metadata.REL_REQUIRES_NEW_PRESENTATION_EDITION">
-<code class="descname">REL_REQUIRES_NEW_PRESENTATION_EDITION</code><em class="property"> = [u'http://opds-spec.org/image', u'http://opds-spec.org/image/thumbnail']</em><a class="headerlink" href="#core.metadata_layer.Metadata.REL_REQUIRES_NEW_PRESENTATION_EDITION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">REL_REQUIRES_NEW_PRESENTATION_EDITION</code><em class="property"> = ['http://opds-spec.org/image', 'http://opds-spec.org/image/thumbnail']</em><a class="headerlink" href="#core.metadata_layer.Metadata.REL_REQUIRES_NEW_PRESENTATION_EDITION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -6243,7 +6216,7 @@ information to run guess_license_pools.</p>
 
 <dl class="attribute">
 <dt id="core.metadata_layer.Metadata.log">
-<code class="descname">log</code><em class="property"> = &lt;logging.Logger object&gt;</em><a class="headerlink" href="#core.metadata_layer.Metadata.log" title="Permalink to this definition">¶</a></dt>
+<code class="descname">log</code><em class="property"> = &lt;Logger Abstract metadata layer (WARNING)&gt;</em><a class="headerlink" href="#core.metadata_layer.Metadata.log" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -6382,12 +6355,12 @@ completion is known.</p>
 a mirror that we control.</p>
 <dl class="attribute">
 <dt id="core.mirror.MirrorUploader.IMPLEMENTATION_REGISTRY">
-<code class="descname">IMPLEMENTATION_REGISTRY</code><em class="property"> = {u'Amazon S3': &lt;class 'core.s3.S3Uploader'&gt;, u'LCP': &lt;class 'api.lcp.mirror.LCPMirror'&gt;, u'MinIO': &lt;class 'core.s3.MinIOUploader'&gt;}</em><a class="headerlink" href="#core.mirror.MirrorUploader.IMPLEMENTATION_REGISTRY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">IMPLEMENTATION_REGISTRY</code><em class="property"> = {'Amazon S3': &lt;class 'core.s3.S3Uploader'&gt;, 'LCP': &lt;class 'api.lcp.mirror.LCPMirror'&gt;, 'MinIO': &lt;class 'core.s3.MinIOUploader'&gt;}</em><a class="headerlink" href="#core.mirror.MirrorUploader.IMPLEMENTATION_REGISTRY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.mirror.MirrorUploader.STORAGE_GOAL">
-<code class="descname">STORAGE_GOAL</code><em class="property"> = u'storage'</em><a class="headerlink" href="#core.mirror.MirrorUploader.STORAGE_GOAL" title="Permalink to this definition">¶</a></dt>
+<code class="descname">STORAGE_GOAL</code><em class="property"> = 'storage'</em><a class="headerlink" href="#core.mirror.MirrorUploader.STORAGE_GOAL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -6659,9 +6632,13 @@ DEFAULT_START_TIME and DEFAULT_COUNTER.</p>
 
 <dl class="classmethod">
 <dt id="core.monitor.CollectionMonitor.all">
-<em class="property">classmethod </em><code class="descname">all</code><span class="sig-paren">(</span><em>_db</em>, <em>**constructor_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#CollectionMonitor.all"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.CollectionMonitor.all" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">all</code><span class="sig-paren">(</span><em>_db</em>, <em>collections=None</em>, <em>**constructor_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#CollectionMonitor.all"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.CollectionMonitor.all" title="Permalink to this definition">¶</a></dt>
 <dd><p>Yield a sequence of CollectionMonitor objects: one for every
 Collection associated with cls.PROTOCOL.</p>
+<p>If <cite>collections</cite> is specified, then there must be a Monitor
+for each one and Monitors will be yielded in the same order
+that the collections are specified. Otherwise, Monitors will
+be yielded as follows…</p>
 <p>Monitors that have no Timestamp will be yielded first. After
 that, Monitors with older values for Timestamp.start will be
 yielded before Monitors with newer values.</p>
@@ -6669,11 +6646,35 @@ yielded before Monitors with newer values.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>constructor_kwargs</strong> – These keyword arguments will be passed
-into the CollectionMonitor constructor.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>_db</strong> – Database session object.</li>
+<li><strong>collections</strong> (<em>List</em><em>[</em><a class="reference internal" href="core.model.html#core.model.collection.Collection" title="core.model.collection.Collection"><em>Collection</em></a><em>]</em>) – An optional list of collections. If None,
+we’ll process all collections.</li>
+<li><strong>constructor_kwargs</strong> – These keyword arguments will be passed
+into the CollectionMonitor constructor.</li>
+</ul>
+</td>
 </tr>
 </tbody>
 </table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.monitor.CollectionMonitorLogger">
+<em class="property">class </em><code class="descclassname">core.monitor.</code><code class="descname">CollectionMonitorLogger</code><span class="sig-paren">(</span><em>logger</em>, <em>extra</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#CollectionMonitorLogger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.CollectionMonitorLogger" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">logging.LoggerAdapter</span></code></p>
+<p>Prefix log messages with a collection, if one is present.</p>
+<dl class="method">
+<dt id="core.monitor.CollectionMonitorLogger.process">
+<code class="descname">process</code><span class="sig-paren">(</span><em>msg</em>, <em>kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#CollectionMonitorLogger.process"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.CollectionMonitorLogger.process" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process the logging message and keyword arguments passed in to
+a logging call to insert contextual information. You can either
+manipulate the message itself, the keyword args or both. Return
+the message and kwargs modified (or not) to suit your needs.</p>
+<p>Normally, you’ll only need to override this one method in a
+LoggerAdapter subclass for your specific needs.</p>
 </dd></dl>
 
 </dd></dl>
@@ -6710,7 +6711,7 @@ failure.</p>
 <dl class="exception">
 <dt id="core.monitor.CoverageProvidersFailed">
 <em class="property">exception </em><code class="descclassname">core.monitor.</code><code class="descname">CoverageProvidersFailed</code><span class="sig-paren">(</span><em>failed_providers</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#CoverageProvidersFailed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.CoverageProvidersFailed" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">exceptions.Exception</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
 <p>We tried to run CoverageProviders on a Work’s identifier,
 but some of the providers failed.</p>
 </dd></dl>
@@ -6909,7 +6910,8 @@ for only the fields you want to set.</td>
 <dl class="attribute">
 <dt id="core.monitor.MeasurementReaper.where_clause">
 <code class="descname">where_clause</code><a class="headerlink" href="#core.monitor.MeasurementReaper.where_clause" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>A SQLAlchemy clause that identifies the database rows to be reaped.</p>
+</dd></dl>
 
 </dd></dl>
 
@@ -6938,7 +6940,7 @@ that needs to be run on every Collection of a certain type.</p>
 
 <dl class="attribute">
 <dt id="core.monitor.Monitor.DEFAULT_START_TIME">
-<code class="descname">DEFAULT_START_TIME</code><em class="property"> = datetime.timedelta(0, 60)</em><a class="headerlink" href="#core.monitor.Monitor.DEFAULT_START_TIME" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DEFAULT_START_TIME</code><em class="property"> = datetime.timedelta(seconds=60)</em><a class="headerlink" href="#core.monitor.Monitor.DEFAULT_START_TIME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -6948,12 +6950,12 @@ that needs to be run on every Collection of a certain type.</p>
 
 <dl class="attribute">
 <dt id="core.monitor.Monitor.ONE_MINUTE_AGO">
-<code class="descname">ONE_MINUTE_AGO</code><em class="property"> = datetime.timedelta(0, 60)</em><a class="headerlink" href="#core.monitor.Monitor.ONE_MINUTE_AGO" title="Permalink to this definition">¶</a></dt>
+<code class="descname">ONE_MINUTE_AGO</code><em class="property"> = datetime.timedelta(seconds=60)</em><a class="headerlink" href="#core.monitor.Monitor.ONE_MINUTE_AGO" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.monitor.Monitor.ONE_YEAR_AGO">
-<code class="descname">ONE_YEAR_AGO</code><em class="property"> = datetime.timedelta(365)</em><a class="headerlink" href="#core.monitor.Monitor.ONE_YEAR_AGO" title="Permalink to this definition">¶</a></dt>
+<code class="descname">ONE_YEAR_AGO</code><em class="property"> = datetime.timedelta(days=365)</em><a class="headerlink" href="#core.monitor.Monitor.ONE_YEAR_AGO" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -7081,7 +7083,7 @@ with the ‘generate-opds’ operation.</p>
 seen in a while.</p>
 <dl class="attribute">
 <dt id="core.monitor.PatronNeighborhoodScrubber.MAX_AGE">
-<code class="descname">MAX_AGE</code><em class="property"> = datetime.timedelta(0, 43200)</em><a class="headerlink" href="#core.monitor.PatronNeighborhoodScrubber.MAX_AGE" title="Permalink to this definition">¶</a></dt>
+<code class="descname">MAX_AGE</code><em class="property"> = datetime.timedelta(seconds=43200)</em><a class="headerlink" href="#core.monitor.PatronNeighborhoodScrubber.MAX_AGE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -7458,7 +7460,7 @@ the span of time covered in the most recent run, not the time it
 actually took to run.</p>
 <dl class="attribute">
 <dt id="core.monitor.TimelineMonitor.OVERLAP">
-<code class="descname">OVERLAP</code><em class="property"> = datetime.timedelta(0, 300)</em><a class="headerlink" href="#core.monitor.TimelineMonitor.OVERLAP" title="Permalink to this definition">¶</a></dt>
+<code class="descname">OVERLAP</code><em class="property"> = datetime.timedelta(seconds=300)</em><a class="headerlink" href="#core.monitor.TimelineMonitor.OVERLAP" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -8189,7 +8191,7 @@ feed.</p>
 <dd><p>Bases: <a class="reference internal" href="#core.lane.FeaturedFacets" title="core.lane.FeaturedFacets"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.lane.FeaturedFacets</span></code></a></p>
 <dl class="attribute">
 <dt id="core.opds.NavigationFacets.CACHED_FEED_TYPE">
-<code class="descname">CACHED_FEED_TYPE</code><em class="property"> = u'navigation'</em><a class="headerlink" href="#core.opds.NavigationFacets.CACHED_FEED_TYPE" title="Permalink to this definition">¶</a></dt>
+<code class="descname">CACHED_FEED_TYPE</code><em class="property"> = 'navigation'</em><a class="headerlink" href="#core.opds.NavigationFacets.CACHED_FEED_TYPE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8351,7 +8353,7 @@ to the feed.</li>
 <dl class="exception">
 <dt id="core.opds.UnfulfillableWork">
 <em class="property">exception </em><code class="descclassname">core.opds.</code><code class="descname">UnfulfillableWork</code><a class="reference internal" href="_modules/core/opds.html#UnfulfillableWork"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.UnfulfillableWork" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">exceptions.Exception</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
 <p>Raise this exception when it turns out a Work currently cannot be
 fulfilled through any means, <em>and</em> this is a problem sufficient to
 cancel the creation of an &lt;entry&gt; for the Work.</p>
@@ -8463,7 +8465,7 @@ identifiers for the work.</td>
 
 <dl class="attribute">
 <dt id="core.opds2_import.OPDS2ImportMonitor.PROTOCOL">
-<code class="descname">PROTOCOL</code><em class="property"> = u'OPDS 2.0 Import'</em><a class="headerlink" href="#core.opds2_import.OPDS2ImportMonitor.PROTOCOL" title="Permalink to this definition">¶</a></dt>
+<code class="descname">PROTOCOL</code><em class="property"> = 'OPDS 2.0 Import'</em><a class="headerlink" href="#core.opds2_import.OPDS2ImportMonitor.PROTOCOL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8480,12 +8482,12 @@ identifiers for the work.</td>
 
 <dl class="attribute">
 <dt id="core.opds2_import.OPDS2Importer.NAME">
-<code class="descname">NAME</code><em class="property"> = u'OPDS 2.0 Import'</em><a class="headerlink" href="#core.opds2_import.OPDS2Importer.NAME" title="Permalink to this definition">¶</a></dt>
+<code class="descname">NAME</code><em class="property"> = 'OPDS 2.0 Import'</em><a class="headerlink" href="#core.opds2_import.OPDS2Importer.NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.opds2_import.OPDS2Importer.NEXT_LINK_RELATION">
-<code class="descname">NEXT_LINK_RELATION</code><em class="property"> = u'next'</em><a class="headerlink" href="#core.opds2_import.OPDS2Importer.NEXT_LINK_RELATION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">NEXT_LINK_RELATION</code><em class="property"> = 'next'</em><a class="headerlink" href="#core.opds2_import.OPDS2Importer.NEXT_LINK_RELATION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -8574,7 +8576,7 @@ identifiers for the work.</td>
 <dl class="exception">
 <dt id="core.opds_import.AccessNotAuthenticated">
 <em class="property">exception </em><code class="descclassname">core.opds_import.</code><code class="descname">AccessNotAuthenticated</code><a class="reference internal" href="_modules/core/opds_import.html#AccessNotAuthenticated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.AccessNotAuthenticated" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">exceptions.Exception</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
 <p>No authentication is configured for this service</p>
 </dd></dl>
 
@@ -8614,7 +8616,7 @@ identifiers for the work.</td>
 
 <dl class="attribute">
 <dt id="core.opds_import.MetadataWranglerOPDSLookup.PROTOCOL">
-<code class="descname">PROTOCOL</code><em class="property"> = u'Metadata Wrangler'</em><a class="headerlink" href="#core.opds_import.MetadataWranglerOPDSLookup.PROTOCOL" title="Permalink to this definition">¶</a></dt>
+<code class="descname">PROTOCOL</code><em class="property"> = 'Metadata Wrangler'</em><a class="headerlink" href="#core.opds_import.MetadataWranglerOPDSLookup.PROTOCOL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8624,7 +8626,7 @@ identifiers for the work.</td>
 
 <dl class="attribute">
 <dt id="core.opds_import.MetadataWranglerOPDSLookup.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'default': 'http://metadata.librarysimplified.org/', 'format': 'url', 'required': True, 'key': u'url', 'label': l'URL'}]</em><a class="headerlink" href="#core.opds_import.MetadataWranglerOPDSLookup.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'url', 'label': l'URL', 'default': 'http://metadata.librarysimplified.org/', 'required': True, 'format': 'url'}]</em><a class="headerlink" href="#core.opds_import.MetadataWranglerOPDSLookup.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8770,7 +8772,7 @@ every title it mentions.</p>
 
 <dl class="attribute">
 <dt id="core.opds_import.OPDSImportMonitor.PROTOCOL">
-<code class="descname">PROTOCOL</code><em class="property"> = u'OPDS Import'</em><a class="headerlink" href="#core.opds_import.OPDSImportMonitor.PROTOCOL" title="Permalink to this definition">¶</a></dt>
+<code class="descname">PROTOCOL</code><em class="property"> = 'OPDS Import'</em><a class="headerlink" href="#core.opds_import.OPDSImportMonitor.PROTOCOL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8890,7 +8892,7 @@ our internal content server, and also when our content server asks for data
 from external content servers.</p>
 <dl class="attribute">
 <dt id="core.opds_import.OPDSImporter.BASE_SETTINGS">
-<code class="descname">BASE_SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'key': u'external_account_id', 'label': l'URL'}, {'required': True, 'key': u'data_source', 'label': l'Data source name'}, {'readOnly': True, 'description': l'If the vendor does not specify the target audience for their books, assume the books have this target audience.', 'key': 'default_audience', 'format': 'narrow', 'default': '', 'required': False, 'type': 'select', 'options': [{'key': '', 'label': l'No default audience'}, {'key': 'Adult', 'label': 'Adult'}, {'key': 'Adults Only', 'label': 'Adults Only'}, {'key': 'All Ages', 'label': 'All Ages'}, {'key': 'Children', 'label': 'Children'}, {'key': 'Research', 'label': 'Research'}, {'key': 'Young Adult', 'label': 'Young Adult'}], 'label': l'Default audience'}]</em><a class="headerlink" href="#core.opds_import.OPDSImporter.BASE_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">BASE_SETTINGS</code><em class="property"> = [{'key': 'external_account_id', 'label': l'URL', 'required': True, 'format': 'url'}, {'key': 'data_source', 'label': l'Data source name', 'required': True}, {'key': 'default_audience', 'label': l'Default audience', 'description': l'If the vendor does not specify the target audience for their books, assume the books have this target audience.', 'type': 'select', 'format': 'narrow', 'options': [{'key': '', 'label': l'No default audience'}, {'key': 'Adult', 'label': 'Adult'}, {'key': 'Adults Only', 'label': 'Adults Only'}, {'key': 'All Ages', 'label': 'All Ages'}, {'key': 'Children', 'label': 'Children'}, {'key': 'Research', 'label': 'Research'}, {'key': 'Young Adult', 'label': 'Young Adult'}], 'default': '', 'required': False, 'readOnly': True}]</em><a class="headerlink" href="#core.opds_import.OPDSImporter.BASE_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8905,7 +8907,7 @@ from external content servers.</p>
 
 <dl class="attribute">
 <dt id="core.opds_import.OPDSImporter.NAME">
-<code class="descname">NAME</code><em class="property"> = u'OPDS Import'</em><a class="headerlink" href="#core.opds_import.OPDSImporter.NAME" title="Permalink to this definition">¶</a></dt>
+<code class="descname">NAME</code><em class="property"> = 'OPDS Import'</em><a class="headerlink" href="#core.opds_import.OPDSImporter.NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8921,7 +8923,7 @@ from external content servers.</p>
 
 <dl class="attribute">
 <dt id="core.opds_import.OPDSImporter.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'key': u'external_account_id', 'label': l'URL'}, {'required': True, 'key': u'data_source', 'label': l'Data source name'}, {'readOnly': True, 'description': l'If the vendor does not specify the target audience for their books, assume the books have this target audience.', 'key': 'default_audience', 'format': 'narrow', 'default': '', 'required': False, 'type': 'select', 'options': [{'key': '', 'label': l'No default audience'}, {'key': 'Adult', 'label': 'Adult'}, {'key': 'Adults Only', 'label': 'Adults Only'}, {'key': 'All Ages', 'label': 'All Ages'}, {'key': 'Children', 'label': 'Children'}, {'key': 'Research', 'label': 'Research'}, {'key': 'Young Adult', 'label': 'Young Adult'}], 'label': l'Default audience'}, {'description': l'If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the username here.', 'key': u'username', 'label': l'Username'}, {'description': l'If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the password here.', 'key': u'password', 'label': l'Password'}, {'default': 'application/atom+xml;profile=opds-catalog;kind=acquisition,application/atom+xml;q=0.9,application/xml;q=0.8,*/*;q=0.1', 'required': False, 'description': l'Some servers expect an accept header to decide which file to send. You can use */* if the server doesn't expect anything.', 'key': u'custom_accept_header', 'label': l'Custom accept header'}, {'description': l'Which book identifier to use as ID.', 'required': False, 'label': l'Identifer', 'key': u'primary_identifier_source', 'type': 'select', 'options': [{'key': '', 'label': l'(Default) Use &lt;id&gt;'}, {'key': u'first_dcterms_identifier', 'label': l'Use &lt;dcterms:identifier&gt; first, if not exist use &lt;id&gt;'}]}]</em><a class="headerlink" href="#core.opds_import.OPDSImporter.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'external_account_id', 'label': l'URL', 'required': True, 'format': 'url'}, {'key': 'data_source', 'label': l'Data source name', 'required': True}, {'key': 'default_audience', 'label': l'Default audience', 'description': l'If the vendor does not specify the target audience for their books, assume the books have this target audience.', 'type': 'select', 'format': 'narrow', 'options': [{'key': '', 'label': l'No default audience'}, {'key': 'Adult', 'label': 'Adult'}, {'key': 'Adults Only', 'label': 'Adults Only'}, {'key': 'All Ages', 'label': 'All Ages'}, {'key': 'Children', 'label': 'Children'}, {'key': 'Research', 'label': 'Research'}, {'key': 'Young Adult', 'label': 'Young Adult'}], 'default': '', 'required': False, 'readOnly': True}, {'key': 'username', 'label': l'Username', 'description': l'If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the username here.'}, {'key': 'password', 'label': l'Password', 'description': l'If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the password here.'}, {'key': 'custom_accept_header', 'label': l'Custom accept header', 'required': False, 'description': l'Some servers expect an accept header to decide which file to send. You can use */* if the server doesn't expect anything.', 'default': 'application/atom+xml;profile=opds-catalog;kind=acquisition,application/atom+xml;q=0.9,application/xml;q=0.8,*/*;q=0.1'}, {'key': 'primary_identifier_source', 'label': l'Identifer', 'required': False, 'description': l'Which book identifier to use as ID.', 'type': 'select', 'options': [{'key': '', 'label': l'(Default) Use &lt;id&gt;'}, {'key': 'first_dcterms_identifier', 'label': l'Use &lt;dcterms:identifier&gt; first, if not exist use &lt;id&gt;'}]}]</em><a class="headerlink" href="#core.opds_import.OPDSImporter.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8937,11 +8939,6 @@ even theoretically, be turned into a LicensePool.</p>
 <p>By default, this means the feed must link to open-access content
 that can actually be retrieved.</p>
 </dd></dl>
-
-<dl class="attribute">
-<dt id="core.opds_import.OPDSImporter.audience">
-<code class="descname">audience</code><em class="property"> = 'Young Adult'</em><a class="headerlink" href="#core.opds_import.OPDSImporter.audience" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
 
 <dl class="method">
 <dt id="core.opds_import.OPDSImporter.build_identifier_mapping">
@@ -9095,7 +9092,7 @@ if made available on these terms.</li>
 
 <dl class="classmethod">
 <dt id="core.opds_import.OPDSImporter.extract_medium">
-<em class="property">classmethod </em><code class="descname">extract_medium</code><span class="sig-paren">(</span><em>entry_tag</em>, <em>default=u'Book'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter.extract_medium"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter.extract_medium" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">extract_medium</code><span class="sig-paren">(</span><em>entry_tag</em>, <em>default='Book'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter.extract_medium"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter.extract_medium" title="Permalink to this definition">¶</a></dt>
 <dd><p>Derive a value for Edition.medium from schema:additionalType or
 from a &lt;dcterms:format&gt; subtag.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -9268,7 +9265,7 @@ given edition’s primary identifier.</p>
 
 <dl class="classmethod">
 <dt id="core.opds_import.SimplifiedOPDSLookup.from_protocol">
-<em class="property">classmethod </em><code class="descname">from_protocol</code><span class="sig-paren">(</span><em>_db</em>, <em>protocol</em>, <em>goal=u'licenses'</em>, <em>library=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#SimplifiedOPDSLookup.from_protocol"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.SimplifiedOPDSLookup.from_protocol" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">from_protocol</code><span class="sig-paren">(</span><em>_db</em>, <em>protocol</em>, <em>goal='licenses'</em>, <em>library=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#SimplifiedOPDSLookup.from_protocol"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.SimplifiedOPDSLookup.from_protocol" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -9364,7 +9361,7 @@ given edition’s primary identifier.</p>
 
 <dl class="classmethod">
 <dt id="core.overdrive.MockOverdriveAPI.mock_collection">
-<em class="property">classmethod </em><code class="descname">mock_collection</code><span class="sig-paren">(</span><em>_db</em>, <em>library=None</em>, <em>name='Test Overdrive Collection'</em>, <em>client_key=u'a'</em>, <em>client_secret=u'b'</em>, <em>library_id=u'c'</em>, <em>website_id='d'</em>, <em>ils_name='e'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/overdrive.html#MockOverdriveAPI.mock_collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.overdrive.MockOverdriveAPI.mock_collection" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">mock_collection</code><span class="sig-paren">(</span><em>_db</em>, <em>library=None</em>, <em>name='Test Overdrive Collection'</em>, <em>client_key='a'</em>, <em>client_secret='b'</em>, <em>library_id='c'</em>, <em>website_id='d'</em>, <em>ils_name='e'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/overdrive.html#MockOverdriveAPI.mock_collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.overdrive.MockOverdriveAPI.mock_collection" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a mock Overdrive collection for use in tests.</p>
 </dd></dl>
 
@@ -9428,7 +9425,7 @@ whether to queue a response in a given test.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.DEFAULT_READABLE_FORMATS">
-<code class="descname">DEFAULT_READABLE_FORMATS</code><em class="property"> = set(['audiobook-overdrive', 'ebook-epub-adobe', 'ebook-epub-open', 'ebook-pdf-open'])</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.DEFAULT_READABLE_FORMATS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DEFAULT_READABLE_FORMATS</code><em class="property"> = {'audiobook-overdrive', 'ebook-epub-adobe', 'ebook-epub-open', 'ebook-pdf-open'}</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.DEFAULT_READABLE_FORMATS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9438,7 +9435,7 @@ whether to queue a response in a given test.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.EVENT_DELAY">
-<code class="descname">EVENT_DELAY</code><em class="property"> = datetime.timedelta(0, 7200)</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.EVENT_DELAY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">EVENT_DELAY</code><em class="property"> = datetime.timedelta(seconds=7200)</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.EVENT_DELAY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9473,17 +9470,17 @@ whether to queue a response in a given test.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.ILS_NAME_DEFAULT">
-<code class="descname">ILS_NAME_DEFAULT</code><em class="property"> = u'default'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.ILS_NAME_DEFAULT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">ILS_NAME_DEFAULT</code><em class="property"> = 'default'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.ILS_NAME_DEFAULT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.ILS_NAME_KEY">
-<code class="descname">ILS_NAME_KEY</code><em class="property"> = u'ils_name'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.ILS_NAME_KEY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">ILS_NAME_KEY</code><em class="property"> = 'ils_name'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.ILS_NAME_KEY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.INCOMPATIBLE_PLATFORM_FORMATS">
-<code class="descname">INCOMPATIBLE_PLATFORM_FORMATS</code><em class="property"> = set(['ebook-kindle'])</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.INCOMPATIBLE_PLATFORM_FORMATS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">INCOMPATIBLE_PLATFORM_FORMATS</code><em class="property"> = {'ebook-kindle'}</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.INCOMPATIBLE_PLATFORM_FORMATS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9553,7 +9550,7 @@ whether to queue a response in a given test.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.WEBSITE_ID">
-<code class="descname">WEBSITE_ID</code><em class="property"> = u'website_id'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.WEBSITE_ID" title="Permalink to this definition">¶</a></dt>
+<code class="descname">WEBSITE_ID</code><em class="property"> = 'website_id'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.WEBSITE_ID" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9667,12 +9664,12 @@ for the given collection and library.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.lock">
-<code class="descname">lock</code><em class="property"> = &lt;_RLock owner=None count=0&gt;</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.lock" title="Permalink to this definition">¶</a></dt>
+<code class="descname">lock</code><em class="property"> = &lt;unlocked _thread.RLock object owner=0 count=0&gt;</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.lock" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.log">
-<code class="descname">log</code><em class="property"> = &lt;logging.Logger object&gt;</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.log" title="Permalink to this definition">¶</a></dt>
+<code class="descname">log</code><em class="property"> = &lt;Logger Overdrive API (WARNING)&gt;</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.log" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -9778,17 +9775,17 @@ single Collection, but we rely on Monitors to keep availability
 information up to date for all Collections.</p>
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveBibliographicCoverageProvider.DATA_SOURCE_NAME">
-<code class="descname">DATA_SOURCE_NAME</code><em class="property"> = u'Overdrive'</em><a class="headerlink" href="#core.overdrive.OverdriveBibliographicCoverageProvider.DATA_SOURCE_NAME" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DATA_SOURCE_NAME</code><em class="property"> = 'Overdrive'</em><a class="headerlink" href="#core.overdrive.OverdriveBibliographicCoverageProvider.DATA_SOURCE_NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveBibliographicCoverageProvider.INPUT_IDENTIFIER_TYPES">
-<code class="descname">INPUT_IDENTIFIER_TYPES</code><em class="property"> = u'Overdrive ID'</em><a class="headerlink" href="#core.overdrive.OverdriveBibliographicCoverageProvider.INPUT_IDENTIFIER_TYPES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">INPUT_IDENTIFIER_TYPES</code><em class="property"> = 'Overdrive ID'</em><a class="headerlink" href="#core.overdrive.OverdriveBibliographicCoverageProvider.INPUT_IDENTIFIER_TYPES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveBibliographicCoverageProvider.PROTOCOL">
-<code class="descname">PROTOCOL</code><em class="property"> = u'Overdrive'</em><a class="headerlink" href="#core.overdrive.OverdriveBibliographicCoverageProvider.PROTOCOL" title="Permalink to this definition">¶</a></dt>
+<code class="descname">PROTOCOL</code><em class="property"> = 'Overdrive'</em><a class="headerlink" href="#core.overdrive.OverdriveBibliographicCoverageProvider.PROTOCOL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9855,12 +9852,12 @@ from the json data that goes into the book_info_to_circulation() method.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveRepresentationExtractor.format_data_for_overdrive_format">
-<code class="descname">format_data_for_overdrive_format</code><em class="property"> = {'audiobook-mp3': ('application/x-od-media', u'Overdrive DRM'), 'audiobook-overdrive': [(u'application/vnd.overdrive.circulation.api+json;profile=audiobook', u'Libby DRM'), (u'Streaming Audio', u'Streaming')], 'ebook-epub-adobe': (u'application/epub+zip', u'application/vnd.adobe.adept+xml'), 'ebook-epub-open': (u'application/epub+zip', None), 'ebook-kindle': (u'Kindle via Amazon', u'Kindle DRM'), 'ebook-overdrive': [(u'application/vnd.overdrive.circulation.api+json;profile=ebook', u'Libby DRM'), (u'Streaming Text', u'Streaming')], 'ebook-pdf-adobe': (u'application/pdf', u'application/vnd.adobe.adept+xml'), 'ebook-pdf-open': (u'application/pdf', None), 'music-mp3': ('application/x-od-media', u'Overdrive DRM'), 'periodicals-nook': (u'Nook via B&amp;N', u'Nook DRM'), 'video-streaming': (u'Streaming Video', u'Streaming')}</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.format_data_for_overdrive_format" title="Permalink to this definition">¶</a></dt>
+<code class="descname">format_data_for_overdrive_format</code><em class="property"> = {'audiobook-mp3': ('application/x-od-media', 'Overdrive DRM'), 'audiobook-overdrive': [('application/vnd.overdrive.circulation.api+json;profile=audiobook', 'Libby DRM'), ('Streaming Audio', 'Streaming')], 'ebook-epub-adobe': ('application/epub+zip', 'application/vnd.adobe.adept+xml'), 'ebook-epub-open': ('application/epub+zip', None), 'ebook-kindle': ('Kindle via Amazon', 'Kindle DRM'), 'ebook-overdrive': [('application/vnd.overdrive.circulation.api+json;profile=ebook', 'Libby DRM'), ('Streaming Text', 'Streaming')], 'ebook-pdf-adobe': ('application/pdf', 'application/vnd.adobe.adept+xml'), 'ebook-pdf-open': ('application/pdf', None), 'music-mp3': ('application/x-od-media', 'Overdrive DRM'), 'periodicals-nook': ('Nook via B&amp;N', 'Nook DRM'), 'video-streaming': ('Streaming Video', 'Streaming')}</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.format_data_for_overdrive_format" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveRepresentationExtractor.ignorable_overdrive_formats">
-<code class="descname">ignorable_overdrive_formats</code><em class="property"> = set([])</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.ignorable_overdrive_formats" title="Permalink to this definition">¶</a></dt>
+<code class="descname">ignorable_overdrive_formats</code><em class="property"> = {}</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.ignorable_overdrive_formats" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -9890,17 +9887,17 @@ from the json data that goes into the book_info_to_circulation() method.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveRepresentationExtractor.log">
-<code class="descname">log</code><em class="property"> = &lt;logging.Logger object&gt;</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.log" title="Permalink to this definition">¶</a></dt>
+<code class="descname">log</code><em class="property"> = &lt;Logger Overdrive representation extractor (WARNING)&gt;</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.log" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveRepresentationExtractor.overdrive_medium_to_simplified_medium">
-<code class="descname">overdrive_medium_to_simplified_medium</code><em class="property"> = {'Audiobook': u'Audio', 'Music': u'Music', 'Periodicals': u'Periodical', 'Video': u'Video', 'eBook': u'Book'}</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.overdrive_medium_to_simplified_medium" title="Permalink to this definition">¶</a></dt>
+<code class="descname">overdrive_medium_to_simplified_medium</code><em class="property"> = {'Audiobook': 'Audio', 'Music': 'Music', 'Periodicals': 'Periodical', 'Video': 'Video', 'eBook': 'Book'}</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.overdrive_medium_to_simplified_medium" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveRepresentationExtractor.overdrive_role_to_simplified_role">
-<code class="descname">overdrive_role_to_simplified_role</code><em class="property"> = {'actor': u'Actor', 'adapter': u'Adapter', 'artist': u'Artist', 'associated name': u'Associated name', 'author': u'Author', 'author of afterword': u'Afterword Author', 'author of foreword': u'Foreword Author', 'author of introduction': u'Introduction Author', 'book producer': u'Producer', 'cast member': u'Actor', 'collaborator': u'Collaborator', 'colophon': u'Colophon Author', 'compiler': u'Compiler', 'composer': u'Composer', 'contributor': u'Contributor', 'copyright holder': u'Copyright holder', 'designer': u'Designer', 'director': u'Director', 'editor': u'Editor', 'engineer': u'Engineer', 'etc.': u'Unknown', 'executive producer': u'Executive Producer', 'illustrator': u'Illustrator', 'lyricist': u'Lyricist', 'musician': u'Musician', 'narrator': u'Narrator', 'other': u'Unknown', 'performer': u'Performer', 'photographer': u'Photographer', 'producer': u'Producer', 'transcriber': u'Transcriber', 'translator': u'Translator'}</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.overdrive_role_to_simplified_role" title="Permalink to this definition">¶</a></dt>
+<code class="descname">overdrive_role_to_simplified_role</code><em class="property"> = {'actor': 'Actor', 'adapter': 'Adapter', 'artist': 'Artist', 'associated name': 'Associated name', 'author': 'Author', 'author of afterword': 'Afterword Author', 'author of foreword': 'Foreword Author', 'author of introduction': 'Introduction Author', 'book producer': 'Producer', 'cast member': 'Actor', 'collaborator': 'Collaborator', 'colophon': 'Colophon Author', 'compiler': 'Compiler', 'composer': 'Composer', 'contributor': 'Contributor', 'copyright holder': 'Copyright holder', 'designer': 'Designer', 'director': 'Director', 'editor': 'Editor', 'engineer': 'Engineer', 'etc.': 'Unknown', 'executive producer': 'Executive Producer', 'illustrator': 'Illustrator', 'lyricist': 'Lyricist', 'musician': 'Musician', 'narrator': 'Narrator', 'other': 'Unknown', 'performer': 'Performer', 'photographer': 'Photographer', 'producer': 'Producer', 'transcriber': 'Transcriber', 'translator': 'Translator'}</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.overdrive_role_to_simplified_role" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -9922,12 +9919,12 @@ from the json data that goes into the book_info_to_circulation() method.</p>
 <dd><p>Bases: <a class="reference internal" href="#core.s3.S3Uploader" title="core.s3.S3Uploader"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.s3.S3Uploader</span></code></a></p>
 <dl class="attribute">
 <dt id="core.s3.MinIOUploader.NAME">
-<code class="descname">NAME</code><em class="property"> = u'MinIO'</em><a class="headerlink" href="#core.s3.MinIOUploader.NAME" title="Permalink to this definition">¶</a></dt>
+<code class="descname">NAME</code><em class="property"> = 'MinIO'</em><a class="headerlink" href="#core.s3.MinIOUploader.NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.s3.MinIOUploader.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'category': None, 'description': '', 'key': u'username', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Access Key'}, {'category': None, 'description': l'If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials will be used as outlined in the &lt;a href=&quot;https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials&quot;&gt;Boto3 documenation&lt;/a&gt;. If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.', 'key': u'password', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Secret Key'}, {'category': None, 'description': l'All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'book_covers_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Book Covers Bucket'}, {'category': None, 'description': l'All open-access books encountered will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'open_access_content_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Open Access Content Bucket'}, {'category': None, 'description': l'Self-hosted books will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'protected_content_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Protected Access Content Bucket'}, {'category': None, 'description': l'All generated MARC files will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'marc_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'MARC File Bucket'}, {'category': None, 'description': l'S3 region which will be used for storing the content.', 'key': u's3_region', 'default': u'us-east-1', 'required': False, 'type': 'select', 'options': [{'key': u'af-south-1', 'label': u'af-south-1'}, {'key': u'ap-east-1', 'label': u'ap-east-1'}, {'key': u'ap-northeast-1', 'label': u'ap-northeast-1'}, {'key': u'ap-northeast-2', 'label': u'ap-northeast-2'}, {'key': u'ap-south-1', 'label': u'ap-south-1'}, {'key': u'ap-southeast-1', 'label': u'ap-southeast-1'}, {'key': u'ap-southeast-2', 'label': u'ap-southeast-2'}, {'key': u'ca-central-1', 'label': u'ca-central-1'}, {'key': u'eu-central-1', 'label': u'eu-central-1'}, {'key': u'eu-north-1', 'label': u'eu-north-1'}, {'key': u'eu-south-1', 'label': u'eu-south-1'}, {'key': u'eu-west-1', 'label': u'eu-west-1'}, {'key': u'eu-west-2', 'label': u'eu-west-2'}, {'key': u'eu-west-3', 'label': u'eu-west-3'}, {'key': u'me-south-1', 'label': u'me-south-1'}, {'key': u'sa-east-1', 'label': u'sa-east-1'}, {'key': u'us-east-1', 'label': u'us-east-1'}, {'key': u'us-east-2', 'label': u'us-east-2'}, {'key': u'us-west-1', 'label': u'us-west-1'}, {'key': u'us-west-2', 'label': u'us-west-2'}], 'label': l'S3 region'}, {'category': None, 'description': l'Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style requests will continue to be supported for buckets created on or before this date. For more information, see &lt;a href=&quot;https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/&quot;&gt;Amazon S3 Path Deprecation Plan - The Rest of the Story&lt;/a&gt;.', 'key': u's3_addressing_style', 'default': u'us-east-1', 'required': False, 'type': 'select', 'options': [{'key': 'virtual', 'label': l'Virtual'}, {'key': 'path', 'label': l'Path'}, {'key': 'auto', 'label': l'Auto'}], 'label': l'S3 addressing style'}, {'category': None, 'description': l'Time in seconds for the presigned URL to remain valid', 'key': u's3_presigned_url_expiration', 'default': 3600, 'required': False, 'type': 'number', 'options': None, 'label': l'S3 presigned URL expiration'}, {'category': None, 'description': l'A file mirrored to S3 is available at &lt;code&gt;http://{bucket}.s3.{region}.amazonaws.com/{filename}&lt;/code&gt;. If you've set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. &lt;p&gt;If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.&lt;/p&gt;', 'key': u'bucket_name_transform', 'default': u'identity', 'required': False, 'type': 'select', 'options': [{'key': u'identity', 'label': l'S3 Default: https://{bucket}.s3.{region}.amazonaws.com/{file}'}, {'key': u'https', 'label': l'HTTPS: https://{bucket}/{file}'}, {'key': u'http', 'label': l'HTTP: http://{bucket}/{file}'}], 'label': l'URL format'}, {'category': None, 'description': l'MinIO's endpoint URL', 'key': 'ENDPOINT_URL', 'format': None, 'default': None, 'required': True, 'type': None, 'options': None, 'label': l'Endpoint URL'}]</em><a class="headerlink" href="#core.s3.MinIOUploader.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'username', 'label': l'Access Key', 'description': '', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 'password', 'label': l'Secret Key', 'description': l'If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials will be used as outlined in the &lt;a href=&quot;https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials&quot;&gt;Boto3 documenation&lt;/a&gt;. If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 'book_covers_bucket', 'label': l'Book Covers Bucket', 'description': l'All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 'open_access_content_bucket', 'label': l'Open Access Content Bucket', 'description': l'All open-access books encountered will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 'protected_content_bucket', 'label': l'Protected Access Content Bucket', 'description': l'Self-hosted books will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 'marc_bucket', 'label': l'MARC File Bucket', 'description': l'All generated MARC files will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 's3_region', 'label': l'S3 region', 'description': l'S3 region which will be used for storing the content.', 'type': 'select', 'required': False, 'default': 'us-east-1', 'options': [{'key': 'af-south-1', 'label': 'af-south-1'}, {'key': 'ap-east-1', 'label': 'ap-east-1'}, {'key': 'ap-northeast-1', 'label': 'ap-northeast-1'}, {'key': 'ap-northeast-2', 'label': 'ap-northeast-2'}, {'key': 'ap-south-1', 'label': 'ap-south-1'}, {'key': 'ap-southeast-1', 'label': 'ap-southeast-1'}, {'key': 'ap-southeast-2', 'label': 'ap-southeast-2'}, {'key': 'ca-central-1', 'label': 'ca-central-1'}, {'key': 'eu-central-1', 'label': 'eu-central-1'}, {'key': 'eu-north-1', 'label': 'eu-north-1'}, {'key': 'eu-south-1', 'label': 'eu-south-1'}, {'key': 'eu-west-1', 'label': 'eu-west-1'}, {'key': 'eu-west-2', 'label': 'eu-west-2'}, {'key': 'eu-west-3', 'label': 'eu-west-3'}, {'key': 'me-south-1', 'label': 'me-south-1'}, {'key': 'sa-east-1', 'label': 'sa-east-1'}, {'key': 'us-east-1', 'label': 'us-east-1'}, {'key': 'us-east-2', 'label': 'us-east-2'}, {'key': 'us-west-1', 'label': 'us-west-1'}, {'key': 'us-west-2', 'label': 'us-west-2'}], 'category': None}, {'key': 's3_addressing_style', 'label': l'S3 addressing style', 'description': l'Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style requests will continue to be supported for buckets created on or before this date. For more information, see &lt;a href=&quot;https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/&quot;&gt;Amazon S3 Path Deprecation Plan - The Rest of the Story&lt;/a&gt;.', 'type': 'select', 'required': False, 'default': 'us-east-1', 'options': [{'key': 'virtual', 'label': l'Virtual'}, {'key': 'path', 'label': l'Path'}, {'key': 'auto', 'label': l'Auto'}], 'category': None}, {'key': 's3_presigned_url_expiration', 'label': l'S3 presigned URL expiration', 'description': l'Time in seconds for the presigned URL to remain valid', 'type': 'number', 'required': False, 'default': 3600, 'options': None, 'category': None}, {'key': 'bucket_name_transform', 'label': l'URL format', 'description': l'A file mirrored to S3 is available at &lt;code&gt;http://{bucket}.s3.{region}.amazonaws.com/{filename}&lt;/code&gt;. If you've set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. &lt;p&gt;If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.&lt;/p&gt;', 'type': 'select', 'required': False, 'default': 'identity', 'options': [{'key': 'identity', 'label': l'S3 Default: https://{bucket}.s3.{region}.amazonaws.com/{file}'}, {'key': 'https', 'label': l'HTTPS: https://{bucket}/{file}'}, {'key': 'http', 'label': l'HTTP: http://{bucket}/{file}'}], 'category': None}, {'key': 'ENDPOINT_URL', 'label': l'Endpoint URL', 'description': l'MinIO's endpoint URL', 'type': None, 'required': True, 'default': None, 'options': None, 'category': None, 'format': None}]</em><a class="headerlink" href="#core.s3.MinIOUploader.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -9994,7 +9991,7 @@ boto3 client.</p>
 <p>A dummy uploader for use in tests.</p>
 <dl class="attribute">
 <dt id="core.s3.MockS3Uploader.buckets">
-<code class="descname">buckets</code><em class="property"> = {u'book_covers_bucket': 'test-cover-bucket', u'marc_bucket': 'test-marc-bucket', u'open_access_content_bucket': 'test-content-bucket', u'protected_content_bucket': 'test-content-bucket'}</em><a class="headerlink" href="#core.s3.MockS3Uploader.buckets" title="Permalink to this definition">¶</a></dt>
+<code class="descname">buckets</code><em class="property"> = {'book_covers_bucket': 'test-cover-bucket', 'marc_bucket': 'test-marc-bucket', 'open_access_content_bucket': 'test-content-bucket', 'protected_content_bucket': 'test-content-bucket'}</em><a class="headerlink" href="#core.s3.MockS3Uploader.buckets" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -10018,7 +10015,7 @@ boto3 client.</p>
 
 <dl class="method">
 <dt id="core.s3.MockS3Uploader.multipart_upload">
-<code class="descname">multipart_upload</code><span class="sig-paren">(</span><em>**kwds</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#MockS3Uploader.multipart_upload"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.MockS3Uploader.multipart_upload" title="Permalink to this definition">¶</a></dt>
+<code class="descname">multipart_upload</code><span class="sig-paren">(</span><em>representation</em>, <em>mirror_to</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#MockS3Uploader.multipart_upload"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.MockS3Uploader.multipart_upload" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -10026,7 +10023,8 @@ boto3 client.</p>
 <dl class="class">
 <dt id="core.s3.MultipartS3Upload">
 <em class="property">class </em><code class="descclassname">core.s3.</code><code class="descname">MultipartS3Upload</code><span class="sig-paren">(</span><em>uploader</em>, <em>representation</em>, <em>mirror_to</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#MultipartS3Upload"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.MultipartS3Upload" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="method">
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="method">
 <dt id="core.s3.MultipartS3Upload.abort">
 <code class="descname">abort</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#MultipartS3Upload.abort"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.MultipartS3Upload.abort" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -10071,7 +10069,7 @@ boto3 client.</p>
 <dd><p>Bases: <a class="reference internal" href="#core.mirror.MirrorUploader" title="core.mirror.MirrorUploader"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.mirror.MirrorUploader</span></code></a></p>
 <dl class="attribute">
 <dt id="core.s3.S3Uploader.NAME">
-<code class="descname">NAME</code><em class="property"> = u'Amazon S3'</em><a class="headerlink" href="#core.s3.S3Uploader.NAME" title="Permalink to this definition">¶</a></dt>
+<code class="descname">NAME</code><em class="property"> = 'Amazon S3'</em><a class="headerlink" href="#core.s3.S3Uploader.NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10081,7 +10079,7 @@ boto3 client.</p>
 
 <dl class="attribute">
 <dt id="core.s3.S3Uploader.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'category': None, 'description': '', 'key': u'username', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Access Key'}, {'category': None, 'description': l'If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials will be used as outlined in the &lt;a href=&quot;https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials&quot;&gt;Boto3 documenation&lt;/a&gt;. If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.', 'key': u'password', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Secret Key'}, {'category': None, 'description': l'All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'book_covers_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Book Covers Bucket'}, {'category': None, 'description': l'All open-access books encountered will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'open_access_content_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Open Access Content Bucket'}, {'category': None, 'description': l'Self-hosted books will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'protected_content_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'Protected Access Content Bucket'}, {'category': None, 'description': l'All generated MARC files will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'key': u'marc_bucket', 'default': None, 'required': False, 'type': None, 'options': None, 'label': l'MARC File Bucket'}, {'category': None, 'description': l'S3 region which will be used for storing the content.', 'key': u's3_region', 'default': u'us-east-1', 'required': False, 'type': 'select', 'options': [{'key': u'af-south-1', 'label': u'af-south-1'}, {'key': u'ap-east-1', 'label': u'ap-east-1'}, {'key': u'ap-northeast-1', 'label': u'ap-northeast-1'}, {'key': u'ap-northeast-2', 'label': u'ap-northeast-2'}, {'key': u'ap-south-1', 'label': u'ap-south-1'}, {'key': u'ap-southeast-1', 'label': u'ap-southeast-1'}, {'key': u'ap-southeast-2', 'label': u'ap-southeast-2'}, {'key': u'ca-central-1', 'label': u'ca-central-1'}, {'key': u'eu-central-1', 'label': u'eu-central-1'}, {'key': u'eu-north-1', 'label': u'eu-north-1'}, {'key': u'eu-south-1', 'label': u'eu-south-1'}, {'key': u'eu-west-1', 'label': u'eu-west-1'}, {'key': u'eu-west-2', 'label': u'eu-west-2'}, {'key': u'eu-west-3', 'label': u'eu-west-3'}, {'key': u'me-south-1', 'label': u'me-south-1'}, {'key': u'sa-east-1', 'label': u'sa-east-1'}, {'key': u'us-east-1', 'label': u'us-east-1'}, {'key': u'us-east-2', 'label': u'us-east-2'}, {'key': u'us-west-1', 'label': u'us-west-1'}, {'key': u'us-west-2', 'label': u'us-west-2'}], 'label': l'S3 region'}, {'category': None, 'description': l'Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style requests will continue to be supported for buckets created on or before this date. For more information, see &lt;a href=&quot;https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/&quot;&gt;Amazon S3 Path Deprecation Plan - The Rest of the Story&lt;/a&gt;.', 'key': u's3_addressing_style', 'default': u'us-east-1', 'required': False, 'type': 'select', 'options': [{'key': 'virtual', 'label': l'Virtual'}, {'key': 'path', 'label': l'Path'}, {'key': 'auto', 'label': l'Auto'}], 'label': l'S3 addressing style'}, {'category': None, 'description': l'Time in seconds for the presigned URL to remain valid', 'key': u's3_presigned_url_expiration', 'default': 3600, 'required': False, 'type': 'number', 'options': None, 'label': l'S3 presigned URL expiration'}, {'category': None, 'description': l'A file mirrored to S3 is available at &lt;code&gt;http://{bucket}.s3.{region}.amazonaws.com/{filename}&lt;/code&gt;. If you've set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. &lt;p&gt;If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.&lt;/p&gt;', 'key': u'bucket_name_transform', 'default': u'identity', 'required': False, 'type': 'select', 'options': [{'key': u'identity', 'label': l'S3 Default: https://{bucket}.s3.{region}.amazonaws.com/{file}'}, {'key': u'https', 'label': l'HTTPS: https://{bucket}/{file}'}, {'key': u'http', 'label': l'HTTP: http://{bucket}/{file}'}], 'label': l'URL format'}]</em><a class="headerlink" href="#core.s3.S3Uploader.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'username', 'label': l'Access Key', 'description': '', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 'password', 'label': l'Secret Key', 'description': l'If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials will be used as outlined in the &lt;a href=&quot;https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials&quot;&gt;Boto3 documenation&lt;/a&gt;. If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 'book_covers_bucket', 'label': l'Book Covers Bucket', 'description': l'All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 'open_access_content_bucket', 'label': l'Open Access Content Bucket', 'description': l'All open-access books encountered will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 'protected_content_bucket', 'label': l'Protected Access Content Bucket', 'description': l'Self-hosted books will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 'marc_bucket', 'label': l'MARC File Bucket', 'description': l'All generated MARC files will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 's3_region', 'label': l'S3 region', 'description': l'S3 region which will be used for storing the content.', 'type': 'select', 'required': False, 'default': 'us-east-1', 'options': [{'key': 'af-south-1', 'label': 'af-south-1'}, {'key': 'ap-east-1', 'label': 'ap-east-1'}, {'key': 'ap-northeast-1', 'label': 'ap-northeast-1'}, {'key': 'ap-northeast-2', 'label': 'ap-northeast-2'}, {'key': 'ap-south-1', 'label': 'ap-south-1'}, {'key': 'ap-southeast-1', 'label': 'ap-southeast-1'}, {'key': 'ap-southeast-2', 'label': 'ap-southeast-2'}, {'key': 'ca-central-1', 'label': 'ca-central-1'}, {'key': 'eu-central-1', 'label': 'eu-central-1'}, {'key': 'eu-north-1', 'label': 'eu-north-1'}, {'key': 'eu-south-1', 'label': 'eu-south-1'}, {'key': 'eu-west-1', 'label': 'eu-west-1'}, {'key': 'eu-west-2', 'label': 'eu-west-2'}, {'key': 'eu-west-3', 'label': 'eu-west-3'}, {'key': 'me-south-1', 'label': 'me-south-1'}, {'key': 'sa-east-1', 'label': 'sa-east-1'}, {'key': 'us-east-1', 'label': 'us-east-1'}, {'key': 'us-east-2', 'label': 'us-east-2'}, {'key': 'us-west-1', 'label': 'us-west-1'}, {'key': 'us-west-2', 'label': 'us-west-2'}], 'category': None}, {'key': 's3_addressing_style', 'label': l'S3 addressing style', 'description': l'Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style requests will continue to be supported for buckets created on or before this date. For more information, see &lt;a href=&quot;https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/&quot;&gt;Amazon S3 Path Deprecation Plan - The Rest of the Story&lt;/a&gt;.', 'type': 'select', 'required': False, 'default': 'us-east-1', 'options': [{'key': 'virtual', 'label': l'Virtual'}, {'key': 'path', 'label': l'Path'}, {'key': 'auto', 'label': l'Auto'}], 'category': None}, {'key': 's3_presigned_url_expiration', 'label': l'S3 presigned URL expiration', 'description': l'Time in seconds for the presigned URL to remain valid', 'type': 'number', 'required': False, 'default': 3600, 'options': None, 'category': None}, {'key': 'bucket_name_transform', 'label': l'URL format', 'description': l'A file mirrored to S3 is available at &lt;code&gt;http://{bucket}.s3.{region}.amazonaws.com/{filename}&lt;/code&gt;. If you've set up your DNS so that http://[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. &lt;p&gt;If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.&lt;/p&gt;', 'type': 'select', 'required': False, 'default': 'identity', 'options': [{'key': 'identity', 'label': l'S3 Default: https://{bucket}.s3.{region}.amazonaws.com/{file}'}, {'key': 'https', 'label': l'HTTPS: https://{bucket}/{file}'}, {'key': 'http', 'label': l'HTTP: http://{bucket}/{file}'}], 'category': None}]</em><a class="headerlink" href="#core.s3.S3Uploader.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10146,11 +10144,10 @@ characters themselves alone.</p>
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>key</strong> – Either a key, or a list of parts to be
 assembled into a key.</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A bytestring that can be used as an S3 key.</td>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A string that can be used as an S3 key.</td>
 </tr>
 </tbody>
 </table>
-<p>TODO PYTHON3 This is rewritten to return a Unicode string.</p>
 </dd></dl>
 
 <dl class="method">
@@ -10186,7 +10183,7 @@ and date range.</p>
 
 <dl class="method">
 <dt id="core.s3.S3Uploader.multipart_upload">
-<code class="descname">multipart_upload</code><span class="sig-paren">(</span><em>**kwds</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#S3Uploader.multipart_upload"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.S3Uploader.multipart_upload" title="Permalink to this definition">¶</a></dt>
+<code class="descname">multipart_upload</code><span class="sig-paren">(</span><em>representation</em>, <em>mirror_to</em>, <em>upload_class=&lt;class 'core.s3.MultipartS3Upload'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#S3Uploader.multipart_upload"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.S3Uploader.multipart_upload" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -10252,27 +10249,27 @@ If it’s empty, S3_PRESIGNED_URL_EXPIRATION configuration setting is used</li>
 <dd><p>Bases: <a class="reference internal" href="core.model.html#core.model.configuration.ConfigurationGrouping" title="core.model.configuration.ConfigurationGrouping"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.configuration.ConfigurationGrouping</span></code></a></p>
 <dl class="attribute">
 <dt id="core.s3.S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY">
-<code class="descname">BOOK_COVERS_BUCKET_KEY</code><em class="property"> = u'book_covers_bucket'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">BOOK_COVERS_BUCKET_KEY</code><em class="property"> = 'book_covers_bucket'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.BOOK_COVERS_BUCKET_KEY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.s3.S3UploaderConfiguration.MARC_BUCKET_KEY">
-<code class="descname">MARC_BUCKET_KEY</code><em class="property"> = u'marc_bucket'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.MARC_BUCKET_KEY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">MARC_BUCKET_KEY</code><em class="property"> = 'marc_bucket'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.MARC_BUCKET_KEY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.s3.S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY">
-<code class="descname">OA_CONTENT_BUCKET_KEY</code><em class="property"> = u'open_access_content_bucket'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">OA_CONTENT_BUCKET_KEY</code><em class="property"> = 'open_access_content_bucket'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.OA_CONTENT_BUCKET_KEY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.s3.S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY">
-<code class="descname">PROTECTED_CONTENT_BUCKET_KEY</code><em class="property"> = u'protected_content_bucket'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">PROTECTED_CONTENT_BUCKET_KEY</code><em class="property"> = 'protected_content_bucket'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.s3.S3UploaderConfiguration.S3_ADDRESSING_STYLE">
-<code class="descname">S3_ADDRESSING_STYLE</code><em class="property"> = u's3_addressing_style'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.S3_ADDRESSING_STYLE" title="Permalink to this definition">¶</a></dt>
+<code class="descname">S3_ADDRESSING_STYLE</code><em class="property"> = 's3_addressing_style'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.S3_ADDRESSING_STYLE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10287,42 +10284,42 @@ If it’s empty, S3_PRESIGNED_URL_EXPIRATION configuration setting is used</li>
 
 <dl class="attribute">
 <dt id="core.s3.S3UploaderConfiguration.S3_DEFAULT_REGION">
-<code class="descname">S3_DEFAULT_REGION</code><em class="property"> = u'us-east-1'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.S3_DEFAULT_REGION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">S3_DEFAULT_REGION</code><em class="property"> = 'us-east-1'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.S3_DEFAULT_REGION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.s3.S3UploaderConfiguration.S3_PRESIGNED_URL_EXPIRATION">
-<code class="descname">S3_PRESIGNED_URL_EXPIRATION</code><em class="property"> = u's3_presigned_url_expiration'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.S3_PRESIGNED_URL_EXPIRATION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">S3_PRESIGNED_URL_EXPIRATION</code><em class="property"> = 's3_presigned_url_expiration'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.S3_PRESIGNED_URL_EXPIRATION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.s3.S3UploaderConfiguration.S3_REGION">
-<code class="descname">S3_REGION</code><em class="property"> = u's3_region'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.S3_REGION" title="Permalink to this definition">¶</a></dt>
+<code class="descname">S3_REGION</code><em class="property"> = 's3_region'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.S3_REGION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.s3.S3UploaderConfiguration.URL_TEMPLATES_BY_TEMPLATE">
-<code class="descname">URL_TEMPLATES_BY_TEMPLATE</code><em class="property"> = {u'http': u'http://%(bucket)s/%(key)s', u'https': u'https://%(bucket)s/%(key)s', u'identity': u'https://%(bucket)s.s3.%(region)s/%(key)s'}</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.URL_TEMPLATES_BY_TEMPLATE" title="Permalink to this definition">¶</a></dt>
+<code class="descname">URL_TEMPLATES_BY_TEMPLATE</code><em class="property"> = {'http': 'http://%(bucket)s/%(key)s', 'https': 'https://%(bucket)s/%(key)s', 'identity': 'https://%(bucket)s.s3.%(region)s/%(key)s'}</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.URL_TEMPLATES_BY_TEMPLATE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.s3.S3UploaderConfiguration.URL_TEMPLATE_DEFAULT">
-<code class="descname">URL_TEMPLATE_DEFAULT</code><em class="property"> = u'identity'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.URL_TEMPLATE_DEFAULT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">URL_TEMPLATE_DEFAULT</code><em class="property"> = 'identity'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.URL_TEMPLATE_DEFAULT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.s3.S3UploaderConfiguration.URL_TEMPLATE_HTTP">
-<code class="descname">URL_TEMPLATE_HTTP</code><em class="property"> = u'http'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.URL_TEMPLATE_HTTP" title="Permalink to this definition">¶</a></dt>
+<code class="descname">URL_TEMPLATE_HTTP</code><em class="property"> = 'http'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.URL_TEMPLATE_HTTP" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.s3.S3UploaderConfiguration.URL_TEMPLATE_HTTPS">
-<code class="descname">URL_TEMPLATE_HTTPS</code><em class="property"> = u'https'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.URL_TEMPLATE_HTTPS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">URL_TEMPLATE_HTTPS</code><em class="property"> = 'https'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.URL_TEMPLATE_HTTPS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.s3.S3UploaderConfiguration.URL_TEMPLATE_KEY">
-<code class="descname">URL_TEMPLATE_KEY</code><em class="property"> = u'bucket_name_transform'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.URL_TEMPLATE_KEY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">URL_TEMPLATE_KEY</code><em class="property"> = 'bucket_name_transform'</em><a class="headerlink" href="#core.s3.S3UploaderConfiguration.URL_TEMPLATE_KEY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10392,7 +10389,7 @@ If it’s empty, S3_PRESIGNED_URL_EXPIRATION configuration setting is used</li>
 <span id="core-scripts-module"></span><h2>core.scripts module<a class="headerlink" href="#module-core.scripts" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="core.scripts.AddClassificationScript">
-<em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">AddClassificationScript</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>stdin=&lt;open file '&lt;stdin&gt;'</em>, <em>mode 'r'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#AddClassificationScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.AddClassificationScript" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">AddClassificationScript</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>stdin=&lt;_io.TextIOWrapper name='&lt;stdin&gt;' mode='r' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#AddClassificationScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.AddClassificationScript" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#core.scripts.IdentifierInputScript" title="core.scripts.IdentifierInputScript"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.IdentifierInputScript</span></code></a></p>
 <dl class="classmethod">
 <dt id="core.scripts.AddClassificationScript.arg_parser">
@@ -10413,7 +10410,7 @@ If it’s empty, S3_PRESIGNED_URL_EXPIRATION configuration setting is used</li>
 
 <dl class="class">
 <dt id="core.scripts.CheckContributorNamesInDB">
-<em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">CheckContributorNamesInDB</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>stdin=&lt;open file '&lt;stdin&gt;'</em>, <em>mode 'r'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#CheckContributorNamesInDB"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.CheckContributorNamesInDB" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">CheckContributorNamesInDB</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>stdin=&lt;_io.TextIOWrapper name='&lt;stdin&gt;' mode='r' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#CheckContributorNamesInDB"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.CheckContributorNamesInDB" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#core.scripts.IdentifierInputScript" title="core.scripts.IdentifierInputScript"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.IdentifierInputScript</span></code></a></p>
 <p>Checks that contributor sort_names are display_names in
 “last name, comma, other names” format.</p>
@@ -10473,6 +10470,17 @@ and resolve whatever the complex issue that got us here.</p>
 </dd></dl>
 
 <dl class="class">
+<dt id="core.scripts.CollectionArgumentsScript">
+<em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">CollectionArgumentsScript</code><span class="sig-paren">(</span><em>_db=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#CollectionArgumentsScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.CollectionArgumentsScript" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.scripts.CollectionInputScript" title="core.scripts.CollectionInputScript"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.CollectionInputScript</span></code></a></p>
+<dl class="classmethod">
+<dt id="core.scripts.CollectionArgumentsScript.arg_parser">
+<em class="property">classmethod </em><code class="descname">arg_parser</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#CollectionArgumentsScript.arg_parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.CollectionArgumentsScript.arg_parser" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
 <dt id="core.scripts.CollectionInputScript">
 <em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">CollectionInputScript</code><span class="sig-paren">(</span><em>_db=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#CollectionInputScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.CollectionInputScript" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#core.scripts.Script" title="core.scripts.Script"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.Script</span></code></a></p>
@@ -10500,6 +10508,7 @@ real database Collection objects.</p>
 <dt id="core.scripts.CollectionType">
 <em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">CollectionType</code><a class="reference internal" href="_modules/core/scripts.html#CollectionType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.CollectionType" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<p>An enumeration.</p>
 <dl class="attribute">
 <dt id="core.scripts.CollectionType.LCP">
 <code class="descname">LCP</code><em class="property"> = 'LCP'</em><a class="headerlink" href="#core.scripts.CollectionType.LCP" title="Permalink to this definition">¶</a></dt>
@@ -10549,7 +10558,7 @@ and apply each one to <cite>obj</cite>.</p>
 
 <dl class="method">
 <dt id="core.scripts.ConfigureCollectionScript.do_run">
-<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;open file '&lt;stdout&gt;'</em>, <em>mode 'w'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ConfigureCollectionScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ConfigureCollectionScript.do_run" title="Permalink to this definition">¶</a></dt>
+<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ConfigureCollectionScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ConfigureCollectionScript.do_run" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10576,7 +10585,7 @@ and apply each one to <cite>obj</cite>.</p>
 
 <dl class="method">
 <dt id="core.scripts.ConfigureIntegrationScript.do_run">
-<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;open file '&lt;stdout&gt;'</em>, <em>mode 'w'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ConfigureIntegrationScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ConfigureIntegrationScript.do_run" title="Permalink to this definition">¶</a></dt>
+<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ConfigureIntegrationScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ConfigureIntegrationScript.do_run" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10603,7 +10612,7 @@ and apply each one to <cite>obj</cite>.</p>
 
 <dl class="method">
 <dt id="core.scripts.ConfigureLaneScript.do_run">
-<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;open file '&lt;stdout&gt;'</em>, <em>mode 'w'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ConfigureLaneScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ConfigureLaneScript.do_run" title="Permalink to this definition">¶</a></dt>
+<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ConfigureLaneScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ConfigureLaneScript.do_run" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10630,7 +10639,7 @@ and apply each one to <cite>obj</cite>.</p>
 
 <dl class="method">
 <dt id="core.scripts.ConfigureLibraryScript.do_run">
-<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;open file '&lt;stdout&gt;'</em>, <em>mode 'w'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ConfigureLibraryScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ConfigureLibraryScript.do_run" title="Permalink to this definition">¶</a></dt>
+<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ConfigureLibraryScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ConfigureLibraryScript.do_run" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10652,7 +10661,7 @@ and apply each one to <cite>obj</cite>.</p>
 
 <dl class="method">
 <dt id="core.scripts.ConfigureSiteScript.do_run">
-<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;open file '&lt;stdout&gt;'</em>, <em>mode 'w'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ConfigureSiteScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ConfigureSiteScript.do_run" title="Permalink to this definition">¶</a></dt>
+<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ConfigureSiteScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ConfigureSiteScript.do_run" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -10718,7 +10727,7 @@ for the Python and the SQL migrations, and because Timestamps
 are ORM objects, which this script can’t touch.</p>
 <dl class="attribute">
 <dt id="core.scripts.DatabaseMigrationScript.MIGRATION_WITH_COUNTER">
-<code class="descname">MIGRATION_WITH_COUNTER</code><em class="property"> = &lt;_sre.SRE_Pattern object&gt;</em><a class="headerlink" href="#core.scripts.DatabaseMigrationScript.MIGRATION_WITH_COUNTER" title="Permalink to this definition">¶</a></dt>
+<code class="descname">MIGRATION_WITH_COUNTER</code><em class="property"> = re.compile('\\d{8}-(\\d+)-(.)+\\.(py|sql)')</em><a class="headerlink" href="#core.scripts.DatabaseMigrationScript.MIGRATION_WITH_COUNTER" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10886,7 +10895,7 @@ one.</p>
 
 <dl class="method">
 <dt id="core.scripts.Explain.do_run">
-<code class="descname">do_run</code><span class="sig-paren">(</span><em>cmd_args=None</em>, <em>stdin=&lt;open file '&lt;stdin&gt;'</em>, <em>mode 'r'&gt;</em>, <em>stdout=&lt;open file '&lt;stdout&gt;'</em>, <em>mode 'w'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#Explain.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.Explain.do_run" title="Permalink to this definition">¶</a></dt>
+<code class="descname">do_run</code><span class="sig-paren">(</span><em>cmd_args=None</em>, <em>stdin=&lt;_io.TextIOWrapper name='&lt;stdin&gt;' mode='r' encoding='UTF-8'&gt;</em>, <em>stdout=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#Explain.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.Explain.do_run" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -10961,7 +10970,7 @@ real database Identifier objects.</p>
 
 <dl class="classmethod">
 <dt id="core.scripts.IdentifierInputScript.parse_command_line">
-<em class="property">classmethod </em><code class="descname">parse_command_line</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>stdin=&lt;open file '&lt;stdin&gt;'</em>, <em>mode 'r'&gt;</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#IdentifierInputScript.parse_command_line"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.IdentifierInputScript.parse_command_line" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">parse_command_line</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>stdin=&lt;_io.TextIOWrapper name='&lt;stdin&gt;' mode='r' encoding='UTF-8'&gt;</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#IdentifierInputScript.parse_command_line"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.IdentifierInputScript.parse_command_line" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -11184,7 +11193,7 @@ given mirrors.</p>
 
 <dl class="attribute">
 <dt id="core.scripts.OPDSImportScript.PROTOCOL">
-<code class="descname">PROTOCOL</code><em class="property"> = u'OPDS Import'</em><a class="headerlink" href="#core.scripts.OPDSImportScript.PROTOCOL" title="Permalink to this definition">¶</a></dt>
+<code class="descname">PROTOCOL</code><em class="property"> = 'OPDS Import'</em><a class="headerlink" href="#core.scripts.OPDSImportScript.PROTOCOL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -11233,7 +11242,7 @@ Patron objects.</p>
 
 <dl class="classmethod">
 <dt id="core.scripts.PatronInputScript.parse_command_line">
-<em class="property">classmethod </em><code class="descname">parse_command_line</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>stdin=&lt;open file '&lt;stdin&gt;'</em>, <em>mode 'r'&gt;</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#PatronInputScript.parse_command_line"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.PatronInputScript.parse_command_line" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">parse_command_line</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>stdin=&lt;_io.TextIOWrapper name='&lt;stdin&gt;' mode='r' encoding='UTF-8'&gt;</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#PatronInputScript.parse_command_line"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.PatronInputScript.parse_command_line" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -11331,8 +11340,8 @@ get their licenses from the appropriate place.</p>
 
 <dl class="class">
 <dt id="core.scripts.RunCollectionMonitorScript">
-<em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">RunCollectionMonitorScript</code><span class="sig-paren">(</span><em>monitor_class</em>, <em>_db=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#RunCollectionMonitorScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.RunCollectionMonitorScript" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#core.scripts.RunMultipleMonitorsScript" title="core.scripts.RunMultipleMonitorsScript"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.RunMultipleMonitorsScript</span></code></a></p>
+<em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">RunCollectionMonitorScript</code><span class="sig-paren">(</span><em>monitor_class</em>, <em>_db=None</em>, <em>cmd_args=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#RunCollectionMonitorScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.RunCollectionMonitorScript" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.scripts.RunMultipleMonitorsScript" title="core.scripts.RunMultipleMonitorsScript"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.RunMultipleMonitorsScript</span></code></a>, <a class="reference internal" href="#core.scripts.CollectionArgumentsScript" title="core.scripts.CollectionArgumentsScript"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.CollectionArgumentsScript</span></code></a></p>
 <p>Run a CollectionMonitor on every Collection that comes through a
 certain protocol.</p>
 <dl class="method">
@@ -11378,7 +11387,7 @@ to the CoverageProvider constructor.</p>
 
 <dl class="classmethod">
 <dt id="core.scripts.RunCoverageProviderScript.parse_command_line">
-<em class="property">classmethod </em><code class="descname">parse_command_line</code><span class="sig-paren">(</span><em>_db</em>, <em>cmd_args=None</em>, <em>stdin=&lt;open file '&lt;stdin&gt;'</em>, <em>mode 'r'&gt;</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#RunCoverageProviderScript.parse_command_line"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.RunCoverageProviderScript.parse_command_line" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">parse_command_line</code><span class="sig-paren">(</span><em>_db</em>, <em>cmd_args=None</em>, <em>stdin=&lt;_io.TextIOWrapper name='&lt;stdin&gt;' mode='r' encoding='UTF-8'&gt;</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#RunCoverageProviderScript.parse_command_line"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.RunCoverageProviderScript.parse_command_line" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -11607,7 +11616,7 @@ fresh coverage for every Work the next time it runs.</p>
 
 <dl class="method">
 <dt id="core.scripts.ShowCollectionsScript.do_run">
-<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;open file '&lt;stdout&gt;'</em>, <em>mode 'w'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ShowCollectionsScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ShowCollectionsScript.do_run" title="Permalink to this definition">¶</a></dt>
+<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ShowCollectionsScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ShowCollectionsScript.do_run" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -11629,7 +11638,7 @@ fresh coverage for every Work the next time it runs.</p>
 
 <dl class="method">
 <dt id="core.scripts.ShowIntegrationsScript.do_run">
-<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;open file '&lt;stdout&gt;'</em>, <em>mode 'w'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ShowIntegrationsScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ShowIntegrationsScript.do_run" title="Permalink to this definition">¶</a></dt>
+<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ShowIntegrationsScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ShowIntegrationsScript.do_run" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -11651,7 +11660,7 @@ fresh coverage for every Work the next time it runs.</p>
 
 <dl class="method">
 <dt id="core.scripts.ShowLanesScript.do_run">
-<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;open file '&lt;stdout&gt;'</em>, <em>mode 'w'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ShowLanesScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ShowLanesScript.do_run" title="Permalink to this definition">¶</a></dt>
+<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ShowLanesScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ShowLanesScript.do_run" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -11673,7 +11682,7 @@ fresh coverage for every Work the next time it runs.</p>
 
 <dl class="method">
 <dt id="core.scripts.ShowLibrariesScript.do_run">
-<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;open file '&lt;stdout&gt;'</em>, <em>mode 'w'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ShowLibrariesScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ShowLibrariesScript.do_run" title="Permalink to this definition">¶</a></dt>
+<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#ShowLibrariesScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.ShowLibrariesScript.do_run" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -11820,7 +11829,7 @@ is being configured.</p>
 
 <dl class="class">
 <dt id="core.scripts.WorkConsolidationScript">
-<em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">WorkConsolidationScript</code><span class="sig-paren">(</span><em>force=False</em>, <em>batch_size=10</em>, <em>_db=None</em>, <em>cmd_args=None</em>, <em>stdin=&lt;open file '&lt;stdin&gt;'</em>, <em>mode 'r'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#WorkConsolidationScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.WorkConsolidationScript" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">WorkConsolidationScript</code><span class="sig-paren">(</span><em>force=False</em>, <em>batch_size=10</em>, <em>_db=None</em>, <em>cmd_args=None</em>, <em>stdin=&lt;_io.TextIOWrapper name='&lt;stdin&gt;' mode='r' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#WorkConsolidationScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.WorkConsolidationScript" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#core.scripts.WorkProcessingScript" title="core.scripts.WorkProcessingScript"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.WorkProcessingScript</span></code></a></p>
 <p>Given an Identifier, make sure all the LicensePools for that
 Identifier are in Works that follow these rules:</p>
@@ -11895,7 +11904,7 @@ needs to be propagated to these three ‘caches’.</p>
 
 <dl class="class">
 <dt id="core.scripts.WorkProcessingScript">
-<em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">WorkProcessingScript</code><span class="sig-paren">(</span><em>force=False</em>, <em>batch_size=10</em>, <em>_db=None</em>, <em>cmd_args=None</em>, <em>stdin=&lt;open file '&lt;stdin&gt;'</em>, <em>mode 'r'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#WorkProcessingScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.WorkProcessingScript" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.scripts.</code><code class="descname">WorkProcessingScript</code><span class="sig-paren">(</span><em>force=False</em>, <em>batch_size=10</em>, <em>_db=None</em>, <em>cmd_args=None</em>, <em>stdin=&lt;_io.TextIOWrapper name='&lt;stdin&gt;' mode='r' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#WorkProcessingScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.WorkProcessingScript" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#core.scripts.IdentifierInputScript" title="core.scripts.IdentifierInputScript"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.IdentifierInputScript</span></code></a></p>
 <dl class="method">
 <dt id="core.scripts.WorkProcessingScript.do_run">
@@ -12228,8 +12237,8 @@ You can also use nosetest –nocapture.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="core.testing.DatabaseTest.setup">
-<code class="descname">setup</code><span class="sig-paren">(</span><em>mock_search=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#DatabaseTest.setup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.DatabaseTest.setup" title="Permalink to this definition">¶</a></dt>
+<dt id="core.testing.DatabaseTest.search_mock">
+<code class="descname">search_mock</code><span class="sig-paren">(</span><em>request</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#DatabaseTest.search_mock"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.DatabaseTest.search_mock" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -12238,18 +12247,23 @@ You can also use nosetest –nocapture.</p>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="core.testing.DatabaseTest.shortDescription">
-<code class="descname">shortDescription</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#DatabaseTest.shortDescription"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.DatabaseTest.shortDescription" title="Permalink to this definition">¶</a></dt>
+<dt id="core.testing.DatabaseTest.setup_method">
+<code class="descname">setup_method</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#DatabaseTest.setup_method"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.DatabaseTest.setup_method" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="core.testing.DatabaseTest.teardown">
-<code class="descname">teardown</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#DatabaseTest.teardown"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.DatabaseTest.teardown" title="Permalink to this definition">¶</a></dt>
+<dt id="core.testing.DatabaseTest.shortDescription">
+<code class="descname">shortDescription</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#DatabaseTest.shortDescription"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.DatabaseTest.shortDescription" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
 <dt id="core.testing.DatabaseTest.teardown_class">
 <em class="property">classmethod </em><code class="descname">teardown_class</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#DatabaseTest.teardown_class"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.DatabaseTest.teardown_class" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.testing.DatabaseTest.teardown_method">
+<code class="descname">teardown_method</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#DatabaseTest.teardown_method"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.DatabaseTest.teardown_method" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -12328,8 +12342,8 @@ search index and run searches against it.</p>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="core.testing.EndToEndSearchTest.setup">
-<code class="descname">setup</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#EndToEndSearchTest.setup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.EndToEndSearchTest.setup" title="Permalink to this definition">¶</a></dt>
+<dt id="core.testing.EndToEndSearchTest.setup_method">
+<code class="descname">setup_method</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#EndToEndSearchTest.setup_method"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.EndToEndSearchTest.setup_method" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -12345,7 +12359,7 @@ a type of search by changing analyzers or queries, but search needs to be tested
 to ensure that it works well overall, with a realistic index.</p>
 <dl class="attribute">
 <dt id="core.testing.ExternalSearchTest.SIMPLIFIED_TEST_ELASTICSEARCH">
-<code class="descname">SIMPLIFIED_TEST_ELASTICSEARCH</code><em class="property"> = u'http://localhost:9200'</em><a class="headerlink" href="#core.testing.ExternalSearchTest.SIMPLIFIED_TEST_ELASTICSEARCH" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SIMPLIFIED_TEST_ELASTICSEARCH</code><em class="property"> = 'http://localhost:9200'</em><a class="headerlink" href="#core.testing.ExternalSearchTest.SIMPLIFIED_TEST_ELASTICSEARCH" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -12356,13 +12370,8 @@ in the default collection.</p>
 </dd></dl>
 
 <dl class="attribute">
-<dt id="core.testing.ExternalSearchTest.integration">
-<code class="descname">integration</code><em class="property"> = 'elasticsearch'</em><a class="headerlink" href="#core.testing.ExternalSearchTest.integration" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="core.testing.ExternalSearchTest.setup">
-<code class="descname">setup</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#ExternalSearchTest.setup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.ExternalSearchTest.setup" title="Permalink to this definition">¶</a></dt>
+<dt id="core.testing.ExternalSearchTest.pytestmark">
+<code class="descname">pytestmark</code><em class="property"> = [Mark(name='elasticsearch', args=(), kwargs={})]</em><a class="headerlink" href="#core.testing.ExternalSearchTest.pytestmark" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -12372,8 +12381,13 @@ in the default collection.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="core.testing.ExternalSearchTest.teardown">
-<code class="descname">teardown</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#ExternalSearchTest.teardown"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.ExternalSearchTest.teardown" title="Permalink to this definition">¶</a></dt>
+<dt id="core.testing.ExternalSearchTest.setup_method">
+<code class="descname">setup_method</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#ExternalSearchTest.setup_method"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.ExternalSearchTest.setup_method" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.testing.ExternalSearchTest.teardown_method">
+<code class="descname">teardown_method</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#ExternalSearchTest.teardown_method"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.ExternalSearchTest.teardown_method" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -12431,11 +12445,6 @@ of emitted log records in the context of the specified <cite>logger</cite>.</p>
 raises a NotImplementedError.</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="core.testing.LogCaptureHandler.level">
-<code class="descname">level</code><em class="property"> = 'NOTSET'</em><a class="headerlink" href="#core.testing.LogCaptureHandler.level" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
 <dl class="method">
 <dt id="core.testing.LogCaptureHandler.reset">
 <code class="descname">reset</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#LogCaptureHandler.reset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.LogCaptureHandler.reset" title="Permalink to this definition">¶</a></dt>
@@ -12451,7 +12460,7 @@ raises a NotImplementedError.</p>
 <p>Mixin class for mock CoverageProviders that defines common constants.</p>
 <dl class="attribute">
 <dt id="core.testing.MockCoverageProvider.DATA_SOURCE_NAME">
-<code class="descname">DATA_SOURCE_NAME</code><em class="property"> = u'Gutenberg'</em><a class="headerlink" href="#core.testing.MockCoverageProvider.DATA_SOURCE_NAME" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DATA_SOURCE_NAME</code><em class="property"> = 'Gutenberg'</em><a class="headerlink" href="#core.testing.MockCoverageProvider.DATA_SOURCE_NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -12461,7 +12470,7 @@ raises a NotImplementedError.</p>
 
 <dl class="attribute">
 <dt id="core.testing.MockCoverageProvider.PROTOCOL">
-<code class="descname">PROTOCOL</code><em class="property"> = u'OPDS Import'</em><a class="headerlink" href="#core.testing.MockCoverageProvider.PROTOCOL" title="Permalink to this definition">¶</a></dt>
+<code class="descname">PROTOCOL</code><em class="property"> = 'OPDS Import'</em><a class="headerlink" href="#core.testing.MockCoverageProvider.PROTOCOL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -12653,14 +12662,13 @@ WorkCoverageProvider, and must be handled in a subclass.</p>
 </dd></dl>
 
 <dl class="function">
-<dt id="core.testing.package_setup">
-<code class="descclassname">core.testing.</code><code class="descname">package_setup</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#package_setup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.package_setup" title="Permalink to this definition">¶</a></dt>
-<dd><p>Make sure the application starts in a pristine state.</p>
-</dd></dl>
+<dt id="core.testing.pytest_configure">
+<code class="descclassname">core.testing.</code><code class="descname">pytest_configure</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#pytest_configure"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.pytest_configure" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="function">
-<dt id="core.testing.package_teardown">
-<code class="descclassname">core.testing.</code><code class="descname">package_teardown</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#package_teardown"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.package_teardown" title="Permalink to this definition">¶</a></dt>
+<dt id="core.testing.session_fixture">
+<code class="descclassname">core.testing.</code><code class="descname">session_fixture</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#session_fixture"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.session_fixture" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </div>
@@ -12675,7 +12683,17 @@ WorkCoverageProvider, and must be handled in a subclass.</p>
 <dl class="attribute">
 <dt id="core.user_profile.MockProfileStorage.profile_document">
 <code class="descname">profile_document</code><a class="headerlink" href="#core.user_profile.MockProfileStorage.profile_document" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Create a Profile document representing the current state of
+the user’s profile.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A dictionary that can be serialized as JSON.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="method">
 <dt id="core.user_profile.MockProfileStorage.update">
@@ -12909,7 +12927,7 @@ before update() is called.</p>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

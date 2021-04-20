@@ -43,7 +43,6 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.exceptions</span> <span class="kn">import</span> <span class="n">BaseError</span>
 <span class="kn">from</span> <span class="nn">core.python_expression_dsl.evaluator</span> <span class="kn">import</span> <span class="n">DSLEvaluator</span>
-<span class="kn">from</span> <span class="nn">core.util.string_helpers</span> <span class="kn">import</span> <span class="n">is_string</span>
 
 
 <div class="viewcode-block" id="SAMLSubjectFilterError"><a class="viewcode-back" href="../../../../api.saml.metadata.html#api.saml.metadata.filter.SAMLSubjectFilterError">[docs]</a><span class="k">class</span> <span class="nc">SAMLSubjectFilterError</span><span class="p">(</span><span class="n">BaseError</span><span class="p">):</span>
@@ -89,7 +88,7 @@
 
 <span class="sd">        :raise SAMLSubjectFilterError: in the case of any errors occurred during expression evaluation</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">expression</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">is_string</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">expression</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Argument &#39;expression&#39; must be a non-empty string&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">SAMLSubject</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Argument &#39;subject&#39; must an instance of Subject class&quot;</span><span class="p">)</span>
@@ -132,7 +131,7 @@
 
 <span class="sd">        :raise: SAMLSubjectFilterError</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">expression</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">is_string</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">expression</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Argument &#39;expression&#39; must be a non-empty string&quot;</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
@@ -195,7 +194,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

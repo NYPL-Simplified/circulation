@@ -44,7 +44,7 @@
 
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 <span class="kn">from</span> <span class="nn">dateutil.parser</span> <span class="kn">import</span> <span class="n">parse</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">and_</span><span class="p">,</span> <span class="n">or_</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="kn">import</span> <span class="p">(</span>
@@ -58,12 +58,12 @@
 
 <span class="kn">from</span> <span class="nn">pymarc</span> <span class="kn">import</span> <span class="n">MARCReader</span>
 
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
-<span class="kn">from</span> <span class="nn">util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
-<span class="kn">from</span> <span class="nn">util.http</span> <span class="kn">import</span> <span class="n">RemoteIntegrationException</span>
-<span class="kn">from</span> <span class="nn">util.personal_names</span> <span class="kn">import</span> <span class="n">name_tidy</span>
-<span class="kn">from</span> <span class="nn">util.median</span> <span class="kn">import</span> <span class="n">median</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">.util.http</span> <span class="kn">import</span> <span class="n">RemoteIntegrationException</span>
+<span class="kn">from</span> <span class="nn">.util.personal_names</span> <span class="kn">import</span> <span class="n">name_tidy</span>
+<span class="kn">from</span> <span class="nn">.util.median</span> <span class="kn">import</span> <span class="n">median</span>
+<span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
@@ -90,10 +90,10 @@
     <span class="n">Timestamp</span><span class="p">,</span>
     <span class="n">Work</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="n">NO_VALUE</span><span class="p">,</span> <span class="n">NO_NUMBER</span>
-<span class="kn">from</span> <span class="nn">analytics</span> <span class="kn">import</span> <span class="n">Analytics</span>
-<span class="kn">from</span> <span class="nn">util.personal_names</span> <span class="kn">import</span> <span class="n">display_name_to_sort_name</span>
+<span class="kn">from</span> <span class="nn">.model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
+<span class="kn">from</span> <span class="nn">.classifier</span> <span class="kn">import</span> <span class="n">NO_VALUE</span><span class="p">,</span> <span class="n">NO_NUMBER</span>
+<span class="kn">from</span> <span class="nn">.analytics</span> <span class="kn">import</span> <span class="n">Analytics</span>
+<span class="kn">from</span> <span class="nn">.util.personal_names</span> <span class="kn">import</span> <span class="n">display_name_to_sort_name</span>
 
 <div class="viewcode-block" id="ReplacementPolicy"><a class="viewcode-back" href="../../core.html#core.metadata_layer.ReplacementPolicy">[docs]</a><span class="k">class</span> <span class="nc">ReplacementPolicy</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;How serious should we be about overwriting old metadata with</span>
@@ -310,7 +310,7 @@
             <span class="n">lc</span><span class="o">=</span><span class="n">lc</span><span class="p">,</span>
             <span class="n">viaf</span><span class="o">=</span><span class="n">viaf</span>
         <span class="p">)</span>
-        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">values_by_field</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">values_by_field</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="c1"># All the Contributors we found have the same</span>
                 <span class="c1"># value for this field. We can use it.</span>
@@ -347,7 +347,7 @@
             <span class="n">destination</span><span class="o">.</span><span class="n">aliases</span> <span class="o">=</span> <span class="n">new_aliases</span>
             <span class="n">made_changes</span> <span class="o">=</span> <span class="kc">True</span>
 
-        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">extra</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">destination</span><span class="o">.</span><span class="n">extra</span><span class="p">:</span>
                 <span class="n">destination</span><span class="o">.</span><span class="n">extra</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
 
@@ -416,7 +416,7 @@
                 <span class="n">sort_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_name_to_sort_name_through_canonicalizer</span><span class="p">(</span>
                     <span class="n">_db</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">,</span> <span class="n">metadata_client</span>
                 <span class="p">)</span>
-            <span class="k">except</span> <span class="n">RemoteIntegrationException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">RemoteIntegrationException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># There was some kind of problem with the metadata</span>
                 <span class="c1"># wrangler. Act as though no metadata wrangler had</span>
                 <span class="c1"># been provided.</span>
@@ -469,7 +469,7 @@
             <span class="n">identifier_obj</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_name</span><span class="p">)</span>
         <span class="n">sort_name</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">sort_name</span> <span class="o">=</span> <span class="n">response</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Abstract metadata layer&quot;</span><span class="p">)</span>
@@ -1641,7 +1641,7 @@
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifiers</span><span class="p">:</span>
             <span class="n">by_weight</span><span class="p">[(</span><span class="n">i</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">identifier</span><span class="p">)]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
         <span class="n">new_identifiers</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">),</span> <span class="n">weights</span> <span class="ow">in</span> <span class="n">by_weight</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">),</span> <span class="n">weights</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">by_weight</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">new_identifiers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                 <span class="n">IdentifierData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">type</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
                                <span class="n">weight</span><span class="o">=</span><span class="n">median</span><span class="p">(</span><span class="n">weights</span><span class="p">))</span>
@@ -1845,7 +1845,7 @@
             <span class="n">identifier</span><span class="o">.</span><span class="n">classifications</span> <span class="o">=</span> <span class="n">surviving_classifications</span>
 
         <span class="c1"># Apply all new subjects to the identifier.</span>
-        <span class="k">for</span> <span class="n">subject</span> <span class="ow">in</span> <span class="n">new_subjects</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">subject</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">new_subjects</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
             <span class="n">identifier</span><span class="o">.</span><span class="n">classify</span><span class="p">(</span>
                 <span class="n">data_source</span><span class="p">,</span> <span class="n">subject</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">subject</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
                 <span class="n">subject</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">subject</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
@@ -2139,7 +2139,7 @@
             <span class="n">by_type</span><span class="p">[</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">recommendations</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="nb">type</span><span class="p">,</span> <span class="n">identifiers</span> <span class="ow">in</span> <span class="n">by_type</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="nb">type</span><span class="p">,</span> <span class="n">identifiers</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">by_type</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">existing_identifiers</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span><span class="o">.</span>\
                 <span class="nb">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="nb">type</span><span class="p">)</span><span class="o">.</span>\
                 <span class="nb">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifiers</span><span class="p">))</span>
@@ -2226,7 +2226,7 @@
         <span class="c1"># Make sure this CSV file has some way of identifying books.</span>
         <span class="n">found_identifier_field</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="n">possibilities</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">field_name</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier_fields</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">field_name</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier_fields</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
             <span class="n">possibilities</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">field_name</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">:</span>
                 <span class="n">found_identifier_field</span> <span class="o">=</span> <span class="kc">True</span>
@@ -2244,7 +2244,7 @@
         <span class="n">title</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_field</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">title_field</span><span class="p">)</span>
         <span class="n">language</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_field</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">language_field</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_language</span><span class="p">)</span>
         <span class="n">medium</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_field</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">medium_field</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_medium</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">medium</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">Edition</span><span class="o">.</span><span class="n">medium_to_additional_type</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">medium</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">Edition</span><span class="o">.</span><span class="n">medium_to_additional_type</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Ignored unrecognized medium </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">medium</span><span class="p">)</span>
             <span class="n">medium</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span>
         <span class="n">series</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_field</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">series_field</span><span class="p">)</span>
@@ -2258,7 +2258,7 @@
         <span class="c1"># TODO: This is annoying and could use some work.</span>
         <span class="k">for</span> <span class="n">identifier_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">IDENTIFIER_PRECEDENCE</span><span class="p">:</span>
             <span class="n">correct_type</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="k">for</span> <span class="n">target_type</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier_fields</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">target_type</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier_fields</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
                     <span class="n">field_name</span><span class="p">,</span> <span class="n">weight</span> <span class="o">=</span> <span class="n">v</span>
                 <span class="k">else</span><span class="p">:</span>
@@ -2281,7 +2281,7 @@
                         <span class="n">primary_identifier</span> <span class="o">=</span> <span class="n">identifier</span>
 
         <span class="n">subjects</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="p">(</span><span class="n">field_name</span><span class="p">,</span> <span class="p">(</span><span class="n">subject_type</span><span class="p">,</span> <span class="n">weight</span><span class="p">))</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subject_fields</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">field_name</span><span class="p">,</span> <span class="p">(</span><span class="n">subject_type</span><span class="p">,</span> <span class="n">weight</span><span class="p">))</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subject_fields</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_field</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">field_name</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
                 <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
@@ -2326,7 +2326,7 @@
         <span class="sd">&quot;&quot;&quot;All potential field names that would identify an identifier.&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">identifier_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">IDENTIFIER_PRECEDENCE</span><span class="p">:</span>
             <span class="n">field_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier_fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">identifier_type</span><span class="p">,</span> <span class="p">[])</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">field_names</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">field_names</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
                 <span class="n">field_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">field_names</span><span class="p">]</span>
             <span class="k">for</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="n">field_names</span><span class="p">:</span>
                 <span class="k">yield</span> <span class="n">field_name</span>
@@ -2342,7 +2342,7 @@
         <span class="sd">&quot;&quot;&quot;Get a value from one of the given fields and ensure it comes in as</span>
 <span class="sd">        Unicode.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">names</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">names</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__field</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">names</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">default</span>
@@ -2531,7 +2531,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

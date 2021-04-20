@@ -33,9 +33,9 @@
           <div class="body" role="main">
             
   <h1>Source code for core.entrypoint</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span></span>
 
-<div class="viewcode-block" id="EntryPoint"><a class="viewcode-back" href="../../core.html#core.config.EntryPoint">[docs]</a><span class="k">class</span> <span class="nc">EntryPoint</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<div class="viewcode-block" id="EntryPoint"><a class="viewcode-back" href="../../core.html#core.entrypoint.EntryPoint">[docs]</a><span class="k">class</span> <span class="nc">EntryPoint</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
     <span class="sd">&quot;&quot;&quot;A EntryPoint is a top-level entry point into a library&#39;s Lane structure</span>
 <span class="sd">    that may apply additional filters to the Lane structure.</span>
@@ -67,7 +67,7 @@
     <span class="c1"># EntryPoint.</span>
     <span class="n">URI</span> <span class="o">=</span> <span class="kc">None</span>
 
-<div class="viewcode-block" id="EntryPoint.register"><a class="viewcode-back" href="../../core.html#core.config.EntryPoint.register">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="EntryPoint.register"><a class="viewcode-back" href="../../core.html#core.entrypoint.EntryPoint.register">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">entrypoint_class</span><span class="p">,</span> <span class="n">display_title</span><span class="p">,</span> <span class="n">default_enabled</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Register the given subclass with the master registry</span>
 <span class="sd">        kept in the EntryPoint class.</span>
@@ -87,7 +87,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Duplicate entry point internal name: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">value</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="n">display_title</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DISPLAY_TITLES</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">display_title</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">DISPLAY_TITLES</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Duplicate entry point display name: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">display_title</span>
             <span class="p">)</span>
@@ -98,7 +98,7 @@
             <span class="bp">cls</span><span class="o">.</span><span class="n">DEFAULT_ENABLED</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entrypoint_class</span><span class="p">)</span>
         <span class="bp">cls</span><span class="o">.</span><span class="n">DISPLAY_TITLES</span><span class="p">[</span><span class="n">entrypoint_class</span><span class="p">]</span> <span class="o">=</span> <span class="n">display_title</span></div>
 
-<div class="viewcode-block" id="EntryPoint.unregister"><a class="viewcode-back" href="../../core.html#core.config.EntryPoint.unregister">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="EntryPoint.unregister"><a class="viewcode-back" href="../../core.html#core.entrypoint.EntryPoint.unregister">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">unregister</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">entrypoint_class</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Undo a subclass&#39;s registration.</span>
 
@@ -110,7 +110,7 @@
         <span class="k">if</span> <span class="n">entrypoint_class</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DEFAULT_ENABLED</span><span class="p">:</span>
             <span class="bp">cls</span><span class="o">.</span><span class="n">DEFAULT_ENABLED</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">entrypoint_class</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="EntryPoint.modify_search_filter"><a class="viewcode-back" href="../../core.html#core.config.EntryPoint.modify_search_filter">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="EntryPoint.modify_search_filter"><a class="viewcode-back" href="../../core.html#core.entrypoint.EntryPoint.modify_search_filter">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">modify_search_filter</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="nb">filter</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;If necessary, modify an ElasticSearch Filter object so that it</span>
 <span class="sd">        restricts results to items shown through this entry point.</span>
@@ -121,7 +121,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">filter</span></div>
 
-<div class="viewcode-block" id="EntryPoint.modify_database_query"><a class="viewcode-back" href="../../core.html#core.config.EntryPoint.modify_database_query">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="EntryPoint.modify_database_query"><a class="viewcode-back" href="../../core.html#core.entrypoint.EntryPoint.modify_database_query">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">modify_database_query</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">qu</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;If necessary, modify a database query so that it restricts results</span>
 <span class="sd">        to items shown through this entry point.</span>
@@ -131,14 +131,14 @@
         <span class="k">return</span> <span class="n">qu</span></div></div>
 
 
-<div class="viewcode-block" id="EverythingEntryPoint"><a class="viewcode-back" href="../../core.html#core.config.EverythingEntryPoint">[docs]</a><span class="k">class</span> <span class="nc">EverythingEntryPoint</span><span class="p">(</span><span class="n">EntryPoint</span><span class="p">):</span>
+<div class="viewcode-block" id="EverythingEntryPoint"><a class="viewcode-back" href="../../core.html#core.entrypoint.EverythingEntryPoint">[docs]</a><span class="k">class</span> <span class="nc">EverythingEntryPoint</span><span class="p">(</span><span class="n">EntryPoint</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;An entry point that has everything.&quot;&quot;&quot;</span>
     <span class="n">INTERNAL_NAME</span> <span class="o">=</span> <span class="s2">&quot;All&quot;</span>
     <span class="n">URI</span> <span class="o">=</span> <span class="s2">&quot;http://schema.org/CreativeWork&quot;</span></div>
 <span class="n">EntryPoint</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">EverythingEntryPoint</span><span class="p">,</span> <span class="s2">&quot;All&quot;</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="MediumEntryPoint"><a class="viewcode-back" href="../../core.html#core.config.MediumEntryPoint">[docs]</a><span class="k">class</span> <span class="nc">MediumEntryPoint</span><span class="p">(</span><span class="n">EntryPoint</span><span class="p">):</span>
+<div class="viewcode-block" id="MediumEntryPoint"><a class="viewcode-back" href="../../core.html#core.entrypoint.MediumEntryPoint">[docs]</a><span class="k">class</span> <span class="nc">MediumEntryPoint</span><span class="p">(</span><span class="n">EntryPoint</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A entry point that creates a view on one specific medium.</span>
 
 <span class="sd">    The medium is expected to be the entry point&#39;s INTERNAL_NAME.</span>
@@ -147,15 +147,15 @@
 <span class="sd">    Edition.schema_to_additional_type[INTERNAL_NAME]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="MediumEntryPoint.modify_database_query"><a class="viewcode-back" href="../../core.html#core.config.MediumEntryPoint.modify_database_query">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="MediumEntryPoint.modify_database_query"><a class="viewcode-back" href="../../core.html#core.entrypoint.MediumEntryPoint.modify_database_query">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">modify_database_query</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">qu</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Modify a query against Work+LicensePool+Edition</span>
 <span class="sd">        to match only items with the right medium.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">Edition</span>
+        <span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="n">Edition</span>
         <span class="k">return</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Edition</span><span class="o">.</span><span class="n">medium</span><span class="o">==</span><span class="bp">cls</span><span class="o">.</span><span class="n">INTERNAL_NAME</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MediumEntryPoint.modify_search_filter"><a class="viewcode-back" href="../../core.html#core.config.MediumEntryPoint.modify_search_filter">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="MediumEntryPoint.modify_search_filter"><a class="viewcode-back" href="../../core.html#core.entrypoint.MediumEntryPoint.modify_search_filter">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">modify_search_filter</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="nb">filter</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Modify an external_search.Filter object so it only finds</span>
 <span class="sd">        titles available through this EntryPoint.</span>
@@ -165,14 +165,14 @@
         <span class="nb">filter</span><span class="o">.</span><span class="n">media</span> <span class="o">=</span> <span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">INTERNAL_NAME</span><span class="p">]</span></div></div>
 
 
-<div class="viewcode-block" id="EbooksEntryPoint"><a class="viewcode-back" href="../../core.html#core.config.EbooksEntryPoint">[docs]</a><span class="k">class</span> <span class="nc">EbooksEntryPoint</span><span class="p">(</span><span class="n">MediumEntryPoint</span><span class="p">):</span>
+<div class="viewcode-block" id="EbooksEntryPoint"><a class="viewcode-back" href="../../core.html#core.entrypoint.EbooksEntryPoint">[docs]</a><span class="k">class</span> <span class="nc">EbooksEntryPoint</span><span class="p">(</span><span class="n">MediumEntryPoint</span><span class="p">):</span>
     <span class="n">INTERNAL_NAME</span> <span class="o">=</span> <span class="s2">&quot;Book&quot;</span>
-    <span class="n">URI</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://schema.org/EBook&quot;</span></div>
+    <span class="n">URI</span> <span class="o">=</span> <span class="s2">&quot;http://schema.org/EBook&quot;</span></div>
 <span class="n">EntryPoint</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">EbooksEntryPoint</span><span class="p">,</span> <span class="s2">&quot;eBooks&quot;</span><span class="p">,</span> <span class="n">default_enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-<div class="viewcode-block" id="AudiobooksEntryPoint"><a class="viewcode-back" href="../../core.html#core.config.AudiobooksEntryPoint">[docs]</a><span class="k">class</span> <span class="nc">AudiobooksEntryPoint</span><span class="p">(</span><span class="n">MediumEntryPoint</span><span class="p">):</span>
+<div class="viewcode-block" id="AudiobooksEntryPoint"><a class="viewcode-back" href="../../core.html#core.entrypoint.AudiobooksEntryPoint">[docs]</a><span class="k">class</span> <span class="nc">AudiobooksEntryPoint</span><span class="p">(</span><span class="n">MediumEntryPoint</span><span class="p">):</span>
     <span class="n">INTERNAL_NAME</span> <span class="o">=</span> <span class="s2">&quot;Audio&quot;</span>
-    <span class="n">URI</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://bib.schema.org/Audiobook&quot;</span></div>
+    <span class="n">URI</span> <span class="o">=</span> <span class="s2">&quot;http://bib.schema.org/Audiobook&quot;</span></div>
 <span class="n">EntryPoint</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">AudiobooksEntryPoint</span><span class="p">,</span> <span class="s2">&quot;Audiobooks&quot;</span><span class="p">)</span>
 </pre></div>
 
@@ -230,7 +230,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

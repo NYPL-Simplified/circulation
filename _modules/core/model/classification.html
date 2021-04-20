@@ -35,7 +35,7 @@
   <h1>Source code for core.model.classification</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Subject, Classification, Genre</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
@@ -45,8 +45,8 @@
     <span class="n">numericrange_to_tuple</span><span class="p">,</span>
     <span class="n">tuple_to_numericrange</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="n">DataSourceConstants</span>
-<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">.constants</span> <span class="kn">import</span> <span class="n">DataSourceConstants</span>
+<span class="kn">from</span> <span class="nn">.hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
 
 <span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">classifier</span>
 <span class="kn">from</span> <span class="nn">..classifier</span> <span class="kn">import</span> <span class="p">(</span>
@@ -55,7 +55,6 @@
     <span class="n">Erotica</span><span class="p">,</span>
     <span class="n">GenreData</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
 
 <span class="kn">import</span> <span class="nn">logging</span>
 
@@ -129,7 +128,7 @@
     <span class="p">}</span>
 
     <span class="n">uri_lookup</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">by_uri</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">by_uri</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
         <span class="n">uri_lookup</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
 
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;subjects&#39;</span>
@@ -183,9 +182,9 @@
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
-            <span class="n">name</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39; (&quot;</span><span class="si">%s</span><span class="s1">&quot;)&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="s1">&#39; (&quot;</span><span class="si">%s</span><span class="s1">&quot;)&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">name</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;&quot;</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">audience</span><span class="p">:</span>
             <span class="n">audience</span> <span class="o">=</span> <span class="s2">&quot; audience=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">audience</span>
         <span class="k">else</span><span class="p">:</span>
@@ -206,9 +205,9 @@
             <span class="n">age_range</span><span class="o">=</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_age_string</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">age_range</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-        <span class="n">a</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;[</span><span class="si">%s</span><span class="s1">:</span><span class="si">%s%s%s%s%s%s</span><span class="s1">]&#39;</span> <span class="o">%</span> <span class="p">(</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="s1">&#39;[</span><span class="si">%s</span><span class="s1">:</span><span class="si">%s%s%s%s%s%s</span><span class="s1">]&#39;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="n">audience</span><span class="p">,</span> <span class="n">genre</span><span class="p">,</span> <span class="n">age_range</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">target_age_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -645,7 +644,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

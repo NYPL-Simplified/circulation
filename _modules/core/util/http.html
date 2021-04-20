@@ -34,11 +34,11 @@
             
   <h1>Source code for core.util.http</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 <span class="kn">import</span> <span class="nn">requests</span>
-<span class="kn">import</span> <span class="nn">urlparse</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">problem_detail</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.problem_detail</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ProblemDetail</span> <span class="k">as</span> <span class="n">pd</span><span class="p">,</span>
     <span class="n">JSON_MEDIA_TYPE</span> <span class="k">as</span> <span class="n">PROBLEM_DETAIL_JSON_MEDIA_TYPE</span><span class="p">,</span>
 <span class="p">)</span>
@@ -96,7 +96,7 @@
         <span class="k">if</span> <span class="p">(</span><span class="n">url_or_service</span> <span class="ow">and</span>
             <span class="nb">any</span><span class="p">(</span><span class="n">url_or_service</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;http:&#39;</span><span class="p">,</span> <span class="s1">&#39;https:&#39;</span><span class="p">))):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">url_or_service</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">url_or_service</span><span class="p">)</span><span class="o">.</span><span class="n">netloc</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">url_or_service</span><span class="p">)</span><span class="o">.</span><span class="n">netloc</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">url_or_service</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">debug_message</span><span class="p">:</span>
@@ -109,12 +109,12 @@
 
 <div class="viewcode-block" id="RemoteIntegrationException.document_detail"><a class="viewcode-back" href="../../../core.util.html#core.util.http.RemoteIntegrationException.document_detail">[docs]</a>    <span class="k">def</span> <span class="nf">document_detail</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">_</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="p">),</span> <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">_</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="p">),</span> <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="n">_</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="p">),</span> <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="p">),</span> <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="RemoteIntegrationException.document_debug_message"><a class="viewcode-back" href="../../../core.util.html#core.util.http.RemoteIntegrationException.document_debug_message">[docs]</a>    <span class="k">def</span> <span class="nf">document_debug_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">_</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="p">),</span> <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">_</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="p">),</span> <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
         <span class="k">return</span> <span class="kc">None</span></div>
 
 <div class="viewcode-block" id="RemoteIntegrationException.as_problem_detail_document"><a class="viewcode-back" href="../../../core.util.html#core.util.http.RemoteIntegrationException.as_problem_detail_document">[docs]</a>    <span class="k">def</span> <span class="nf">as_problem_detail_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="p">):</span>
@@ -161,6 +161,10 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">status_code</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span>
             <span class="n">content</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+        <span class="c1"># The HTTP content response is a bytestring that we want to</span>
+        <span class="c1"># convert to unicode for the debug message.</span>
+        <span class="k">if</span> <span class="n">content</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">BadResponseException</span><span class="p">(</span>
             <span class="n">url</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span>
             <span class="n">status_code</span><span class="o">=</span><span class="n">status_code</span><span class="p">,</span>
@@ -249,21 +253,22 @@
         <span class="n">allowed_response_codes</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;allowed_response_codes&#39;</span><span class="p">,</span> <span class="p">[])</span>
         <span class="n">disallowed_response_codes</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;disallowed_response_codes&#39;</span><span class="p">,</span> <span class="p">[])</span>
         <span class="n">verbose</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;verbose&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">expected_encoding</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;expected_encoding&#39;</span><span class="p">,</span> <span class="s1">&#39;utf-8&#39;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;timeout&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
             <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;timeout&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">20</span>
 
         <span class="c1"># Unicode data can&#39;t be sent over the wire. Convert it</span>
         <span class="c1"># to UTF-8.</span>
-        <span class="k">if</span> <span class="s1">&#39;data&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">],</span> <span class="n">unicode</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s1">&#39;data&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">],</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="s1">&#39;headers&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
             <span class="n">headers</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;headers&#39;</span><span class="p">]</span>
             <span class="n">new_headers</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">headers</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">headers</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                     <span class="n">k</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                     <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
                 <span class="n">new_headers</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
             <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;headers&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_headers</span>
@@ -285,22 +290,22 @@
                     <span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span>
                     <span class="n">response</span><span class="o">.</span><span class="n">content</span>
                 <span class="p">)</span>
-        <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">Timeout</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">Timeout</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># Wrap the requests-specific Timeout exception</span>
             <span class="c1"># in a generic RequestTimedOut exception.</span>
-            <span class="k">raise</span> <span class="n">RequestTimedOut</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">RequestException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">RequestTimedOut</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">RequestException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># Wrap all other requests-specific exceptions in</span>
             <span class="c1"># a generic RequestNetworkException.</span>
-            <span class="k">raise</span> <span class="n">RequestNetworkException</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">RequestNetworkException</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">process_response_with</span><span class="p">(</span>
-            <span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="p">,</span> <span class="n">disallowed_response_codes</span>
+            <span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="p">,</span> <span class="n">disallowed_response_codes</span><span class="p">,</span> <span class="n">expected_encoding</span>
         <span class="p">)</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_process_response</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                          <span class="n">disallowed_response_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+                        <span class="n">disallowed_response_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">expected_encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Raise a RequestNetworkException if the response code indicates a</span>
 <span class="sd">        server-side failure, or behavior so unpredictable that we can&#39;t</span>
 <span class="sd">        continue.</span>
@@ -310,14 +315,16 @@
 <span class="sd">            BadResponseExceptions.</span>
 <span class="sd">        :param disallowed_response_codes The values passed are added to 5xx, as</span>
 <span class="sd">            http status codes that would generate BadResponseExceptions.</span>
+<span class="sd">        :param expected_encoding Typically we expect HTTP responses to be UTF-8</span>
+<span class="sd">            encoded, but for certain requests we can change the encoding type.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">allowed_response_codes</span><span class="p">:</span>
-            <span class="n">allowed_response_codes</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="p">)</span>
+            <span class="n">allowed_response_codes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="p">))</span>
             <span class="n">status_code_not_in_allowed</span> <span class="o">=</span> <span class="s2">&quot;Got status code </span><span class="si">%%</span><span class="s2">s from external server, but can only continue on: </span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="p">(</span>
                 <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">allowed_response_codes</span><span class="p">)),</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">disallowed_response_codes</span><span class="p">:</span>
-            <span class="n">disallowed_response_codes</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">disallowed_response_codes</span><span class="p">)</span>
+            <span class="n">disallowed_response_codes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">disallowed_response_codes</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">disallowed_response_codes</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -346,11 +353,18 @@
         <span class="p">)):</span>
             <span class="n">error_message</span> <span class="o">=</span> <span class="n">status_code_not_in_allowed</span>
         <span class="k">if</span> <span class="n">error_message</span><span class="p">:</span>
+            <span class="n">response_content</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+            <span class="k">if</span> <span class="n">response_content</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response_content</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">response_content</span> <span class="o">=</span> <span class="n">response_content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">expected_encoding</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">RequestNetworkException</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
             <span class="k">raise</span> <span class="n">BadResponseException</span><span class="p">(</span>
                 <span class="n">url</span><span class="p">,</span>
                 <span class="n">error_message</span> <span class="o">%</span> <span class="n">code</span><span class="p">,</span>
                 <span class="n">status_code</span><span class="o">=</span><span class="n">code</span><span class="p">,</span>
-                <span class="n">debug_message</span><span class="o">=</span><span class="s2">&quot;Response content: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+                <span class="n">debug_message</span><span class="o">=</span><span class="s2">&quot;Response content: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">response_content</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">response</span>
 
@@ -398,16 +412,20 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="HTTP.process_debuggable_response"><a class="viewcode-back" href="../../../core.util.html#core.util.http.HTTP.process_debuggable_response">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">process_debuggable_response</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">disallowed_response_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">process_debuggable_response</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">disallowed_response_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">allowed_response_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">expected_encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span>
+        <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;If there was a problem with an integration request,</span>
 <span class="sd">        return an appropriate ProblemDetail. Otherwise, return the</span>
 <span class="sd">        response to the original request.</span>
 
 <span class="sd">        :param response: A Response object from the requests library.</span>
+<span class="sd">        :param expected_encoding: Typically we expect HTTP responses to be UTF-8</span>
+<span class="sd">            encoded, but for certain requests we can change the encoding type.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">allowed_response_codes</span> <span class="o">=</span> <span class="n">allowed_response_codes</span> <span class="ow">or</span> <span class="p">[</span><span class="s1">&#39;2xx&#39;</span><span class="p">,</span> <span class="s1">&#39;3xx&#39;</span><span class="p">]</span>
-        <span class="n">allowed_response_codes</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="p">)</span>
+        <span class="n">allowed_response_codes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="p">))</span>
         <span class="n">code</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span>
         <span class="n">series</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">series</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">code</span><span class="p">)</span> <span class="ow">in</span> <span class="n">allowed_response_codes</span> <span class="ow">or</span> <span class="n">series</span> <span class="ow">in</span> <span class="n">allowed_response_codes</span><span class="p">:</span>
@@ -416,23 +434,29 @@
             <span class="k">return</span> <span class="n">response</span>
 
         <span class="n">content_type</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">)</span>
+        <span class="n">response_content</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+        <span class="k">if</span> <span class="n">response_content</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response_content</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">response_content</span> <span class="o">=</span> <span class="n">response_content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">expected_encoding</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">RequestNetworkException</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">content_type</span> <span class="o">==</span> <span class="n">PROBLEM_DETAIL_JSON_MEDIA_TYPE</span><span class="p">:</span>
             <span class="c1"># The server returned a problem detail document. Wrap it</span>
             <span class="c1"># in a new document that represents the integration</span>
             <span class="c1"># failure.</span>
             <span class="n">problem</span> <span class="o">=</span> <span class="n">INTEGRATION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Remote service returned a problem detail document: </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span>
-                    <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+                    <span class="n">response_content</span>
                 <span class="p">)</span>
             <span class="p">)</span>
-            <span class="n">problem</span><span class="o">.</span><span class="n">debug_message</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+            <span class="n">problem</span><span class="o">.</span><span class="n">debug_message</span> <span class="o">=</span> <span class="n">response_content</span>
             <span class="k">return</span> <span class="n">problem</span>
         <span class="c1"># There&#39;s been a problem. Return the message we got from the</span>
         <span class="c1"># server, verbatim.</span>
         <span class="k">return</span> <span class="n">INTEGRATION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
             <span class="n">_</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> response from integration server: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span>
                 <span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span>
-                <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
+                <span class="n">response_content</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span></div></div>
 </pre></div>
@@ -493,7 +517,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

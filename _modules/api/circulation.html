@@ -42,8 +42,8 @@
 <span class="kn">import</span> <span class="nn">flask</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">.circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 <span class="kn">from</span> <span class="nn">core.cdn</span> <span class="kn">import</span> <span class="n">cdnify</span>
 <span class="kn">from</span> <span class="nn">core.config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
 <span class="kn">from</span> <span class="nn">core.mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
@@ -63,7 +63,7 @@
     <span class="n">RightsStatus</span><span class="p">,</span>
     <span class="n">Session</span><span class="p">,</span>
     <span class="n">ExternalIntegrationLink</span><span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util.patron</span> <span class="kn">import</span> <span class="n">PatronUtility</span>
+<span class="kn">from</span> <span class="nn">.util.patron</span> <span class="kn">import</span> <span class="n">PatronUtility</span>
 
 
 <div class="viewcode-block" id="CirculationInfo"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationInfo">[docs]</a><span class="k">class</span> <span class="nc">CirculationInfo</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -463,14 +463,14 @@
         <span class="sd">&quot;&quot;&quot;When you see a Collection that implements protocol X, instantiate</span>
 <span class="sd">        API class Y to handle that collection.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">overdrive</span> <span class="kn">import</span> <span class="n">OverdriveAPI</span>
-        <span class="kn">from</span> <span class="nn">odilo</span> <span class="kn">import</span> <span class="n">OdiloAPI</span>
-        <span class="kn">from</span> <span class="nn">bibliotheca</span> <span class="kn">import</span> <span class="n">BibliothecaAPI</span>
-        <span class="kn">from</span> <span class="nn">axis</span> <span class="kn">import</span> <span class="n">Axis360API</span>
-        <span class="kn">from</span> <span class="nn">rbdigital</span> <span class="kn">import</span> <span class="n">RBDigitalAPI</span>
-        <span class="kn">from</span> <span class="nn">enki</span> <span class="kn">import</span> <span class="n">EnkiAPI</span>
-        <span class="kn">from</span> <span class="nn">opds_for_distributors</span> <span class="kn">import</span> <span class="n">OPDSForDistributorsAPI</span>
-        <span class="kn">from</span> <span class="nn">odl</span> <span class="kn">import</span> <span class="n">ODLAPI</span><span class="p">,</span> <span class="n">SharedODLAPI</span>
+        <span class="kn">from</span> <span class="nn">.overdrive</span> <span class="kn">import</span> <span class="n">OverdriveAPI</span>
+        <span class="kn">from</span> <span class="nn">.odilo</span> <span class="kn">import</span> <span class="n">OdiloAPI</span>
+        <span class="kn">from</span> <span class="nn">.bibliotheca</span> <span class="kn">import</span> <span class="n">BibliothecaAPI</span>
+        <span class="kn">from</span> <span class="nn">.axis</span> <span class="kn">import</span> <span class="n">Axis360API</span>
+        <span class="kn">from</span> <span class="nn">.rbdigital</span> <span class="kn">import</span> <span class="n">RBDigitalAPI</span>
+        <span class="kn">from</span> <span class="nn">.enki</span> <span class="kn">import</span> <span class="n">EnkiAPI</span>
+        <span class="kn">from</span> <span class="nn">.opds_for_distributors</span> <span class="kn">import</span> <span class="n">OPDSForDistributorsAPI</span>
+        <span class="kn">from</span> <span class="nn">.odl</span> <span class="kn">import</span> <span class="n">ODLAPI</span><span class="p">,</span> <span class="n">SharedODLAPI</span>
         <span class="kn">from</span> <span class="nn">api.lcp.collection</span> <span class="kn">import</span> <span class="n">LCPAPI</span>
         <span class="kn">from</span> <span class="nn">api.proquest.importer</span> <span class="kn">import</span> <span class="n">ProQuestOPDS2Importer</span>
 
@@ -777,7 +777,7 @@
                     <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span>
                     <span class="n">hold_notification_email</span>
                 <span class="p">)</span>
-            <span class="k">except</span> <span class="n">AlreadyOnHold</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">AlreadyOnHold</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">hold_info</span> <span class="o">=</span> <span class="n">HoldInfo</span><span class="p">(</span>
                     <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
                     <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
@@ -1049,7 +1049,7 @@
                 <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">api</span><span class="o">.</span><span class="n">checkin</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">)</span>
-                <span class="k">except</span> <span class="n">NotCheckedOut</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">except</span> <span class="n">NotCheckedOut</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="c1"># The book wasn&#39;t checked out in the first</span>
                     <span class="c1"># place. Everything&#39;s fine.</span>
                     <span class="k">pass</span>
@@ -1081,7 +1081,7 @@
             <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">api</span><span class="o">.</span><span class="n">release_hold</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">NotOnHold</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">NotOnHold</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># The book wasn&#39;t on hold in the first place. Everything&#39;s</span>
                 <span class="c1"># fine.</span>
                 <span class="k">pass</span>
@@ -1127,7 +1127,7 @@
                 <span class="k">try</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">activity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">patron_activity</span><span class="p">(</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">patron</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pin</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">exception</span> <span class="o">=</span> <span class="n">e</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">trace</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">()</span>
                 <span class="n">after</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
@@ -1138,7 +1138,7 @@
 
         <span class="n">threads</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">before</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">api</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_collection</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">api</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api_for_collection</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
             <span class="n">thread</span> <span class="o">=</span> <span class="n">PatronActivityThread</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
             <span class="n">threads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">thread</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">thread</span> <span class="ow">in</span> <span class="n">threads</span><span class="p">:</span>
@@ -1330,7 +1330,7 @@
             <span class="c1"># borrowing a book and syncing their bookshelf at the same time,</span>
             <span class="c1"># and the local loan was created after we got the remote loans.</span>
             <span class="c1"># If the loan&#39;s start date is less than a minute ago, we&#39;ll keep it.</span>
-            <span class="k">for</span> <span class="n">loan</span> <span class="ow">in</span> <span class="n">local_loans_by_identifier</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">loan</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">local_loans_by_identifier</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
                 <span class="k">if</span> <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">collection_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection_ids_for_sync</span><span class="p">:</span>
                     <span class="n">one_minute_ago</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">-</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">loan</span><span class="o">.</span><span class="n">start</span> <span class="o">&lt;</span> <span class="n">one_minute_ago</span><span class="p">:</span>
@@ -1342,7 +1342,7 @@
             <span class="c1"># Every hold remaining in holds_by_identifier is a hold that</span>
             <span class="c1"># the provider doesn&#39;t know about, which means it&#39;s expired</span>
             <span class="c1"># and we should get rid of it.</span>
-            <span class="k">for</span> <span class="n">hold</span> <span class="ow">in</span> <span class="n">local_holds_by_identifier</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">hold</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">local_holds_by_identifier</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
                 <span class="k">if</span> <span class="n">hold</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">collection_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection_ids_for_sync</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">hold</span><span class="p">)</span>
 
@@ -1457,7 +1457,7 @@
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_library_authenticator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a LibraryAuthenticator for the given library.&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">authenticator</span> <span class="kn">import</span> <span class="n">LibraryAuthenticator</span>
+        <span class="kn">from</span> <span class="nn">.authenticator</span> <span class="kn">import</span> <span class="n">LibraryAuthenticator</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">LibraryAuthenticator</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span>
 
@@ -1488,7 +1488,7 @@
         <span class="k">for</span> <span class="n">authenticator</span> <span class="ow">in</span> <span class="n">library_authenticator</span><span class="o">.</span><span class="n">providers</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">patrondata</span> <span class="o">=</span> <span class="n">authenticator</span><span class="o">.</span><span class="n">remote_patron_lookup</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">NotImplementedError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">continue</span>
             <span class="k">if</span> <span class="n">patrondata</span> <span class="ow">and</span> <span class="n">patrondata</span><span class="o">.</span><span class="n">email_address</span><span class="p">:</span>
                 <span class="n">email_address</span> <span class="o">=</span> <span class="n">patrondata</span><span class="o">.</span><span class="n">email_address</span>
@@ -1627,7 +1627,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

@@ -39,12 +39,11 @@
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 
-<span class="kn">import</span> <span class="nn">six</span>
-<span class="kn">from</span> <span class="nn">circulationevent</span> <span class="kn">import</span> <span class="n">CirculationEvent</span>
-<span class="kn">from</span> <span class="nn">complaint</span> <span class="kn">import</span> <span class="n">Complaint</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="n">DataSourceConstants</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="p">,</span> <span class="n">LinkRelations</span><span class="p">,</span> <span class="n">MediaTypes</span>
-<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
-<span class="kn">from</span> <span class="nn">patron</span> <span class="kn">import</span> <span class="n">Hold</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">Patron</span>
+<span class="kn">from</span> <span class="nn">.circulationevent</span> <span class="kn">import</span> <span class="n">CirculationEvent</span>
+<span class="kn">from</span> <span class="nn">.complaint</span> <span class="kn">import</span> <span class="n">Complaint</span>
+<span class="kn">from</span> <span class="nn">.constants</span> <span class="kn">import</span> <span class="n">DataSourceConstants</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="p">,</span> <span class="n">LinkRelations</span><span class="p">,</span> <span class="n">MediaTypes</span>
+<span class="kn">from</span> <span class="nn">.hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">.patron</span> <span class="kn">import</span> <span class="n">Hold</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">Patron</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Boolean</span><span class="p">,</span>
     <span class="n">Column</span><span class="p">,</span>
@@ -61,7 +60,6 @@
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
 
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">Base</span><span class="p">,</span> <span class="n">create</span><span class="p">,</span> <span class="n">flush</span><span class="p">,</span> <span class="n">get_one</span><span class="p">,</span> <span class="n">get_one_or_create</span>
 
 
@@ -260,14 +258,14 @@
     <span class="k">def</span> <span class="nf">for_foreign_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">foreign_id_type</span><span class="p">,</span> <span class="n">foreign_id</span><span class="p">,</span>
                        <span class="n">rights_status</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find or create a LicensePool for the given foreign ID.&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">collection</span> <span class="kn">import</span> <span class="n">CollectionMissing</span>
-        <span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
-        <span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
+        <span class="kn">from</span> <span class="nn">.collection</span> <span class="kn">import</span> <span class="n">CollectionMissing</span>
+        <span class="kn">from</span> <span class="nn">.datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
+        <span class="kn">from</span> <span class="nn">.identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">collection</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CollectionMissing</span><span class="p">()</span>
 
         <span class="c1"># Get the DataSource.</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">)</span>
 
         <span class="c1"># The type of the foreign ID must be the primary identifier</span>
@@ -319,7 +317,7 @@
 <div class="viewcode-block" id="LicensePool.with_no_work"><a class="viewcode-back" href="../../../core.model.html#core.model.licensing.LicensePool.with_no_work">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">with_no_work</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find LicensePools that have no corresponding Work.&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">work</span> <span class="kn">import</span> <span class="n">Work</span>
+        <span class="kn">from</span> <span class="nn">.work</span> <span class="kn">import</span> <span class="n">Work</span>
         <span class="k">return</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span><span class="n">Work</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
 
@@ -349,8 +347,8 @@
 <div class="viewcode-block" id="LicensePool.with_complaint"><a class="viewcode-back" href="../../../core.model.html#core.model.licensing.LicensePool.with_complaint">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">with_complaint</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">resolved</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return query for LicensePools that have at least one Complaint.&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">collection</span> <span class="kn">import</span> <span class="n">Collection</span>
-        <span class="kn">from</span> <span class="nn">library</span> <span class="kn">import</span> <span class="n">Library</span>
+        <span class="kn">from</span> <span class="nn">.collection</span> <span class="kn">import</span> <span class="n">Collection</span>
+        <span class="kn">from</span> <span class="nn">.library</span> <span class="kn">import</span> <span class="n">Library</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
         <span class="n">subquery</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
@@ -389,7 +387,7 @@
             <span class="n">priority</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OPEN_ACCESS_SOURCE_PRIORITY</span><span class="o">.</span><span class="n">index</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># The source of this download is not mentioned in our</span>
             <span class="c1"># priority list. Treat it as the lowest priority.</span>
             <span class="n">priority</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
@@ -478,7 +476,7 @@
 <span class="sd">        :return: A boolean explaining whether any of the presentation</span>
 <span class="sd">        information associated with this LicensePool actually changed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
+        <span class="kn">from</span> <span class="nn">.edition</span> <span class="kn">import</span> <span class="n">Edition</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">old_presentation_edition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">presentation_edition</span>
         <span class="n">changed</span> <span class="o">=</span> <span class="kc">False</span>
@@ -794,7 +792,7 @@
 <span class="sd">        logging.info or a similar method</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">edition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">presentation_edition</span>
-        <span class="n">message</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;CHANGED &#39;</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="s1">&#39;CHANGED &#39;</span>
         <span class="n">args</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">:</span>
             <span class="n">identifier_template</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/</span><span class="si">%s</span><span class="s1">&#39;</span>
@@ -803,7 +801,7 @@
             <span class="n">identifier_template</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">&#39;</span>
             <span class="n">identifier_args</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">edition</span><span class="p">:</span>
-            <span class="n">message</span> <span class="o">+=</span> <span class="sa">u</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> &quot;</span><span class="si">%s</span><span class="s1">&quot; </span><span class="si">%s</span><span class="s1"> (&#39;</span> <span class="o">+</span> <span class="n">identifier_template</span> <span class="o">+</span> <span class="s1">&#39;)&#39;</span>
+            <span class="n">message</span> <span class="o">+=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> &quot;</span><span class="si">%s</span><span class="s1">&quot; </span><span class="si">%s</span><span class="s1"> (&#39;</span> <span class="o">+</span> <span class="n">identifier_template</span> <span class="o">+</span> <span class="s1">&#39;)&#39;</span>
             <span class="n">args</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">edition</span><span class="o">.</span><span class="n">medium</span><span class="p">,</span>
                          <span class="n">edition</span><span class="o">.</span><span class="n">title</span> <span class="ow">or</span> <span class="s2">&quot;[NO TITLE]&quot;</span><span class="p">,</span>
                          <span class="n">edition</span><span class="o">.</span><span class="n">author</span> <span class="ow">or</span> <span class="s2">&quot;[NO AUTHOR]&quot;</span><span class="p">]</span>
@@ -971,7 +969,7 @@
 <span class="sd">        from calling set_presentation_edition() and assumes we&#39;ve</span>
 <span class="sd">        already done that work.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">work</span> <span class="kn">import</span> <span class="n">Work</span>
+        <span class="kn">from</span> <span class="nn">.work</span> <span class="kn">import</span> <span class="n">Work</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">:</span>
             <span class="c1"># A LicensePool with no Identifier should never have a Work.</span>
@@ -1138,7 +1136,7 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">open_access_links</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Yield all open-access Resources for this LicensePool.&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
+        <span class="kn">from</span> <span class="nn">.identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
         <span class="n">open_access</span> <span class="o">=</span> <span class="n">LinkRelations</span><span class="o">.</span><span class="n">OPEN_ACCESS_DOWNLOAD</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">:</span>
@@ -1422,12 +1420,10 @@
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s2">&quot;&lt;LicensePoolDeliveryMechanism: data_source=</span><span class="si">{0}</span><span class="s2">, identifier=</span><span class="si">{1}</span><span class="s2">, mechanism=</span><span class="si">{2}</span><span class="s2">&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">)),</span>
-                <span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">)),</span>
-                <span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="p">))</span>
-            <span class="p">)</span>
+        <span class="k">return</span>  <span class="s2">&quot;&lt;LicensePoolDeliveryMechanism: data_source=</span><span class="si">{0}</span><span class="s2">, identifier=</span><span class="si">{1}</span><span class="s2">, mechanism=</span><span class="si">{2}</span><span class="s2">&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">),</span>
+            <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">),</span>
+            <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="p">)</span>
         <span class="p">)</span>
 
     <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
@@ -1456,37 +1452,37 @@
 <span class="sd">    (e.g. &quot;application/vnd.adobe.adept+xml&quot; or &quot;application/epub+zip&quot;) or an</span>
 <span class="sd">    informal name (&quot;Kindle via Amazon&quot;).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">KINDLE_CONTENT_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Kindle via Amazon&quot;</span>
-    <span class="n">NOOK_CONTENT_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Nook via B&amp;N&quot;</span>
-    <span class="n">STREAMING_TEXT_CONTENT_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Streaming Text&quot;</span>
-    <span class="n">STREAMING_AUDIO_CONTENT_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Streaming Audio&quot;</span>
-    <span class="n">STREAMING_VIDEO_CONTENT_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Streaming Video&quot;</span>
+    <span class="n">KINDLE_CONTENT_TYPE</span> <span class="o">=</span> <span class="s2">&quot;Kindle via Amazon&quot;</span>
+    <span class="n">NOOK_CONTENT_TYPE</span> <span class="o">=</span> <span class="s2">&quot;Nook via B&amp;N&quot;</span>
+    <span class="n">STREAMING_TEXT_CONTENT_TYPE</span> <span class="o">=</span> <span class="s2">&quot;Streaming Text&quot;</span>
+    <span class="n">STREAMING_AUDIO_CONTENT_TYPE</span> <span class="o">=</span> <span class="s2">&quot;Streaming Audio&quot;</span>
+    <span class="n">STREAMING_VIDEO_CONTENT_TYPE</span> <span class="o">=</span> <span class="s2">&quot;Streaming Video&quot;</span>
 
     <span class="n">NO_DRM</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">ADOBE_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/vnd.adobe.adept+xml&quot;</span>
-    <span class="n">FINDAWAY_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/vnd.librarysimplified.findaway.license+json&quot;</span>
+    <span class="n">ADOBE_DRM</span> <span class="o">=</span> <span class="s2">&quot;application/vnd.adobe.adept+xml&quot;</span>
+    <span class="n">FINDAWAY_DRM</span> <span class="o">=</span> <span class="s2">&quot;application/vnd.librarysimplified.findaway.license+json&quot;</span>
     <span class="n">AXISNOW_DRM</span> <span class="o">=</span> <span class="s2">&quot;application/vnd.librarysimplified.axisnow+json&quot;</span>
-    <span class="n">KINDLE_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Kindle DRM&quot;</span>
-    <span class="n">NOOK_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Nook DRM&quot;</span>
-    <span class="n">STREAMING_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Streaming&quot;</span>
-    <span class="n">LCP_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/vnd.readium.lcp.license.v1.0+json&quot;</span>
+    <span class="n">KINDLE_DRM</span> <span class="o">=</span> <span class="s2">&quot;Kindle DRM&quot;</span>
+    <span class="n">NOOK_DRM</span> <span class="o">=</span> <span class="s2">&quot;Nook DRM&quot;</span>
+    <span class="n">STREAMING_DRM</span> <span class="o">=</span> <span class="s2">&quot;Streaming&quot;</span>
+    <span class="n">LCP_DRM</span> <span class="o">=</span> <span class="s2">&quot;application/vnd.readium.lcp.license.v1.0+json&quot;</span>
 
     <span class="c1"># This represents the DRM system used by the app called &#39;Overdrive&#39;</span>
     <span class="c1"># and associated with the application/x-od-media media type.</span>
-    <span class="n">OVERDRIVE_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Overdrive DRM&quot;</span>
+    <span class="n">OVERDRIVE_DRM</span> <span class="o">=</span> <span class="s2">&quot;Overdrive DRM&quot;</span>
 
     <span class="c1"># This represents the DRM system used by the app called &#39;Libby&#39; and</span>
     <span class="c1"># associated with the</span>
     <span class="c1"># application/vnd.overdrive.circulation.api+json media type and</span>
     <span class="c1"># its profiles.</span>
-    <span class="n">LIBBY_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Libby DRM&quot;</span>
+    <span class="n">LIBBY_DRM</span> <span class="o">=</span> <span class="s2">&quot;Libby DRM&quot;</span>
 
     <span class="n">KNOWN_DRM_TYPES</span> <span class="o">=</span> <span class="p">{</span>
         <span class="n">ADOBE_DRM</span><span class="p">,</span> <span class="n">FINDAWAY_DRM</span><span class="p">,</span> <span class="n">AXISNOW_DRM</span><span class="p">,</span> <span class="n">KINDLE_DRM</span><span class="p">,</span> <span class="n">NOOK_DRM</span><span class="p">,</span> <span class="n">STREAMING_DRM</span><span class="p">,</span> <span class="n">LCP_DRM</span><span class="p">,</span> <span class="n">OVERDRIVE_DRM</span><span class="p">,</span> <span class="n">LIBBY_DRM</span>
     <span class="p">}</span>
 
-    <span class="n">BEARER_TOKEN</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/vnd.librarysimplified.bearer-token+json&quot;</span>
-    <span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://www.feedbooks.com/audiobooks/access-restriction&quot;</span>
+    <span class="n">BEARER_TOKEN</span> <span class="o">=</span> <span class="s2">&quot;application/vnd.librarysimplified.bearer-token+json&quot;</span>
+    <span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span> <span class="o">=</span> <span class="s2">&quot;http://www.feedbooks.com/audiobooks/access-restriction&quot;</span>
 
     <span class="n">FEEDBOOKS_AUDIOBOOK_PROFILE</span> <span class="o">=</span> <span class="s1">&#39;;profile=&quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span>
     <span class="n">STREAMING_PROFILE</span> <span class="o">=</span> <span class="s1">&#39;;profile=&quot;http://librarysimplified.org/terms/profiles/streaming-media&quot;&#39;</span>
@@ -1527,10 +1523,10 @@
     <span class="c1"># If the default client supports a given media type with no DRM,</span>
     <span class="c1"># we can infer that the client _also_ supports that media type via</span>
     <span class="c1"># bearer token exchange.</span>
-    <span class="k">for</span> <span class="n">media_type</span><span class="p">,</span> <span class="n">drm</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">default_client_can_fulfill_lookup</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">media_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">drm</span> <span class="o">==</span> <span class="n">NO_DRM</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">_media_type</span><span class="p">,</span> <span class="n">_drm</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">default_client_can_fulfill_lookup</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">_media_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_drm</span> <span class="o">==</span> <span class="n">NO_DRM</span><span class="p">:</span>
             <span class="n">default_client_can_fulfill_lookup</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
-                <span class="p">(</span><span class="n">media_type</span><span class="p">,</span> <span class="n">BEARER_TOKEN</span><span class="p">)</span>
+                <span class="p">(</span><span class="n">_media_type</span><span class="p">,</span> <span class="n">BEARER_TOKEN</span><span class="p">)</span>
             <span class="p">)</span>
 
     <span class="n">license_pool_delivery_mechanisms</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
@@ -1605,7 +1601,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">is_streaming</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">MEDIA_TYPES_FOR_STREAMING</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_type</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MEDIA_TYPES_FOR_STREAMING</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">drm_scheme_media_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1687,40 +1683,40 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># Currently in copyright.</span>
-    <span class="n">IN_COPYRIGHT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rights-status/in-copyright&quot;</span>
+    <span class="n">IN_COPYRIGHT</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rights-status/in-copyright&quot;</span>
 
     <span class="c1"># Public domain in the USA.</span>
-    <span class="n">PUBLIC_DOMAIN_USA</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rights-status/public-domain-usa&quot;</span>
+    <span class="n">PUBLIC_DOMAIN_USA</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rights-status/public-domain-usa&quot;</span>
 
     <span class="c1"># Public domain in some unknown territory</span>
-    <span class="n">PUBLIC_DOMAIN_UNKNOWN</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rights-status/public-domain-unknown&quot;</span>
+    <span class="n">PUBLIC_DOMAIN_UNKNOWN</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rights-status/public-domain-unknown&quot;</span>
 
     <span class="c1"># Creative Commons Public Domain Dedication (No rights reserved)</span>
-    <span class="n">CC0</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;https://creativecommons.org/publicdomain/zero/1.0/&quot;</span>
+    <span class="n">CC0</span> <span class="o">=</span> <span class="s2">&quot;https://creativecommons.org/publicdomain/zero/1.0/&quot;</span>
 
     <span class="c1"># Creative Commons Attribution (CC BY)</span>
-    <span class="n">CC_BY</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://creativecommons.org/licenses/by/4.0/&quot;</span>
+    <span class="n">CC_BY</span> <span class="o">=</span> <span class="s2">&quot;http://creativecommons.org/licenses/by/4.0/&quot;</span>
 
     <span class="c1"># Creative Commons Attribution-ShareAlike (CC BY-SA)</span>
-    <span class="n">CC_BY_SA</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;https://creativecommons.org/licenses/by-sa/4.0&quot;</span>
+    <span class="n">CC_BY_SA</span> <span class="o">=</span> <span class="s2">&quot;https://creativecommons.org/licenses/by-sa/4.0&quot;</span>
 
     <span class="c1"># Creative Commons Attribution-NoDerivs (CC BY-ND)</span>
-    <span class="n">CC_BY_ND</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;https://creativecommons.org/licenses/by-nd/4.0&quot;</span>
+    <span class="n">CC_BY_ND</span> <span class="o">=</span> <span class="s2">&quot;https://creativecommons.org/licenses/by-nd/4.0&quot;</span>
 
     <span class="c1"># Creative Commons Attribution-NonCommercial (CC BY-NC)</span>
-    <span class="n">CC_BY_NC</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;https://creativecommons.org/licenses/by-nc/4.0&quot;</span>
+    <span class="n">CC_BY_NC</span> <span class="o">=</span> <span class="s2">&quot;https://creativecommons.org/licenses/by-nc/4.0&quot;</span>
 
     <span class="c1"># Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA)</span>
-    <span class="n">CC_BY_NC_SA</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;https://creativecommons.org/licenses/by-nc-sa/4.0&quot;</span>
+    <span class="n">CC_BY_NC_SA</span> <span class="o">=</span> <span class="s2">&quot;https://creativecommons.org/licenses/by-nc-sa/4.0&quot;</span>
 
     <span class="c1"># Creative Commons Attribution-NonCommercial-NoDerivs (CC BY-NC-ND)</span>
-    <span class="n">CC_BY_NC_ND</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;https://creativecommons.org/licenses/by-nc-nd/4.0&quot;</span>
+    <span class="n">CC_BY_NC_ND</span> <span class="o">=</span> <span class="s2">&quot;https://creativecommons.org/licenses/by-nc-nd/4.0&quot;</span>
 
     <span class="c1"># Open access download but no explicit license</span>
-    <span class="n">GENERIC_OPEN_ACCESS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rights-status/generic-open-access&quot;</span>
+    <span class="n">GENERIC_OPEN_ACCESS</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rights-status/generic-open-access&quot;</span>
 
     <span class="c1"># Unknown copyright status.</span>
-    <span class="n">UNKNOWN</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rights-status/unknown&quot;</span>
+    <span class="n">UNKNOWN</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rights-status/unknown&quot;</span>
 
     <span class="n">OPEN_ACCESS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="n">PUBLIC_DOMAIN_USA</span><span class="p">,</span>
@@ -1788,7 +1784,7 @@
 
 <div class="viewcode-block" id="RightsStatus.lookup"><a class="viewcode-back" href="../../../core.model.html#core.model.licensing.RightsStatus.lookup">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">uri</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">uri</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">NAMES</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">uri</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">NAMES</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
             <span class="n">uri</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">UNKNOWN</span>
         <span class="n">name</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">NAMES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">uri</span><span class="p">)</span>
         <span class="n">create_method_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
@@ -1888,7 +1884,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

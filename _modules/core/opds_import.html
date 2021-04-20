@@ -36,16 +36,15 @@
 <span></span><span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">traceback</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
-<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">BytesIO</span><span class="p">,</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">BytesIO</span>
 
 <span class="kn">import</span> <span class="nn">dateutil</span>
 <span class="kn">import</span> <span class="nn">feedparser</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">IntegrationException</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="n">CoverageFailure</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">IntegrationException</span>
+<span class="kn">from</span> <span class="nn">.coverage</span> <span class="kn">import</span> <span class="n">CoverageFailure</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
-<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CirculationData</span><span class="p">,</span>
     <span class="n">ContributorData</span><span class="p">,</span>
     <span class="n">IdentifierData</span><span class="p">,</span>
@@ -56,8 +55,8 @@
     <span class="n">SubjectData</span><span class="p">,</span>
     <span class="n">TimestampData</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
+<span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">CoverageRecord</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
@@ -73,17 +72,17 @@
     <span class="n">Subject</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
-<span class="kn">from</span> <span class="nn">monitor</span> <span class="kn">import</span> <span class="n">CollectionMonitor</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">selftest</span> <span class="kn">import</span> <span class="n">HasSelfTests</span><span class="p">,</span> <span class="n">SelfTestResult</span>
-<span class="kn">from</span> <span class="nn">six.moves.urllib.parse</span> <span class="kn">import</span> <span class="n">urljoin</span><span class="p">,</span> <span class="n">urlparse</span>
+<span class="kn">from</span> <span class="nn">.model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
+<span class="kn">from</span> <span class="nn">.monitor</span> <span class="kn">import</span> <span class="n">CollectionMonitor</span>
+<span class="kn">from</span> <span class="nn">.selftest</span> <span class="kn">import</span> <span class="n">HasSelfTests</span><span class="p">,</span> <span class="n">SelfTestResult</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urljoin</span><span class="p">,</span> <span class="n">urlparse</span><span class="p">,</span> <span class="n">quote</span>
+
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">aliased</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">util.http</span> <span class="kn">import</span> <span class="n">HTTP</span><span class="p">,</span> <span class="n">BadResponseException</span>
-<span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="kn">import</span> <span class="n">OPDSFeed</span><span class="p">,</span> <span class="n">OPDSMessage</span>
-<span class="kn">from</span> <span class="nn">util.string_helpers</span> <span class="kn">import</span> <span class="n">base64</span>
-<span class="kn">from</span> <span class="nn">util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
+<span class="kn">from</span> <span class="nn">.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span><span class="p">,</span> <span class="n">BadResponseException</span>
+<span class="kn">from</span> <span class="nn">.util.opds_writer</span> <span class="kn">import</span> <span class="n">OPDSFeed</span><span class="p">,</span> <span class="n">OPDSMessage</span>
+<span class="kn">from</span> <span class="nn">.util.string_helpers</span> <span class="kn">import</span> <span class="n">base64</span>
+<span class="kn">from</span> <span class="nn">.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
 
 <span class="kn">from</span> <span class="nn">.classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
 
@@ -231,7 +230,7 @@
         <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Collection</span><span class="p">):</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">metadata_identifier</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">metadata_identifier</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">continue</span>
 
             <span class="n">lookup</span> <span class="o">=</span> <span class="n">lookup_class</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
@@ -247,7 +246,7 @@
         <span class="n">metadata_identifier</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">metadata_identifier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">metadata_identifier</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># This collection has no metadata identifier. It&#39;s</span>
             <span class="c1"># probably a &quot;Manual intervention&quot; collection. It cannot</span>
             <span class="c1"># interact with the metadata wrangler and there&#39;s no need</span>
@@ -381,7 +380,7 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_IMPORT</span><span class="p">:</span>
             <span class="c1"># Open access OPDS_IMPORT collections need to send a DataSource to</span>
             <span class="c1"># allow OPDS lookups on the Metadata Wrangler.</span>
-            <span class="n">data_source</span> <span class="o">=</span> <span class="s1">&#39;?data_source=&#39;</span> <span class="o">+</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">data_source</span> <span class="o">=</span> <span class="s1">&#39;?data_source=&#39;</span> <span class="o">+</span> <span class="n">quote</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span>
             <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">metadata_identifier</span>
@@ -398,7 +397,7 @@
 <div class="viewcode-block" id="MetadataWranglerOPDSLookup.add_with_metadata"><a class="viewcode-back" href="../../core.html#api.coverage.MetadataWranglerOPDSLookup.add_with_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">add_with_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feed</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Add a feed of items with metadata to an authenticated Metadata Wrangler Collection.&quot;&quot;&quot;</span>
         <span class="n">add_with_metadata_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_collection_url</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ADD_WITH_METADATA_ENDPOINT</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post</span><span class="p">(</span><span class="n">add_with_metadata_url</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">))</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post</span><span class="p">(</span><span class="n">add_with_metadata_url</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">feed</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="MetadataWranglerOPDSLookup.metadata_needed"><a class="viewcode-back" href="../../core.html#api.coverage.MetadataWranglerOPDSLookup.metadata_needed">[docs]</a>    <span class="k">def</span> <span class="nf">metadata_needed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get a feed of items that need additional metadata to be processed</span>
@@ -441,10 +440,10 @@
 <span class="sd">            that goes into library records).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">args</span> <span class="o">=</span> <span class="s2">&quot;display_name=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
-            <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">working_display_name</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">))</span>
+            <span class="n">quote</span><span class="p">(</span><span class="n">working_display_name</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">))</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">identifier</span><span class="p">:</span>
-            <span class="n">args</span> <span class="o">+=</span> <span class="s2">&quot;&amp;urn=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">identifier</span><span class="o">.</span><span class="n">urn</span><span class="p">)</span>
+            <span class="n">args</span> <span class="o">+=</span> <span class="s2">&quot;&amp;urn=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">quote</span><span class="p">(</span><span class="n">identifier</span><span class="o">.</span><span class="n">urn</span><span class="p">)</span>
         <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">CANONICALIZE_ENDPOINT</span> <span class="o">+</span> <span class="s2">&quot;?&quot;</span> <span class="o">+</span> <span class="n">args</span>
         <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;GET </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span></div></div>
@@ -458,7 +457,7 @@
         <span class="nb">super</span><span class="p">(</span><span class="n">MockSimplifiedOPDSLookup</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
 <div class="viewcode-block" id="MockSimplifiedOPDSLookup.queue_response"><a class="viewcode-back" href="../../core.html#api.coverage.MockSimplifiedOPDSLookup.queue_response">[docs]</a>    <span class="k">def</span> <span class="nf">queue_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{},</span> <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">testing</span> <span class="kn">import</span> <span class="n">MockRequestsResponse</span>
+        <span class="kn">from</span> <span class="nn">.testing</span> <span class="kn">import</span> <span class="n">MockRequestsResponse</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
             <span class="mi">0</span><span class="p">,</span> <span class="n">MockRequestsResponse</span><span class="p">(</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
         <span class="p">)</span></div>
@@ -734,7 +733,7 @@
         <span class="c1">#</span>
         <span class="c1"># To avoid taking forever or antagonizing API providers, we&#39;ll</span>
         <span class="c1"># give up after `max_get_attempts` failures.</span>
-        <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_open_access_links</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+        <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_open_access_links</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">values</span><span class="p">())):</span>
             <span class="n">url</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">href</span>
             <span class="n">success</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_open_access_link</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">link</span><span class="o">.</span><span class="n">media_type</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">success</span><span class="p">:</span>
@@ -811,11 +810,11 @@
         <span class="c1"># moving on. Let the exception propagate.</span>
         <span class="n">metadata_objs</span><span class="p">,</span> <span class="n">failures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_feed_data</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">feed_url</span><span class="p">)</span>
         <span class="c1"># make editions.  if have problem, make sure associated pool and work aren&#39;t created.</span>
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">metadata_objs</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">metadata_objs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="c1"># key is identifier.urn here</span>
 
             <span class="c1"># If there&#39;s a status message about this item, don&#39;t try to import it.</span>
-            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">failures</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">failures</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
                 <span class="k">continue</span>
 
             <span class="k">try</span><span class="p">:</span>
@@ -823,7 +822,7 @@
                 <span class="n">edition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">import_edition_from_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">edition</span><span class="p">:</span>
                     <span class="n">imported_editions</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">edition</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># Rather than scratch the whole import, treat this as a failure that only applies</span>
                 <span class="c1"># to this item.</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Error importing an OPDS item&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
@@ -843,13 +842,13 @@
                     <span class="n">pools</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">pool</span>
                 <span class="k">if</span> <span class="n">work</span><span class="p">:</span>
                     <span class="n">works</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">work</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">identifier</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">parse_urn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
                 <span class="n">data_source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span>
                 <span class="n">failure</span> <span class="o">=</span> <span class="n">CoverageFailure</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">(),</span> <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span> <span class="n">transient</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
                 <span class="n">failures</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">failure</span>
 
-        <span class="k">return</span> <span class="n">imported_editions</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="n">pools</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="n">works</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="n">failures</span></div>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">imported_editions</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="n">pools</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="n">works</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="n">failures</span></div>
 
 <div class="viewcode-block" id="OPDSImporter.import_edition_from_metadata"><a class="viewcode-back" href="../../core.html#api.coverage.OPDSImporter.import_edition_from_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">import_edition_from_metadata</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span> <span class="n">metadata</span>
@@ -917,7 +916,7 @@
 
 <div class="viewcode-block" id="OPDSImporter.extract_next_links"><a class="viewcode-back" href="../../core.html#api.coverage.OPDSImporter.extract_next_links">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">extract_next_links</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feed</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">parsed</span> <span class="o">=</span> <span class="n">feedparser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">parsed</span> <span class="o">=</span> <span class="n">feed</span>
@@ -931,7 +930,7 @@
         <span class="k">return</span> <span class="n">next_links</span></div>
 
 <div class="viewcode-block" id="OPDSImporter.extract_last_update_dates"><a class="viewcode-back" href="../../core.html#api.coverage.OPDSImporter.extract_last_update_dates">[docs]</a>    <span class="k">def</span> <span class="nf">extract_last_update_dates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feed</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">parsed_feed</span> <span class="o">=</span> <span class="n">feedparser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">parsed_feed</span> <span class="o">=</span> <span class="n">feed</span>
@@ -957,7 +956,7 @@
         <span class="n">identifiers_by_urn</span><span class="p">,</span> <span class="n">failures</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">parse_urns</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">external_urns</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">False</span>
         <span class="p">)</span>
-        <span class="n">external_identifiers</span> <span class="o">=</span> <span class="n">identifiers_by_urn</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+        <span class="n">external_identifiers</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">identifiers_by_urn</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
 
         <span class="n">internal_identifier</span> <span class="o">=</span> <span class="n">aliased</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Identifier</span><span class="p">,</span> <span class="n">internal_identifier</span><span class="p">)</span>\
@@ -987,18 +986,18 @@
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_from_collection</span><span class="p">:</span>
             <span class="c1"># Build the identifier_mapping based on the Collection.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">build_identifier_mapping</span><span class="p">(</span><span class="n">fp_metadata</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="o">+</span> <span class="n">fp_failures</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_identifier_mapping</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">fp_metadata</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">fp_failures</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
 
         <span class="c1"># translate the id in failures to identifier.urn</span>
         <span class="n">identified_failures</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">urn</span><span class="p">,</span> <span class="n">failure</span> <span class="ow">in</span> <span class="n">fp_failures</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="o">+</span> <span class="n">xml_failures</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">urn</span><span class="p">,</span> <span class="n">failure</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">fp_failures</span><span class="o">.</span><span class="n">items</span><span class="p">())</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">xml_failures</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">identifier</span><span class="p">,</span> <span class="n">failure</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_failure</span><span class="p">(</span><span class="n">urn</span><span class="p">,</span> <span class="n">failure</span><span class="p">)</span>
             <span class="n">identified_failures</span><span class="p">[</span><span class="n">identifier</span><span class="o">.</span><span class="n">urn</span><span class="p">]</span> <span class="o">=</span> <span class="n">failure</span>
 
         <span class="c1"># Use one loop for both, since the id will be the same for both dictionaries.</span>
         <span class="n">metadata</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">circulationdata</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="nb">id</span><span class="p">,</span> <span class="n">m_data_dict</span> <span class="ow">in</span> <span class="n">fp_metadata</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="nb">id</span><span class="p">,</span> <span class="n">m_data_dict</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">fp_metadata</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">xml_data_dict</span> <span class="o">=</span> <span class="n">xml_data_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">id</span><span class="p">,</span> <span class="p">{})</span>
 
             <span class="n">external_identifier</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1030,7 +1029,7 @@
                 <span class="n">internal_identifier</span> <span class="o">=</span> <span class="n">external_identifier</span>
 
             <span class="c1"># Don&#39;t process this item if there was already an error</span>
-            <span class="k">if</span> <span class="n">internal_identifier</span><span class="o">.</span><span class="n">urn</span> <span class="ow">in</span> <span class="n">identified_failures</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">internal_identifier</span><span class="o">.</span><span class="n">urn</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">identified_failures</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
                 <span class="k">continue</span>
 
             <span class="n">identifier_obj</span> <span class="o">=</span> <span class="n">IdentifierData</span><span class="p">(</span>
@@ -1139,7 +1138,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">d2</span><span class="p">:</span>
             <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">d1</span><span class="p">)</span>
         <span class="n">new_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">d1</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">d2</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">d2</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">new_dict</span><span class="p">:</span>
                 <span class="c1"># There is no value from d1. Even if the d2 value</span>
                 <span class="c1"># is None, we want to set it.</span>
@@ -1199,9 +1198,7 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
             <span class="n">inp</span> <span class="o">=</span> <span class="n">BytesIO</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># NOTE: etree will not parse certain Unicode strings.</span>
-            <span class="c1"># It&#39;s generally better to feed it a bytestring.</span>
-            <span class="n">inp</span> <span class="o">=</span> <span class="n">StringIO</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
+            <span class="n">inp</span> <span class="o">=</span> <span class="n">BytesIO</span><span class="p">(</span><span class="n">feed</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span>
         <span class="n">root</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
 
         <span class="c1"># Some OPDS feeds (eg Standard Ebooks) contain relative urls,</span>
@@ -1271,7 +1268,7 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="n">kwargs_meta</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_data_detail_for_feedparser_entry</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">data_source</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">kwargs_meta</span><span class="p">,</span> <span class="kc">None</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">data_source</span><span class="p">)</span>
             <span class="n">identifier_obj</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">parse_urn</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
             <span class="n">failure</span> <span class="o">=</span> <span class="n">CoverageFailure</span><span class="p">(</span>
@@ -1471,7 +1468,7 @@
         <span class="n">urn</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">urn</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">identifier</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">parse_urn</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">urn</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">identifier</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span><span class="p">:</span>
@@ -1493,9 +1490,9 @@
         <span class="n">description</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">message</span>
         <span class="n">status_code</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">status_code</span>
         <span class="k">if</span> <span class="n">description</span> <span class="ow">and</span> <span class="n">status_code</span><span class="p">:</span>
-            <span class="n">exception</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">status_code</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">status_code</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">status_code</span><span class="p">:</span>
-            <span class="n">exception</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">status_code</span><span class="p">)</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">status_code</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">description</span><span class="p">:</span>
             <span class="n">exception</span> <span class="o">=</span> <span class="n">description</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1530,7 +1527,7 @@
             <span class="p">)</span>
             <span class="k">return</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="kc">None</span>
 
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">data_source</span><span class="p">)</span>
             <span class="n">identifier_obj</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">parse_urn</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
             <span class="n">failure</span> <span class="o">=</span> <span class="n">CoverageFailure</span><span class="p">(</span>
@@ -1598,7 +1595,7 @@
             <span class="n">default</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">year</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">data</span><span class="p">[</span><span class="s2">&quot;published&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">date_string</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">default</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># This entry had an issued tag, but it was in a format we couldn&#39;t parse.</span>
                 <span class="k">pass</span>
 
@@ -1702,7 +1699,7 @@
         <span class="n">weight</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;{http://schema.org/}ratingValue&#39;</span><span class="p">,</span> <span class="n">default_weight</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">weight</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">weight</span> <span class="o">=</span> <span class="n">default_weight</span>
 
         <span class="k">return</span> <span class="n">SubjectData</span><span class="p">(</span>
@@ -1907,11 +1904,11 @@
         <span class="c1"># turn into a Work?</span>
         <span class="c1">#</span>
         <span class="c1"># By default, this means it must contain an open-access link.</span>
-        <span class="n">url</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="n">first_page</span><span class="o">.</span><span class="n">result</span>
+        <span class="n">next_links</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="n">first_page</span><span class="o">.</span><span class="n">result</span>
         <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
             <span class="s2">&quot;Checking for importable content&quot;</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">importer</span><span class="o">.</span><span class="n">assert_importable_content</span><span class="p">,</span>
-            <span class="n">content</span><span class="p">,</span> <span class="n">url</span>
+            <span class="n">content</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed_url</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">):</span>
@@ -2121,7 +2118,7 @@
             <span class="p">)</span>
 
         <span class="c1"># Create CoverageRecords for the failures.</span>
-        <span class="k">for</span> <span class="n">urn</span><span class="p">,</span> <span class="n">failure</span> <span class="ow">in</span> <span class="n">failures</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">urn</span><span class="p">,</span> <span class="n">failure</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">failures</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">failure</span><span class="o">.</span><span class="n">to_coverage_record</span><span class="p">(</span>
                 <span class="n">operation</span><span class="o">=</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">IMPORT_OPERATION</span>
             <span class="p">)</span>
@@ -2228,7 +2225,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

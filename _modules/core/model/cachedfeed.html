@@ -35,7 +35,7 @@
   <h1>Source code for core.model.cachedfeed</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># CachedFeed, WillNotGenerateExpensiveFeed</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
@@ -102,14 +102,14 @@
         <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="c1"># Distinct types of feeds that might be cached.</span>
-    <span class="n">GROUPS_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;groups&#39;</span>
-    <span class="n">PAGE_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;page&#39;</span>
-    <span class="n">NAVIGATION_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;navigation&#39;</span>
-    <span class="n">CRAWLABLE_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;crawlable&#39;</span>
-    <span class="n">RELATED_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;related&#39;</span>
-    <span class="n">RECOMMENDATIONS_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;recommendations&#39;</span>
-    <span class="n">SERIES_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;series&#39;</span>
-    <span class="n">CONTRIBUTOR_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;contributor&#39;</span>
+    <span class="n">GROUPS_TYPE</span> <span class="o">=</span> <span class="s1">&#39;groups&#39;</span>
+    <span class="n">PAGE_TYPE</span> <span class="o">=</span> <span class="s1">&#39;page&#39;</span>
+    <span class="n">NAVIGATION_TYPE</span> <span class="o">=</span> <span class="s1">&#39;navigation&#39;</span>
+    <span class="n">CRAWLABLE_TYPE</span> <span class="o">=</span> <span class="s1">&#39;crawlable&#39;</span>
+    <span class="n">RELATED_TYPE</span> <span class="o">=</span> <span class="s1">&#39;related&#39;</span>
+    <span class="n">RECOMMENDATIONS_TYPE</span> <span class="o">=</span> <span class="s1">&#39;recommendations&#39;</span>
+    <span class="n">SERIES_TYPE</span> <span class="o">=</span> <span class="s1">&#39;series&#39;</span>
+    <span class="n">CONTRIBUTOR_TYPE</span> <span class="o">=</span> <span class="s1">&#39;contributor&#39;</span>
 
     <span class="c1"># Special constants for cache durations.</span>
     <span class="n">CACHE_FOREVER</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
@@ -191,7 +191,7 @@
         <span class="k">if</span> <span class="n">should_refresh</span><span class="p">:</span>
             <span class="c1"># This is a cache miss. Either feed_obj is None or</span>
             <span class="c1"># it&#39;s no good. We need to generate a new feed.</span>
-            <span class="n">feed_data</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">refresher_method</span><span class="p">())</span>
+            <span class="n">feed_data</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">refresher_method</span><span class="p">())</span>
             <span class="n">generation_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
 
             <span class="k">if</span> <span class="n">max_age</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">IGNORE_CACHE</span><span class="p">:</span>
@@ -363,13 +363,19 @@
             <span class="n">lane_id</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">unique_key</span> <span class="o">=</span> <span class="n">worklist</span><span class="o">.</span><span class="n">unique_key</span>
 
-        <span class="n">facets_key</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;&quot;</span>
+        <span class="n">facets_key</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
         <span class="k">if</span> <span class="n">facets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">facets_key</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">facets</span><span class="o">.</span><span class="n">query_string</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">facets</span><span class="o">.</span><span class="n">query_string</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+                <span class="n">facets_key</span> <span class="o">=</span> <span class="n">facets</span><span class="o">.</span><span class="n">query_string</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">facets_key</span> <span class="o">=</span> <span class="n">facets</span><span class="o">.</span><span class="n">query_string</span>
 
-        <span class="n">pagination_key</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;&quot;</span>
+        <span class="n">pagination_key</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
         <span class="k">if</span> <span class="n">pagination</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">pagination_key</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">pagination</span><span class="o">.</span><span class="n">query_string</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pagination</span><span class="o">.</span><span class="n">query_string</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+                <span class="n">pagination_key</span> <span class="o">=</span> <span class="n">pagination</span><span class="o">.</span><span class="n">query_string</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">pagination_key</span> <span class="o">=</span> <span class="n">pagination</span><span class="o">.</span><span class="n">query_string</span>
 
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">CachedFeedKeys</span><span class="p">(</span>
             <span class="n">feed_type</span><span class="o">=</span><span class="n">feed_type</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">,</span> <span class="n">work</span><span class="o">=</span><span class="n">work</span><span class="p">,</span> <span class="n">lane_id</span><span class="o">=</span><span class="n">lane_id</span><span class="p">,</span>
@@ -488,7 +494,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

@@ -34,12 +34,11 @@
             
   <h1>Source code for api.admin.google_oauth_admin_authentication_provider</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 
 <span class="kn">from</span> <span class="nn">api.admin.template_styles</span> <span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">admin_authentication_provider</span> <span class="kn">import</span> <span class="n">AdminAuthenticationProvider</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="n">GOOGLE_OAUTH_FAILURE</span><span class="p">,</span> <span class="n">INVALID_ADMIN_CREDENTIALS</span>
+<span class="kn">from</span> <span class="nn">.admin_authentication_provider</span> <span class="kn">import</span> <span class="n">AdminAuthenticationProvider</span>
+<span class="kn">from</span> <span class="nn">.problem_details</span> <span class="kn">import</span> <span class="n">GOOGLE_OAUTH_FAILURE</span><span class="p">,</span> <span class="n">INVALID_ADMIN_CREDENTIALS</span>
 <span class="kn">from</span> <span class="nn">oauth2client</span> <span class="kn">import</span> <span class="n">client</span> <span class="k">as</span> <span class="n">GoogleClient</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
@@ -150,8 +149,8 @@
             <span class="n">redirect_url</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">credentials</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">step2_exchange</span><span class="p">(</span><span class="n">auth_code</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">GoogleClient</span><span class="o">.</span><span class="n">FlowExchangeError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">google_error_problem_detail</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">),</span> <span class="kc">None</span>
+            <span class="k">except</span> <span class="n">GoogleClient</span><span class="o">.</span><span class="n">FlowExchangeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">google_error_problem_detail</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)),</span> <span class="kc">None</span>
             <span class="n">email</span> <span class="o">=</span> <span class="n">credentials</span><span class="o">.</span><span class="n">id_token</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;email&#39;</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">staff_email</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">email</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">INVALID_ADMIN_CREDENTIALS</span><span class="p">,</span> <span class="kc">None</span>
@@ -174,7 +173,7 @@
         <span class="c1"># components were translated already. Space is a variable so it doesn&#39;t</span>
         <span class="c1"># end up in the translation template.</span>
         <span class="n">space</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span>
-        <span class="n">error_detail</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">GOOGLE_OAUTH_FAILURE</span><span class="o">.</span><span class="n">detail</span><span class="p">)</span> <span class="o">+</span> <span class="n">space</span> <span class="o">+</span> <span class="n">unicode</span><span class="p">(</span><span class="n">error_detail</span><span class="p">))</span>
+        <span class="n">error_detail</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">GOOGLE_OAUTH_FAILURE</span><span class="o">.</span><span class="n">detail</span><span class="p">)</span> <span class="o">+</span> <span class="n">space</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">error_detail</span><span class="p">))</span>
 
         <span class="k">return</span> <span class="n">GOOGLE_OAUTH_FAILURE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">error_detail</span><span class="p">)</span></div>
 
@@ -194,7 +193,7 @@
             <span class="k">return</span> <span class="kc">True</span>
 
         <span class="c1"># Otherwise, their email must match one of the configured domains.</span>
-        <span class="n">staff_domains</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">domains</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="n">staff_domains</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domains</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
         <span class="n">domain</span> <span class="o">=</span> <span class="n">email</span><span class="p">[</span><span class="n">email</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">&#39;@&#39;</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">:]</span>
         <span class="k">return</span> <span class="n">domain</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">[</span><span class="n">staff_domain</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">staff_domain</span> <span class="ow">in</span> <span class="n">staff_domains</span><span class="p">]</span></div></div>
 
@@ -286,7 +285,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

@@ -44,21 +44,17 @@
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">tempfile</span>
 <span class="kn">import</span> <span class="nn">uuid</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">set_trace</span><span class="p">,</span>
-    <span class="n">eq_</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="c1"># TODO PYTHON3</span>
-<span class="c1"># from psycopg2.errors import UndefinedTable</span>
+<span class="kn">from</span> <span class="nn">psycopg2.errors</span> <span class="kn">import</span> <span class="n">UndefinedTable</span>
+<span class="kn">import</span> <span class="nn">pytest</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="kn">import</span> <span class="n">ProgrammingError</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 
-<span class="kn">from</span> <span class="nn">lane</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.lane</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Lane</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model.constants</span> <span class="kn">import</span> <span class="n">MediaTypes</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.model.constants</span> <span class="kn">import</span> <span class="n">MediaTypes</span>
+<span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">PresentationCalculationPolicy</span><span class="p">,</span>
     <span class="n">SessionManager</span><span class="p">,</span>
@@ -66,7 +62,7 @@
     <span class="n">create</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CoverageRecord</span><span class="p">,</span>
     <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
@@ -96,10 +92,10 @@
     <span class="n">Work</span><span class="p">,</span>
     <span class="n">WorkCoverageRecord</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
+<span class="kn">from</span> <span class="nn">.model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
 
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">.coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BibliographicCoverageProvider</span><span class="p">,</span>
     <span class="n">CollectionCoverageProvider</span><span class="p">,</span>
     <span class="n">IdentifierCoverageProvider</span><span class="p">,</span>
@@ -107,76 +103,27 @@
     <span class="n">WorkCoverageProvider</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.external_search</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">MockExternalSearchIndex</span><span class="p">,</span>
     <span class="n">ExternalSearchIndex</span><span class="p">,</span>
     <span class="n">SearchIndexCoverageProvider</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">log</span> <span class="kn">import</span> <span class="n">LogConfiguration</span>
-<span class="kn">import</span> <span class="nn">external_search</span>
+<span class="kn">from</span> <span class="nn">.log</span> <span class="kn">import</span> <span class="n">LogConfiguration</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">external_search</span>
 <span class="kn">import</span> <span class="nn">mock</span>
 <span class="kn">import</span> <span class="nn">inspect</span>
-
-<span class="kn">from</span> <span class="nn">nose.plugins.attrib</span> <span class="kn">import</span> <span class="n">attr</span>
-
-<div class="viewcode-block" id="package_setup"><a class="viewcode-back" href="../../core.html#core.testing.package_setup">[docs]</a><span class="k">def</span> <span class="nf">package_setup</span><span class="p">():</span>
-    <span class="sd">&quot;&quot;&quot;Make sure the application starts in a pristine state.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># This will make sure we always connect to the test database.</span>
-    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;TESTING&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;true&#39;</span>
-
-    <span class="c1"># This will make sure we always connect to the test database.</span>
-    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;TESTING&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;true&#39;</span>
-
-    <span class="c1"># Ensure that the log configuration starts in a known state.</span>
-    <span class="n">LogConfiguration</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">testing</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-    <span class="c1"># Drop any existing schema. It will be recreated when</span>
-    <span class="c1"># SessionManager.initialize() runs.</span>
-    <span class="c1">#</span>
-    <span class="c1"># Base.metadata.drop_all(connection) doesn&#39;t work here, so we</span>
-    <span class="c1"># approximate by dropping every item individually.</span>
-    <span class="n">engine</span> <span class="o">=</span> <span class="n">SessionManager</span><span class="o">.</span><span class="n">engine</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">table</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">Base</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">sorted_tables</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">table</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;mv_&#39;</span><span class="p">):</span>
-            <span class="c1"># TODO: This can be removed soon. We don&#39;t create</span>
-            <span class="c1"># materialized views anymore, but they&#39;ll still hang</span>
-            <span class="c1"># around for a while in test databases and need to be</span>
-            <span class="c1"># deleted.</span>
-            <span class="n">statement</span> <span class="o">=</span> <span class="s2">&quot;drop materialized view </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">table</span><span class="o">.</span><span class="n">name</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">statement</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">engine</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">statement</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">ProgrammingError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="c1"># TODO PYTHON3</span>
-            <span class="c1"># if isinstance(e.orig, UndefinedTable):</span>
-            <span class="k">if</span> <span class="s1">&#39;does not exist&#39;</span> <span class="ow">in</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">:</span>
-                <span class="c1"># This is the first time running these tests</span>
-                <span class="c1"># on this server, and the tables don&#39;t exist yet.</span>
-                <span class="k">pass</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span></div>
-
-
-<div class="viewcode-block" id="package_teardown"><a class="viewcode-back" href="../../core.html#core.testing.package_teardown">[docs]</a><span class="k">def</span> <span class="nf">package_teardown</span><span class="p">():</span>
-    <span class="k">if</span> <span class="s1">&#39;TESTING&#39;</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
-        <span class="k">del</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;TESTING&#39;</span><span class="p">]</span></div>
-
 
 <div class="viewcode-block" id="LogCaptureHandler"><a class="viewcode-back" href="../../core.html#core.testing.LogCaptureHandler">[docs]</a><span class="k">class</span> <span class="nc">LogCaptureHandler</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Handler</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A `logging.Handler` context manager that captures the messages</span>
 <span class="sd">    of emitted log records in the context of the specified `logger`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># TODO: These could be extracted from logging._levelNames in Python2</span>
-    <span class="c1">#  or from logging._levelToName in Python 3</span>
-    <span class="n">_level_names</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;CRITICAL&#39;</span><span class="p">,</span> <span class="s1">&#39;ERROR&#39;</span><span class="p">,</span> <span class="s1">&#39;WARNING&#39;</span><span class="p">,</span> <span class="s1">&#39;INFO&#39;</span><span class="p">,</span> <span class="s1">&#39;DEBUG&#39;</span><span class="p">,</span> <span class="s1">&#39;NOTSET&#39;</span><span class="p">]</span>
+    <span class="n">_level_names</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">_levelToName</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_normalize_level</span><span class="p">(</span><span class="n">level</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">level</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
 
-    <span class="n">LEVEL_NAMES</span> <span class="o">=</span> <span class="p">[</span><span class="n">_normalize_level</span><span class="o">.</span><span class="vm">__func__</span><span class="p">(</span><span class="n">level</span><span class="p">)</span> <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">_level_names</span><span class="p">]</span>
+    <span class="n">LEVEL_NAMES</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">_normalize_level</span><span class="o">.</span><span class="vm">__func__</span><span class="p">,</span> <span class="n">_level_names</span><span class="p">))</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
@@ -261,7 +208,20 @@
 
         <span class="n">Configuration</span><span class="o">.</span><span class="n">instance</span><span class="p">[</span><span class="n">Configuration</span><span class="o">.</span><span class="n">DATA_DIRECTORY</span><span class="p">]</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">old_data_dir</span></div>
 
-<div class="viewcode-block" id="DatabaseTest.setup"><a class="viewcode-back" href="../../core.html#core.testing.DatabaseTest.setup">[docs]</a>    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mock_search</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="DatabaseTest.search_mock"><a class="viewcode-back" href="../../core.html#core.testing.DatabaseTest.search_mock">[docs]</a>    <span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span><span class="p">(</span><span class="n">autouse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">search_mock</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">):</span>
+        <span class="c1"># Only setup the elasticsearch mock if the elasticsearch mark isn&#39;t set</span>
+        <span class="n">elasticsearch_mark</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">get_closest_marker</span><span class="p">(</span><span class="s2">&quot;elasticsearch&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">elasticsearch_mark</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">search_mock</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">search_mock</span> <span class="o">=</span> <span class="n">mock</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span><span class="n">external_search</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;.ExternalSearchIndex&quot;</span><span class="p">,</span> <span class="n">MockExternalSearchIndex</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">search_mock</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="k">yield</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_mock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">search_mock</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="DatabaseTest.setup_method"><a class="viewcode-back" href="../../core.html#core.testing.DatabaseTest.setup_method">[docs]</a>    <span class="k">def</span> <span class="nf">setup_method</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># Create a new connection to the database.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">transaction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
@@ -272,23 +232,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">time_counter</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">2014</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">isbns</span> <span class="o">=</span> <span class="p">[</span>
             <span class="s2">&quot;9780674368279&quot;</span><span class="p">,</span> <span class="s2">&quot;0636920028468&quot;</span><span class="p">,</span> <span class="s2">&quot;9781936460236&quot;</span><span class="p">,</span> <span class="s2">&quot;9780316075978&quot;</span>
-        <span class="p">]</span>
-        <span class="k">if</span> <span class="n">mock_search</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">search_mock</span> <span class="o">=</span> <span class="n">mock</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span><span class="n">external_search</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;.ExternalSearchIndex&quot;</span><span class="p">,</span> <span class="n">MockExternalSearchIndex</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">search_mock</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">search_mock</span> <span class="o">=</span> <span class="kc">None</span></div>
+        <span class="p">]</span></div>
 
-        <span class="c1"># TODO:  keeping this for now, but need to fix it bc it hits _isbn,</span>
-        <span class="c1"># which pops an isbn off the list and messes tests up.  so exclude</span>
-        <span class="c1"># _ functions from participating.</span>
-        <span class="c1"># also attempt to stop nosetest showing docstrings instead of function names.</span>
-        <span class="c1">#for name, obj in inspect.getmembers(self):</span>
-        <span class="c1">#    if inspect.isfunction(obj) and obj.__name__.startswith(&#39;test_&#39;):</span>
-        <span class="c1">#        obj.__doc__ = None</span>
-
-
-<div class="viewcode-block" id="DatabaseTest.teardown"><a class="viewcode-back" href="../../core.html#core.testing.DatabaseTest.teardown">[docs]</a>    <span class="k">def</span> <span class="nf">teardown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="DatabaseTest.teardown_method"><a class="viewcode-back" href="../../core.html#core.testing.DatabaseTest.teardown_method">[docs]</a>    <span class="k">def</span> <span class="nf">teardown_method</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># Close the session.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
@@ -314,10 +260,7 @@
                 <span class="n">Configuration</span><span class="o">.</span><span class="n">LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE</span>
         <span class="p">]:</span>
             <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">instance</span><span class="p">:</span>
-                <span class="k">del</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">instance</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_mock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">search_mock</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span></div>
+                <span class="k">del</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">instance</span><span class="p">[</span><span class="n">key</span><span class="p">])</span></div>
 
 <div class="viewcode-block" id="DatabaseTest.time_eq"><a class="viewcode-back" href="../../core.html#core.testing.DatabaseTest.time_eq">[docs]</a>    <span class="k">def</span> <span class="nf">time_eq</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
         <span class="s2">&quot;Assert that two times are *approximately* the same -- within 2 seconds.&quot;</span>
@@ -338,7 +281,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">_str</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_id</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">_time</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -364,7 +307,7 @@
 
     <span class="k">def</span> <span class="nf">_contributor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sort_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kw_args</span><span class="p">):</span>
         <span class="n">name</span> <span class="o">=</span> <span class="n">sort_name</span> <span class="ow">or</span> <span class="n">name</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_str</span>
-        <span class="k">return</span> <span class="n">get_one_or_create</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Contributor</span><span class="p">,</span> <span class="n">sort_name</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">name</span><span class="p">),</span> <span class="o">**</span><span class="n">kw_args</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">get_one_or_create</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Contributor</span><span class="p">,</span> <span class="n">sort_name</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">name</span><span class="p">),</span> <span class="o">**</span><span class="n">kw_args</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_type</span><span class="o">=</span><span class="n">Identifier</span><span class="o">.</span><span class="n">GUTENBERG_ID</span><span class="p">,</span> <span class="n">foreign_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">foreign_id</span><span class="p">:</span>
@@ -395,7 +338,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="nb">id</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">title</span><span class="p">:</span>
             <span class="n">title</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_str</span>
-        <span class="n">wr</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+        <span class="n">wr</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
         <span class="n">wr</span><span class="o">.</span><span class="n">medium</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span>
         <span class="k">if</span> <span class="n">series</span><span class="p">:</span>
             <span class="n">wr</span><span class="o">.</span><span class="n">series</span> <span class="o">=</span> <span class="n">series</span>
@@ -403,10 +346,10 @@
             <span class="n">wr</span><span class="o">.</span><span class="n">language</span> <span class="o">=</span> <span class="n">language</span>
         <span class="k">if</span> <span class="n">authors</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">authors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_str</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">authors</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">authors</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">authors</span> <span class="o">=</span> <span class="p">[</span><span class="n">authors</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">authors</span><span class="p">:</span>
-            <span class="n">primary_author_name</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">authors</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">primary_author_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">authors</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
             <span class="n">contributor</span> <span class="o">=</span> <span class="n">wr</span><span class="o">.</span><span class="n">add_contributor</span><span class="p">(</span><span class="n">primary_author_name</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PRIMARY_AUTHOR_ROLE</span><span class="p">)</span>
             <span class="c1"># add_contributor assumes authors[0] is a sort_name,</span>
             <span class="c1"># but it may be a display name. If so, set that field as well.</span>
@@ -415,7 +358,7 @@
             <span class="n">wr</span><span class="o">.</span><span class="n">author</span> <span class="o">=</span> <span class="n">primary_author_name</span>
 
         <span class="k">for</span> <span class="n">author</span> <span class="ow">in</span> <span class="n">authors</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-            <span class="n">wr</span><span class="o">.</span><span class="n">add_contributor</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">author</span><span class="p">),</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">)</span>
+            <span class="n">wr</span><span class="o">.</span><span class="n">add_contributor</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">author</span><span class="p">),</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">publication_date</span><span class="p">:</span>
             <span class="n">wr</span><span class="o">.</span><span class="n">published</span> <span class="o">=</span> <span class="n">publication_date</span>
 
@@ -462,7 +405,7 @@
         <span class="k">if</span> <span class="n">with_open_access_download</span><span class="p">:</span>
             <span class="n">with_license_pool</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="n">language</span> <span class="o">=</span> <span class="n">language</span> <span class="ow">or</span> <span class="s2">&quot;eng&quot;</span>
-        <span class="n">title</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">title</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_str</span><span class="p">)</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">title</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_str</span><span class="p">)</span>
         <span class="n">audience</span> <span class="o">=</span> <span class="n">audience</span> <span class="ow">or</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span>
         <span class="k">if</span> <span class="n">audience</span> <span class="o">==</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">data_source_name</span><span class="p">:</span>
             <span class="c1"># TODO: This is necessary because Gutenberg&#39;s childrens books</span>
@@ -548,7 +491,7 @@
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">genres</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
                 <span class="n">genres</span> <span class="o">=</span> <span class="p">[</span><span class="n">genres</span><span class="p">]</span>
             <span class="k">for</span> <span class="n">genre</span> <span class="ow">in</span> <span class="n">genres</span><span class="p">:</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">genre</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">genre</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                     <span class="n">genre</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Genre</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">genre</span><span class="p">)</span>
                 <span class="n">lane</span><span class="o">.</span><span class="n">genres</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">genre</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">languages</span><span class="p">:</span>
@@ -697,7 +640,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
         <span class="nb">repr</span><span class="o">.</span><span class="n">media_type</span> <span class="o">=</span> <span class="n">media_type</span>
         <span class="k">if</span> <span class="n">media_type</span> <span class="ow">and</span> <span class="n">content</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
             <span class="nb">repr</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
             <span class="nb">repr</span><span class="o">.</span><span class="n">fetched_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
@@ -790,11 +733,11 @@
                 <span class="n">integration</span><span class="o">.</span><span class="n">libraries</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">libraries</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">attr</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">attr</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="nb">setattr</span><span class="p">(</span><span class="n">integration</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
         <span class="n">settings</span> <span class="o">=</span> <span class="n">settings</span> <span class="ow">or</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">settings</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="n">integration</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">integration</span>
@@ -843,28 +786,28 @@
 <span class="sd">        objects that all know each other.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># make some authors</span>
-        <span class="p">[</span><span class="n">bob</span><span class="p">],</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="sa">u</span><span class="s2">&quot;Bitshifter, Bob&quot;</span><span class="p">)</span>
+        <span class="p">[</span><span class="n">bob</span><span class="p">],</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="s2">&quot;Bitshifter, Bob&quot;</span><span class="p">)</span>
         <span class="n">bob</span><span class="o">.</span><span class="n">family_name</span><span class="p">,</span> <span class="n">bob</span><span class="o">.</span><span class="n">display_name</span> <span class="o">=</span> <span class="n">bob</span><span class="o">.</span><span class="n">default_names</span><span class="p">()</span>
-        <span class="p">[</span><span class="n">alice</span><span class="p">],</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="sa">u</span><span class="s2">&quot;Adder, Alice&quot;</span><span class="p">)</span>
+        <span class="p">[</span><span class="n">alice</span><span class="p">],</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="s2">&quot;Adder, Alice&quot;</span><span class="p">)</span>
         <span class="n">alice</span><span class="o">.</span><span class="n">family_name</span><span class="p">,</span> <span class="n">alice</span><span class="o">.</span><span class="n">display_name</span> <span class="o">=</span> <span class="n">alice</span><span class="o">.</span><span class="n">default_names</span><span class="p">()</span>
 
         <span class="n">edition_std_ebooks</span><span class="p">,</span> <span class="n">pool_std_ebooks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_edition</span><span class="p">(</span><span class="n">DataSource</span><span class="o">.</span><span class="n">STANDARD_EBOOKS</span><span class="p">,</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">URI</span><span class="p">,</span>
             <span class="n">with_license_pool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_open_access_download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">authors</span><span class="o">=</span><span class="p">[])</span>
-        <span class="n">edition_std_ebooks</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;The Standard Ebooks Title&quot;</span>
-        <span class="n">edition_std_ebooks</span><span class="o">.</span><span class="n">subtitle</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;The Standard Ebooks Subtitle&quot;</span>
+        <span class="n">edition_std_ebooks</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="s2">&quot;The Standard Ebooks Title&quot;</span>
+        <span class="n">edition_std_ebooks</span><span class="o">.</span><span class="n">subtitle</span> <span class="o">=</span> <span class="s2">&quot;The Standard Ebooks Subtitle&quot;</span>
         <span class="n">edition_std_ebooks</span><span class="o">.</span><span class="n">add_contributor</span><span class="p">(</span><span class="n">alice</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">)</span>
 
         <span class="n">edition_git</span><span class="p">,</span> <span class="n">pool_git</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_edition</span><span class="p">(</span><span class="n">DataSource</span><span class="o">.</span><span class="n">PROJECT_GITENBERG</span><span class="p">,</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">GUTENBERG_ID</span><span class="p">,</span>
             <span class="n">with_license_pool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_open_access_download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">authors</span><span class="o">=</span><span class="p">[])</span>
-        <span class="n">edition_git</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;The GItenberg Title&quot;</span>
-        <span class="n">edition_git</span><span class="o">.</span><span class="n">subtitle</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;The GItenberg Subtitle&quot;</span>
+        <span class="n">edition_git</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="s2">&quot;The GItenberg Title&quot;</span>
+        <span class="n">edition_git</span><span class="o">.</span><span class="n">subtitle</span> <span class="o">=</span> <span class="s2">&quot;The GItenberg Subtitle&quot;</span>
         <span class="n">edition_git</span><span class="o">.</span><span class="n">add_contributor</span><span class="p">(</span><span class="n">bob</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">)</span>
         <span class="n">edition_git</span><span class="o">.</span><span class="n">add_contributor</span><span class="p">(</span><span class="n">alice</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">)</span>
 
         <span class="n">edition_gut</span><span class="p">,</span> <span class="n">pool_gut</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_edition</span><span class="p">(</span><span class="n">DataSource</span><span class="o">.</span><span class="n">GUTENBERG</span><span class="p">,</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">GUTENBERG_ID</span><span class="p">,</span>
             <span class="n">with_license_pool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_open_access_download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">authors</span><span class="o">=</span><span class="p">[])</span>
-        <span class="n">edition_gut</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;The GUtenberg Title&quot;</span>
-        <span class="n">edition_gut</span><span class="o">.</span><span class="n">subtitle</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;The GUtenberg Subtitle&quot;</span>
+        <span class="n">edition_gut</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="s2">&quot;The GUtenberg Title&quot;</span>
+        <span class="n">edition_gut</span><span class="o">.</span><span class="n">subtitle</span> <span class="o">=</span> <span class="s2">&quot;The GUtenberg Subtitle&quot;</span>
         <span class="n">edition_gut</span><span class="o">.</span><span class="n">add_contributor</span><span class="p">(</span><span class="n">bob</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">)</span>
 
         <span class="n">work</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_work</span><span class="p">(</span><span class="n">presentation_edition</span><span class="o">=</span><span class="n">edition_git</span><span class="p">)</span>
@@ -943,84 +886,84 @@
         <span class="n">representations</span> <span class="o">=</span> <span class="n">db_connection</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Representation</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">works</span><span class="p">):</span>
-            <span class="nb">print</span> <span class="s2">&quot;NO Work found&quot;</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;NO Work found&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">wCount</span><span class="p">,</span> <span class="n">work</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">works</span><span class="p">):</span>
             <span class="c1"># pipe character at end of line helps see whitespace issues</span>
-            <span class="nb">print</span> <span class="s2">&quot;Work[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">wCount</span><span class="p">,</span> <span class="n">work</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Work[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">wCount</span><span class="p">,</span> <span class="n">work</span><span class="p">))</span>
 
             <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">):</span>
-                <span class="nb">print</span> <span class="s2">&quot;    NO Work.LicensePool found&quot;</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    NO Work.LicensePool found&quot;</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">lpCount</span><span class="p">,</span> <span class="n">license_pool</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">):</span>
-                <span class="nb">print</span> <span class="s2">&quot;    Work.LicensePool[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">lpCount</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Work.LicensePool[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">lpCount</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">))</span>
 
-            <span class="nb">print</span> <span class="s2">&quot;    Work.presentation_edition=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">work</span><span class="o">.</span><span class="n">presentation_edition</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Work.presentation_edition=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">work</span><span class="o">.</span><span class="n">presentation_edition</span><span class="p">)</span>
 
-        <span class="nb">print</span> <span class="s2">&quot;__________________________________________________________________</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;__________________________________________________________________</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">identifiers</span><span class="p">):</span>
-            <span class="nb">print</span> <span class="s2">&quot;NO Identifier found&quot;</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;NO Identifier found&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">iCount</span><span class="p">,</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">identifiers</span><span class="p">):</span>
-            <span class="nb">print</span> <span class="s2">&quot;Identifier[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">iCount</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
-            <span class="nb">print</span> <span class="s2">&quot;    Identifier.licensed_through=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">identifier</span><span class="o">.</span><span class="n">licensed_through</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Identifier[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">iCount</span><span class="p">,</span> <span class="n">identifier</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Identifier.licensed_through=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">)</span>
 
-        <span class="nb">print</span> <span class="s2">&quot;__________________________________________________________________</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;__________________________________________________________________</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">license_pools</span><span class="p">):</span>
-            <span class="nb">print</span> <span class="s2">&quot;NO LicensePool found&quot;</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;NO LicensePool found&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">license_pool</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">license_pools</span><span class="p">):</span>
-            <span class="nb">print</span> <span class="s2">&quot;LicensePool[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">)</span>
-            <span class="nb">print</span> <span class="s2">&quot;    LicensePool.work_id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">work_id</span>
-            <span class="nb">print</span> <span class="s2">&quot;    LicensePool.data_source_id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">data_source_id</span>
-            <span class="nb">print</span> <span class="s2">&quot;    LicensePool.identifier_id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">identifier_id</span>
-            <span class="nb">print</span> <span class="s2">&quot;    LicensePool.presentation_edition_id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">presentation_edition_id</span>
-            <span class="nb">print</span> <span class="s2">&quot;    LicensePool.superceded=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">superceded</span>
-            <span class="nb">print</span> <span class="s2">&quot;    LicensePool.suppressed=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">suppressed</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;LicensePool[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    LicensePool.work_id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">work_id</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    LicensePool.data_source_id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">data_source_id</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    LicensePool.identifier_id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    LicensePool.presentation_edition_id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">presentation_edition_id</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    LicensePool.superceded=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">superceded</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    LicensePool.suppressed=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">suppressed</span><span class="p">)</span>
 
-        <span class="nb">print</span> <span class="s2">&quot;__________________________________________________________________</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;__________________________________________________________________</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">editions</span><span class="p">):</span>
-            <span class="nb">print</span> <span class="s2">&quot;NO Edition found&quot;</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;NO Edition found&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">edition</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">editions</span><span class="p">):</span>
             <span class="c1"># pipe character at end of line helps see whitespace issues</span>
-            <span class="nb">print</span> <span class="s2">&quot;Edition[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">edition</span><span class="p">)</span>
-            <span class="nb">print</span> <span class="s2">&quot;    Edition.primary_identifier_id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">primary_identifier_id</span>
-            <span class="nb">print</span> <span class="s2">&quot;    Edition.permanent_work_id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">permanent_work_id</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Edition[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">edition</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Edition.primary_identifier_id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">primary_identifier_id</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Edition.permanent_work_id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">permanent_work_id</span><span class="p">)</span>
             <span class="k">if</span> <span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">data_source</span><span class="p">):</span>
-                <span class="nb">print</span> <span class="s2">&quot;    Edition.data_source.id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">id</span>
-                <span class="nb">print</span> <span class="s2">&quot;    Edition.data_source.name=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Edition.data_source.id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Edition.data_source.name=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="nb">print</span> <span class="s2">&quot;    No Edition.data_source.&quot;</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    No Edition.data_source.&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">license_pool</span><span class="p">):</span>
-                <span class="nb">print</span> <span class="s2">&quot;    Edition.license_pool.id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">id</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Edition.license_pool.id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="nb">print</span> <span class="s2">&quot;    No Edition.license_pool.&quot;</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    No Edition.license_pool.&quot;</span><span class="p">)</span>
 
-            <span class="nb">print</span> <span class="s2">&quot;    Edition.title=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">title</span>
-            <span class="nb">print</span> <span class="s2">&quot;    Edition.author=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">author</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Edition.title=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Edition.author=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">author</span><span class="p">)</span>
             <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">edition</span><span class="o">.</span><span class="n">author_contributors</span><span class="p">):</span>
-                <span class="nb">print</span> <span class="s2">&quot;    NO Edition.author_contributor found&quot;</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    NO Edition.author_contributor found&quot;</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">acCount</span><span class="p">,</span> <span class="n">author_contributor</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">author_contributors</span><span class="p">):</span>
-                <span class="nb">print</span> <span class="s2">&quot;    Edition.author_contributor[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">acCount</span><span class="p">,</span> <span class="n">author_contributor</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Edition.author_contributor[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">acCount</span><span class="p">,</span> <span class="n">author_contributor</span><span class="p">))</span>
 
-        <span class="nb">print</span> <span class="s2">&quot;__________________________________________________________________</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;__________________________________________________________________</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">data_sources</span><span class="p">):</span>
-            <span class="nb">print</span> <span class="s2">&quot;NO DataSource found&quot;</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;NO DataSource found&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">data_source</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">data_sources</span><span class="p">):</span>
-            <span class="nb">print</span> <span class="s2">&quot;DataSource[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">data_source</span><span class="p">)</span>
-            <span class="nb">print</span> <span class="s2">&quot;    DataSource.id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">data_source</span><span class="o">.</span><span class="n">id</span>
-            <span class="nb">print</span> <span class="s2">&quot;    DataSource.name=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
-            <span class="nb">print</span> <span class="s2">&quot;    DataSource.offers_licenses=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">data_source</span><span class="o">.</span><span class="n">offers_licenses</span>
-            <span class="nb">print</span> <span class="s2">&quot;    DataSource.editions=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">data_source</span><span class="o">.</span><span class="n">editions</span>
-            <span class="nb">print</span> <span class="s2">&quot;    DataSource.license_pools=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">data_source</span><span class="o">.</span><span class="n">license_pools</span>
-            <span class="nb">print</span> <span class="s2">&quot;    DataSource.links=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">data_source</span><span class="o">.</span><span class="n">links</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;DataSource[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">data_source</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    DataSource.id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">data_source</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    DataSource.name=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    DataSource.offers_licenses=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">data_source</span><span class="o">.</span><span class="n">offers_licenses</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    DataSource.editions=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">data_source</span><span class="o">.</span><span class="n">editions</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    DataSource.license_pools=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">data_source</span><span class="o">.</span><span class="n">license_pools</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    DataSource.links=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">data_source</span><span class="o">.</span><span class="n">links</span><span class="p">)</span>
 
-        <span class="nb">print</span> <span class="s2">&quot;__________________________________________________________________</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;__________________________________________________________________</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">representations</span><span class="p">):</span>
-            <span class="nb">print</span> <span class="s2">&quot;NO Representation found&quot;</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;NO Representation found&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">representation</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">representations</span><span class="p">):</span>
-            <span class="nb">print</span> <span class="s2">&quot;Representation[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">representation</span><span class="p">)</span>
-            <span class="nb">print</span> <span class="s2">&quot;    Representation.id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">representation</span><span class="o">.</span><span class="n">id</span>
-            <span class="nb">print</span> <span class="s2">&quot;    Representation.url=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">representation</span><span class="o">.</span><span class="n">url</span>
-            <span class="nb">print</span> <span class="s2">&quot;    Representation.mirror_url=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">representation</span><span class="o">.</span><span class="n">mirror_url</span>
-            <span class="nb">print</span> <span class="s2">&quot;    Representation.fetch_exception=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">representation</span><span class="o">.</span><span class="n">fetch_exception</span>
-            <span class="nb">print</span> <span class="s2">&quot;    Representation.mirror_exception=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Representation[</span><span class="si">%s</span><span class="s2">]=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">representation</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Representation.id=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">representation</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Representation.url=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">representation</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Representation.mirror_url=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">representation</span><span class="o">.</span><span class="n">mirror_url</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Representation.fetch_exception=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">representation</span><span class="o">.</span><span class="n">fetch_exception</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    Representation.mirror_exception=</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span><span class="p">)</span>
 
         <span class="k">return</span></div>
 
@@ -1086,7 +1029,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">library</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">Library</span><span class="p">,</span> <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
-                <span class="n">uuid</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()),</span>
+                <span class="n">uuid</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()),</span>
                 <span class="n">name</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
             <span class="p">),</span> <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;default&quot;</span>
         <span class="p">)</span>
@@ -1101,12 +1044,12 @@
             <span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">library</span></div>
 
-    <span class="k">def</span> <span class="nf">_catalog</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Faketown Public Library&quot;</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_catalog</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Faketown Public Library&quot;</span><span class="p">):</span>
         <span class="n">source</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_integration_client</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shared_secret</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">url</span> <span class="o">=</span> <span class="n">url</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_url</span>
-        <span class="n">secret</span> <span class="o">=</span> <span class="n">shared_secret</span> <span class="ow">or</span> <span class="sa">u</span><span class="s2">&quot;secret&quot;</span>
+        <span class="n">secret</span> <span class="o">=</span> <span class="n">shared_secret</span> <span class="ow">or</span> <span class="s2">&quot;secret&quot;</span>
         <span class="k">return</span> <span class="n">get_one_or_create</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">IntegrationClient</span><span class="p">,</span> <span class="n">shared_secret</span><span class="o">=</span><span class="n">secret</span><span class="p">,</span>
             <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
@@ -1151,7 +1094,8 @@
             <span class="n">new_index</span><span class="p">,</span> <span class="n">number_of_shards</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">number_of_replicas</span><span class="o">=</span><span class="mi">0</span>
         <span class="p">)</span></div></div>
 
-<div class="viewcode-block" id="ExternalSearchTest"><a class="viewcode-back" href="../../core.html#core.testing.ExternalSearchTest">[docs]</a><span class="nd">@attr</span><span class="p">(</span><span class="n">integration</span><span class="o">=</span><span class="s1">&#39;elasticsearch&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ExternalSearchTest"><a class="viewcode-back" href="../../core.html#core.testing.ExternalSearchTest">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">elasticsearch</span>
 <span class="k">class</span> <span class="nc">ExternalSearchTest</span><span class="p">(</span><span class="n">DatabaseTest</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    These tests require elasticsearch to be running locally. If it&#39;s not, or there&#39;s</span>
@@ -1162,11 +1106,11 @@
 <span class="sd">    to ensure that it works well overall, with a realistic index.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">SIMPLIFIED_TEST_ELASTICSEARCH</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;SIMPLIFIED_TEST_ELASTICSEARCH&#39;</span><span class="p">,</span> <span class="sa">u</span><span class="s1">&#39;http://localhost:9200&#39;</span><span class="p">)</span>
+    <span class="n">SIMPLIFIED_TEST_ELASTICSEARCH</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;SIMPLIFIED_TEST_ELASTICSEARCH&#39;</span><span class="p">,</span> <span class="s1">&#39;http://localhost:9200&#39;</span><span class="p">)</span>
 
-<div class="viewcode-block" id="ExternalSearchTest.setup"><a class="viewcode-back" href="../../core.html#core.testing.ExternalSearchTest.setup">[docs]</a>    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="ExternalSearchTest.setup_method"><a class="viewcode-back" href="../../core.html#core.testing.ExternalSearchTest.setup_method">[docs]</a>    <span class="k">def</span> <span class="nf">setup_method</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 
-        <span class="nb">super</span><span class="p">(</span><span class="n">ExternalSearchTest</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mock_search</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ExternalSearchTest</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">setup_method</span><span class="p">()</span>
 
         <span class="c1"># Track the indexes created so they can be torn down at the</span>
         <span class="c1"># end of the test.</span>
@@ -1177,8 +1121,8 @@
             <span class="n">goal</span><span class="o">=</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">SEARCH_GOAL</span><span class="p">,</span>
             <span class="n">url</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">SIMPLIFIED_TEST_ELASTICSEARCH</span><span class="p">,</span>
             <span class="n">settings</span><span class="o">=</span><span class="p">{</span>
-                <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">WORKS_INDEX_PREFIX_KEY</span> <span class="p">:</span> <span class="sa">u</span><span class="s1">&#39;test_index&#39;</span><span class="p">,</span>
-                <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">TEST_SEARCH_TERM_KEY</span> <span class="p">:</span> <span class="sa">u</span><span class="s1">&#39;test_search_term&#39;</span><span class="p">,</span>
+                <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">WORKS_INDEX_PREFIX_KEY</span> <span class="p">:</span> <span class="s1">&#39;test_index&#39;</span><span class="p">,</span>
+                <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">TEST_SEARCH_TERM_KEY</span> <span class="p">:</span> <span class="s1">&#39;test_search_term&#39;</span><span class="p">,</span>
             <span class="p">}</span>
         <span class="p">)</span>
 
@@ -1196,7 +1140,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">search</span><span class="o">.</span><span class="n">setup_index</span><span class="p">(</span><span class="n">new_index</span><span class="o">=</span><span class="n">new_index</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">indexes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_index</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ExternalSearchTest.teardown"><a class="viewcode-back" href="../../core.html#core.testing.ExternalSearchTest.teardown">[docs]</a>    <span class="k">def</span> <span class="nf">teardown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="ExternalSearchTest.teardown_method"><a class="viewcode-back" href="../../core.html#core.testing.ExternalSearchTest.teardown_method">[docs]</a>    <span class="k">def</span> <span class="nf">teardown_method</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">search</span><span class="p">:</span>
             <span class="c1"># Delete the works_index, which is almost always created.</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">search</span><span class="o">.</span><span class="n">works_index</span><span class="p">:</span>
@@ -1207,7 +1151,7 @@
             <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">indexes</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">search</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">ignore</span><span class="o">=</span><span class="p">[</span><span class="mi">404</span><span class="p">])</span>
             <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">ExternalSearchTest</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">teardown</span><span class="p">()</span></div>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ExternalSearchTest</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">teardown_method</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="ExternalSearchTest.default_work"><a class="viewcode-back" href="../../core.html#core.testing.ExternalSearchTest.default_work">[docs]</a>    <span class="k">def</span> <span class="nf">default_work</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Convenience method to create a work with a license pool</span>
@@ -1226,8 +1170,8 @@
 <span class="sd">    search index and run searches against it.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="EndToEndSearchTest.setup"><a class="viewcode-back" href="../../core.html#core.testing.EndToEndSearchTest.setup">[docs]</a>    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">EndToEndSearchTest</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+<div class="viewcode-block" id="EndToEndSearchTest.setup_method"><a class="viewcode-back" href="../../core.html#core.testing.EndToEndSearchTest.setup_method">[docs]</a>    <span class="k">def</span> <span class="nf">setup_method</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">EndToEndSearchTest</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">setup_method</span><span class="p">()</span>
 
         <span class="c1"># Create some works.</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">search</span><span class="p">:</span>
@@ -1272,8 +1216,7 @@
             <span class="n">expect_compare</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">expect_compare</span><span class="p">)</span>
             <span class="n">actual_compare</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">actual_compare</span><span class="p">)</span>
 
-        <span class="n">eq_</span><span class="p">(</span>
-            <span class="n">expect_compare</span><span class="p">,</span> <span class="n">actual_compare</span><span class="p">,</span>
+        <span class="k">assert</span> <span class="n">expect_compare</span> <span class="o">==</span> <span class="n">actual_compare</span><span class="p">,</span> \
             <span class="s2">&quot;</span><span class="si">%r</span><span class="s2"> did not find </span><span class="si">%d</span><span class="s2"> works</span><span class="se">\n</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">).</span><span class="se">\n</span><span class="s2">Instead found </span><span class="si">%d</span><span class="se">\n</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
                 <span class="n">description</span><span class="p">,</span>
                 <span class="nb">len</span><span class="p">(</span><span class="n">expect</span><span class="p">),</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">expect_ids</span><span class="p">)),</span>
@@ -1281,7 +1224,6 @@
                 <span class="nb">len</span><span class="p">(</span><span class="n">actual</span><span class="p">),</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">actual_ids</span><span class="p">)),</span>
                     <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">actual_titles</span><span class="p">)</span>
             <span class="p">)</span>
-        <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_expect_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expect</span><span class="p">,</span> <span class="n">query_string</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Helper function to call query_works() and verify that it</span>
@@ -1358,7 +1300,7 @@
             <span class="c1"># got from query_works(). Take the opportunity to verify</span>
             <span class="c1"># that count_works() gives the right answer.</span>
             <span class="n">count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search</span><span class="o">.</span><span class="n">count_works</span><span class="p">(</span><span class="nb">filter</span><span class="p">)</span>
-            <span class="n">eq_</span><span class="p">(</span><span class="n">count</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">expect</span><span class="p">))</span></div>
+            <span class="k">assert</span> <span class="n">count</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">expect</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="MockCoverageProvider"><a class="viewcode-back" href="../../core.html#core.testing.MockCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">MockCoverageProvider</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -1538,10 +1480,14 @@
 <span class="sd">        Representation.simple_http_get.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">headers</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="c1"># We want to enforce that the mocked content is a bytestring</span>
+        <span class="c1"># just like a real response.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">media_type</span><span class="p">:</span>
             <span class="n">headers</span><span class="p">[</span><span class="s2">&quot;content-type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">media_type</span>
         <span class="k">if</span> <span class="n">other_headers</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">other_headers</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">other_headers</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
                 <span class="n">headers</span><span class="p">[</span><span class="n">k</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="o">=</span> <span class="n">v</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">response_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">))</span></div>
 
@@ -1584,7 +1530,12 @@
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="n">status_code</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="n">headers</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
+        <span class="c1"># We want to enforce that the mocked content is a bytestring</span>
+        <span class="c1"># just like a real response.</span>
+        <span class="k">if</span> <span class="n">content</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
         <span class="k">if</span> <span class="n">request</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">url</span><span class="p">:</span>
             <span class="n">url</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">url</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">url</span> <span class="ow">or</span> <span class="s2">&quot;http://url/&quot;</span>
@@ -1595,7 +1546,7 @@
         <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span>
         <span class="c1"># The queued content might be a JSON string or it might</span>
         <span class="c1"># just be the object you&#39;d get from loading a JSON string.</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="p">(</span><span class="n">unicode</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)):</span>
             <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">content</span></div>
 
@@ -1610,6 +1561,35 @@
 <span class="sd">        implemented by real requests Response objects.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span></div></div>
+
+
+<div class="viewcode-block" id="session_fixture"><a class="viewcode-back" href="../../core.html#core.testing.session_fixture">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span><span class="p">(</span><span class="n">autouse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="s2">&quot;session&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">session_fixture</span><span class="p">():</span>
+    <span class="c1"># This will make sure we always connect to the test database.</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;TESTING&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;true&#39;</span>
+
+    <span class="c1"># Ensure that the log configuration starts in a known state.</span>
+    <span class="n">LogConfiguration</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">testing</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Drop any existing schema. It will be recreated when</span>
+    <span class="c1"># SessionManager.initialize() runs.</span>
+    <span class="n">engine</span> <span class="o">=</span> <span class="n">SessionManager</span><span class="o">.</span><span class="n">engine</span><span class="p">()</span>
+    <span class="n">Base</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">drop_all</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+
+    <span class="k">yield</span>
+
+    <span class="k">if</span> <span class="s1">&#39;TESTING&#39;</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
+        <span class="k">del</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;TESTING&#39;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="pytest_configure"><a class="viewcode-back" href="../../core.html#core.testing.pytest_configure">[docs]</a><span class="k">def</span> <span class="nf">pytest_configure</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
+    <span class="c1"># register our custom marks with pytest</span>
+    <span class="n">config</span><span class="o">.</span><span class="n">addinivalue_line</span><span class="p">(</span>
+        <span class="s2">&quot;markers&quot;</span><span class="p">,</span> <span class="s2">&quot;elasticsearch: mark test as requiring elasticsearch&quot;</span>
+    <span class="p">)</span>
+    <span class="n">config</span><span class="o">.</span><span class="n">addinivalue_line</span><span class="p">(</span>
+        <span class="s2">&quot;markers&quot;</span><span class="p">,</span> <span class="s2">&quot;minio: mark test as requiring minio&quot;</span>
+    <span class="p">)</span></div>
 </pre></div>
 
           </div>
@@ -1666,7 +1646,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

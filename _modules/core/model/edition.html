@@ -35,7 +35,7 @@
   <h1>Source code for core.model.edition</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Edition</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
@@ -43,20 +43,20 @@
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">PresentationCalculationPolicy</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="n">CoverageRecord</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.coverage</span> <span class="kn">import</span> <span class="n">CoverageRecord</span>
+<span class="kn">from</span> <span class="nn">.constants</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DataSourceConstants</span><span class="p">,</span>
     <span class="n">EditionConstants</span><span class="p">,</span>
     <span class="n">LinkRelations</span><span class="p">,</span>
     <span class="n">MediaTypes</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">contributor</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.contributor</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Contributor</span><span class="p">,</span>
     <span class="n">Contribution</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
-<span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
-<span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">.identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
+<span class="kn">from</span> <span class="nn">.licensing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DeliveryMechanism</span><span class="p">,</span>
     <span class="n">LicensePool</span><span class="p">,</span>
 <span class="p">)</span>
@@ -82,8 +82,6 @@
     <span class="n">TitleProcessor</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">..util.permanent_work_id</span> <span class="kn">import</span> <span class="n">WorkIDCalculator</span>
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
-
 
 <div class="viewcode-block" id="Edition"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition">[docs]</a><span class="k">class</span> <span class="nc">Edition</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="p">):</span>
 
@@ -172,12 +170,12 @@
     <span class="n">extra</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">MutableDict</span><span class="o">.</span><span class="n">as_mutable</span><span class="p">(</span><span class="n">JSON</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="p">{})</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">id_repr</span> <span class="o">=</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
-        <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Edition </span><span class="si">%s</span><span class="s2"> [</span><span class="si">%r</span><span class="s2">] (</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
+        <span class="n">id_repr</span> <span class="o">=</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;Edition </span><span class="si">%s</span><span class="s2"> [</span><span class="si">%r</span><span class="s2">] (</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">id_repr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
             <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">sort_name</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">contributors</span><span class="p">]),</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">language</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">language</span>
+        <span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">language_code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -307,7 +305,7 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Look up the data source if necessary.</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">)</span>
 
         <span class="n">identifier</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span>
@@ -481,7 +479,7 @@
                         <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Assign a contributor to this Edition.&quot;&quot;&quot;</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">roles</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">roles</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">roles</span> <span class="o">=</span> <span class="p">[</span><span class="n">roles</span><span class="p">]</span>
 
         <span class="c1"># First find or create the Contributor.</span>
@@ -654,7 +652,7 @@
         <span class="k">return</span> <span class="n">WorkIDCalculator</span><span class="o">.</span><span class="n">permanent_id</span><span class="p">(</span>
             <span class="n">norm_title</span><span class="p">,</span> <span class="n">norm_author</span><span class="p">,</span> <span class="n">medium</span><span class="p">)</span></div>
 
-    <span class="n">UNKNOWN_AUTHOR</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;[Unknown]&quot;</span>
+    <span class="n">UNKNOWN_AUTHOR</span> <span class="o">=</span> <span class="s2">&quot;[Unknown]&quot;</span>
 
 
 
@@ -706,7 +704,7 @@
                 <span class="n">changed_status</span> <span class="o">=</span> <span class="s2">&quot;unchanged&quot;</span>
                 <span class="n">level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">debug</span>
 
-            <span class="n">msg</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Presentation </span><span class="si">%s</span><span class="s2"> for Edition </span><span class="si">%s</span><span class="s2"> (by </span><span class="si">%s</span><span class="s2">, pub=</span><span class="si">%s</span><span class="s2">, ident=</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">, pwid=</span><span class="si">%s</span><span class="s2">, language=</span><span class="si">%s</span><span class="s2">, cover=</span><span class="si">%r</span><span class="s2">)&quot;</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Presentation </span><span class="si">%s</span><span class="s2"> for Edition </span><span class="si">%s</span><span class="s2"> (by </span><span class="si">%s</span><span class="s2">, pub=</span><span class="si">%s</span><span class="s2">, ident=</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">, pwid=</span><span class="si">%s</span><span class="s2">, language=</span><span class="si">%s</span><span class="s2">, cover=</span><span class="si">%r</span><span class="s2">)&quot;</span>
             <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="n">changed_status</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">author</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">publisher</span><span class="p">,</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">permanent_work_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">language</span>
@@ -876,7 +874,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

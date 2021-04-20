@@ -52,12 +52,12 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">pkgutil</span>
 <span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Counter</span><span class="p">,</span>
     <span class="n">defaultdict</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">and_</span>
 
@@ -67,12 +67,7 @@
 <span class="n">NO_VALUE</span> <span class="o">=</span> <span class="s2">&quot;NONE&quot;</span>
 <span class="n">NO_NUMBER</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
 
-<div class="viewcode-block" id="Classifier"><a class="viewcode-back" href="../../core.classifier.html#core.classifier.Classifier">[docs]</a><span class="k">class</span> <span class="nc">Classifier</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-
-    <span class="sd">&quot;&quot;&quot;Turn an external classification into an internal genre, an</span>
-<span class="sd">    audience, an age level, and a fiction status.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
+<div class="viewcode-block" id="ClassifierConstants"><a class="viewcode-back" href="../../core.classifier.html#core.classifier.ClassifierConstants">[docs]</a><span class="k">class</span> <span class="nc">ClassifierConstants</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="n">DDC</span> <span class="o">=</span> <span class="s2">&quot;DDC&quot;</span>
     <span class="n">LCC</span> <span class="o">=</span> <span class="s2">&quot;LCC&quot;</span>
     <span class="n">LCSH</span> <span class="o">=</span> <span class="s2">&quot;LCSH&quot;</span>
@@ -126,12 +121,18 @@
     <span class="n">AUDIENCES_ADULT</span> <span class="o">=</span> <span class="p">[</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="n">AUDIENCE_ADULTS_ONLY</span><span class="p">,</span> <span class="n">AUDIENCE_ALL_AGES</span><span class="p">]</span>
     <span class="n">AUDIENCES</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="n">AUDIENCE_ADULTS_ONLY</span><span class="p">,</span> <span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">,</span>
                      <span class="n">AUDIENCE_CHILDREN</span><span class="p">,</span> <span class="n">AUDIENCE_ALL_AGES</span><span class="p">,</span> <span class="n">AUDIENCE_RESEARCH</span><span class="p">])</span>
-    <span class="n">AUDIENCES_NO_RESEARCH</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">AUDIENCES</span> <span class="k">if</span> <span class="n">x</span> <span class="o">!=</span> <span class="n">AUDIENCE_RESEARCH</span>
-    <span class="p">]</span>
 
     <span class="n">SIMPLIFIED_GENRE</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/genres/Simplified/&quot;</span>
-    <span class="n">SIMPLIFIED_FICTION_STATUS</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/fiction/&quot;</span>
+    <span class="n">SIMPLIFIED_FICTION_STATUS</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/fiction/&quot;</span></div>
+
+<div class="viewcode-block" id="Classifier"><a class="viewcode-back" href="../../core.classifier.html#core.classifier.Classifier">[docs]</a><span class="k">class</span> <span class="nc">Classifier</span><span class="p">(</span><span class="n">ClassifierConstants</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Turn an external classification into an internal genre, an</span>
+<span class="sd">    audience, an age level, and a fiction status.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">AUDIENCES_NO_RESEARCH</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ClassifierConstants</span><span class="o">.</span><span class="n">AUDIENCES</span> <span class="k">if</span> <span class="n">x</span> <span class="o">!=</span> <span class="n">ClassifierConstants</span><span class="o">.</span><span class="n">AUDIENCE_RESEARCH</span>
+    <span class="p">]</span>
 
     <span class="n">classifiers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
 
@@ -605,170 +606,170 @@
 <span class="c1"># name of the genre, and the &#39;subgenres&#39; argument is the list of the</span>
 <span class="c1"># subgenres.</span>
 
-<span class="n">COMICS_AND_GRAPHIC_NOVELS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Comics &amp; Graphic Novels&quot;</span>
+<span class="n">COMICS_AND_GRAPHIC_NOVELS</span> <span class="o">=</span> <span class="s2">&quot;Comics &amp; Graphic Novels&quot;</span>
 
 <span class="n">fiction_genres</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="sa">u</span><span class="s2">&quot;Adventure&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Classics&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Adventure&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Classics&quot;</span><span class="p">,</span>
     <span class="n">COMICS_AND_GRAPHIC_NOVELS</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Drama&quot;</span><span class="p">,</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Erotica&quot;</span><span class="p">,</span> <span class="n">audiences</span><span class="o">=</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULTS_ONLY</span><span class="p">),</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Fantasy&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Epic Fantasy&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Historical Fantasy&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Urban Fantasy&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Drama&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Erotica&quot;</span><span class="p">,</span> <span class="n">audiences</span><span class="o">=</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULTS_ONLY</span><span class="p">),</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Fantasy&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Epic Fantasy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Historical Fantasy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Urban Fantasy&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="sa">u</span><span class="s2">&quot;Folklore&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Historical Fiction&quot;</span><span class="p">,</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Horror&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Gothic Horror&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Ghost Stories&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Vampires&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Werewolves&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Occult Horror&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Folklore&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Historical Fiction&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Horror&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Gothic Horror&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Ghost Stories&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Vampires&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Werewolves&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Occult Horror&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="sa">u</span><span class="s2">&quot;Humorous Fiction&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Literary Fiction&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;LGBTQ Fiction&quot;</span><span class="p">,</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Mystery&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Crime &amp; Detective Stories&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Hard-Boiled Mystery&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Police Procedural&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Cozy Mystery&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Historical Mystery&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Paranormal Mystery&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Women Detectives&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Humorous Fiction&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Literary Fiction&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;LGBTQ Fiction&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Mystery&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Crime &amp; Detective Stories&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Hard-Boiled Mystery&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Police Procedural&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Cozy Mystery&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Historical Mystery&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Paranormal Mystery&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Women Detectives&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="sa">u</span><span class="s2">&quot;Poetry&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Religious Fiction&quot;</span><span class="p">,</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Romance&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Contemporary Romance&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Gothic Romance&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Historical Romance&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Paranormal Romance&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Western Romance&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Romantic Suspense&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Poetry&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Religious Fiction&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Romance&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Contemporary Romance&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Gothic Romance&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Historical Romance&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Paranormal Romance&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Western Romance&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Romantic Suspense&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Science Fiction&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Dystopian SF&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Space Opera&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Cyberpunk&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Military SF&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Alternative History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Steampunk&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Romantic SF&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Media Tie-in SF&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Science Fiction&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Dystopian SF&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Space Opera&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Cyberpunk&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Military SF&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Alternative History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Steampunk&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Romantic SF&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Media Tie-in SF&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="sa">u</span><span class="s2">&quot;Short Stories&quot;</span><span class="p">,</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Suspense/Thriller&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Short Stories&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Suspense/Thriller&quot;</span><span class="p">,</span>
         <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-            <span class="sa">u</span><span class="s2">&quot;Historical Thriller&quot;</span><span class="p">,</span>
-            <span class="sa">u</span><span class="s2">&quot;Espionage&quot;</span><span class="p">,</span>
-            <span class="sa">u</span><span class="s2">&quot;Supernatural Thriller&quot;</span><span class="p">,</span>
-            <span class="sa">u</span><span class="s2">&quot;Medical Thriller&quot;</span><span class="p">,</span>
-            <span class="sa">u</span><span class="s2">&quot;Political Thriller&quot;</span><span class="p">,</span>
-            <span class="sa">u</span><span class="s2">&quot;Psychological Thriller&quot;</span><span class="p">,</span>
-            <span class="sa">u</span><span class="s2">&quot;Technothriller&quot;</span><span class="p">,</span>
-            <span class="sa">u</span><span class="s2">&quot;Legal Thriller&quot;</span><span class="p">,</span>
-            <span class="sa">u</span><span class="s2">&quot;Military Thriller&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Historical Thriller&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Espionage&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Supernatural Thriller&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Medical Thriller&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Political Thriller&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Psychological Thriller&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Technothriller&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Legal Thriller&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Military Thriller&quot;</span><span class="p">,</span>
         <span class="p">],</span>
     <span class="p">),</span>
-    <span class="sa">u</span><span class="s2">&quot;Urban Fiction&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Westerns&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Women&#39;s Fiction&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Urban Fiction&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Westerns&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Women&#39;s Fiction&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 
 <span class="n">nonfiction_genres</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Art &amp; Design&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Architecture&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Art&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Art Criticism &amp; Theory&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Art History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Design&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Fashion&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Photography&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Art &amp; Design&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Architecture&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Art&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Art Criticism &amp; Theory&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Art History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Design&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Fashion&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Photography&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="sa">u</span><span class="s2">&quot;Biography &amp; Memoir&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Education&quot;</span><span class="p">,</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Personal Finance &amp; Business&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Business&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Economics&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Management &amp; Leadership&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Personal Finance &amp; Investing&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Real Estate&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Biography &amp; Memoir&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Education&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Personal Finance &amp; Business&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Business&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Economics&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Management &amp; Leadership&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Personal Finance &amp; Investing&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Real Estate&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Parenting &amp; Family&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Family &amp; Relationships&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Parenting&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Parenting &amp; Family&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Family &amp; Relationships&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Parenting&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Food &amp; Health&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Bartending &amp; Cocktails&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Cooking&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Health &amp; Diet&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Vegetarian &amp; Vegan&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Food &amp; Health&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Bartending &amp; Cocktails&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Cooking&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Health &amp; Diet&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Vegetarian &amp; Vegan&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;History&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;African History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Ancient History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Asian History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Civil War History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;European History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Latin American History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Medieval History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Middle East History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Military History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Modern History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Renaissance &amp; Early Modern History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;United States History&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;World History&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;History&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;African History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Ancient History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Asian History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Civil War History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;European History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Latin American History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Medieval History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Middle East History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Military History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Modern History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Renaissance &amp; Early Modern History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;United States History&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;World History&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Hobbies &amp; Home&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Antiques &amp; Collectibles&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Crafts &amp; Hobbies&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Gardening&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Games&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;House &amp; Home&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Pets&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Hobbies &amp; Home&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Antiques &amp; Collectibles&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Crafts &amp; Hobbies&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Gardening&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Games&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;House &amp; Home&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pets&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="sa">u</span><span class="s2">&quot;Humorous Nonfiction&quot;</span><span class="p">,</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Entertainment&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Film &amp; TV&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Music&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Performing Arts&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Humorous Nonfiction&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Entertainment&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Film &amp; TV&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Music&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Performing Arts&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="sa">u</span><span class="s2">&quot;Life Strategies&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Literary Criticism&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Periodicals&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Philosophy&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Political Science&quot;</span><span class="p">,</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Reference &amp; Study Aids&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Dictionaries&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Foreign Language Study&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Law&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Study Aids&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Life Strategies&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Literary Criticism&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Periodicals&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Philosophy&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Political Science&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Reference &amp; Study Aids&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Dictionaries&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Foreign Language Study&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Law&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Study Aids&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Religion &amp; Spirituality&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Body, Mind &amp; Spirit&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Buddhism&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Christianity&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Hinduism&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Islam&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Judaism&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Religion &amp; Spirituality&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Body, Mind &amp; Spirit&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Buddhism&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Christianity&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Hinduism&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Islam&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Judaism&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Science &amp; Technology&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
-        <span class="sa">u</span><span class="s2">&quot;Computers&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Mathematics&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Medical&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Nature&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Psychology&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Science&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Social Sciences&quot;</span><span class="p">,</span>
-        <span class="sa">u</span><span class="s2">&quot;Technology&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Science &amp; Technology&quot;</span><span class="p">,</span> <span class="n">subgenres</span><span class="o">=</span><span class="p">[</span>
+        <span class="s2">&quot;Computers&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Mathematics&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Medical&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Nature&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Psychology&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Science&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Social Sciences&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Technology&quot;</span><span class="p">,</span>
     <span class="p">]),</span>
-    <span class="sa">u</span><span class="s2">&quot;Self-Help&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Sports&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;Travel&quot;</span><span class="p">,</span>
-    <span class="sa">u</span><span class="s2">&quot;True Crime&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Self-Help&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Sports&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Travel&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;True Crime&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 
 
@@ -778,7 +779,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">parent</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">is_fiction</span> <span class="o">=</span> <span class="n">is_fiction</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subgenres</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">audience_restriction</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">audience_restriction</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">audience_restriction</span> <span class="o">=</span> <span class="p">[</span><span class="n">audience_restriction</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">audience_restriction</span> <span class="o">=</span> <span class="n">audience_restriction</span>
 
@@ -880,14 +881,14 @@
 <span class="n">genres</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
 <span class="n">GenreData</span><span class="o">.</span><span class="n">populate</span><span class="p">(</span><span class="nb">globals</span><span class="p">(),</span> <span class="n">genres</span><span class="p">,</span> <span class="n">fiction_genres</span><span class="p">,</span> <span class="n">nonfiction_genres</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Lowercased"><a class="viewcode-back" href="../../core.classifier.html#core.classifier.Lowercased">[docs]</a><span class="k">class</span> <span class="nc">Lowercased</span><span class="p">(</span><span class="n">unicode</span><span class="p">):</span>
+<div class="viewcode-block" id="Lowercased"><a class="viewcode-back" href="../../core.classifier.html#core.classifier.Lowercased">[docs]</a><span class="k">class</span> <span class="nc">Lowercased</span><span class="p">(</span><span class="nb">str</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A lowercased string that remembers its original value.&quot;&quot;&quot;</span>
     <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">Lowercased</span><span class="p">):</span>
             <span class="c1"># Nothing to do.</span>
             <span class="k">return</span> <span class="n">value</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
         <span class="n">new_value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">new_value</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">):</span>
             <span class="n">new_value</span> <span class="o">=</span> <span class="n">new_value</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
@@ -1502,27 +1503,27 @@
 <span class="sd">        proportion of the weight of the parent genre, assign the</span>
 <span class="sd">        parent&#39;s weight to the subgenre and remove the parent.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1">#print &quot;Before consolidation:&quot;</span>
+        <span class="c1">#print(&quot;Before consolidation:&quot;)</span>
         <span class="c1">#for genre, weight in weights.items():</span>
-        <span class="c1">#    print &quot;&quot;, genre, weight</span>
+        <span class="c1">#    print(&quot;&quot;, genre, weight)</span>
 
         <span class="c1"># Convert Genre objects to GenreData.</span>
         <span class="n">consolidated</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">genre</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="n">weights</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">genre</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">weights</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">genre</span><span class="p">,</span> <span class="n">GenreData</span><span class="p">):</span>
                 <span class="n">genre</span> <span class="o">=</span> <span class="n">genres</span><span class="p">[</span><span class="n">genre</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
             <span class="n">consolidated</span><span class="p">[</span><span class="n">genre</span><span class="p">]</span> <span class="o">+=</span> <span class="n">weight</span>
 
         <span class="n">heaviest_child</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">genre</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="n">consolidated</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">genre</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">consolidated</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">for</span> <span class="n">parent</span> <span class="ow">in</span> <span class="n">genre</span><span class="o">.</span><span class="n">parents</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">parent</span> <span class="ow">in</span> <span class="n">consolidated</span><span class="p">:</span>
                     <span class="k">if</span> <span class="p">((</span><span class="ow">not</span> <span class="n">parent</span> <span class="ow">in</span> <span class="n">heaviest_child</span><span class="p">)</span>
                         <span class="ow">or</span> <span class="n">weight</span> <span class="o">&gt;</span> <span class="n">heaviest_child</span><span class="p">[</span><span class="n">parent</span><span class="p">][</span><span class="mi">1</span><span class="p">]):</span>
                         <span class="n">heaviest_child</span><span class="p">[</span><span class="n">parent</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">genre</span><span class="p">,</span> <span class="n">weight</span><span class="p">)</span>
-        <span class="c1">#print &quot;Heaviest child:&quot;</span>
+        <span class="c1">#print(&quot;Heaviest child:&quot;)</span>
         <span class="c1">#for parent, (genre, weight) in heaviest_child.items():</span>
-        <span class="c1">#    print &quot;&quot;, parent, genre, weight</span>
+        <span class="c1">#    print(&quot;&quot;, parent, genre, weight)</span>
         <span class="n">made_it</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">while</span> <span class="ow">not</span> <span class="n">made_it</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">parent</span><span class="p">,</span> <span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">weight</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">heaviest_child</span><span class="o">.</span><span class="n">items</span><span class="p">())):</span>
@@ -1541,12 +1542,12 @@
                         <span class="k">break</span>
             <span class="c1"># We made it all the way through the dict without changing it.</span>
             <span class="n">made_it</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="c1">#print &quot;Final heaviest child:&quot;</span>
+        <span class="c1">#print(&quot;Final heaviest child:&quot;)</span>
         <span class="c1">#for parent, (genre, weight) in heaviest_child.items():</span>
-        <span class="c1">#    print &quot;&quot;, parent, genre, weight</span>
-        <span class="c1">#print &quot;After consolidation:&quot;</span>
+        <span class="c1">#    print(&quot;&quot;, parent, genre, weight)</span>
+        <span class="c1">#print(&quot;After consolidation:&quot;)</span>
         <span class="c1">#for genre, weight in consolidated.items():</span>
-        <span class="c1">#    print &quot;&quot;, genre, weight</span>
+        <span class="c1">#    print(&quot;&quot;, genre, weight)</span>
         <span class="k">return</span> <span class="n">consolidated</span></div></div>
 
 <span class="c1"># Make a dictionary of classification schemes to classifiers.</span>
@@ -1555,26 +1556,26 @@
 <span class="n">Classifier</span><span class="o">.</span><span class="n">classifiers</span><span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AXIS_360_AUDIENCE</span><span class="p">]</span> <span class="o">=</span> <span class="n">AgeOrGradeClassifier</span>
 
 <span class="c1"># Finally, import classifiers described in submodules.</span>
-<span class="kn">from</span> <span class="nn">age</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.age</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">GradeLevelClassifier</span><span class="p">,</span>
     <span class="n">InterestLevelClassifier</span><span class="p">,</span>
     <span class="n">AgeClassifier</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">bisac</span> <span class="kn">import</span> <span class="n">BISACClassifier</span>
-<span class="kn">from</span> <span class="nn">rbdigital</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.bisac</span> <span class="kn">import</span> <span class="n">BISACClassifier</span>
+<span class="kn">from</span> <span class="nn">.rbdigital</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">RBDigitalAudienceClassifier</span><span class="p">,</span>
     <span class="n">RBDigitalSubjectClassifier</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">ddc</span> <span class="kn">import</span> <span class="n">DeweyDecimalClassifier</span>
-<span class="kn">from</span> <span class="nn">lcc</span> <span class="kn">import</span> <span class="n">LCCClassifier</span>
-<span class="kn">from</span> <span class="nn">gutenberg</span> <span class="kn">import</span> <span class="n">GutenbergBookshelfClassifier</span>
-<span class="kn">from</span> <span class="nn">bic</span> <span class="kn">import</span> <span class="n">BICClassifier</span>
-<span class="kn">from</span> <span class="nn">simplified</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.ddc</span> <span class="kn">import</span> <span class="n">DeweyDecimalClassifier</span>
+<span class="kn">from</span> <span class="nn">.lcc</span> <span class="kn">import</span> <span class="n">LCCClassifier</span>
+<span class="kn">from</span> <span class="nn">.gutenberg</span> <span class="kn">import</span> <span class="n">GutenbergBookshelfClassifier</span>
+<span class="kn">from</span> <span class="nn">.bic</span> <span class="kn">import</span> <span class="n">BICClassifier</span>
+<span class="kn">from</span> <span class="nn">.simplified</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">SimplifiedFictionClassifier</span><span class="p">,</span>
     <span class="n">SimplifiedGenreClassifier</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">overdrive</span> <span class="kn">import</span> <span class="n">OverdriveClassifier</span>
-<span class="kn">from</span> <span class="nn">keyword</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.overdrive</span> <span class="kn">import</span> <span class="n">OverdriveClassifier</span>
+<span class="kn">from</span> <span class="nn">.keyword</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">KeywordBasedClassifier</span><span class="p">,</span>
     <span class="n">LCSHClassifier</span><span class="p">,</span>
     <span class="n">FASTClassifier</span><span class="p">,</span>
@@ -1637,7 +1638,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

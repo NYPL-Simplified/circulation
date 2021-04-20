@@ -35,14 +35,13 @@
   <h1>Source code for core.model.patron</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># LoanAndHoldMixin, Patron, Loan, Hold, Annotation, PatronProfileStorage</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">numericrange_to_tuple</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">credential</span> <span class="kn">import</span> <span class="n">Credential</span>
+<span class="kn">from</span> <span class="nn">.credential</span> <span class="kn">import</span> <span class="n">Credential</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
@@ -466,7 +465,7 @@
         <span class="c1"># age range includes ADULT_AGE_CUTOFF.</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">reader_audience</span> <span class="o">==</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span>
             <span class="ow">and</span> <span class="p">(</span><span class="n">reader_age</span> <span class="ow">is</span> <span class="kc">None</span>
-                 <span class="ow">or</span> <span class="n">reader_age</span> <span class="o">&gt;=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">ADULT_AGE_CUTOFF</span><span class="p">)):</span>
+                 <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">reader_age</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="n">reader_age</span> <span class="o">&gt;=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">ADULT_AGE_CUTOFF</span><span class="p">))):</span>
             <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;YA reader to be treated as an adult.&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">True</span>
 
@@ -549,6 +548,9 @@
     <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
         <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;patron_id&#39;</span><span class="p">,</span> <span class="s1">&#39;license_pool_id&#39;</span><span class="p">),</span>
     <span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">&lt;</span> <span class="n">other</span><span class="o">.</span><span class="n">id</span>
 
 <div class="viewcode-block" id="Loan.until"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Loan.until">[docs]</a>    <span class="k">def</span> <span class="nf">until</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_loan_period</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Give or estimate the time at which the loan will end.&quot;&quot;&quot;</span>
@@ -572,6 +574,9 @@
     <span class="n">end</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">position</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">external_identifier</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">&lt;</span> <span class="n">other</span><span class="o">.</span><span class="n">id</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_calculate_until</span><span class="p">(</span>
@@ -673,13 +678,13 @@
 <div class="viewcode-block" id="Annotation"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Annotation">[docs]</a><span class="k">class</span> <span class="nc">Annotation</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="c1"># The Web Annotation Data Model defines a basic set of motivations.</span>
     <span class="c1"># https://www.w3.org/TR/annotation-model/#motivation-and-purpose</span>
-    <span class="n">OA_NAMESPACE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://www.w3.org/ns/oa#&quot;</span>
+    <span class="n">OA_NAMESPACE</span> <span class="o">=</span> <span class="s2">&quot;http://www.w3.org/ns/oa#&quot;</span>
 
     <span class="c1"># We need to define some terms of our own.</span>
-    <span class="n">LS_NAMESPACE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/annotation/&quot;</span>
+    <span class="n">LS_NAMESPACE</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/annotation/&quot;</span>
 
-    <span class="n">IDLING</span> <span class="o">=</span> <span class="n">LS_NAMESPACE</span> <span class="o">+</span> <span class="sa">u</span><span class="s1">&#39;idling&#39;</span>
-    <span class="n">BOOKMARKING</span> <span class="o">=</span> <span class="n">OA_NAMESPACE</span> <span class="o">+</span> <span class="sa">u</span><span class="s1">&#39;bookmarking&#39;</span>
+    <span class="n">IDLING</span> <span class="o">=</span> <span class="n">LS_NAMESPACE</span> <span class="o">+</span> <span class="s1">&#39;idling&#39;</span>
+    <span class="n">BOOKMARKING</span> <span class="o">=</span> <span class="n">OA_NAMESPACE</span> <span class="o">+</span> <span class="s1">&#39;bookmarking&#39;</span>
 
     <span class="n">MOTIVATIONS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="n">IDLING</span><span class="p">,</span>
@@ -817,7 +822,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

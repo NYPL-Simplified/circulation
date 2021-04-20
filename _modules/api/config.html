@@ -35,7 +35,6 @@
   <h1>Source code for api.config</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">contextlib</span>
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 
@@ -64,17 +63,21 @@
     <span class="n">DEFAULT_OPDS_FORMAT</span> <span class="o">=</span> <span class="s2">&quot;simple_opds_entry&quot;</span>
 
     <span class="c1"># The list of patron web urls allowed to access this CM</span>
-    <span class="n">PATRON_WEB_HOSTNAMES</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;patron_web_hostnames&quot;</span>
+    <span class="n">PATRON_WEB_HOSTNAMES</span> <span class="o">=</span> <span class="s2">&quot;patron_web_hostnames&quot;</span>
 
     <span class="c1"># The name of the sitewide secret used to sign cookies for admin login.</span>
-    <span class="n">SECRET_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;secret_key&quot;</span>
+    <span class="n">SECRET_KEY</span> <span class="o">=</span> <span class="s2">&quot;secret_key&quot;</span>
 
     <span class="c1"># The name of the setting that controls how long static files are cached.</span>
-    <span class="n">STATIC_FILE_CACHE_TIME</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;static_file_cache_time&quot;</span>
+    <span class="n">STATIC_FILE_CACHE_TIME</span> <span class="o">=</span> <span class="s2">&quot;static_file_cache_time&quot;</span>
 
     <span class="c1"># The name of the setting controlling how long authentication</span>
     <span class="c1"># documents are cached.</span>
-    <span class="n">AUTHENTICATION_DOCUMENT_CACHE_TIME</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;authentication_document_cache_time&quot;</span>
+    <span class="n">AUTHENTICATION_DOCUMENT_CACHE_TIME</span> <span class="o">=</span> <span class="s2">&quot;authentication_document_cache_time&quot;</span>
+
+    <span class="c1"># The name of a setting that turns UWSGI debugging information on</span>
+    <span class="c1"># or off.</span>
+    <span class="n">WSGI_DEBUG_KEY</span> <span class="o">=</span> <span class="s2">&quot;wsgi_debug&quot;</span>
 
     <span class="c1"># A custom link to a Terms of Service document to be understood by</span>
     <span class="c1"># users of the administrative interface.</span>
@@ -96,7 +99,7 @@
 
     <span class="c1"># The name of the per-library setting that sets the maximum amount</span>
     <span class="c1"># of fines a patron can have before losing lending privileges.</span>
-    <span class="n">MAX_OUTSTANDING_FINES</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;max_outstanding_fines&quot;</span>
+    <span class="n">MAX_OUTSTANDING_FINES</span> <span class="o">=</span> <span class="s2">&quot;max_outstanding_fines&quot;</span>
 
     <span class="c1"># The name of the per-library settings that set the maximum amounts</span>
     <span class="c1"># of books a patron can have on loan or on hold at once.</span>
@@ -104,24 +107,24 @@
     <span class="c1"># to exceed the limits by checking out books directly from a distributor&#39;s</span>
     <span class="c1"># app. They may also get a limit exceeded error before they reach these</span>
     <span class="c1"># limits if a distributor has a smaller limit.)</span>
-    <span class="n">LOAN_LIMIT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;loan_limit&quot;</span>
-    <span class="n">HOLD_LIMIT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;hold_limit&quot;</span>
+    <span class="n">LOAN_LIMIT</span> <span class="o">=</span> <span class="s2">&quot;loan_limit&quot;</span>
+    <span class="n">HOLD_LIMIT</span> <span class="o">=</span> <span class="s2">&quot;hold_limit&quot;</span>
 
     <span class="c1"># The name of the per-library setting that sets the default email</span>
     <span class="c1"># address to use when notifying patrons of changes.</span>
-    <span class="n">DEFAULT_NOTIFICATION_EMAIL_ADDRESS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;default_notification_email_address&quot;</span>
+    <span class="n">DEFAULT_NOTIFICATION_EMAIL_ADDRESS</span> <span class="o">=</span> <span class="s2">&quot;default_notification_email_address&quot;</span>
     <span class="n">STANDARD_NOREPLY_EMAIL_ADDRESS</span> <span class="o">=</span> <span class="s2">&quot;noreply@librarysimplified.org&quot;</span>
 
     <span class="c1"># The name of the per-library setting that sets the email address</span>
     <span class="c1"># of the Designated Agent for copyright complaints</span>
-    <span class="n">COPYRIGHT_DESIGNATED_AGENT_EMAIL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;copyright_designated_agent_email_address&quot;</span>
+    <span class="n">COPYRIGHT_DESIGNATED_AGENT_EMAIL</span> <span class="o">=</span> <span class="s2">&quot;copyright_designated_agent_email_address&quot;</span>
 
     <span class="c1"># This is the link relation used to indicate</span>
     <span class="n">COPYRIGHT_DESIGNATED_AGENT_REL</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/rel/designated-agent/copyright&quot;</span>
 
     <span class="c1"># The name of the per-library setting that sets the contact address</span>
     <span class="c1"># for problems with the library configuration itself.</span>
-    <span class="n">CONFIGURATION_CONTACT_EMAIL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;configuration_contact_email_address&quot;</span>
+    <span class="n">CONFIGURATION_CONTACT_EMAIL</span> <span class="o">=</span> <span class="s2">&quot;configuration_contact_email_address&quot;</span>
 
     <span class="c1"># Name of the site-wide ConfigurationSetting containing the secret</span>
     <span class="c1"># used to sign bearer tokens.</span>
@@ -239,7 +242,7 @@
             <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Cache time for authentication documents (in seconds)&quot;</span><span class="p">),</span>
             <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mi">3600</span><span class="p">,</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">CUSTOM_TOS_HREF</span><span class="p">,</span>
@@ -722,14 +725,14 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">public</span><span class="p">,</span> <span class="n">private</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">json_value</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">pass</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">public</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">private</span><span class="p">:</span>
             <span class="n">key</span> <span class="o">=</span> <span class="n">RSA</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="mi">2048</span><span class="p">)</span>
             <span class="n">encryptor</span> <span class="o">=</span> <span class="n">PKCS1_OAEP</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-            <span class="n">public</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">publickey</span><span class="p">()</span><span class="o">.</span><span class="n">exportKey</span><span class="p">()</span>
-            <span class="n">private</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">exportKey</span><span class="p">()</span>
+            <span class="n">public</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">publickey</span><span class="p">()</span><span class="o">.</span><span class="n">exportKey</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+            <span class="n">private</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">exportKey</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
             <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">([</span><span class="n">public</span><span class="p">,</span> <span class="n">private</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">public</span><span class="p">,</span> <span class="n">private</span></div>
 
@@ -824,7 +827,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

@@ -33,7 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for core.util.permanent_work_id</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span></span>
 <span class="kn">from</span> <span class="nn">hashlib</span> <span class="kn">import</span> <span class="n">md5</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">struct</span>
@@ -172,8 +172,8 @@
 <span class="sd">        Returns de-linted author&#39;s name.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">author</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">author</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">author</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;&#39;</span>
-        <span class="n">author</span> <span class="o">=</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">&quot;NFKD&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">author</span><span class="p">))</span>
+            <span class="n">author</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="n">author</span> <span class="o">=</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">&quot;NFKD&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">author</span><span class="p">))</span>
         <span class="n">author</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">bracketedCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">author</span><span class="p">)</span>
         <span class="n">author</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">specialCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">author</span><span class="p">)</span>
 
@@ -254,7 +254,7 @@
 <span class="sd">        Lowercases.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">full_title</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">full_title</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;&#39;</span>
+            <span class="n">full_title</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
         <span class="n">full_title</span> <span class="o">=</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">&quot;NFKD&quot;</span><span class="p">,</span> <span class="n">full_title</span><span class="p">)</span>
         <span class="c1"># Remove any bracketed parts of the title</span>
         <span class="n">tmp_title</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">bracketedCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">full_title</span><span class="p">)</span>
@@ -277,9 +277,8 @@
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tmp_title</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">title</span> <span class="o">=</span> <span class="n">tmp_title</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># print &quot;Just saved us from trimming %s to nothing&quot; % full_title</span>
-            <span class="n">title</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">specialCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span>
-                <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">full_title</span><span class="p">)</span>
+            <span class="c1"># print(&quot;Just saved us from trimming %s to nothing&quot; % full_title)</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">specialCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">full_title</span><span class="p">)</span>
 
 
         <span class="c1"># If the title includes a : in it, take the first part as the title and the second as the subtitle</span>
@@ -314,7 +313,7 @@
             <span class="n">title</span> <span class="o">=</span> <span class="n">title</span><span class="p">[:</span><span class="n">title_end</span><span class="p">]</span>
         <span class="n">title</span> <span class="o">=</span> <span class="n">title</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">title</span><span class="p">:</span>
-            <span class="c1"># print &quot;Title %s was normalized to nothing&quot; % full_title</span>
+            <span class="c1"># print(&quot;Title %s was normalized to nothing&quot; % full_title)</span>
             <span class="n">title</span> <span class="o">=</span> <span class="n">full_title</span>
         <span class="k">return</span> <span class="n">title</span></div>
 
@@ -388,7 +387,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

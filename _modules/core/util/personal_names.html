@@ -35,11 +35,12 @@
   <h1>Source code for core.util.personal_names</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">fuzzywuzzy</span> <span class="kn">import</span> <span class="n">fuzz</span>
 <span class="kn">from</span> <span class="nn">nameparser</span> <span class="kn">import</span> <span class="n">HumanName</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">unicodedata</span>
+<span class="kn">from</span> <span class="nn">builtins</span> <span class="kn">import</span> <span class="nb">str</span>
 
-<span class="kn">from</span> <span class="nn">permanent_work_id</span> <span class="kn">import</span> <span class="n">WorkIDCalculator</span><span class="p">;</span>
+<span class="kn">from</span> <span class="nn">.permanent_work_id</span> <span class="kn">import</span> <span class="n">WorkIDCalculator</span><span class="p">;</span>
 
 
 <span class="sd">&quot;&quot;&quot;Fallback algorithms for dealing with personal names when VIAF fails us.&quot;&quot;&quot;</span>
@@ -127,7 +128,7 @@
         <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;Science&#39;</span><span class="p">,</span>
 
         <span class="c1"># copyrights and trademarks</span>
-        <span class="sa">u</span><span class="s1">&#39;</span><span class="se">\xa9</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;Copyright&#39;</span><span class="p">,</span> <span class="s1">&#39;(C)&#39;</span><span class="p">,</span> <span class="s1">&#39;&amp;#169;&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;</span><span class="se">\xa9</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;Copyright&#39;</span><span class="p">,</span> <span class="s1">&#39;(C)&#39;</span><span class="p">,</span> <span class="s1">&#39;&amp;#169;&#39;</span><span class="p">,</span>
 
         <span class="c1"># performing arts collaborations</span>
         <span class="s1">&#39;Multiple&#39;</span><span class="p">,</span> <span class="s1">&#39;Various&#39;</span><span class="p">,</span>
@@ -192,7 +193,7 @@
 
     <span class="c1"># This might go after a comma, or it might be someone&#39;s entire</span>
     <span class="c1"># name.</span>
-    <span class="n">base_name</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">name</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">first</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">middle</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">suffix</span><span class="p">])</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="n">base_name</span> <span class="o">=</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">name</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">first</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">middle</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">suffix</span><span class="p">])</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="o">.</span><span class="n">last</span><span class="p">:</span>
         <span class="c1"># Examples: &#39;Pope Francis&#39;, &#39;Prince&#39;.</span>
         <span class="n">sort_name</span> <span class="o">=</span> <span class="n">base_name</span>
@@ -226,7 +227,7 @@
 <span class="sd">        such as lowercasing.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">&quot;NFKD&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">&quot;NFKD&quot;</span><span class="p">,</span>  <span class="nb">str</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
     <span class="n">name</span> <span class="o">=</span> <span class="n">WorkIDCalculator</span><span class="o">.</span><span class="n">consecutiveCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
@@ -266,7 +267,7 @@
 
     <span class="n">name</span> <span class="o">=</span> <span class="n">HumanName</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
     <span class="c1"># name has title, first, middle, last, suffix, nickname</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">name</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">first</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">middle</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">last</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">suffix</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">nickname</span><span class="p">])</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">name</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">first</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">middle</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">last</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">suffix</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">nickname</span><span class="p">])</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="n">WorkIDCalculator</span><span class="o">.</span><span class="n">normalize_author</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">name</span></div>
@@ -292,7 +293,7 @@
     <span class="c1"># name has title, first, middle, last, suffix, nickname</span>
     <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">nickname</span><span class="p">:</span>
         <span class="n">name</span><span class="o">.</span><span class="n">nickname</span> <span class="o">=</span> <span class="s1">&#39;(&#39;</span> <span class="o">+</span> <span class="n">name</span><span class="o">.</span><span class="n">nickname</span> <span class="o">+</span> <span class="s1">&#39;)&#39;</span>
-    <span class="n">display_name</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">name</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">first</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">nickname</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">middle</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">last</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">suffix</span><span class="p">])</span>
+    <span class="n">display_name</span> <span class="o">=</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">name</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">first</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">nickname</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">middle</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">last</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">suffix</span><span class="p">])</span>
 
     <span class="n">display_name</span> <span class="o">=</span> <span class="n">name_tidy</span><span class="p">(</span><span class="n">display_name</span><span class="p">)</span>
 
@@ -361,7 +362,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

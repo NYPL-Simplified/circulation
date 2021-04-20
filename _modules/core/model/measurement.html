@@ -35,10 +35,10 @@
   <h1>Source code for core.model.measurement</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Measurement</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">Base</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="n">DataSourceConstants</span>
+<span class="kn">from</span> <span class="nn">.constants</span> <span class="kn">import</span> <span class="n">DataSourceConstants</span>
 
 <span class="kn">import</span> <span class="nn">bisect</span>
 <span class="kn">import</span> <span class="nn">logging</span>
@@ -59,16 +59,16 @@
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;measurements&#39;</span>
 
     <span class="c1"># Some common measurement types</span>
-    <span class="n">POPULARITY</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/popularity&quot;</span>
-    <span class="n">QUALITY</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/quality&quot;</span>
-    <span class="n">PUBLISHED_EDITIONS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/editions&quot;</span>
-    <span class="n">HOLDINGS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/holdings&quot;</span>
-    <span class="n">RATING</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://schema.org/ratingValue&quot;</span>
-    <span class="n">DOWNLOADS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;https://schema.org/UserDownloads&quot;</span>
-    <span class="n">PAGE_COUNT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;https://schema.org/numberOfPages&quot;</span>
-    <span class="n">AWARDS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/awards&quot;</span>
+    <span class="n">POPULARITY</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rel/popularity&quot;</span>
+    <span class="n">QUALITY</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rel/quality&quot;</span>
+    <span class="n">PUBLISHED_EDITIONS</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rel/editions&quot;</span>
+    <span class="n">HOLDINGS</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rel/holdings&quot;</span>
+    <span class="n">RATING</span> <span class="o">=</span> <span class="s2">&quot;http://schema.org/ratingValue&quot;</span>
+    <span class="n">DOWNLOADS</span> <span class="o">=</span> <span class="s2">&quot;https://schema.org/UserDownloads&quot;</span>
+    <span class="n">PAGE_COUNT</span> <span class="o">=</span> <span class="s2">&quot;https://schema.org/numberOfPages&quot;</span>
+    <span class="n">AWARDS</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rel/awards&quot;</span>
 
-    <span class="n">GUTENBERG_FAVORITE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/lists/gutenberg-favorite&quot;</span>
+    <span class="n">GUTENBERG_FAVORITE</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rel/lists/gutenberg-favorite&quot;</span>
 
     <span class="c1"># We have a number of ways of measuring popularity: by an opaque</span>
     <span class="c1"># number such as Amazon&#39;s Sales Rank, or by a directly measured</span>
@@ -345,7 +345,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

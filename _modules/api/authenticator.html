@@ -38,7 +38,7 @@
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">import</span> <span class="nn">urllib.request</span><span class="o">,</span> <span class="nn">urllib.parse</span><span class="o">,</span> <span class="nn">urllib.error</span>
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span>
 
 <span class="kn">import</span> <span class="nn">flask</span>
@@ -59,7 +59,7 @@
 <span class="kn">from</span> <span class="nn">api.custom_patron_catalog</span> <span class="kn">import</span> <span class="n">CustomPatronCatalog</span>
 <span class="kn">from</span> <span class="nn">api.opds</span> <span class="kn">import</span> <span class="n">LibraryAnnotator</span>
 <span class="kn">from</span> <span class="nn">api.saml.configuration.model</span> <span class="kn">import</span> <span class="n">SAMLSettings</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">IntegrationException</span><span class="p">,</span>
@@ -91,8 +91,8 @@
     <span class="n">ProblemDetail</span><span class="p">,</span>
     <span class="n">json</span> <span class="k">as</span> <span class="n">pd_json</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">util.patron</span> <span class="kn">import</span> <span class="n">PatronUtility</span>
+<span class="kn">from</span> <span class="nn">.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.util.patron</span> <span class="kn">import</span> <span class="n">PatronUtility</span>
 
 
 <div class="viewcode-block" id="CannotCreateLocalPatron"><a class="viewcode-back" href="../../api.html#api.authenticator.CannotCreateLocalPatron">[docs]</a><span class="k">class</span> <span class="nc">CannotCreateLocalPatron</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
@@ -117,7 +117,7 @@
     <span class="c1"># Used to distinguish between &quot;value has been unset&quot; and &quot;value</span>
     <span class="c1"># has not changed&quot;.</span>
 <div class="viewcode-block" id="PatronData.NoValue"><a class="viewcode-back" href="../../api.html#api.authenticator.PatronData.NoValue">[docs]</a>    <span class="k">class</span> <span class="nc">NoValue</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-        <span class="k">def</span> <span class="nf">__nonzero__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">def</span> <span class="fm">__bool__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
             <span class="sd">&quot;&quot;&quot;We want this object to act like None or False.&quot;&quot;&quot;</span>
             <span class="k">return</span> <span class="kc">False</span></div>
     <span class="n">NO_VALUE</span> <span class="o">=</span> <span class="n">NoValue</span><span class="p">()</span>
@@ -475,7 +475,7 @@
             <span class="n">personal_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">personal_name</span><span class="p">,</span>
             <span class="n">email_address</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">email_address</span>
         <span class="p">)</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="n">scrub</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="n">scrub</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
 
         <span class="c1"># Handle the data items that aren&#39;t just strings.</span>
 
@@ -644,7 +644,7 @@
         <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="n">integrations</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">authenticator</span><span class="o">.</span><span class="n">register_provider</span><span class="p">(</span><span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="p">)</span>
-            <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="n">CannotLoadConfiguration</span><span class="p">),</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="n">CannotLoadConfiguration</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># These are the two types of error that might be caused</span>
                 <span class="c1"># by misconfiguration, as opposed to bad code.</span>
                 <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
@@ -799,7 +799,7 @@
             <span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">provider</span> <span class="o">=</span> <span class="n">provider_class</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">RemoteIntegrationException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">RemoteIntegrationException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
                 <span class="s2">&quot;Could not instantiate </span><span class="si">%s</span><span class="s2"> authentication provider for library </span><span class="si">%s</span><span class="s2">, possibly due to a network connection problem.&quot;</span> <span class="o">%</span> <span class="p">(</span>
                     <span class="n">provider_class</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span>
@@ -856,9 +856,9 @@
         <span class="sd">&quot;&quot;&quot;An iterator over all registered AuthenticationProviders.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span><span class="p">:</span>
             <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span>
-        <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
             <span class="k">yield</span> <span class="n">provider</span>
-        <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
             <span class="k">yield</span> <span class="n">provider</span>
 
 <div class="viewcode-block" id="LibraryAuthenticator.authenticated_patron"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.authenticated_patron">[docs]</a>    <span class="k">def</span> <span class="nf">authenticated_patron</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">header</span><span class="p">):</span>
@@ -879,7 +879,7 @@
             <span class="c1"># BasicAuthenticationProvider.</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span><span class="o">.</span><span class="n">authenticated_patron</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">header</span><span class="p">)</span>
         <span class="k">elif</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span>
-              <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="n">basestring</span><span class="p">)</span>
+              <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span>
               <span class="ow">and</span> <span class="s1">&#39;bearer&#39;</span> <span class="ow">in</span> <span class="n">header</span><span class="o">.</span><span class="n">lower</span><span class="p">()):</span>
 
             <span class="c1"># The patron wants to use an</span>
@@ -888,7 +888,7 @@
                 <span class="n">provider_name</span><span class="p">,</span> <span class="n">provider_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decode_bearer_token_from_header</span><span class="p">(</span>
                     <span class="n">header</span>
                 <span class="p">)</span>
-            <span class="k">except</span> <span class="n">jwt</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InvalidTokenError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">jwt</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InvalidTokenError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">INVALID_OAUTH_BEARER_TOKEN</span>
             <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
@@ -900,7 +900,7 @@
             <span class="c1"># into a Patron.</span>
             <span class="k">return</span> <span class="n">provider</span><span class="o">.</span><span class="n">authenticated_patron</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">provider_token</span><span class="p">)</span>
         <span class="k">elif</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span>
-              <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="n">basestring</span><span class="p">)</span>
+              <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span>
               <span class="ow">and</span> <span class="s1">&#39;bearer&#39;</span> <span class="ow">in</span> <span class="n">header</span><span class="o">.</span><span class="n">lower</span><span class="p">()):</span>
 
             <span class="c1"># The patron wants to use an</span>
@@ -909,7 +909,7 @@
                 <span class="n">provider_name</span><span class="p">,</span> <span class="n">provider_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decode_bearer_token_from_header</span><span class="p">(</span>
                     <span class="n">header</span>
                 <span class="p">)</span>
-            <span class="k">except</span> <span class="n">jwt</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InvalidTokenError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">jwt</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InvalidTokenError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">INVALID_SAML_BEARER_TOKEN</span>
             <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
@@ -957,7 +957,7 @@
             <span class="ow">or</span> <span class="ow">not</span> <span class="n">provider_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="p">):</span>
             <span class="c1"># The patron neglected to specify a provider, or specified</span>
             <span class="c1"># one we don&#39;t support.</span>
-            <span class="n">possibilities</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="n">possibilities</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
             <span class="k">return</span> <span class="n">UNKNOWN_OAUTH_PROVIDER</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">UNKNOWN_OAUTH_PROVIDER</span><span class="o">.</span><span class="n">detail</span> <span class="o">+</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot; The known providers are: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="n">possibilities</span>
@@ -978,7 +978,7 @@
             <span class="ow">or</span> <span class="ow">not</span> <span class="n">provider_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">):</span>
             <span class="c1"># The patron neglected to specify a provider, or specified</span>
             <span class="c1"># one we don&#39;t support.</span>
-            <span class="n">possibilities</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="n">possibilities</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
             <span class="k">return</span> <span class="n">UNKNOWN_SAML_PROVIDER</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">UNKNOWN_SAML_PROVIDER</span><span class="o">.</span><span class="n">detail</span> <span class="o">+</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot; The known providers are: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="n">possibilities</span>
@@ -1006,7 +1006,7 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">jwt</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span>
             <span class="n">payload</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bearer_token_signing_secret</span><span class="p">,</span> <span class="n">algorithm</span><span class="o">=</span><span class="s1">&#39;HS256&#39;</span>
-        <span class="p">)</span></div>
+        <span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LibraryAuthenticator.decode_bearer_token_from_header"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.decode_bearer_token_from_header">[docs]</a>    <span class="k">def</span> <span class="nf">decode_bearer_token_from_header</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Extract auth provider name and access token from an Authenticate</span>
@@ -1112,7 +1112,7 @@
         <span class="k">if</span> <span class="n">css_file</span><span class="p">:</span>
             <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">rel</span><span class="o">=</span><span class="s2">&quot;stylesheet&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;text/css&quot;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">css_file</span><span class="p">))</span>
 
-        <span class="n">library_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_name</span> <span class="ow">or</span> <span class="n">unicode</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library&quot;</span><span class="p">))</span>
+        <span class="n">library_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_name</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library&quot;</span><span class="p">))</span>
         <span class="n">auth_doc_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authentication_document_url</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
         <span class="n">doc</span> <span class="o">=</span> <span class="n">AuthenticationForOPDSDocument</span><span class="p">(</span>
             <span class="nb">id</span><span class="o">=</span><span class="n">auth_doc_url</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">library_name</span><span class="p">,</span>
@@ -1227,7 +1227,7 @@
             <span class="c1"># If we can load the setting as JSON, it is either a list</span>
             <span class="c1"># of place names or a GeoJSON object.</span>
             <span class="n">setting</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">setting</span><span class="p">)</span>
-        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">),</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># The most common outcome -- treat the value as a single place</span>
             <span class="c1"># name by turning it into a list.</span>
             <span class="n">setting</span> <span class="o">=</span> <span class="p">[</span><span class="n">setting</span><span class="p">]</span>
@@ -1414,7 +1414,7 @@
         <span class="k">if</span> <span class="n">regexp</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">regexp</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">regexp</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                     <span class="s2">&quot;Could not configure external type regular expression: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span>
                 <span class="p">)</span>
@@ -1424,7 +1424,7 @@
         <span class="n">field</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">LIBRARY_IDENTIFIER_FIELD</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span>
         <span class="p">)</span><span class="o">.</span><span class="n">value</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">field</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">library_identifier_field</span> <span class="o">=</span> <span class="n">field</span>
 
@@ -1446,7 +1446,7 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_identifier_restriction_type</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">library_identifier_restriction</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">restriction</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">restriction</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">library_identifier_restriction</span> <span class="o">=</span> <span class="n">restriction</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">library_identifier_restriction</span> <span class="o">=</span> <span class="n">restriction</span>
@@ -1701,51 +1701,51 @@
 
     <span class="c1"># Identifiers can be presumed invalid if they don&#39;t match</span>
     <span class="c1"># this regular expression.</span>
-    <span class="n">IDENTIFIER_REGULAR_EXPRESSION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;identifier_regular_expression&#39;</span>
+    <span class="n">IDENTIFIER_REGULAR_EXPRESSION</span> <span class="o">=</span> <span class="s1">&#39;identifier_regular_expression&#39;</span>
 
     <span class="c1"># Passwords can be presumed invalid if they don&#39;t match this regular</span>
     <span class="c1"># expression.</span>
-    <span class="n">PASSWORD_REGULAR_EXPRESSION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;password_regular_expression&#39;</span>
+    <span class="n">PASSWORD_REGULAR_EXPRESSION</span> <span class="o">=</span> <span class="s1">&#39;password_regular_expression&#39;</span>
 
     <span class="c1"># The client should prefer one keyboard over another.</span>
-    <span class="n">IDENTIFIER_KEYBOARD</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;identifier_keyboard&#39;</span>
-    <span class="n">PASSWORD_KEYBOARD</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;password_keyboard&#39;</span>
+    <span class="n">IDENTIFIER_KEYBOARD</span> <span class="o">=</span> <span class="s1">&#39;identifier_keyboard&#39;</span>
+    <span class="n">PASSWORD_KEYBOARD</span> <span class="o">=</span> <span class="s1">&#39;password_keyboard&#39;</span>
 
     <span class="c1"># Constants describing different types of keyboards.</span>
-    <span class="n">DEFAULT_KEYBOARD</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Default&quot;</span>
-    <span class="n">EMAIL_ADDRESS_KEYBOARD</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Email address&quot;</span>
-    <span class="n">NUMBER_PAD</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Number pad&quot;</span>
-    <span class="n">NULL_KEYBOARD</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;No input&quot;</span>
+    <span class="n">DEFAULT_KEYBOARD</span> <span class="o">=</span> <span class="s2">&quot;Default&quot;</span>
+    <span class="n">EMAIL_ADDRESS_KEYBOARD</span> <span class="o">=</span> <span class="s2">&quot;Email address&quot;</span>
+    <span class="n">NUMBER_PAD</span> <span class="o">=</span> <span class="s2">&quot;Number pad&quot;</span>
+    <span class="n">NULL_KEYBOARD</span> <span class="o">=</span> <span class="s2">&quot;No input&quot;</span>
 
     <span class="c1"># The identifier and password can have a maximum</span>
     <span class="c1"># supported length.</span>
-    <span class="n">IDENTIFIER_MAXIMUM_LENGTH</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;identifier_maximum_length&quot;</span>
-    <span class="n">PASSWORD_MAXIMUM_LENGTH</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;password_maximum_length&quot;</span>
+    <span class="n">IDENTIFIER_MAXIMUM_LENGTH</span> <span class="o">=</span> <span class="s2">&quot;identifier_maximum_length&quot;</span>
+    <span class="n">PASSWORD_MAXIMUM_LENGTH</span> <span class="o">=</span> <span class="s2">&quot;password_maximum_length&quot;</span>
 
     <span class="c1"># The client should use a certain string when asking for a patron&#39;s</span>
     <span class="c1"># &quot;identifier&quot; and &quot;password&quot;</span>
-    <span class="n">IDENTIFIER_LABEL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;identifier_label&#39;</span>
-    <span class="n">PASSWORD_LABEL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;password_label&#39;</span>
-    <span class="n">DEFAULT_IDENTIFIER_LABEL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Barcode&quot;</span>
-    <span class="n">DEFAULT_PASSWORD_LABEL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;PIN&quot;</span>
+    <span class="n">IDENTIFIER_LABEL</span> <span class="o">=</span> <span class="s1">&#39;identifier_label&#39;</span>
+    <span class="n">PASSWORD_LABEL</span> <span class="o">=</span> <span class="s1">&#39;password_label&#39;</span>
+    <span class="n">DEFAULT_IDENTIFIER_LABEL</span> <span class="o">=</span> <span class="s2">&quot;Barcode&quot;</span>
+    <span class="n">DEFAULT_PASSWORD_LABEL</span> <span class="o">=</span> <span class="s2">&quot;PIN&quot;</span>
 
     <span class="c1"># If the identifier label is one of these strings, it will be</span>
     <span class="c1"># automatically localized. Otherwise, the same label will be displayed</span>
     <span class="c1"># to everyone.</span>
     <span class="n">COMMON_IDENTIFIER_LABELS</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="sa">u</span><span class="s2">&quot;Barcode&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Barcode&quot;</span><span class="p">),</span>
-        <span class="sa">u</span><span class="s2">&quot;Email Address&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Email Address&quot;</span><span class="p">),</span>
-        <span class="sa">u</span><span class="s2">&quot;Username&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Username&quot;</span><span class="p">),</span>
-        <span class="sa">u</span><span class="s2">&quot;Library Card&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library Card&quot;</span><span class="p">),</span>
-        <span class="sa">u</span><span class="s2">&quot;Card Number&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Card Number&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;Barcode&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Barcode&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;Email Address&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Email Address&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;Username&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Username&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;Library Card&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library Card&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;Card Number&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Card Number&quot;</span><span class="p">),</span>
     <span class="p">}</span>
 
     <span class="c1"># If the password label is one of these strings, it will be</span>
     <span class="c1"># automatically localized. Otherwise, the same label will be</span>
     <span class="c1"># displayed to everyone.</span>
     <span class="n">COMMON_PASSWORD_LABELS</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="sa">u</span><span class="s2">&quot;Password&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Password&quot;</span><span class="p">),</span>
-        <span class="sa">u</span><span class="s2">&quot;PIN&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;PIN&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;Password&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Password&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;PIN&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;PIN&quot;</span><span class="p">),</span>
     <span class="p">}</span>
 
     <span class="n">IDENTIFIER_BARCODE_FORMAT</span> <span class="o">=</span> <span class="s2">&quot;identifier_barcode_format&quot;</span>
@@ -2250,9 +2250,9 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">password_label</span>
         <span class="p">)</span>
         <span class="n">flow_doc</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
-            <span class="n">description</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">DISPLAY_NAME</span><span class="p">),</span>
-            <span class="n">labels</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">login</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">localized_identifier_label</span><span class="p">),</span>
-                        <span class="n">password</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">localized_password_label</span><span class="p">)),</span>
+            <span class="n">description</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">DISPLAY_NAME</span><span class="p">),</span>
+            <span class="n">labels</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">login</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">localized_identifier_label</span><span class="p">),</span>
+                        <span class="n">password</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">localized_password_label</span><span class="p">)),</span>
             <span class="n">inputs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">login</span><span class="o">=</span><span class="n">login_inputs</span><span class="p">,</span>
                           <span class="n">password</span><span class="o">=</span><span class="n">password_inputs</span><span class="p">)</span>
         <span class="p">)</span>
@@ -2589,7 +2589,7 @@
             <span class="n">provider</span><span class="o">=</span><span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">,</span> <span class="n">redirect_uri</span><span class="o">=</span><span class="n">redirect_uri</span>
         <span class="p">)</span>
         <span class="n">state</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
-        <span class="n">state</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">external_authenticate_url</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">_db</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="OAuthController.oauth_authentication_callback"><a class="viewcode-back" href="../../api.html#api.authenticator.OAuthController.oauth_authentication_callback">[docs]</a>    <span class="k">def</span> <span class="nf">oauth_authentication_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
@@ -2617,7 +2617,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">code</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">state</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">INVALID_OAUTH_CALLBACK_PARAMETERS</span>
 
-        <span class="n">state</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">urllib</span><span class="o">.</span><span class="n">unquote</span><span class="p">(</span><span class="n">state</span><span class="p">))</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">unquote</span><span class="p">(</span><span class="n">state</span><span class="p">))</span>
         <span class="n">client_redirect_uri</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;redirect_uri&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
         <span class="n">provider_name</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;provider&#39;</span><span class="p">)</span>
         <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticator</span><span class="o">.</span><span class="n">oauth_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
@@ -2650,7 +2650,7 @@
             <span class="n">access_token</span><span class="o">=</span><span class="n">simplified_token</span><span class="p">,</span>
             <span class="n">patron_info</span><span class="o">=</span><span class="n">patron_info</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">client_redirect_uri</span> <span class="o">+</span> <span class="s2">&quot;#&quot;</span> <span class="o">+</span> <span class="n">urllib</span><span class="o">.</span><span class="n">urlencode</span><span class="p">(</span><span class="n">params</span><span class="p">))</span></div>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">client_redirect_uri</span> <span class="o">+</span> <span class="s2">&quot;#&quot;</span> <span class="o">+</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlencode</span><span class="p">(</span><span class="n">params</span><span class="p">))</span></div>
 
     <span class="k">def</span> <span class="nf">_redirect_with_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">redirect_uri</span><span class="p">,</span> <span class="n">pd</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Redirect the patron to the given URL, with the given ProblemDetail</span>
@@ -2667,15 +2667,13 @@
             <span class="n">pd</span><span class="o">.</span><span class="n">debug_message</span>
         <span class="p">)</span>
         <span class="n">params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">problem_detail_json</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">redirect_uri</span> <span class="o">+</span> <span class="s2">&quot;#&quot;</span> <span class="o">+</span> <span class="n">urllib</span><span class="o">.</span><span class="n">urlencode</span><span class="p">(</span><span class="n">params</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">redirect_uri</span> <span class="o">+</span> <span class="s2">&quot;#&quot;</span> <span class="o">+</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlencode</span><span class="p">(</span><span class="n">params</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="BaseSAMLAuthenticationProvider"><a class="viewcode-back" href="../../api.html#api.authenticator.BaseSAMLAuthenticationProvider">[docs]</a><span class="k">class</span> <span class="nc">BaseSAMLAuthenticationProvider</span><span class="p">(</span><span class="n">AuthenticationProvider</span><span class="p">,</span> <span class="n">BearerTokenSigner</span><span class="p">):</span>
+<div class="viewcode-block" id="BaseSAMLAuthenticationProvider"><a class="viewcode-back" href="../../api.html#api.authenticator.BaseSAMLAuthenticationProvider">[docs]</a><span class="k">class</span> <span class="nc">BaseSAMLAuthenticationProvider</span><span class="p">(</span><span class="n">AuthenticationProvider</span><span class="p">,</span> <span class="n">BearerTokenSigner</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">ABCMeta</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Base class for SAML authentication providers</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">ABCMeta</span>
 
     <span class="n">NAME</span> <span class="o">=</span> <span class="s1">&#39;SAML 2.0&#39;</span>
 
@@ -2747,7 +2745,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

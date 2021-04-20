@@ -144,10 +144,10 @@
         <span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">root</span> <span class="o">=</span> <span class="n">fromstring</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+            <span class="n">root</span> <span class="o">=</span> <span class="n">fromstring</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">SAMLFederatedMetadataValidationError</span><span class="p">(</span>
-                <span class="s2">&quot;Metadata&#39;s XML is not valid&quot;</span><span class="p">,</span> <span class="n">exception</span>
+                <span class="s2">&quot;Metadata&#39;s XML is not valid&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">exception</span><span class="p">)</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="s2">&quot;EntitiesDescriptor&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">tag</span><span class="p">:</span>
@@ -281,7 +281,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
