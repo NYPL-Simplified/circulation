@@ -1,5 +1,5 @@
 FROM phusion/baseimage:bionic-1.0.0
-MAINTAINER Library Simplified <info@librarysimplified.org>
+LABEL maintainer="Library Simplified <info@librarysimplified.org>"
 
 ARG version
 ARG repo="NYPL-Simplified/circulation"
