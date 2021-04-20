@@ -113,6 +113,7 @@ from core.util import LanguageCodes
 from core.util.opds_writer import (
     OPDSFeed,
 )
+from core.util.datetime_helpers import utc_now
 
 
 class Script(CoreScript):
@@ -765,7 +766,7 @@ class CacheMARCFiles(LaneSweeperScript):
 
         if files_q.count() > 0:
             last_update = files_q.first().end_time
-        if not self.force and last_update and (last_update > datetime.utcnow() - timedelta(days=update_frequency)):
+        if not self.force and last_update and (last_update > utc_now() - timedelta(days=update_frequency)):
             self.log.info("Skipping lane %s because last update was less than %d days ago" % (lane.display_name, update_frequency))
             return
 
@@ -1026,7 +1027,7 @@ class LoanReaperScript(TimestampScript):
     name = "Remove expired loans and holds from local database"
 
     def do_run(self):
-        now = datetime.utcnow()
+        now = utc_now()
 
         # Reap loans and holds that we know have expired.
         for obj, what in ((Loan, 'loans'), (Hold, 'holds')):
