@@ -27,12 +27,8 @@ jobs:
       - name: Build Docs
         run: |
           cd docs
-          make
-
-      # - uses: ammaraskar/sphinx-action@master
-      #   with:
-      #     docs-folder: "docs/"
-          # pre-build-command: "apt-get install --yes libxmlsec1-dev libxml2-dev libxmlsec1-openssl"
+          make html
+          cd ..
 
       # Publish built docs to gh-pages branch.
       # ===============================
