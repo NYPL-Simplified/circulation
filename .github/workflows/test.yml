@@ -2,7 +2,7 @@ name: Test Circulation
 on: [push, pull_request]
 
 jobs:
-  test-core:
+  test-circulation:
     name: Run Circulation Tests
     runs-on: ubuntu-latest
     strategy:
