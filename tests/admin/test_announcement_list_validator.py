@@ -1,8 +1,3 @@
-from nose.tools import (
-    eq_,
-    set_trace,
-)
-
 from datetime import (
     date,
     datetime,
@@ -20,15 +15,15 @@ class TestAnnouncementListValidator(AnnouncementTest):
 
     def assert_invalid(self, x, detail):
         assert isinstance(x, ProblemDetail)
-        eq_(INVALID_INPUT.uri, x.uri)
-        eq_(detail, x.detail)
+        assert INVALID_INPUT.uri == x.uri
+        assert detail == x.detail
 
     def test_defaults(self):
         validator = AnnouncementListValidator()
-        eq_(3, validator.maximum_announcements)
-        eq_(15, validator.minimum_announcement_length)
-        eq_(350, validator.maximum_announcement_length)
-        eq_(60, validator.default_duration_days)
+        assert 3 == validator.maximum_announcements
+        assert 15 == validator.minimum_announcement_length
+        assert 350 == validator.maximum_announcement_length
+        assert 60 == validator.default_duration_days
 
     def test_validate_announcements(self):
         # validate_announcement succeeds if every individual announcment succeeds,
@@ -55,11 +50,11 @@ class TestAnnouncementListValidator(AnnouncementTest):
             {"id": "announcement2", "validated": True},
         ]
         validated = m(before)
-        eq_(validated, after)
+        assert validated == after
 
         # If a JSON string is passed in, it will be decoded before
         # processing.
-        eq_(m(json.dumps(before)), after)
+        assert m(json.dumps(before)) == after
 
         # If you pass in something other than a list or JSON-encoded
         # list, you get a ProblemDetail.
@@ -120,19 +115,19 @@ class TestAnnouncementListValidator(AnnouncementTest):
 
         # A UUID has been added in the 'id' field.
         id = validated.pop('id')
-        eq_(36, len(id))
+        assert 36 == len(id)
         for position in 8, 13, 18, 23:
-            eq_('-', id[position])
+            assert '-' == id[position]
 
         # Date strings have been converted to date objects.
-        eq_(today, validated['start'])
-        eq_(in_a_week, validated['finish'])
+        assert today == validated['start']
+        assert in_a_week == validated['finish']
         
         # Now simulate an edit, where an ID is provided.
         validated['id'] = 'an existing id'
 
         # Now the incoming data is validated but not changed at all.
-        eq_(validated, m(validated))
+        assert validated == m(validated)
 
         # If no start date is specified, today's date is used. If no
         # finish date is specified, a default associated with the
@@ -141,9 +136,9 @@ class TestAnnouncementListValidator(AnnouncementTest):
             content="This is a test of announcment validation"
         )
         validated = m(no_finish_date)
-        eq_(today, validated['start'])
-        eq_(
-            today + timedelta(days=validator.default_duration_days),
+        assert today == validated['start']
+        assert (
+            today + timedelta(days=validator.default_duration_days) ==
             validated['finish']
         )
 
@@ -200,7 +195,7 @@ class TestAnnouncementListValidator(AnnouncementTest):
         # it's tested in validate_announcement.
         m = AnnouncementListValidator.validate_length
         value = "four"
-        eq_(value, m(value, 3, 5))
+        assert value == m(value, 3, 5)
         
         self.assert_invalid(
             m(value, 10, 20),
@@ -221,9 +216,9 @@ class TestAnnouncementListValidator(AnnouncementTest):
 
         # The incoming date can be either a string, date, or datetime.
         # The output is always a date.
-        eq_(february_1, m("somedate", "2020-2-1"))
-        eq_(february_1, m("somedate", february_1))
-        eq_(february_1, m("somedate", datetime(2020, 2, 1)))
+        assert february_1 == m("somedate", "2020-2-1")
+        assert february_1 == m("somedate", february_1)
+        assert february_1 == m("somedate", datetime(2020, 2, 1))
 
         # But if a string is used, it must be in a specific format.        
         self.assert_invalid(
@@ -235,8 +230,8 @@ class TestAnnouncementListValidator(AnnouncementTest):
         
         january_1 = date(2020, 1, 1)
         january_1_datetime = datetime(2020, 1, 1)
-        eq_(february_1, m("somedate", february_1, minimum=january_1))
-        eq_(february_1, m("somedate", february_1, minimum=january_1_datetime))
+        assert february_1 == m("somedate", february_1, minimum=january_1)
+        assert february_1 == m("somedate", february_1, minimum=january_1_datetime)
 
         self.assert_invalid(
             m("somedate", january_1, minimum=february_1),
@@ -261,6 +256,6 @@ class TestAnnouncementListValidator(AnnouncementTest):
         # self.active and self.forthcoming -- they were converted into
         # Announcement objects and then back to dictionaries using
         # Announcement.json_ready.
-        eq_([Announcement(**x).json_ready for x in announcements], as_list)
+        assert [Announcement(**x).json_ready for x in announcements] == as_list
 
         
