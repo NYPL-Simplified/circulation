@@ -16,7 +16,7 @@ jobs:
       - uses: ammaraskar/sphinx-action@master
         with:
           docs-folder: "docs/"
-          pre-build-command: "sudo apt-get install --yes libxmlsec1-dev libxml2-dev libxmlsec1-openssl"
+          pre-build-command: "apt-get install --yes libxmlsec1-dev libxml2-dev libxmlsec1-openssl"
 
       # Publish built docs to gh-pages branch.
       # ===============================
