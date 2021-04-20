@@ -13,10 +13,26 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: ammaraskar/sphinx-action@master
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
-          docs-folder: "docs/"
-          pre-build-command: "apt-get install --yes libxmlsec1-dev libxml2-dev libxmlsec1-openssl"
+          python-version: 3.7
+
+      - name: Install Apt Packages
+        run: |
+          sudo apt-get install --yes libxmlsec1-dev libxml2-dev libxmlsec1-openssl
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Build Docs
+        run: |
+          cd docs
+          make
+
+      # - uses: ammaraskar/sphinx-action@master
+      #   with:
+      #     docs-folder: "docs/"
+          # pre-build-command: "apt-get install --yes libxmlsec1-dev libxml2-dev libxmlsec1-openssl"
 
       # Publish built docs to gh-pages branch.
       # ===============================
