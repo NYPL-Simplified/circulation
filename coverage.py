@@ -1,5 +1,3 @@
-
-import datetime
 import logging
 import traceback
 
@@ -28,7 +26,7 @@ from .metadata_layer import (
     TimestampData,
 )
 from .util.worker_pools import DatabaseJob
-
+from .util.datetime_helpers import utc_now
 from . import log # This sets the appropriate log format.
 
 class CoverageFailure(object):
@@ -211,7 +209,7 @@ class BaseCoverageProvider(object):
         return self.OPERATION
 
     def run(self):
-        start = datetime.datetime.utcnow()
+        start = utc_now()
         result = self.run_once_and_update_timestamp()
 
         result = result or CoverageProviderProgress()
@@ -226,7 +224,7 @@ class BaseCoverageProvider(object):
             BaseCoverageRecord.PREVIOUSLY_ATTEMPTED,
             BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
         ]
-        start_time = datetime.datetime.utcnow()
+        start_time = utc_now()
         timestamp = self.timestamp
 
         # We'll use this TimestampData object to track our progress
@@ -262,7 +260,7 @@ class BaseCoverageProvider(object):
                         self.service_name, exc_info=e
                     )
                     progress.exception=traceback.format_exc()
-                    progress.finish=datetime.datetime.utcnow()
+                    progress.finish=utc_now()
 
                 # The next run_once() call might raise an exception,
                 # so let's write the work to the database as it's
@@ -336,7 +334,7 @@ class BaseCoverageProvider(object):
 
         if not batch.count():
             # The batch is empty. We're done.
-            progress.finish = datetime.datetime.utcnow()
+            progress.finish = utc_now()
             return progress
 
         (successes, transient_failures, persistent_failures), results = (

@@ -1,12 +1,13 @@
 
 import importlib
 import contextlib
-import datetime
 import os
 from collections import defaultdict
+from sqlalchemy.orm.session import Session
+
 from .model import ExternalIntegration
 from .config import CannotLoadConfiguration
-from sqlalchemy.orm.session import Session
+from .util.datetime_helpers import utc_now
 
 class Analytics(object):
 
@@ -53,7 +54,7 @@ class Analytics(object):
 
     def collect_event(self, library, license_pool, event_type, time=None, **kwargs):
         if not time:
-            time = datetime.datetime.utcnow()
+            time = utc_now()
         providers = list(self.sitewide_providers)
         if library:
             providers.extend(self.library_providers[library.id])

@@ -73,6 +73,7 @@ from .selftest import (
 from .util.personal_names import display_name_to_sort_name
 from .util.problem_detail import ProblemDetail
 from .util.stopwords import ENGLISH_STOPWORDS
+from .util.datetime_helpers import from_timestamp
 
 import os
 import logging
@@ -2551,7 +2552,7 @@ class Filter(SearchBase):
             updated_after = self.updated_after
             if isinstance(updated_after, datetime.datetime):
                 updated_after = (
-                    updated_after - datetime.datetime.utcfromtimestamp(0)
+                    updated_after - from_timestamp(0)
                 ).total_seconds()
             last_update_time_query = self._match_range(
                 'last_update_time', 'gte', updated_after

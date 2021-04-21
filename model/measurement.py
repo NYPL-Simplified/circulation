@@ -129,7 +129,7 @@ class Measurement(Base):
     weight = Column(Float, default=1)
 
     # When the measurement was taken
-    taken_at = Column(DateTime, index=True)
+    taken_at = Column(DateTime(timezone=True), index=True)
 
     # True if this is the most recent measurement of this quantity for
     # this Identifier.

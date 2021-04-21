@@ -1,12 +1,6 @@
 # encoding: utf-8
 # LoanAndHoldMixin, Patron, Loan, Hold, Annotation, PatronProfileStorage
 
-from . import (
-    Base,
-    get_one_or_create,
-    numericrange_to_tuple
-)
-from .credential import Credential
 import datetime
 import logging
 from sqlalchemy import (
@@ -25,9 +19,17 @@ from psycopg2.extras import NumericRange
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
+import uuid
+
+from . import (
+    Base,
+    get_one_or_create,
+    numericrange_to_tuple
+)
+from .credential import Credential
 from ..classifier import Classifier
 from ..user_profile import ProfileStorage
-import uuid
+from ..util.datetime_helpers import utc_now
 
 class LoanAndHoldMixin(object):
 
@@ -92,13 +94,13 @@ class Patron(Base):
 
     # The last time this record was synced up with an external library
     # system such as an ILS.
-    last_external_sync = Column(DateTime)
+    last_external_sync = Column(DateTime(timezone=True))
 
     # The last time this record was synced with the corresponding
     # records managed by the vendors who provide the library with
     # ebooks.
     _last_loan_activity_sync = Column(
-        DateTime, default=None, name="last_loan_activity_sync"
+        DateTime(timezone=True), default=None, name="last_loan_activity_sync"
     )
 
     # The time, if any, at which the user's authorization to borrow
@@ -245,7 +247,7 @@ class Patron(Base):
 
         # We have an answer, but it may be so old that we should clear
         # it out.
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         expires = value + datetime.timedelta(
             seconds=self.loan_activity_max_age
         )
@@ -504,8 +506,8 @@ class Loan(Base, LoanAndHoldMixin):
     license_id = Column(Integer, ForeignKey('licenses.id'), index=True, nullable=True)
 
     fulfillment_id = Column(Integer, ForeignKey('licensepooldeliveries.id'))
-    start = Column(DateTime, index=True)
-    end = Column(DateTime, index=True)
+    start = Column(DateTime(timezone=True), index=True)
+    end = Column(DateTime(timezone=True), index=True)
     # Some distributors (e.g. Feedbooks) may have an identifier that can
     # be used to check the status of a specific Loan.
     external_identifier = Column(Unicode, unique=True, nullable=True)
@@ -524,7 +526,7 @@ class Loan(Base, LoanAndHoldMixin):
         if default_loan_period is None:
             # This loan will last forever.
             return None
-        start = self.start or datetime.datetime.utcnow()
+        start = self.start or utc_now()
         return start + default_loan_period
 
 class Hold(Base, LoanAndHoldMixin):
@@ -535,8 +537,8 @@ class Hold(Base, LoanAndHoldMixin):
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
     integration_client_id = Column(Integer, ForeignKey('integrationclients.id'), index=True)
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
-    start = Column(DateTime, index=True)
-    end = Column(DateTime, index=True)
+    start = Column(DateTime(timezone=True), index=True)
+    end = Column(DateTime(timezone=True), index=True)
     position = Column(Integer, index=True)
     external_identifier = Column(Unicode, unique=True, nullable=True)
     
@@ -601,7 +603,7 @@ class Hold(Base, LoanAndHoldMixin):
         this--the library's license might expire and then you'll
         _never_ get the book.)
         """
-        if self.end and self.end > datetime.datetime.utcnow():
+        if self.end and self.end > utc_now():
             # The license source provided their own estimate, and it's
             # not obviously wrong, so use it.
             return self.end
@@ -612,7 +614,7 @@ class Hold(Base, LoanAndHoldMixin):
             # book.
             return None
 
-        start = datetime.datetime.utcnow()
+        start = utc_now()
         licenses_available = self.license_pool.licenses_owned
         position = self.position
         if position is None:
@@ -661,7 +663,7 @@ class Annotation(Base):
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
     identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
     motivation = Column(Unicode, index=True)
-    timestamp = Column(DateTime, index=True)
+    timestamp = Column(DateTime(timezone=True), index=True)
     active = Column(Boolean, default=True)
     content = Column(Unicode)
     target = Column(Unicode)
@@ -683,7 +685,7 @@ class Annotation(Base):
     def set_inactive(self):
         self.active = False
         self.content = None
-        self.timestamp = datetime.datetime.utcnow()
+        self.timestamp = utc_now()
 
 class PatronProfileStorage(ProfileStorage):
     """Interface between a Patron object and the User Profile Management

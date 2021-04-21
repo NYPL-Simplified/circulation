@@ -1,12 +1,12 @@
 """Define the interfaces used by ExternalIntegration self-tests.
 """
 from .util.http import IntegrationException
-import datetime
 import json
 import logging
 import traceback
-from .util.opds_writer import AtomFeed
 
+from .util.opds_writer import AtomFeed
+from .util.datetime_helpers import utc_now
 
 class SelfTestResult(object):
     """The result of running a single self-test.
@@ -29,7 +29,7 @@ class SelfTestResult(object):
         self.result = None
 
         # Start time of the test.
-        self.start = datetime.datetime.utcnow()
+        self.start = utc_now()
 
         # End time of the test.
         self.end = None
@@ -139,7 +139,7 @@ class HasSelfTests(object):
         from .external_search import ExternalSearchIndex
 
         constructor_method = constructor_method or cls
-        start = datetime.datetime.utcnow()
+        start = utc_now()
         result = SelfTestResult("Initial setup.")
         instance = None
         integration = None
@@ -154,7 +154,7 @@ class HasSelfTests(object):
             result.exception = e
             result.success = False
         finally:
-            result.end = datetime.datetime.utcnow()
+            result.end = utc_now()
         results.append(result)
         if instance:
             try:
@@ -170,7 +170,7 @@ class HasSelfTests(object):
                 results.append(failure)
 
 
-        end = datetime.datetime.utcnow()
+        end = utc_now()
 
         # Format the results in a useful way.
 
@@ -260,7 +260,7 @@ class HasSelfTests(object):
             result.result = None
         finally:
             if not result.end:
-                result.end = datetime.datetime.utcnow()
+                result.end = utc_now()
 
         return result
 

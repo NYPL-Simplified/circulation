@@ -1,10 +1,8 @@
 # encoding: utf-8
 # WorkGenre, Work
 
-import datetime
 import logging
 from collections import Counter
-
 from sqlalchemy import (
     Boolean,
     Column,
@@ -64,6 +62,7 @@ from ..classifier import (
 )
 from ..config import CannotLoadConfiguration
 from ..util import LanguageCodes
+from ..util.datetime_helpers import utc_now
 
 
 class WorkGenre(Base):
@@ -192,7 +191,7 @@ class Work(Base):
     appeal_story = Column(Float, default=None, index=True)
 
     # The last time the availability or metadata changed for this Work.
-    last_update_time = Column(DateTime, index=True)
+    last_update_time = Column(DateTime(timezone=True), index=True)
 
     # This is set to True once all metadata and availability
     # information has been obtained for this Work. Until this is True,
@@ -200,7 +199,7 @@ class Work(Base):
     presentation_ready = Column(Boolean, default=False, index=True)
 
     # This is the last time we tried to make this work presentation ready.
-    presentation_ready_attempt = Column(DateTime, default=None, index=True)
+    presentation_ready_attempt = Column(DateTime(timezone=True), default=None, index=True)
 
     # This is the error that occured while trying to make this Work
     # presentation ready. Until this is cleared, no further attempt
@@ -1006,7 +1005,7 @@ class Work(Base):
             # last_update_time tracks the last time the data actually
             # changed, not the last time we checked whether or not to
             # change it.
-            self.last_update_time = datetime.datetime.utcnow()
+            self.last_update_time = utc_now()
 
         if changed or policy.regenerate_opds_entries:
             self.calculate_opds_entries()
@@ -1258,7 +1257,7 @@ class Work(Base):
         In most cases you should call set_presentation_ready_based_on_content
         instead, which runs those checks.
         """
-        as_of = as_of or datetime.datetime.utcnow()
+        as_of = as_of or utc_now()
         self.presentation_ready = True
         self.presentation_ready_exception = None
         self.presentation_ready_attempt = as_of

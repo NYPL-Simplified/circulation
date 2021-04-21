@@ -2,12 +2,6 @@
 # CirculationEvent
 
 
-from . import (
-    Base,
-    get_one_or_create,
-)
-
-import datetime
 import logging
 from sqlalchemy import (
     Column,
@@ -18,6 +12,12 @@ from sqlalchemy import (
     String,
     Unicode,
 )
+
+from . import (
+    Base,
+    get_one_or_create,
+)
+from ..util.datetime_helpers import utc_now
 
 class CirculationEvent(Base):
 
@@ -37,8 +37,8 @@ class CirculationEvent(Base):
         Integer, ForeignKey('licensepools.id'), index=True)
 
     type = Column(String(32), index=True)
-    start = Column(DateTime, index=True)
-    end = Column(DateTime)
+    start = Column(DateTime(timezone=True), index=True)
+    end = Column(DateTime(timezone=True))
     old_value = Column(Integer)
     delta = Column(Integer)
     new_value = Column(Integer)
@@ -140,7 +140,7 @@ class CirculationEvent(Base):
         else:
             delta = new_value - old_value
         if not start:
-            start = datetime.datetime.utcnow()
+            start = utc_now()
         if not end:
             end = start
         event, was_new = get_one_or_create(

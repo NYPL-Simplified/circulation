@@ -1,7 +1,6 @@
 # encoding: utf-8
 import pytest
 from collections import defaultdict
-import datetime
 import json
 import logging
 import re
@@ -85,6 +84,8 @@ from ..testing import (
     ExternalSearchTest,
     EndToEndSearchTest,
 )
+from ..util.datetime_helpers import datetime_utc, from_timestamp
+
 
 RESEARCH = Term(audience=Classifier.AUDIENCE_RESEARCH.lower())
 
@@ -434,13 +435,13 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.moby_dick.presentation_edition.series = "Classics"
         self.moby_dick.summary_text = "Ishmael"
         self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
-        self.moby_dick.last_update_time = datetime.datetime(2019, 1, 1)
+        self.moby_dick.last_update_time = datetime_utc(2019, 1, 1)
 
         self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
         self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
         self.moby_duck.summary_text = "A compulsively readable narrative"
         self.moby_duck.presentation_edition.publisher = "Penguin"
-        self.moby_duck.last_update_time = datetime.datetime(2019, 1, 2)
+        self.moby_duck.last_update_time = datetime_utc(2019, 1, 2)
         # This book is not currently loanable. It will still show up
         # in search results unless the library's settings disable it.
         self.moby_duck.license_pools[0].licenses_available = 0
@@ -1226,9 +1227,9 @@ class TestSearchOrder(EndToEndSearchTest):
         self.b = self.moby_duck
         self.c = self.untitled
 
-        self.a.last_update_time = datetime.datetime(2000, 1, 1)
-        self.b.last_update_time = datetime.datetime(2001, 1, 1)
-        self.c.last_update_time = datetime.datetime(2002, 1, 1)
+        self.a.last_update_time = datetime_utc(2000, 1, 1)
+        self.b.last_update_time = datetime_utc(2001, 1, 1)
+        self.c.last_update_time = datetime_utc(2002, 1, 1)
 
         # Each work has one LicensePool associated with the default
         # collection.
@@ -1237,9 +1238,9 @@ class TestSearchOrder(EndToEndSearchTest):
         [self.a1] = self.a.license_pools
         [self.b1] = self.b.license_pools
         [self.c1] = self.c.license_pools
-        self.a1.availability_time = datetime.datetime(2010, 1, 1)
-        self.c1.availability_time = datetime.datetime(2011, 1, 1)
-        self.b1.availability_time = datetime.datetime(2012, 1, 1)
+        self.a1.availability_time = datetime_utc(2010, 1, 1)
+        self.c1.availability_time = datetime_utc(2011, 1, 1)
+        self.b1.availability_time = datetime_utc(2012, 1, 1)
 
         # Here's a second collection with the same books in a different
         # order.
@@ -1262,9 +1263,9 @@ class TestSearchOrder(EndToEndSearchTest):
 
         )
         self.c.license_pools.append(self.c2)
-        self.b2.availability_time = datetime.datetime(2020, 1, 1)
-        self.a2.availability_time = datetime.datetime(2021, 1, 1)
-        self.c2.availability_time = datetime.datetime(2022, 1, 1)
+        self.b2.availability_time = datetime_utc(2020, 1, 1)
+        self.a2.availability_time = datetime_utc(2021, 1, 1)
+        self.c2.availability_time = datetime_utc(2022, 1, 1)
 
         # Here are three custom lists which contain the same books but
         # with different first appearances.
@@ -1272,36 +1273,36 @@ class TestSearchOrder(EndToEndSearchTest):
             name="Custom list 1 - BCA", num_entries=0
         )
         self.list1.add_entry(
-            self.b, first_appearance=datetime.datetime(2030, 1, 1)
+            self.b, first_appearance=datetime_utc(2030, 1, 1)
         )
         self.list1.add_entry(
-            self.c, first_appearance=datetime.datetime(2031, 1, 1)
+            self.c, first_appearance=datetime_utc(2031, 1, 1)
         )
         self.list1.add_entry(
-            self.a, first_appearance=datetime.datetime(2032, 1, 1)
+            self.a, first_appearance=datetime_utc(2032, 1, 1)
         )
 
         self.list2, ignore = self._customlist(
             name="Custom list 2 - CAB", num_entries=0
         )
         self.list2.add_entry(
-            self.c, first_appearance=datetime.datetime(2001, 1, 1)
+            self.c, first_appearance=datetime_utc(2001, 1, 1)
         )
         self.list2.add_entry(
-            self.a, first_appearance=datetime.datetime(2014, 1, 1)
+            self.a, first_appearance=datetime_utc(2014, 1, 1)
         )
         self.list2.add_entry(
-            self.b, first_appearance=datetime.datetime(2015, 1, 1)
+            self.b, first_appearance=datetime_utc(2015, 1, 1)
         )
 
         self.list3, ignore = self._customlist(
             name="Custom list 3 -- CA", num_entries=0
         )
         self.list3.add_entry(
-            self.a, first_appearance=datetime.datetime(2032, 1, 1)
+            self.a, first_appearance=datetime_utc(2032, 1, 1)
         )
         self.list3.add_entry(
-            self.c, first_appearance=datetime.datetime(1999, 1, 1)
+            self.c, first_appearance=datetime_utc(1999, 1, 1)
         )
 
         # Create two custom lists which contain some of the same books,
@@ -1312,10 +1313,10 @@ class TestSearchOrder(EndToEndSearchTest):
             num_entries=0
         )
         self.by_publication_date.add_entry(
-            self.moby_duck, first_appearance=datetime.datetime(2011, 3, 1)
+            self.moby_duck, first_appearance=datetime_utc(2011, 3, 1)
         )
         self.by_publication_date.add_entry(
-            self.untitled, first_appearance=datetime.datetime(2018, 1, 1)
+            self.untitled, first_appearance=datetime_utc(2018, 1, 1)
         )
 
         self.staff_picks, ignore = self._customlist(
@@ -1323,10 +1324,10 @@ class TestSearchOrder(EndToEndSearchTest):
             num_entries=0
         )
         self.staff_picks.add_entry(
-            self.moby_dick, first_appearance=datetime.datetime(2015, 5, 2)
+            self.moby_dick, first_appearance=datetime_utc(2015, 5, 2)
         )
         self.staff_picks.add_entry(
-            self.moby_duck, first_appearance=datetime.datetime(2012, 8, 30)
+            self.moby_duck, first_appearance=datetime_utc(2012, 8, 30)
         )
 
         # Create two extra works, d and e, which are only used to
@@ -1337,19 +1338,19 @@ class TestSearchOrder(EndToEndSearchTest):
         self.collection3 = self._collection()
         self.d = self._work(collection=self.collection3, with_license_pool=True)
         self.e = self._work(collection=self.collection3, with_license_pool=True)
-        self.d.license_pools[0].availability_time = datetime.datetime(2010, 1, 1)
-        self.e.license_pools[0].availability_time = datetime.datetime(2011, 1, 1)
+        self.d.license_pools[0].availability_time = datetime_utc(2010, 1, 1)
+        self.e.license_pools[0].availability_time = datetime_utc(2011, 1, 1)
 
         self.extra_list, ignore = self._customlist(num_entries=0)
         self.extra_list.add_entry(
-            self.d, first_appearance=datetime.datetime(2020, 1, 1)
+            self.d, first_appearance=datetime_utc(2020, 1, 1)
         )
         self.extra_list.add_entry(
-            self.e, first_appearance=datetime.datetime(2021, 1, 1)
+            self.e, first_appearance=datetime_utc(2021, 1, 1)
         )
 
-        self.e.last_update_time = datetime.datetime(2090, 1, 1)
-        self.d.last_update_time = datetime.datetime(2091, 1, 1)
+        self.e.last_update_time = datetime_utc(2090, 1, 1)
+        self.d.last_update_time = datetime_utc(2091, 1, 1)
 
     def test_ordering(self):
 
@@ -3511,7 +3512,7 @@ class TestFilter(DatabaseTest):
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         filter.excluded_audiobook_data_sources = [overdrive.id]
         filter.allow_holds = False
-        last_update_time = datetime.datetime(2019, 1, 1)
+        last_update_time = datetime_utc(2019, 1, 1)
         i1 = self._identifier()
         i2 = self._identifier()
         filter.identifiers = [i1, i2]
@@ -3650,7 +3651,7 @@ class TestFilter(DatabaseTest):
         # metadata. The datetime is converted to a number of seconds since
         # the epoch, since that's how we index times.
         expect = (
-            last_update_time - datetime.datetime.utcfromtimestamp(0)
+            last_update_time - from_timestamp(0)
         ).total_seconds()
         assert (
             {'bool': {'must': [

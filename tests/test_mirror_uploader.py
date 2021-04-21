@@ -1,5 +1,3 @@
-import datetime
-
 import pytest
 from parameterized import parameterized
 
@@ -9,7 +7,7 @@ from ..mirror import MirrorUploader
 from ..model import ExternalIntegration
 from ..model.configuration import ExternalIntegrationLink
 from ..s3 import S3Uploader, MinIOUploader, MinIOUploaderConfiguration, S3UploaderConfiguration
-
+from ..util.datetime_helpers import utc_now
 
 class DummySuccessUploader(MirrorUploader):
     def __init__(self, integration=None):
@@ -180,7 +178,7 @@ class TestMirrorUploader(DatabaseTest):
 
     def test_success_and_then_failure(self):
         r, ignore = self._representation()
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         DummySuccessUploader().mirror_one(r, '')
         assert r.mirrored_at > now
         assert None == r.mirror_exception

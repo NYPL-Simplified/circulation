@@ -1,24 +1,22 @@
 import contextlib
-import datetime
-
 import os
 import json
 import logging
 import copy
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import make_url
+from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm.session import Session
 from flask_babel import lazy_gettext as _
 
 from .facets import FacetConstants
 from .entrypoint import EntryPoint
-
-from sqlalchemy.exc import ArgumentError
 from .util import LanguageCodes
-
+from .util.datetime_helpers import utc_now
 # It's convenient for other modules import IntegrationException
 # from this module, alongside CannotLoadConfiguration.
 from .util.http import IntegrationException
+from .util.datetime_helpers import to_utc
 
 
 class CannotLoadConfiguration(IntegrationException):
@@ -561,7 +559,7 @@ class Configuration(ConfigurationConstants):
 
         """
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
 
         # NOTE: Currently we never check the database (because timeout is
         # never set to None). This code will hopefully be removed soon.
@@ -617,7 +615,10 @@ class Configuration(ConfigurationConstants):
         """Get the raw SITE_CONFIGURATION_LAST_UPDATE value,
         without any attempt to find a fresher value from the database.
         """
-        return cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
+        last_update = cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
+        if last_update:
+            last_update = to_utc(last_update)
+        return last_update
 
     @classmethod
     def load_from_file(cls):

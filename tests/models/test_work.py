@@ -1,11 +1,12 @@
 # encoding: utf-8
 import pytest
 import datetime
-from ...external_search import MockExternalSearchIndex
 from mock import MagicMock
 import os
 from psycopg2.extras import NumericRange
 import random
+
+from ...external_search import MockExternalSearchIndex
 from ...testing import DatabaseTest
 from ...classifier import (
     Classifier,
@@ -37,6 +38,8 @@ from ...model.work import (
     Work,
     WorkGenre,
 )
+from ...util.datetime_helpers import from_timestamp
+from ...util.datetime_helpers import datetime_utc, utc_now
 
 
 class TestWork(DatabaseTest):
@@ -278,7 +281,7 @@ class TestWork(DatabaseTest):
 
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
-        assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+        assert (utc_now() - work.last_update_time) < datetime.timedelta(seconds=2)
 
         # The index has not been updated.
         assert [] == list(index.docs.items())
@@ -334,7 +337,7 @@ class TestWork(DatabaseTest):
 
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
-        assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+        assert (utc_now() - work.last_update_time) < datetime.timedelta(seconds=2)
 
         # make a staff (admin interface) edition.  its fields should supercede all others below it
         # except when it has no contributors, and they do.
@@ -845,7 +848,7 @@ class TestWork(DatabaseTest):
 
         cover_rep = cover_link.resource.representation
         cover_rep.mirror_url = cover_href
-        cover_rep.mirrored_at = datetime.datetime.utcnow()
+        cover_rep.mirrored_at = utc_now()
         cover_rep.thumbnails.append(thumbnail_rep)
 
         edition.set_cover(cover_link.resource)
@@ -1029,8 +1032,8 @@ class TestWork(DatabaseTest):
 
         # Add two custom lists. The work is featured on one list but
         # not the other.
-        appeared_1 = datetime.datetime(2010, 1, 1)
-        appeared_2 = datetime.datetime(2011, 1, 1)
+        appeared_1 = datetime_utc(2010, 1, 1)
+        appeared_2 = datetime_utc(2011, 1, 1)
         l1, ignore = self._customlist(num_entries=0)
         l1.add_entry(work, featured=False, update_external_index=False,
                      first_appearance=appeared_1)
@@ -1050,7 +1053,7 @@ class TestWork(DatabaseTest):
         work.summary_text = self._str
         work.rating = 5
         work.popularity = 4
-        work.last_update_time = datetime.datetime.utcnow()
+        work.last_update_time = utc_now()
 
         # Make sure all of this will show up in a database query.
         self._db.flush()
@@ -1068,7 +1071,7 @@ class TestWork(DatabaseTest):
             :param postgres: A float from the Postgres part.
             """
             expect = (
-                python - datetime.datetime.utcfromtimestamp(0)
+                python - from_timestamp(0)
             ).total_seconds()
             assert int(expect) == int(postgres)
 
@@ -1424,7 +1427,7 @@ class TestWork(DatabaseTest):
         # LicensePool.update_availability is called, meaning that
         # patron transactions always trigger a reindex).
         record.status = success
-        work.last_update_time = datetime.datetime.utcnow()
+        work.last_update_time = utc_now()
         assert registered == record.status
 
         # If its collection changes (which shouldn't happen), it needs

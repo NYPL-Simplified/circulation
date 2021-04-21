@@ -1,5 +1,4 @@
 import argparse
-import datetime
 import logging
 import os
 import random
@@ -9,6 +8,7 @@ import sys
 import traceback
 import unicodedata
 import uuid
+from pdb import set_trace
 from collections import defaultdict
 from enum import Enum
 from sqlalchemy import (
@@ -23,7 +23,6 @@ from sqlalchemy.orm.exc import (
     MultipleResultsFound,
 )
 
-# from axis import Axis360BibliographicCoverageProvider
 from .config import Configuration, CannotLoadConfiguration
 from .coverage import (
     CollectionCoverageProviderJob,
@@ -81,9 +80,6 @@ from .opds_import import (
     OPDSImportMonitor,
     OPDSImporter,
 )
-# from oneclick import (
-#     OneClickBibliographicCoverageProvider,
-# )
 from .util import fast_query_count
 from .util.personal_names import (
     contributor_name_match_ratio,
@@ -92,6 +88,7 @@ from .util.personal_names import (
 from .util.worker_pools import (
     DatabasePool,
 )
+from .util.datetime_helpers import strptime_utc, to_utc, utc_now
 
 
 class Script(object):
@@ -139,9 +136,7 @@ class Script(object):
             for hours in ('', ' %H:%M:%S'):
                 full_format = format + hours
                 try:
-                    parsed = datetime.datetime.strptime(
-                        time_string, full_format
-                    )
+                    parsed = strptime_utc(time_string, full_format)
                     return parsed
                 except ValueError as e:
                     continue
@@ -159,7 +154,7 @@ class Script(object):
     def run(self):
         self.load_configuration()
         DataSource.well_known_sources(self._db)
-        start_time = datetime.datetime.utcnow()
+        start_time = utc_now()
         try:
             timestamp_data = self.do_run()
             if not isinstance(timestamp_data, TimestampData):
@@ -408,7 +403,7 @@ class RunThreadedCollectionCoverageProviderScript(Script):
                 # jobs could share a single 'progress' object.
                 while offset < query_size:
                     progress = CoverageProviderProgress(
-                        start=datetime.datetime.utcnow()
+                        start=utc_now()
                     )
                     progress.offset = offset
                     job = CollectionCoverageProviderJob(
@@ -2123,6 +2118,8 @@ class DatabaseMigrationScript(Script):
             self.service = service
             if isinstance(finish, str):
                 finish = Script.parse_time(finish)
+            else:
+                finish = to_utc(finish)
             self.finish = finish
             if isinstance(counter, str):
                 counter = int(counter)
@@ -2135,18 +2132,17 @@ class DatabaseMigrationScript(Script):
             """Saves a TimestampInfo object to the database.
             """
             # Reset values locally.
-            self.finish = finish
+            self.finish = to_utc(finish)
             self.counter = counter
 
             sql = (
-                "UPDATE timestamps SET start=:finish, finish=:finish, counter=:counter"
+                "UPDATE timestamps SET start=(:finish at time zone 'utc'), finish=(:finish at time zone 'utc'), counter=:counter"
                 " where service=:service"
             )
             values = dict(
                 finish=self.finish, counter=self.counter,
                 service=self.service,
             )
-
             _db.execute(text(sql), values)
             _db.flush()
 
@@ -2186,7 +2182,7 @@ class DatabaseMigrationScript(Script):
         return cls.sort_migrations(migratable)
 
     @classmethod
-    def sort_migrations(self, migrations):
+    def sort_migrations(cls, migrations):
         """All Python migrations sort after all SQL migrations, since a Python
         migration requires an up-to-date database schema.
 
@@ -2217,7 +2213,7 @@ class DatabaseMigrationScript(Script):
 
             # Both migrations have the same timestamp, so compare using
             # their counters (default to 0 if no counter is included)
-            first_count = self.MIGRATION_WITH_COUNTER.search(first)
+            first_count = cls.MIGRATION_WITH_COUNTER.search(first)
             if first_count is not None:
                 first_count = int(first_count.groups()[0])
             else:
@@ -2540,12 +2536,14 @@ class DatabaseMigrationScript(Script):
         if self.overall_timestamp is None:
             return
 
+        if self.overall_timestamp.finish is not None:
+            finish_timestamp = self.overall_timestamp.finish
         # The last script that ran had an earlier timestamp than the current script
-        if self.overall_timestamp.finish > last_run_date:
+        if finish_timestamp > last_run_date:
             return
 
         # The dates of the scrips are the same so compare the counters
-        if self.overall_timestamp.finish==last_run_date:
+        if finish_timestamp==last_run_date:
             # The current script has no counter, so it's the same script that ran
             # or an earlier script that ran
             if counter is None:

@@ -1,20 +1,12 @@
 # encoding: utf-8
 # Identifier, Equivalency
-import datetime
 import logging
 import random
 from urllib.parse import quote, unquote
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from functools import total_ordering
-
 import isbnlib
-from .classification import Classification, Subject
-from .constants import IdentifierConstants, LinkRelations
-from .coverage import CoverageRecord
-from .datasource import DataSource
-from .licensing import LicensePoolDeliveryMechanism, RightsStatus
-from .measurement import Measurement
 from sqlalchemy import (
     Boolean,
     Column,
@@ -31,8 +23,16 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import and_, or_
 
-from ..util.summary import SummaryEvaluator
+from .classification import Classification, Subject
+from .constants import IdentifierConstants, LinkRelations
+from .coverage import CoverageRecord
+from .datasource import DataSource
+from .licensing import LicensePoolDeliveryMechanism, RightsStatus
+from .measurement import Measurement
 from . import Base, PresentationCalculationPolicy, create, get_one, get_one_or_create
+from ..util.summary import SummaryEvaluator
+from ..util.datetime_helpers import utc_now
+
 
 class IdentifierParser(metaclass=ABCMeta):
     """Interface for identifier parsers."""
@@ -588,7 +588,7 @@ class Identifier(Base, IdentifierConstants):
             data_source.name, self.type, self.identifier,
             quantity_measured, value, weight)
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         taken_at = taken_at or now
         # Is there an existing most recent measurement?
         most_recent = get_one(

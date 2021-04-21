@@ -6,10 +6,8 @@ This acts as an intermediary between the third-party integrations
 model. Doing a third-party integration should be as simple as putting
 the information into this format.
 """
-
 from collections import defaultdict
 from sqlalchemy.orm.session import Session
-
 from dateutil.parser import parse
 from sqlalchemy.sql.expression import and_, or_
 from sqlalchemy.orm.exc import (
@@ -20,7 +18,6 @@ import csv
 import datetime
 import logging
 import re
-
 from pymarc import MARCReader
 
 from .classifier import Classifier
@@ -59,6 +56,7 @@ from .model.configuration import ExternalIntegrationLink
 from .classifier import NO_VALUE, NO_NUMBER
 from .analytics import Analytics
 from .util.personal_names import display_name_to_sort_name
+from .util.datetime_helpers import strptime_utc, to_utc, utc_now
 
 class ReplacementPolicy(object):
     """How serious should we be about overwriting old metadata with
@@ -569,7 +567,7 @@ class MeasurementData(object):
             value = float(value)
         self.value = value
         self.weight = weight
-        self.taken_at = taken_at or datetime.datetime.utcnow()
+        self.taken_at = taken_at or utc_now()
 
     def __repr__(self):
         return '<MeasurementData quantity="%s" value=%f weight=%d taken=%s>' % (
@@ -676,7 +674,7 @@ class TimestampData(object):
             self.start = start
         if self.finish is None:
             if finish is None:
-                finish = datetime.datetime.utcnow()
+                finish = utc_now()
             self.finish = finish
         if self.start is None:
             self.start = self.finish
@@ -967,7 +965,7 @@ class CirculationData(MetaToModelUtility):
 
         # If no 'last checked' data was provided, assume the data was
         # just gathered.
-        self.last_checked = last_checked or datetime.datetime.utcnow()
+        self.last_checked = last_checked or utc_now()
 
         # format contains pdf/epub, drm, link
         self.formats = formats or []
@@ -2333,7 +2331,7 @@ class CSVMetadataImporter(object):
         value = self._field(row, field_name)
         if value:
             try:
-                value = parse(value)
+                value = to_utc(parse(value))
             except ValueError:
                 self.log.warn('Could not parse date "%s"' % value)
                 value = None
@@ -2369,11 +2367,11 @@ class MARCExtractor(object):
         return name
 
     @classmethod
-    def parse_year(self, value):
+    def parse_year(cls, value):
         """Handle a publication year that may not be in the right format."""
         for format in ("%Y", "%Y."):
             try:
-                return datetime.datetime.strptime(value, format)
+                return strptime_utc(value, format)
             except ValueError:
                 continue
         return None

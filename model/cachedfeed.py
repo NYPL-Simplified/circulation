@@ -1,14 +1,12 @@
 # encoding: utf-8
 # CachedFeed, WillNotGenerateExpensiveFeed
 
-
 from . import (
     Base,
     flush,
     get_one,
     get_one_or_create,
 )
-
 from collections import namedtuple
 import datetime
 import logging
@@ -23,7 +21,9 @@ from sqlalchemy import (
 from sqlalchemy.sql.expression import (
     and_,
 )
+
 from ..util.flask_util import OPDSFeedResponse
+from ..util.datetime_helpers import utc_now
 
 class CachedFeed(Base):
 
@@ -38,7 +38,7 @@ class CachedFeed(Base):
         nullable=True, index=True)
 
     # Every feed has a timestamp reflecting when it was created.
-    timestamp = Column(DateTime, nullable=True, index=True)
+    timestamp = Column(DateTime(timezone=True), nullable=True, index=True)
 
     # A feed is of a certain type--such as 'page' or 'groups'.
     type = Column(Unicode, nullable=False)
@@ -157,7 +157,7 @@ class CachedFeed(Base):
             # This is a cache miss. Either feed_obj is None or
             # it's no good. We need to generate a new feed.
             feed_data = str(refresher_method())
-            generation_time = datetime.datetime.utcnow()
+            generation_time = utc_now()
 
             if max_age is not cls.IGNORE_CACHE:
                 # Having gone through all the trouble of generating
@@ -277,7 +277,7 @@ class CachedFeed(Base):
             should_refresh = False
         elif (feed_obj.timestamp
               and feed_obj.timestamp + datetime.timedelta(seconds=max_age) <=
-                  datetime.datetime.utcnow()
+                  utc_now()
         ):
             # Here it comes down to a date comparison: how old is the
             # CachedFeed?
@@ -350,7 +350,7 @@ class CachedFeed(Base):
 
     def update(self, _db, content):
         self.content = content
-        self.timestamp = datetime.datetime.utcnow()
+        self.timestamp = utc_now()
         flush(_db)
 
     def __repr__(self):
@@ -399,5 +399,5 @@ class CachedMARCFile(Base):
         Integer, ForeignKey('representations.id'),
         nullable=False)
 
-    start_time = Column(DateTime, nullable=True, index=True)
-    end_time = Column(DateTime, nullable=True, index=True)
+    start_time = Column(DateTime(timezone=True), nullable=True, index=True)
+    end_time = Column(DateTime(timezone=True), nullable=True, index=True)

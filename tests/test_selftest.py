@@ -6,7 +6,6 @@ configured, not that the code is correct.
 """
 
 import datetime
-
 from ..testing import DatabaseTest
 
 from ..selftest import (
@@ -15,10 +14,11 @@ from ..selftest import (
 )
 
 from ..util.http import IntegrationException
+from ..util.datetime_helpers import utc_now
 
 class TestSelfTestResult(DatabaseTest):
 
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     future = now + datetime.timedelta(seconds=5)
 
     def test_success_representation(self):
@@ -246,7 +246,7 @@ class TestHasSelfTests(DatabaseTest):
 
         # You can pass in an Exception...
         exception = Exception("argh")
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         result = o.test_failure("a failure", exception)
 
         # ...which will be turned into an IntegrationException.

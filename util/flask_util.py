@@ -2,7 +2,6 @@
 import datetime
 import flask
 from lxml import etree
-
 from flask import Response as FlaskResponse
 from wsgiref.handlers import format_date_time
 import time
@@ -11,6 +10,7 @@ from . import (
     problem_detail,
 )
 from .opds_writer import OPDSFeed
+from .datetime_helpers import utc_now
 
 def problem_raw(type, status, title, detail=None, instance=None, headers={}):
     data = problem_detail.json(type, status, title, detail, instance)
@@ -107,7 +107,7 @@ class Response(FlaskResponse):
             )
 
             # Explicitly set Expires based on max-age; some clients need this.
-            expires_at = datetime.datetime.utcnow() + datetime.timedelta(
+            expires_at = utc_now() + datetime.timedelta(
                 seconds=self.max_age
             )
             headers['Expires'] = format_date_time(

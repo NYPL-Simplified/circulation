@@ -1,14 +1,6 @@
 # encoding: utf-8
 # IntegrationClient
 
-
-from . import (
-    Base,
-    get_one,
-    get_one_or_create,
-)
-
-import datetime
 import os
 import re
 from sqlalchemy import (
@@ -21,7 +13,14 @@ from sqlalchemy import (
 from sqlalchemy.orm import (
     relationship,
 )
+
+from . import (
+    Base,
+    get_one,
+    get_one_or_create,
+)
 from ..util.string_helpers import random_string
+from ..util.datetime_helpers import utc_now
 
 class IntegrationClient(Base):
     """A client that has authenticated access to this application.
@@ -43,8 +42,8 @@ class IntegrationClient(Base):
     # upgrades to fix a known bug.
     enabled = Column(Boolean, default=True)
 
-    created = Column(DateTime)
-    last_accessed = Column(DateTime)
+    created = Column(DateTime(timezone=True))
+    last_accessed = Column(DateTime(timezone=True))
 
     loans = relationship('Loan', backref='integration_client')
     holds = relationship('Hold', backref='integration_client')
@@ -61,7 +60,7 @@ class IntegrationClient(Base):
             secret will be set.
         """
         url = cls.normalize_url(url)
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         client, is_new = get_one_or_create(
             _db, cls, url=url, create_method_kwargs=dict(created=now)
         )
@@ -94,7 +93,7 @@ class IntegrationClient(Base):
     def authenticate(cls, _db, shared_secret):
         client = get_one(_db, cls, shared_secret=str(shared_secret))
         if client:
-            client.last_accessed = datetime.datetime.utcnow()
+            client.last_accessed = utc_now()
             # Committing immediately reduces the risk of contention.
             _db.commit()
             return client

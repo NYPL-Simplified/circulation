@@ -5,10 +5,14 @@ from io import BytesIO
 
 import dateutil
 import feedparser
-from .config import CannotLoadConfiguration, IntegrationException
-from .coverage import CoverageFailure
 from flask_babel import lazy_gettext as _
 from lxml import etree
+from urllib.parse import urljoin, urlparse, quote
+from sqlalchemy.orm import aliased
+from sqlalchemy.orm.session import Session
+
+from .config import CannotLoadConfiguration, IntegrationException
+from .coverage import CoverageFailure
 from .metadata_layer import (
     CirculationData,
     ContributorData,
@@ -40,16 +44,12 @@ from .model import (
 from .model.configuration import ExternalIntegrationLink
 from .monitor import CollectionMonitor
 from .selftest import HasSelfTests, SelfTestResult
-from urllib.parse import urljoin, urlparse, quote
-
-from sqlalchemy.orm import aliased
-from sqlalchemy.orm.session import Session
+from .classifier import Classifier
 from .util.http import HTTP, BadResponseException
 from .util.opds_writer import OPDSFeed, OPDSMessage
 from .util.string_helpers import base64
 from .util.xmlparser import XMLParser
-
-from .classifier import Classifier
+from .util.datetime_helpers import datetime_utc, utc_now
 
 
 def parse_identifier(db, identifier):
@@ -219,7 +219,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
             return
 
         # Check various endpoints that yield OPDS feeds.
-        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        one_day_ago = utc_now() - datetime.timedelta(days=1)
         for title, m, args in (
             (
                 "Metadata updates in last 24 hours",
@@ -248,7 +248,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
         self._annotate_feed_response(result, response)
 
         # We're all done.
-        result.end = datetime.datetime.utcnow()
+        result.end = utc_now()
         return result
 
     @classmethod
@@ -1210,7 +1210,7 @@ class OPDSImporter(object):
         value = entry.get(key, None)
         if not value:
             return value
-        return datetime.datetime(*value[:6])
+        return datetime_utc(*value[:6])
 
     def last_update_date_for_feedparser_entry(self, entry):
         identifier = entry.get('id')
@@ -1557,7 +1557,7 @@ class OPDSImporter(object):
             date_string = issued_tag[0].text
             # By default, the date for strings that only have a year will
             # be set to January 1 rather than the current date.
-            default = datetime.datetime(datetime.datetime.now().year, 1, 1)
+            default = datetime_utc(utc_now().year, 1, 1)
             try:
                 data["published"] = dateutil.parser.parse(date_string, default=default)
             except Exception as e:

@@ -27,14 +27,12 @@ from ..model import (
     Subject,
 )
 from ..model.configuration import ExternalIntegrationLink
-
 from ..testing import (
     DatabaseTest,
     DummyHTTPClient,
 )
-
 from ..s3 import MockS3Uploader
-
+from ..util.datetime_helpers import utc_now
 
 class TestCirculationData(DatabaseTest):
 
@@ -230,7 +228,7 @@ class TestCirculationData(DatabaseTest):
             identifier="8c5fdbfe-c26e-11e8-8706-5254009434c4",
             checkout_url="https://borrow2",
             status_url="https://status2",
-            expires=(datetime.datetime.now() + datetime.timedelta(days=7)),
+            expires=(utc_now() + datetime.timedelta(days=7)),
             remaining_checkouts=None, concurrent_checkouts=1)
 
         circulation_data = CirculationData(
@@ -808,7 +806,7 @@ class TestMetaToModelUtility(DatabaseTest):
         information should actually be updated.
         """
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         yesterday = now - datetime.timedelta(days=1)
         recent_data = CirculationData(DataSource.GUTENBERG, identifier)
         # CirculationData.last_checked defaults to the current time.
