@@ -52,10 +52,23 @@ class NYTAPI(object):
     TIME_ZONE = dateutil.tz.gettz("America/New York")
 
     @classmethod
-    def parse_date(cls, d):
+    def parse_datetime(cls, d):
+        """Used to parse the publication date of a NYT best-seller list.
+
+        We take midnight Eastern time to be the publication time.
+        """
         return datetime.strptime(d, cls.DATE_FORMAT).replace(
             tzinfo=cls.TIME_ZONE
-        ).date()
+        )
+
+    @classmethod
+    def parse_date(cls, d):
+        """Used to parse the publication date of a book.
+
+        We don't know the timezone here, so the date will end up being
+        stored as midnight UTC.
+        """
+        return cls.parse_datetime(d).date()
 
     @classmethod
     def date_string(cls, d):
@@ -201,8 +214,8 @@ class NYTBestSellerList(list):
 
     def __init__(self, list_info, metadata_client):
         self.name = list_info['display_name']
-        self.created = NYTAPI.parse_date(list_info['oldest_published_date'])
-        self.updated = NYTAPI.parse_date(list_info['newest_published_date'])
+        self.created = NYTAPI.parse_datetime(list_info['oldest_published_date'])
+        self.updated = NYTAPI.parse_datetime(list_info['newest_published_date'])
         self.foreign_identifier = list_info['list_name_encoded']
         if list_info['updated'] == 'WEEKLY':
             frequency = 7
@@ -268,7 +281,7 @@ class NYTBestSellerList(list):
 
             # This is the date the *best-seller list* was published,
             # not the date the book was published.
-            list_date = NYTAPI.parse_date(li_data['published_date'])
+            list_date = NYTAPI.parse_datetime(li_data['published_date'])
             if not item.first_appearance or list_date < item.first_appearance:
                 item.first_appearance = list_date
             if (not item.most_recent_appearance
@@ -311,7 +324,9 @@ class NYTBestSellerListTitle(TitleFromExternalList):
     def __init__(self, data, medium):
         data = data
         try:
-            bestsellers_date = NYTAPI.parse_date(data.get('bestsellers_date'))
+            bestsellers_date = NYTAPI.parse_datetime(
+                data.get('bestsellers_date')
+            )
             first_appearance = bestsellers_date
             most_recent_appearance = bestsellers_date
         except ValueError as e:
@@ -319,6 +334,8 @@ class NYTBestSellerListTitle(TitleFromExternalList):
             most_recent_appearance = None
 
         try:
+            # This is the date the _book_ was published, not the date
+            # the _bestseller list_ was published.
             published_date = NYTAPI.parse_date(data.get('published_date'))
         except ValueError as e:
             published_date = None
