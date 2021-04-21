@@ -12,6 +12,7 @@ from core.testing import (
 from core.testing import DummyMetadataClient
 from core.config import CannotLoadConfiguration
 from api.nyt import (
+    NYTAPI,
     NYTBestSellerAPI,
     NYTBestSellerList,
     NYTBestSellerListTitle,
@@ -61,6 +62,13 @@ class NYTBestSellerAPITest(DatabaseTest):
         super(NYTBestSellerAPITest, self).setup_method()
         self.api = DummyNYTBestSellerAPI(self._db)
         self.metadata_client = DummyMetadataClient()
+
+    def _midnight(self, *args):
+        """Create a datetime representing midnight Eastern time (the time we
+        take NYT best-seller lists to be published) on a certain date.
+        """
+        return datetime.datetime(*args, tzinfo=NYTAPI.TIME_ZONE)
+
 
 class TestNYTBestSellerAPI(NYTBestSellerAPITest):
 
@@ -179,8 +187,8 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
 
         assert 20 == len(l)
         assert True == all([isinstance(x, NYTBestSellerListTitle) for x in l])
-        assert datetime.date(2011, 2, 13) == l.created
-        assert datetime.date(2015, 2, 1) == l.updated
+        assert self._midnight(2011, 2, 13) == l.created
+        assert self._midnight(2015, 2, 1) == l.updated
         assert list_name == l.foreign_identifier
 
         # Let's do a spot check on the list items.
@@ -197,8 +205,8 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         assert "Riverhead" == title.metadata.publisher
         assert ("A psychological thriller set in London is full of complications and betrayals." ==
             title.annotation)
-        assert datetime.date(2015, 1, 17) == title.first_appearance
-        assert datetime.date(2015, 2, 1) == title.most_recent_appearance
+        assert self._midnight(2015, 1, 17) == title.first_appearance
+        assert self._midnight(2015, 2, 1) == title.most_recent_appearance
 
     def test_historical_dates(self):
         # This list was published 208 times since the start of the API,
@@ -226,13 +234,13 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
 
         assert 20 == len(custom.entries)
 
-        # The date objects coming from the database don't have the same
-        # timezone information stored.
-        jan_17 = datetime.datetime(2015, 1, 17, tzinfo=dateutil.tz.tzoffset("", 0))
+        # The publication of a NYT best-seller list is treated as
+        # midnight Eastern time on the publication date.
+        jan_17 = self._midnight(2015, 1, 17)
         assert (True ==
             all([x.first_appearance == jan_17 for x in custom.entries]))
 
-        feb_1 = datetime.datetime(2015, 2, 1, tzinfo=dateutil.tz.tzoffset("", 0))
+        feb_1 = self._midnight(2015, 2, 1)
         assert (True ==
             all([x.most_recent_appearance == feb_1 for x in custom.entries]))
 

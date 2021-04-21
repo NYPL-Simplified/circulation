@@ -214,7 +214,7 @@ class TestAxis360API(Axis360Test):
         assert "Found 3 event(s)" == recent_circulation_events.result
         since = api.recent_activity_called_with
         five_minutes_ago = utc_now() - datetime.timedelta(minutes=5)
-        assert (five_minutes_ago-since).total_seconds() < 3
+        assert (five_minutes_ago-since).total_seconds() < 5
 
         assert ("Checking activity for test patron for library %s" % with_default_patron.name ==
             patron_activity.name)
