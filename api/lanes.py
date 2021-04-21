@@ -5,7 +5,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import aliased
 from flask_babel import lazy_gettext as _
-import time
 import elasticsearch
 import logging
 

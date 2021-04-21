@@ -50,6 +50,7 @@ from core.monitor import (
     IdentifierSweepMonitor,
     TimelineMonitor,
 )
+from core.util.datetime_helpers import strptime_utc
 from core.util.http import HTTP
 from core.metadata_layer import ReplacementPolicy
 from core.scripts import Script
@@ -679,7 +680,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests, Overdrive
         if not field_name in data:
             return None
         try:
-            return datetime.datetime.strptime(
+            return strptime_utc(
                 data[field_name], cls.TIME_FORMAT
             )
         except ValueError as e:
@@ -703,10 +704,14 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests, Overdrive
 
     @classmethod
     def _pd(cls, d):
-        """Stupid method to parse a date."""
+        """Stupid method to parse a date.
+
+        TIME_FORMAT mentions "Z" for Zulu time, which is the same as
+        UTC.
+        """
         if not d:
             return d
-        return datetime.datetime.strptime(d, cls.TIME_FORMAT)
+        return strptime_utc(d, cls.TIME_FORMAT)
 
     def patron_activity(self, patron, pin):
         try:

@@ -51,8 +51,11 @@ from core.model import (
     Work
 )
 from core.model.configuration import ExternalIntegrationLink
+from core.util.datetime_helpers import (
+    strptime_utc,
+    utc_now,
+)
 import base64
-from datetime import date, datetime, timedelta
 import json
 import os
 from PIL import Image, ImageDraw, ImageFont
@@ -296,7 +299,7 @@ class WorkController(AdminCirculationManagerController):
         new_issued = flask.request.form.get("issued")
         if new_issued != None and new_issued != '':
             try:
-                new_issued = datetime.strptime(new_issued, '%Y-%m-%d')
+                new_issued = strptime_utc(new_issued, '%Y-%m-%d')
             except ValueError:
                 self._db.rollback()
                 return INVALID_DATE_FORMAT
@@ -961,7 +964,7 @@ class WorkController(AdminCirculationManagerController):
                         return MISSING_CUSTOM_LIST.detailed(_("Could not find list \"%(list_name)s\"", list_name=name))
                 else:
                     list, is_new = create(self._db, CustomList, name=name, data_source=staff_data_source, library=library)
-                    list.created = datetime.now()
+                    list.created = utc_now()
                 entry, was_new = list.add_entry(work, featured=True)
                 if was_new:
                     for lane in Lane.affected_by_customlist(list):

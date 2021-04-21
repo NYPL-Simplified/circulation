@@ -98,6 +98,7 @@ from scripts import (
     NovelistSnapshotScript,
     LocalAnalyticsExportScript,
 )
+from core.util.datetime_helpers import utc_now
 
 class TestAdobeAccountIDResetScript(DatabaseTest):
 
@@ -623,7 +624,7 @@ class TestCacheMARCFiles(TestLaneScript):
         # run the exporter twice, first to update that file and second to create
         # a file with changes since that first file was originally created.
         exporter.called_with = []
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         yesterday = now - datetime.timedelta(days=1)
         last_week = now - datetime.timedelta(days=7)
         ConfigurationSetting.for_library_and_externalintegration(

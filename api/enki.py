@@ -65,7 +65,11 @@ from core.monitor import (
 
 from core.analytics import Analytics
 from core.testing import DatabaseTest
-
+from core.util.datetime_helpers import (
+    from_timestamp,
+    strptime_utc,
+    utc_now,
+)
 
 class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
@@ -139,7 +143,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     def _run_self_tests(self, _db):
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
 
         def count_loans_and_holds():
             """Count recent circulation events that affected loans or holds.
@@ -227,7 +231,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         This is a helper method to create the `minutes` parameter to
         the API.
         """
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         return int((now - since).total_seconds() / 60)
 
     def recent_activity(self, start, end):
@@ -237,7 +241,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         :param start: A DateTime
         :yield: A sequence of CirculationData objects.
         """
-        epoch = datetime.datetime.utcfromtimestamp(0)
+        epoch = from_timestamp(0)
         start = int((start - epoch).total_seconds())
         end = int((end - epoch).total_seconds())
 
@@ -334,7 +338,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         # This will turn the time string we get from Enki into a
         # struct that the Circulation Manager can make use of.
         time_format = "%Y-%m-%dT%H:%M:%S"
-        return datetime.datetime.strptime(
+        return strptime_utc(
             time.strftime(time_format, time.gmtime(float(epoch_string))),
             time_format
         )
@@ -811,7 +815,7 @@ class EnkiImport(CollectionMonitor, TimelineMonitor):
         # Experimentation shows that the Enki API can grab about 60
         # hours of activity at once before timing out, so this puts us
         # well below that threshold.
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         for start, end, full_slice in self.slice_timespan(
             since, now, datetime.timedelta(hours=2)
         ):
@@ -858,7 +862,7 @@ class EnkiImport(CollectionMonitor, TimelineMonitor):
         """
         availability = bibliographic.circulation
         edition, new_edition = bibliographic.edition(self._db)
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         policy = ReplacementPolicy(
             identifiers=False,
             subjects=True,
@@ -921,7 +925,7 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
                 identifier.identifier
             )
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         circulationdata = CirculationData(
             data_source=DataSource.ENKI,
             primary_identifier= IdentifierData(

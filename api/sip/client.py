@@ -33,6 +33,7 @@ import socket
 import ssl
 import tempfile
 from api.sip.dialect import GenericILS
+from core.util.datetime_helpers import utc_now
 
 # SIP2 defines a large number of fields which are used in request and
 # response messages. This library focuses on defining the response
@@ -729,7 +730,7 @@ class SIPClient(Constants):
 
     def now(self):
         """Return the current time, formatted as SIP expects it."""
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         return datetime.datetime.strftime(now, "%Y%m%d0000%H%M%S")
 
     def summary(self, hold_items=False, overdue_items=False,

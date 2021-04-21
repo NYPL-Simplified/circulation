@@ -44,7 +44,7 @@ from core.testing import (
     NeverSuccessfulCoverageProvider,
     MockRequestsResponse,
 )
-from datetime import date, datetime, timedelta
+from core.util.datetime_helpers import datetime_utc
 from functools import reduce
 
 class TestWorkController(AdminControllerTest):
@@ -258,7 +258,7 @@ class TestWorkController(AdminControllerTest):
             assert "fre" == self.english_1.presentation_edition.language
             assert "New Publisher" == self.english_1.publisher
             assert "New Imprint" == self.english_1.presentation_edition.imprint
-            assert datetime(2017, 11, 5) == self.english_1.presentation_edition.issued
+            assert datetime_utc(2017, 11, 5) == self.english_1.presentation_edition.issued
             assert 0.25 == self.english_1.quality
             assert "<p>New summary</p>" == self.english_1.summary_text
             assert "&lt;p&gt;New summary&lt;/p&gt;" in self.english_1.simple_opds_entry

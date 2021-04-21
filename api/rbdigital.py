@@ -77,6 +77,11 @@ from core.monitor import (
 
 from core.testing import DatabaseTest
 from core.util import LanguageCodes
+from core.util.datetime_helpers import (
+    datetime_utc,
+    strptime_utc,
+    utc_now,
+)
 
 from core.util.http import (
     BadResponseException,
@@ -370,7 +375,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         patron_rbdigital_id = self.patron_remote_identifier(patron)
         (item_rbdigital_id, item_media) = self.validate_item(licensepool)
 
-        today = datetime.datetime.utcnow()
+        today = utc_now()
 
         library = patron.library
 
@@ -570,14 +575,14 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         self.log.debug("Patron %s/%s reserved item %s with transaction id %s.", patron.authorization_identifier,
             patron_rbdigital_id, item_rbdigital_id, resp_obj)
 
-        today = datetime.datetime.now()
+        now = utc_now()
 
         hold = HoldInfo(
             self.collection,
             DataSource.RB_DIGITAL,
             identifier_type=licensepool.identifier.type,
             identifier=item_rbdigital_id,
-            start_date=today,
+            start_date=now,
             # RBDigital sets hold expirations to 2050-12-31, as a "forever"
             end_date=None,
             hold_position=None,
@@ -782,7 +787,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # Credential.lookup() expects to pass a Credential to this refresh method
         def refresh_credential(credential):
             if lifetime is not None:
-                credential.expires = (datetime.datetime.utcnow() + datetime.timedelta(seconds=lifetime))
+                credential.expires = (utc_now() + datetime.timedelta(seconds=lifetime))
             else:
                 credential.expires = None
 
@@ -1223,9 +1228,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # of the fulfillment URL.
         expires = item.get('expiration', None)
         if expires:
-            expires = datetime.datetime.strptime(
-                expires, self.EXPIRATION_DATE_FORMAT
-            ).date()
+            expires = strptime_utc(expires, self.EXPIRATION_DATE_FORMAT).date()
 
         identifier, made_new = Identifier.for_foreign_id(
             self._db, foreign_identifier_type=Identifier.RB_DIGITAL_ID,
@@ -1291,7 +1294,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             authors = item.get('authors', None)
             expires = item.get('expiration', None)
             if expires:
-                expires = datetime.datetime.strptime(expires, self.EXPIRATION_DATE_FORMAT).date()
+                expires = strptime_utc(
+                    expires, self.EXPIRATION_DATE_FORMAT
+                ).date()
 
             identifier = Identifier.from_asin(self._db, isbn, autocreate=False)
             # Note: if RBDigital knows about a patron's checked-out item that wasn't
@@ -1756,7 +1761,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         :param today: A date to use instead of the current date, for use in tests.
         """
-        today = today or datetime.datetime.utcnow()
+        today = today or utc_now()
         time_ago = relativedelta(months=months)
 
         delta = self.get_delta(from_date=(today - time_ago), to_date=today)
@@ -1992,7 +1997,7 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
         # Now that we've found the download URL, the client has 15
         # minutes to use it. Set it to expire in 14 minutes to be
         # conservative.
-        expires = datetime.datetime.utcnow() + datetime.timedelta(minutes=14)
+        expires = utc_now() + datetime.timedelta(minutes=14)
         return content_type, content_link, expires
 
 class MockRBDigitalAPI(RBDigitalAPI):
@@ -2155,8 +2160,9 @@ class RBDigitalRepresentationExtractor(object):
 
             publisher = book.get('publisher', None)
             if 'publicationDate' in book:
-                published = datetime.datetime.strptime(
-                    book['publicationDate'][:10], cls.DATE_FORMAT)
+                published = strptime_utc(
+                    book['publicationDate'][:10], cls.DATE_FORMAT
+                )
             else:
                 published = None
 
@@ -2459,7 +2465,7 @@ class RBDigitalCirculationMonitor(CollectionMonitor):
     we hear from the metadata wrangler.
     """
     SERVICE_NAME = "RBDigital CirculationMonitor"
-    DEFAULT_START_TIME = datetime.datetime(1970, 1, 1)
+    DEFAULT_START_TIME = datetime_utc(1970, 1, 1)
     DEFAULT_BATCH_SIZE = 50
 
     PROTOCOL = ExternalIntegration.RB_DIGITAL
@@ -2778,7 +2784,7 @@ class RBDigitalFulfillmentProxy(object):
     def proxied_manifest(self, manifest):
         # Ensure that we have a token with enough time to allow
         # upcoming proxy requests to be completed.
-        proxy_expires = (datetime.datetime.utcnow() +
+        proxy_expires = (utc_now() +
                          datetime.timedelta(seconds=self.api.PROXY_BEARER_GRACE_PERIOD))
         credential = self.api._patron_credential(self.api.BEARER_TOKEN_PROPERTY, self.patron)
         token = credential.credential if credential else None

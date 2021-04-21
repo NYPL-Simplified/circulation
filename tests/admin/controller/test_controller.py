@@ -1,9 +1,10 @@
 import csv
+import datetime
 import json
 import re
 from io import StringIO
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import feedparser
 import flask
@@ -61,6 +62,9 @@ from core.model import (
 from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 from core.s3 import S3UploaderConfiguration
 from core.selftest import HasSelfTests
+from core.util.datetime_helpers import (
+    utc_now,
+)
 from core.util.http import HTTP
 from tests.test_controller import CirculationControllerTest
 
@@ -791,8 +795,8 @@ class TestTimestampsController(AdminControllerTest):
             self._db.delete(timestamp)
 
         self.collection = self._default_collection
-        self.start = datetime.now()
-        self.finish = datetime.now()
+        self.start = utc_now()
+        self.finish = utc_now()
 
         cp, ignore = create(
             self._db, Timestamp,
@@ -1701,7 +1705,7 @@ class TestDashboardController(AdminControllerTest):
             CirculationEvent.DISTRIBUTOR_HOLD_RELEASE,
             CirculationEvent.DISTRIBUTOR_TITLE_ADD
         ]
-        time = datetime.now() - timedelta(minutes=len(types))
+        time = utc_now() - timedelta(minutes=len(types))
         for type in types:
             get_one_or_create(
                 self._db, CirculationEvent,
@@ -1732,7 +1736,7 @@ class TestDashboardController(AdminControllerTest):
         genres = self._db.query(Genre).all()
         get_one_or_create(self._db, WorkGenre, work=self.english_1, genre=genres[0], affinity=0.2)
 
-        time = datetime.now() - timedelta(minutes=1)
+        time = utc_now() - timedelta(minutes=1)
         event, ignore = get_one_or_create(
             self._db, CirculationEvent,
             license_pool=lp, type=CirculationEvent.DISTRIBUTOR_CHECKOUT,
@@ -1774,11 +1778,11 @@ class TestDashboardController(AdminControllerTest):
             #
             args = list(exporter.called_with)
             assert self._db == args.pop(0)
-            assert datetime(2018, 1, 1) == args.pop(0)
+            assert datetime.date(2018, 1, 1) == args.pop(0)
             # This is the start of the day _after_ the dateEnd we
             # specified -- we want all events that happened _before_
             # 2018-01-05.
-            assert datetime(2018, 1, 5) == args.pop(0)
+            assert datetime.date(2018, 1, 5) == args.pop(0)
             assert "loc1,loc2" == args.pop(0)
             assert self._default_library == args.pop(0)
             assert [] == args
@@ -1818,7 +1822,7 @@ class TestDashboardController(AdminControllerTest):
 
             # patron1 has a loan.
             patron1 = self._patron()
-            pool.loan_to(patron1, end=datetime.now() + timedelta(days=5))
+            pool.loan_to(patron1, end=utc_now() + timedelta(days=5))
 
             # patron2 has a hold.
             patron2 = self._patron()
@@ -1843,7 +1847,7 @@ class TestDashboardController(AdminControllerTest):
             # These patrons are in a different library..
             l2 = self._library()
             patron4 = self._patron(library=l2)
-            pool.loan_to(patron4, end=datetime.now() + timedelta(days=5))
+            pool.loan_to(patron4, end=utc_now() + timedelta(days=5))
             patron5 = self._patron(library=l2)
             pool.on_hold_to(patron5)
 

@@ -10,6 +10,7 @@ from core.model import (
     Edition,
     Identifier,
     LicensePool)
+from core.util.datetime_helpers import datetime_utc
 from . import sample_data
 
 
@@ -38,6 +39,7 @@ class TestONIXExtractor(object):
         assert "9780262343664" == record.primary_identifier.identifier
         assert Identifier.ISBN == record.primary_identifier.type
         assert "eng" == record.language
+        assert datetime_utc(2017, 10, 6) == record.issued
         subjects = record.subjects
         assert 7 == len(subjects)
         assert "EDU015000" == subjects[0].identifier

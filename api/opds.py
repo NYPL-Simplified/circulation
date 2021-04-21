@@ -1,4 +1,3 @@
-import datetime
 import urllib.request, urllib.parse, urllib.error
 import copy
 import logging
@@ -44,6 +43,7 @@ from core.lane import (
     Lane,
     WorkList,
 )
+from core.util.datetime_helpers import from_timestamp
 from api.lanes import (
     DynamicLane,
     CrawlableCustomListBasedLane,
@@ -203,7 +203,7 @@ class CirculationManagerAnnotator(Annotator):
             last_updates = getattr(work._hit, 'last_update', [])
             if last_updates:
                 # last_update is seconds-since epoch; convert to UTC datetime.
-                updated = datetime.datetime.utcfromtimestamp(last_updates[0])
+                updated = from_timestamp(last_updates[0])
 
                 # There's a chance that work.last_updated has been
                 # modified but the change hasn't made it to the search

@@ -1,6 +1,7 @@
+import datetime
+import dateutil
 import json
 import uuid
-import datetime
 from flask_babel import lazy_gettext as _
 import urllib.parse
 from collections import defaultdict
@@ -59,6 +60,10 @@ from .circulation import (
     HoldInfo,
 )
 from core.analytics import Analytics
+from core.util.datetime_helpers import (
+    utc_now,
+    strptime_utc,
+)
 from core.util.http import (
     HTTP,
     BadResponseException,
@@ -126,8 +131,6 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
     ]
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
-
-    TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
     # Possible status values in the License Status Document:
 
@@ -226,7 +229,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
                 default_loan_period = self.collection(_db).default_loan_period(
                     loan.integration_client
                  )
-            expires = datetime.datetime.utcnow() + datetime.timedelta(
+            expires = utc_now() + datetime.timedelta(
                 days=default_loan_period
             )
             # The patron UUID is generated randomly on each loan, so the distributor
@@ -357,7 +360,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         # with position 0 to check out the book.
         if ((not hold or
              hold.position > 0 or
-             (hold.end and hold.end < datetime.datetime.utcnow())) and
+             (hold.end and hold.end < utc_now())) and
             licensepool.licenses_available < 1
             ):
             raise NoAvailableCopies()
@@ -389,10 +392,10 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             _db.delete(loan)
             raise CannotLoan()
 
-        start = datetime.datetime.utcnow()
+        start = utc_now()
         expires = doc.get("potential_rights", {}).get("end")
         if expires:
-            expires = datetime.datetime.strptime(expires, self.TIME_FORMAT)
+            expires = dateutil.parser.parse(expires)
 
         # We need to set the start and end dates on our local loan since
         # the code that calls this only sets them when a new loan is created.
@@ -442,7 +445,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             raise CannotFulfill()
 
         expires = doc.get("potential_rights", {}).get("end")
-        expires = datetime.datetime.strptime(expires, self.TIME_FORMAT)
+        expires = dateutil.parser.parse(expires)
 
         links = doc.get("links", [])
         content_link = None
@@ -481,7 +484,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         ).filter(
             or_(
                 Hold.end==None,
-                Hold.end>datetime.datetime.utcnow(),
+                Hold.end>utc_now(),
                 Hold.position>0,
             )
         ).count()
@@ -516,7 +519,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             ).filter(
                 or_(
                     Loan.end==None,
-                    Loan.end>datetime.datetime.utcnow()
+                    Loan.end>utc_now()
                 )
             ).order_by(Loan.start).all()
             current_holds = _db.query(Hold).filter(
@@ -524,7 +527,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             ).filter(
                 or_(
                     Hold.end==None,
-                    Hold.end>datetime.datetime.utcnow(),
+                    Hold.end>utc_now(),
                     Hold.position>0,
                 )
             ).order_by(Hold.start).all()
@@ -556,7 +559,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         # If the end date isn't set yet or the position just became 0, the
         # hold just became available. The patron's reservation period starts now.
         else:
-            hold.end = datetime.datetime.utcnow() + datetime.timedelta(days=default_reservation_period)
+            hold.end = utc_now() + datetime.timedelta(days=default_reservation_period)
 
     def _update_hold_position(self, hold):
         _db = Session.object_session(hold)
@@ -566,7 +569,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         ).filter(
             or_(
                 Loan.end==None,
-                Loan.end > datetime.datetime.utcnow()
+                Loan.end > utc_now()
             )
         ).count()
         holds_count = self._count_holds_before(hold)
@@ -590,7 +593,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         ).filter(
             or_(
                 Loan.end==None,
-                Loan.end>datetime.datetime.utcnow()
+                Loan.end>utc_now()
             )
         ).count()
         remaining_licenses = licensepool.licenses_owned - loans_count
@@ -600,7 +603,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         ).filter(
             or_(
                 Hold.end==None,
-                Hold.end>datetime.datetime.utcnow(),
+                Hold.end>utc_now(),
                 Hold.position>0,
             )
         ).order_by(
@@ -621,7 +624,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             new_licenses_reserved,
             new_patrons_in_hold_queue,
             analytics=self.analytics,
-            as_of=datetime.datetime.utcnow(),
+            as_of=utc_now(),
         )
 
         for hold in holds[:licensepool.licenses_reserved]:
@@ -695,7 +698,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         ).filter(
             Loan.patron==patron
         ).filter(
-            Loan.end>=datetime.datetime.utcnow()
+            Loan.end>=utc_now()
         )
 
         # Get the patron's holds. If there are any expired holds, delete them.
@@ -707,7 +710,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         )
         remaining_holds = []
         for hold in holds:
-            if hold.end and hold.end < datetime.datetime.utcnow():
+            if hold.end and hold.end < utc_now():
                 _db.delete(hold)
                 self.update_hold_queue(hold.license_pool)
             else:
@@ -884,6 +887,8 @@ class ODLImporter(OPDSImporter):
             if terms:
                 concurrent_checkouts = subtag(terms[0], "odl:concurrent_checkouts")
                 expires = subtag(terms[0], "odl:expires")
+                if expires:
+                    expires = dateutil.parser.parse(expires)
 
             licenses_owned += int(concurrent_checkouts or 0)
             licenses_available += int(available_checkouts or 0)
@@ -932,7 +937,7 @@ class ODLHoldReaper(CollectionMonitor):
         ).filter(
             LicensePool.collection_id==self.api.collection_id
         ).filter(
-            Hold.end<datetime.datetime.utcnow()
+            Hold.end<utc_now()
         ).filter(
             Hold.position==0
         )
@@ -1021,8 +1026,6 @@ class SharedODLAPI(BaseCirculationAPI):
 
     SUPPORTS_REGISTRATION = True
     SUPPORTS_STAGING = False
-
-    TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
     def __init__(self, _db, collection):
         if collection.protocol != self.NAME:
@@ -1120,8 +1123,8 @@ class SharedODLAPI(BaseCirculationAPI):
             raise CannotLoan()
         entry = entries[0]
         availability = entry.get("opds_availability", {})
-        start = datetime.datetime.strptime(availability.get("since"), self.TIME_FORMAT)
-        end = datetime.datetime.strptime(availability.get("until"), self.TIME_FORMAT)
+        start = dateutil.parser.parse(availability.get("since"))
+        end = dateutil.parser.parse(availability.get("until"))
         # Get the loan base url from a link.
         info_links = [link for link in entry.get("links") if link.get("rel") == "self"]
         if len(info_links) < 1:
@@ -1234,7 +1237,7 @@ class SharedODLAPI(BaseCirculationAPI):
         availability = entry.get("opds_availability")
         if availability.get("status") != "available":
             raise CannotFulfill()
-        expires = datetime.datetime.strptime(availability.get("until"), self.TIME_FORMAT)
+        expires = dateutil.parser.parse(availability.get("until"))
 
         # The entry is parsed with etree to get indirect acquisitions
         parser = SharedODLImporter.PARSER_CLASS()
@@ -1331,8 +1334,8 @@ class SharedODLAPI(BaseCirculationAPI):
             if availability.get("status") != "available":
                 # This loan might be expired.
                 continue
-            start = datetime.datetime.strptime(availability.get("since"), self.TIME_FORMAT)
-            end = datetime.datetime.strptime(availability.get("until"), self.TIME_FORMAT)
+            start = dateutil.parser.parse(availability.get("since"))
+            end = dateutil.parser.parse(availability.get("until"))
 
             activity.append(
                 LoanInfo(
@@ -1360,8 +1363,8 @@ class SharedODLAPI(BaseCirculationAPI):
             if availability.get("status") not in ["ready", "reserved"]:
                 # This hold might be expired.
                 continue
-            start = datetime.datetime.strptime(availability.get("since"), self.TIME_FORMAT)
-            end = datetime.datetime.strptime(availability.get("until"), self.TIME_FORMAT)
+            start = dateutil.parser.parse(availability.get("since"))
+            end = dateutil.parser.parse(availability.get("until"))
             position = entry.get("opds_holds", {}).get("position")
 
             activity.append(

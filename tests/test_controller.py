@@ -128,6 +128,11 @@ from core.problem_details import *
 from core.testing import DummyHTTPClient, MockRequestsResponse
 from core.user_profile import ProfileController, ProfileStorage
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
+from core.util.datetime_helpers import (
+    datetime_utc,
+    from_timestamp,
+    utc_now,
+)
 from core.util.flask_util import Response
 from core.util.http import RemoteIntegrationException
 from core.util.opds_writer import OPDSFeed
@@ -889,7 +894,7 @@ class TestBaseController(CirculationControllerTest):
         """A patron can authenticate even if their credentials have
         expired -- they just can't create loans or holds.
         """
-        one_year_ago = datetime.datetime.utcnow() - datetime.timedelta(days=365)
+        one_year_ago = utc_now() - datetime.timedelta(days=365)
         with self.request_context_with_library("/"):
             patron = self.controller.authenticated_patron(
                 self.valid_credentials
@@ -933,24 +938,12 @@ class TestBaseController(CirculationControllerTest):
         # and it is _not_ earlier than the 'last modified' date known by
         # the server.
 
-        # We need to do a lot of Python manipulation get the
-        # current time UTC as an int, an HTTP-compatible string, and a
-        # datetime.
-        #
-        # TODO: This can be cleaned up significantly in Python 3.
-        now_int = calendar.timegm(time.gmtime())
-        now_string = email.utils.formatdate(now_int)
-        now_datetime = datetime.datetime.utcfromtimestamp(now_int)
+        now_datetime = utc_now()
+        now_string = email.utils.format_datetime(now_datetime)
 
-        # To make the test more realistic, set the microseconds value of 'now'.
+        # To make the test more realistic, set a meaningless
+        # microseconds value of 'now'.
         now_datetime = now_datetime.replace(microsecond=random.randint(0, 999999))
-
-        # If all of that was correct, we ended up with a datetime
-        # that's very close to the one we can get with
-        # datetime.datetime.utcnow(). If it's off (due to a
-        # localtime/GMT confusion) it'll be significantly off.
-        cross_check = datetime.datetime.utcnow()
-        assert abs(now_datetime - cross_check).total_seconds() < 5
 
         with self.app.test_request_context(
             headers={"If-Modified-Since": now_string}
@@ -960,7 +953,7 @@ class TestBaseController(CirculationControllerTest):
 
         # Try with a few specific values that comply to a greater or lesser
         # extent with the date-format spec.
-        very_old = datetime.datetime(2000, 1, 1)
+        very_old = datetime_utc(2000, 1, 1)
         for value in [
                 "Thu, 01 Aug 2019 10:00:40 -0000",
                 "Thu, 01 Aug 2019 10:00:40",
@@ -1836,8 +1829,8 @@ class TestLoanController(CirculationControllerTest):
                     pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
-                    datetime.datetime.utcnow(),
-                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                    utc_now(),
+                    utc_now() + datetime.timedelta(seconds=3600),
                 )
             )
             response = self.manager.loans.borrow(
@@ -1994,8 +1987,8 @@ class TestLoanController(CirculationControllerTest):
                     pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
-                    datetime.datetime.utcnow(),
-                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                    utc_now(),
+                    utc_now() + datetime.timedelta(seconds=3600),
                     1,
                 )
             )
@@ -2052,8 +2045,8 @@ class TestLoanController(CirculationControllerTest):
                     pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
-                    datetime.datetime.utcnow(),
-                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                    utc_now(),
+                    utc_now() + datetime.timedelta(seconds=3600),
                     1,
                 )
             )
@@ -2251,7 +2244,7 @@ class TestLoanController(CirculationControllerTest):
                 self.pool.identifier.type,
                 self.pool.identifier.identifier,
                 None, "text/html", "here's your book",
-                datetime.datetime.utcnow(),
+                utc_now(),
             )
 
         # Now we're able to fulfill the book even without
@@ -2356,8 +2349,8 @@ class TestLoanController(CirculationControllerTest):
                     pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
-                    datetime.datetime.utcnow(),
-                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                    utc_now(),
+                    utc_now() + datetime.timedelta(seconds=3600),
                 )
             )
             response = self.manager.loans.borrow(
@@ -2404,7 +2397,7 @@ class TestLoanController(CirculationControllerTest):
             patron = self.controller.authenticated_patron(
                 self.valid_credentials
             )
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         patron.last_loan_activity_sync = now
 
         # Make a request -- it doesn't have If-Modified-Since, but our
@@ -2479,15 +2472,15 @@ class TestLoanController(CirculationControllerTest):
             overdrive_pool.collection, overdrive_pool.data_source,
             overdrive_pool.identifier.type,
             overdrive_pool.identifier.identifier,
-            datetime.datetime.utcnow(),
-            datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
+            utc_now(),
+            utc_now() + datetime.timedelta(seconds=3600)
         )
         self.manager.d_circulation.add_remote_hold(
             bibliotheca_pool.collection, bibliotheca_pool.data_source,
             bibliotheca_pool.identifier.type,
             bibliotheca_pool.identifier.identifier,
-            datetime.datetime.utcnow(),
-            datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+            utc_now(),
+            utc_now() + datetime.timedelta(seconds=3600),
             0,
         )
 
@@ -2506,7 +2499,7 @@ class TestLoanController(CirculationControllerTest):
         assert patron.last_loan_activity_sync == new_sync_time
 
         # Change it now, to a timestamp far in the past.
-        long_ago = datetime.datetime(2000, 1, 1)
+        long_ago = datetime_utc(2000, 1, 1)
         patron.last_loan_activity_sync = long_ago
 
         # This ensures that when we request the loans feed again, the
@@ -2581,7 +2574,7 @@ class TestAnnotationController(CirculationControllerTest):
             motivation=Annotation.IDLING,
         )
         annotation.active = True
-        annotation.timestamp = datetime.datetime.now()
+        annotation.timestamp = utc_now()
 
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
@@ -2617,7 +2610,7 @@ class TestAnnotationController(CirculationControllerTest):
             motivation=Annotation.IDLING,
         )
         annotation.active = True
-        annotation.timestamp = datetime.datetime.now()
+        annotation.timestamp = utc_now()
 
         other_annotation, ignore = create(
             self._db, Annotation,
@@ -3153,8 +3146,8 @@ class TestWorkController(CirculationControllerTest):
                 pool.collection, pool.data_source.name,
                 pool.identifier.type,
                 pool.identifier.identifier,
-                datetime.datetime.utcnow(),
-                datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                utc_now(),
+                utc_now() + datetime.timedelta(seconds=3600),
             )
             self.manager.d_circulation.queue_checkout(
                 pool,
@@ -4111,7 +4104,7 @@ class TestOPDSFeedController(CirculationControllerTest):
 
     def _set_update_times(self):
         """Set the last update times so we can create a crawlable feed."""
-        now = datetime.datetime.now()
+        now = utc_now()
 
         def _set(work, time):
             """Set all fields used when calculating a work's update date for
@@ -4748,7 +4741,7 @@ class TestCrawlableFeed(CirculationControllerTest):
 
 class TestMARCRecordController(CirculationControllerTest):
     def test_download_page_with_exporter_and_files(self):
-        now = datetime.datetime.now()
+        now = utc_now()
         yesterday = now - datetime.timedelta(days=1)
 
         library = self._default_library
@@ -4805,7 +4798,7 @@ class TestMARCRecordController(CirculationControllerTest):
             assert '<a href="http://mirror2">Full file - last updated %s</a>' % yesterday.strftime("%B %-d, %Y") in html
 
     def test_download_page_with_exporter_but_no_files(self):
-        now = datetime.datetime.now()
+        now = utc_now()
         yesterday = now - datetime.timedelta(days=1)
 
         library = self._default_library
@@ -4833,7 +4826,7 @@ class TestMARCRecordController(CirculationControllerTest):
 
         # If the exporter was deleted after some MARC files were cached,
         # they will still be available to download.
-        now = datetime.datetime.now()
+        now = utc_now()
         rep, ignore = create(
             self._db, Representation,
             url="http://mirror1", mirror_url="http://mirror1",
@@ -5205,8 +5198,8 @@ class TestSharedCollectionController(ControllerTest):
             assert "secret" == json.loads(response.get_data(as_text=True)).get("shared_secret")
 
     def test_loan_info(self):
-        now = datetime.datetime.utcnow()
-        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = utc_now()
+        tomorrow = utc_now() + datetime.timedelta(days=1)
 
         other_client, ignore = IntegrationClient.register(self._db, "http://otherlibrary")
         other_client_loan, ignore = create(
@@ -5245,8 +5238,8 @@ class TestSharedCollectionController(ControllerTest):
             availability = entry.get("opds_availability")
             since = availability.get("since")
             until = availability.get("until")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/loans/%s/revoke" % (self.collection.name, loan.id) in revoke_url
             [fulfill_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"]
@@ -5255,8 +5248,8 @@ class TestSharedCollectionController(ControllerTest):
             assert "/collections/%s/loans/%s" % (self.collection.name, loan.id)
 
     def test_borrow(self):
-        now = datetime.datetime.utcnow()
-        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = utc_now()
+        tomorrow = utc_now() + datetime.timedelta(days=1)
         loan, ignore = create(
             self._db, Loan, license_pool=self.pool, integration_client=self.client,
             start=now, end=tomorrow,
@@ -5299,8 +5292,8 @@ class TestSharedCollectionController(ControllerTest):
             availability = entry.get("opds_availability")
             since = availability.get("since")
             until = availability.get("until")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
             assert "available" == availability.get("status")
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/loans/%s/revoke" % (self.collection.name, loan.id) in revoke_url
@@ -5335,8 +5328,8 @@ class TestSharedCollectionController(ControllerTest):
             since = availability.get("since")
             until = availability.get("until")
             assert "available" == availability.get("status")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/loans/%s/revoke" % (self.collection.name, loan.id) in revoke_url
             [fulfill_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"]
@@ -5353,8 +5346,8 @@ class TestSharedCollectionController(ControllerTest):
             availability = entry.get("opds_availability")
             since = availability.get("since")
             until = availability.get("until")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
             assert "reserved" == availability.get("status")
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/holds/%s/revoke" % (self.collection.name, hold.id) in revoke_url
@@ -5363,8 +5356,8 @@ class TestSharedCollectionController(ControllerTest):
             assert "/collections/%s/holds/%s" % (self.collection.name, hold.id)
 
     def test_revoke_loan(self):
-        now = datetime.datetime.utcnow()
-        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = utc_now()
+        tomorrow = utc_now() + datetime.timedelta(days=1)
         loan, ignore = create(
             self._db, Loan, license_pool=self.pool, integration_client=self.client,
             start=now, end=tomorrow,
@@ -5404,8 +5397,8 @@ class TestSharedCollectionController(ControllerTest):
             assert NO_ACTIVE_LOAN.uri == response.uri
 
     def test_fulfill(self):
-        now = datetime.datetime.utcnow()
-        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = utc_now()
+        tomorrow = utc_now() + datetime.timedelta(days=1)
         loan, ignore = create(
             self._db, Loan, license_pool=self.pool, integration_client=self.client,
             start=now, end=tomorrow,
@@ -5448,7 +5441,7 @@ class TestSharedCollectionController(ControllerTest):
                 self.pool.identifier.type,
                 self.pool.identifier.identifier,
                 "http://content", "text/html", None,
-                datetime.datetime.utcnow(),
+                utc_now(),
             )
 
             api.queue_fulfill(fulfillment_info)
@@ -5474,8 +5467,8 @@ class TestSharedCollectionController(ControllerTest):
             assert "text/html" == response.headers.get("Content-Type")
 
     def test_hold_info(self):
-        now = datetime.datetime.utcnow()
-        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = utc_now()
+        tomorrow = utc_now() + datetime.timedelta(days=1)
 
         other_client, ignore = IntegrationClient.register(self._db, "http://otherlibrary")
         other_client_hold, ignore = create(
@@ -5514,8 +5507,8 @@ class TestSharedCollectionController(ControllerTest):
             availability = entry.get("opds_availability")
             since = availability.get("since")
             until = availability.get("until")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/holds/%s/revoke" % (self.collection.name, hold.id) in revoke_url
             assert [] == [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"]
@@ -5523,8 +5516,8 @@ class TestSharedCollectionController(ControllerTest):
             assert "/collections/%s/holds/%s" % (self.collection.name, hold.id)
 
     def test_revoke_hold(self):
-        now = datetime.datetime.utcnow()
-        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = utc_now()
+        tomorrow = utc_now() + datetime.timedelta(days=1)
         hold, ignore = create(
             self._db, Hold, license_pool=self.pool, integration_client=self.client,
             start=now, end=tomorrow,

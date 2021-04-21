@@ -69,6 +69,11 @@ from core.opds_import import (
 from core.testing import DatabaseTest
 
 from core.util import LanguageCodes
+from core.util.datetime_helpers import (
+    datetime_utc,
+    strptime_utc,
+    utc_now,
+)
 from core.util.xmlparser import XMLParser
 from core.util.http import (
     HTTP,
@@ -222,7 +227,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             return
 
         def _count_events():
-            now = datetime.utcnow()
+            now = utc_now()
             five_minutes_ago = now - timedelta(minutes=5)
             count = len(list(self.recent_activity(since=five_minutes_ago)))
             return "Found %d event(s)" % count
@@ -569,7 +574,7 @@ class Axis360CirculationMonitor(CollectionMonitor, TimelineMonitor):
 
     PROTOCOL = ExternalIntegration.AXIS_360
 
-    DEFAULT_START_TIME = datetime(1970, 1, 1)
+    DEFAULT_START_TIME = datetime_utc(1970, 1, 1)
 
     def __init__(self, _db, collection, api_class=Axis360API):
         super(Axis360CirculationMonitor, self).__init__(_db, collection)
@@ -769,7 +774,17 @@ class Axis360Parser(XMLParser):
 
     SHORT_DATE_FORMAT = "%m/%d/%Y"
     FULL_DATE_FORMAT_IMPLICIT_UTC = "%m/%d/%Y %I:%M:%S %p"
-    FULL_DATE_FORMAT = "%m/%d/%Y %I:%M:%S %p +00:00"
+    FULL_DATE_FORMAT_EXPLICIT_UTC = "%m/%d/%Y %I:%M:%S %p +00:00"
+
+    def _pd(self, date):
+        """Stupid function to parse a date."""
+        if date is None:
+            return date
+        try:
+            return strptime_utc(date, self.FULL_DATE_FORMAT_IMPLICIT_UTC)
+        except ValueError:
+            pass
+        return strptime_utc(date, self.FULL_DATE_FORMAT_EXPLICIT_UTC)
 
     def _xpath1_boolean(self, e, target, ns, default=False):
         text = self.text_of_optional_subtag(e, target, ns)
@@ -782,15 +797,7 @@ class Axis360Parser(XMLParser):
 
     def _xpath1_date(self, e, target, ns):
         value = self.text_of_optional_subtag(e, target, ns)
-        if value is None:
-            return value
-        try:
-            attempt = datetime.strptime(
-                value, self.FULL_DATE_FORMAT_IMPLICIT_UTC)
-            value += ' +00:00'
-        except ValueError:
-            pass
-        return datetime.strptime(value, self.FULL_DATE_FORMAT)
+        return self._pd(value)
 
 class BibliographicParser(Axis360Parser):
 
@@ -841,14 +848,8 @@ class BibliographicParser(Axis360Parser):
         availability_updated = self.text_of_optional_subtag(
             availability, 'axis:updateDate', ns)
         if availability_updated:
-            try:
-                attempt = datetime.strptime(
-                    availability_updated, self.FULL_DATE_FORMAT_IMPLICIT_UTC)
-                availability_updated += ' +00:00'
-            except ValueError:
-                pass
-            availability_updated = datetime.strptime(
-                    availability_updated, self.FULL_DATE_FORMAT)
+            # NOTE: We don't actually do anything with this.
+            availability_updated = self._pd(availability_updated)
 
         circulation_data.licenses_owned=total_copies
         circulation_data.licenses_available=available_copies
@@ -979,8 +980,9 @@ class BibliographicParser(Axis360Parser):
         publication_date = self.text_of_optional_subtag(
             element, 'axis:publicationDate', ns)
         if publication_date:
-            publication_date = datetime.strptime(
-                publication_date, self.SHORT_DATE_FORMAT)
+            publication_date = strptime_utc(
+                publication_date, self.SHORT_DATE_FORMAT
+            )
 
         series = self.text_of_optional_subtag(element, 'axis:series', ns)
         publisher = self.text_of_optional_subtag(element, 'axis:publisher', ns)
@@ -1273,10 +1275,9 @@ class CheckoutResponseParser(ResponseParser):
 
         if expiration_date is not None:
             expiration_date = expiration_date.text
-            expiration_date = datetime.strptime(
-                expiration_date, self.FULL_DATE_FORMAT)
+            expiration_date = self._pd(expiration_date)
 
-        loan_start = datetime.utcnow()
+        loan_start = utc_now()
         loan = LoanInfo(
             collection=self.collection, data_source_name=DataSource.AXIS_360,
             identifier_type=self.id_type, identifier=None,
@@ -1311,7 +1312,7 @@ class HoldResponseParser(ResponseParser):
                 print("Invalid queue position: %s" % queue_position)
                 queue_position = None
 
-        hold_start = datetime.utcnow()
+        hold_start = utc_now()
         # NOTE: The caller needs to fill in Collection -- we have no idea
         # what collection this is.
         hold = HoldInfo(
@@ -1568,7 +1569,7 @@ class Axis360FulfillmentInfoResponseParser(JSONResponseParser):
             date = date[:date.rindex('.')]
 
         try:
-            date = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+            date = strptime_utc(date, "%Y-%m-%d %H:%M:%S")
         except ValueError:
             raise RemoteInitiatedServerError(
                 "Could not parse expiration date: %s" % date,

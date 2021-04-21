@@ -19,6 +19,7 @@ import unicodedata
 import urllib.parse
 import datetime
 from psycopg2.extras import NumericRange
+from core.util.datetime_helpers import utc_now
 
 class MockGoogleAnalyticsProvider(GoogleAnalyticsProvider):
 
@@ -77,7 +78,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         work.presentation_edition.publisher = "publisher"
         work.target_age = NumericRange(10, 15)
         [lp] = work.license_pools
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         ga.collect_event(
             self._default_library, lp, CirculationEvent.DISTRIBUTOR_CHECKIN, now,
             neighborhood="Neighborhood will not be sent"
@@ -132,7 +133,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
             collection=self._default_collection
         )
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         ga.collect_event(self._default_library, pool, CirculationEvent.DISTRIBUTOR_CHECKIN, now)
         params = urllib.parse.parse_qs(ga.params)
 
@@ -170,7 +171,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         ).value = "faketrackingid"
         ga = MockGoogleAnalyticsProvider(integration, self._default_library)
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         ga.collect_event(self._default_library, None, CirculationEvent.NEW_PATRON, now)
         params = urllib.parse.parse_qs(ga.params)
 

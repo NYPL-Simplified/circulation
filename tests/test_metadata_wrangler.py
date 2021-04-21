@@ -28,6 +28,10 @@ from core.testing import (
     MockRequestsResponse,
     AlwaysSuccessfulCoverageProvider,
 )
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from core.util.http import BadResponseException
 from core.util.opds_writer import OPDSFeed
 
@@ -104,7 +108,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
 
         # The earliest time found in the OPDS feed is returned as a
         # candidate for the Monitor's timestamp.
-        assert datetime.datetime(2016, 9, 20, 19, 37, 2) == timestamp
+        assert datetime_utc(2016, 9, 20, 19, 37, 2) == timestamp
 
     def test_empty_feed_stops_import(self):
         # We don't follow the 'next' link of an empty feed.
@@ -122,7 +126,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         # Since there were no <entry> tags, the timestamp's finish
         # date was set to the <updated> date of the feed itself, minus
         # one day (to avoid race conditions).
-        assert (datetime.datetime(2016, 9, 19, 19, 37, 10) ==
+        assert (datetime_utc(2016, 9, 19, 19, 37, 10) ==
             self.monitor.timestamp().finish)
 
     def test_run_once(self):
@@ -156,7 +160,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         # We have a new value to use for the Monitor's timestamp -- the
         # earliest date seen in the last OPDS feed that contained
         # any entries.
-        assert datetime.datetime(2016, 9, 20, 19, 37, 2) == new_timestamp.finish
+        assert datetime_utc(2016, 9, 20, 19, 37, 2) == new_timestamp.finish
         assert "Editions processed: 1" == new_timestamp.achievements
 
         # Normally run_once() doesn't update the monitor's timestamp,
@@ -185,7 +189,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         # its 'next' link, http://another-next-link/.
 
     def test_no_changes_means_no_timestamp_update(self):
-        before = datetime.datetime.utcnow()
+        before = utc_now()
         self.monitor.timestamp().finish = before
 
         # We're going to ask the metadata wrangler for updates, but
@@ -239,7 +243,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         assert (None, 'http://next-link/') == second
         assert (None, 'http://different-link/') == third
 
-        assert datetime.datetime(2016, 9, 20, 19, 37, 2) == new_timestamp.finish
+        assert datetime_utc(2016, 9, 20, 19, 37, 2) == new_timestamp.finish
 
     def test_get_response(self):
 
@@ -507,10 +511,8 @@ class TestBaseMetadataWranglerCoverageProvider(MetadataWranglerCoverageProviderT
         assert threem == mapping[isbn_threem]
 
     def test_coverage_records_for_unhandled_items_include_collection(self):
-        """NOTE: This could be made redundant by adding test coverage to
-        CoverageProvider.process_batch_and_handle_results in core.
-
-        """
+        # NOTE: This could be made redundant by adding test coverage to
+        # CoverageProvider.process_batch_and_handle_results in core.
         data = sample_data('metadata_sync_response.opds', 'opds')
         self.lookup_client.queue_response(
             200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
@@ -723,7 +725,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         # But if we send a cutoff_time that's later than the time
         # associated with the coverage record...
         one_hour_from_now = (
-            datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
+            utc_now() + datetime.timedelta(seconds=3600)
         )
         provider_with_cutoff = self.create_provider(
             cutoff_time=one_hour_from_now

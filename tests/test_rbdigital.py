@@ -75,6 +75,10 @@ from core.model import (
 from core.scripts import RunCollectionCoverageProviderScript
 from core.testing import MockRequestsResponse
 
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from core.util.http import (
     BadResponseException,
     RemoteIntegrationException,
@@ -1027,7 +1031,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         datastr, datadict = self.get_data("response_catalog_media_isbn.json")
         self.api.queue_response(status_code=200, content=datastr)
         result = self.api.populate_delta(
-            today=datetime.datetime(2020,4,30)
+            today=datetime_utc(2020,4,30)
         )
 
         # populate_delta returns two numbers, as required by
@@ -1251,7 +1255,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # Now we have a LoanInfo that describes the remote loan.
         assert Identifier.RB_DIGITAL_ID == loan_info.identifier_type
         assert pool.identifier.identifier == loan_info.identifier
-        today = datetime.datetime.utcnow()
+        today = utc_now()
         assert (loan_info.start_date - today).total_seconds() < 20
         assert (loan_info.end_date - today).days <= ebook_period
 
@@ -1319,7 +1323,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # The fulfillment link expires in about 14 minutes -- rather
         # than testing this exactly we estimate it.
         expires = found_fulfillment.content_expires
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         thirteen_minutes = now + datetime.timedelta(minutes=13)
         fifteen_minutes = now + datetime.timedelta(minutes=15)
         assert expires > thirteen_minutes
@@ -1469,7 +1473,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                 collection=api.collection,
             )
             assert False == new
-            assert credential.expires > datetime.datetime.utcnow()
+            assert credential.expires > utc_now()
 
             # Ensure that we've consumed all of the queued responses so far
             assert 0 == len(api.responses)
@@ -1604,7 +1608,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         assert Identifier.RB_DIGITAL_ID == hold_info.identifier_type
         assert pool.identifier.identifier == hold_info.identifier
-        today = datetime.datetime.now()
+        today = utc_now()
         assert (hold_info.start_date - today).total_seconds() < 20
 
     def test_release_hold(self):
@@ -2263,7 +2267,7 @@ class TestRBDProxyController(ControllerTest):
                                                None, allow_persistent_token=True,
                                                collection=collection, allow_empty_token=True)
                 credential.credential = token
-                credential.expires = datetime.datetime.utcnow()+datetime.timedelta(minutes=30)
+                credential.expires = utc_now()+datetime.timedelta(minutes=30)
                 return credential
 
             def patron_fulfillment_request(self, patron, url, reauthorize=None):

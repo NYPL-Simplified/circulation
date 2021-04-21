@@ -3,6 +3,7 @@ import email
 import json
 import logging
 import os
+import pytz
 import sys
 import urllib.parse
 from collections import defaultdict
@@ -105,6 +106,10 @@ from core.opds import (
 from core.opensearch import OpenSearchDocument
 from core.user_profile import ProfileController as CoreProfileController
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
+from core.util.datetime_helpers import (
+    from_timestamp,
+    utc_now,
+)
 from core.util.http import (
     HTTP,
     RemoteIntegrationException,
@@ -663,22 +668,25 @@ class CirculationManagerController(BaseCirculationManagerController):
         if last_modified.microsecond:
             last_modified = last_modified.replace(microsecond=0)
 
-        # TODO: This can be cleaned up significantly in Python 3.
         if_modified_since = flask.request.headers.get('If-Modified-Since')
         if not if_modified_since:
             return None
 
-        if_modified_since_tuple = email.utils.parsedate(
-            if_modified_since
-        )
-        if not if_modified_since_tuple:
+        try:
+            parsed_if_modified_since = email.utils.parsedate_to_datetime(
+                if_modified_since
+            )
+        except TypeError:
+            # Parse error.
             return None
-
-        parsed_if_modified_since = datetime.datetime.fromtimestamp(
-            mktime(if_modified_since_tuple)
-        )
         if not parsed_if_modified_since:
             return None
+
+        # "[I]f the date is conforming to the RFCs it will represent a
+        # time in UTC but with no indication of the actual source
+        # timezone of the message the date comes from."
+        if parsed_if_modified_since.tzinfo is None:
+            parsed_if_modified_since = parsed_if_modified_since.replace(tzinfo=pytz.UTC)
 
         if parsed_if_modified_since >= last_modified:
             return Response(status=304)
@@ -2209,7 +2217,7 @@ class AnalyticsController(CirculationManagerController):
             if isinstance(pools, ProblemDetail):
                 return pools
             self.manager.analytics.collect_event(
-                library, pools[0], event_type, datetime.datetime.utcnow(),
+                library, pools[0], event_type, utc_now(),
                 neighborhood=neighborhood
             )
             return Response({}, 200)

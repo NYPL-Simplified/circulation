@@ -87,6 +87,7 @@ from core.util.flask_util import OPDSFeedResponse
 from core.util.http import HTTP
 from core.util.problem_detail import ProblemDetail
 from api.proquest.importer import ProQuestOPDS2Importer
+from core.util.datetime_helpers import utc_now
 
 
 def setup_admin_controllers(manager):
@@ -1251,13 +1252,16 @@ class DashboardController(AdminCirculationManagerController):
         date_format = "%Y-%m-%d"
         def get_date(field):
             # Return a date or datetime object representing the
-            # _beginning_ of the asked-for day.
+            # _beginning_ of the asked-for day, local time.
+            #
+            # Unlike most places in this application we do not
+            # use UTC since the sime was selected by a human user.
             today = date.today()
             value = flask.request.args.get(field, None)
             if not value:
                 return today
             try:
-                return datetime.strptime(value, date_format)
+                return datetime.strptime(value, date_format).date()
             except ValueError as e:
                 # This won't happen in real life since the format is
                 # controlled by the calendar widget. There's no need
@@ -2019,7 +2023,7 @@ class SitewideRegistrationController(SettingsController):
         # things for us.
         public_key_dict = dict(type='RSA', value=public_key)
         public_key_url = self.url_for('public_key_document')
-        in_one_minute = datetime.utcnow() + timedelta(seconds=60)
+        in_one_minute = utc_now() + timedelta(seconds=60)
         payload = {'exp': in_one_minute}
         # Sign a JWT with the private key to prove ownership of the site.
         token = jwt.encode(payload, private_key, algorithm='RS256')

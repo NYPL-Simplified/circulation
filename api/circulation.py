@@ -28,6 +28,7 @@ from core.model import (
     RightsStatus,
     Session,
     ExternalIntegrationLink)
+from core.util.datetime_helpers import utc_now
 from .util.patron import PatronUtility
 
 
@@ -571,11 +572,10 @@ class CirculationAPI(object):
         # fines, blocks, expired card, etc.
         PatronUtility.assert_borrowing_privileges(patron)
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         if licensepool.open_access or licensepool.self_hosted:
             # We can 'loan' open-access content ourselves just by
             # putting a row in the database.
-            now = datetime.datetime.utcnow()
             __transaction = self._db.begin_nested()
             loan, is_new = licensepool.loan_to(patron, start=now, end=None)
             __transaction.commit()
@@ -1178,7 +1178,7 @@ class CirculationAPI(object):
         # Assuming everything goes well, we will set
         # Patron.last_loan_activity_sync to this value -- the moment
         # just before we started contacting the vendor APIs.
-        last_loan_activity_sync = datetime.datetime.utcnow()
+        last_loan_activity_sync = utc_now()
 
         # Update the external view of the patron's current state.
         remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
@@ -1191,7 +1191,7 @@ class CirculationAPI(object):
             # patron's loans is good enough to cache.
             last_loan_activity_sync = None
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         local_loans_by_identifier = {}
         local_holds_by_identifier = {}
         for l in local_loans:
@@ -1297,7 +1297,7 @@ class CirculationAPI(object):
             # If the loan's start date is less than a minute ago, we'll keep it.
             for loan in list(local_loans_by_identifier.values()):
                 if loan.license_pool.collection_id in self.collection_ids_for_sync:
-                    one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+                    one_minute_ago = utc_now() - datetime.timedelta(minutes=1)
                     if loan.start < one_minute_ago:
                         logging.info("In sync_bookshelf for patron %s, deleting loan %d (patron %s)" % (patron.authorization_identifier, loan.id, loan.patron.authorization_identifier))
                         self._db.delete(loan)

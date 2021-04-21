@@ -73,6 +73,11 @@ from core.config import (
 
 from core.testing import DatabaseTest
 
+from core.util.datetime_helpers import (
+    from_timestamp,
+    strptime_utc,
+    utc_now,
+)
 from core.util.http import (
     HTTP,
     BadResponseException,
@@ -214,7 +219,7 @@ class OdiloRepresentationExtractor(object):
 
         if published:
             try:
-                published = datetime.datetime.strptime(published, "%Y%m%d")
+                published = strptime_utc(published, "%Y%m%d")
             except ValueError as e:
                 cls.log.warn('Cannot parse publication date from: ' + published + ', message: ' + str(e))
 
@@ -222,7 +227,7 @@ class OdiloRepresentationExtractor(object):
         last_update = book.get('modificationDate')
         if last_update:
             try:
-                last_update = datetime.datetime.strptime(last_update, "%Y%m%d")
+                last_update = strptime_utc(last_update, "%Y%m%d")
             except ValueError as e:
                 cls.log.warn('Cannot parse last update date from: ' + last_update + ', message: ' + str(e))
 
@@ -641,7 +646,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
             d = None
         else:
             # OdiloAPI dates are timestamps in milliseconds
-            d = datetime.datetime.utcfromtimestamp(float(data[field_name]) / 1000.0)
+            d = from_timestamp(float(data[field_name]) / 1000.0)
         return d
 
     @classmethod
@@ -828,7 +833,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
             credential.expires = None
         else:
             expires_in = (odilo_data['expiresIn'] * 0.9)
-            credential.expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in)
+            credential.expires = utc_now() + datetime.timedelta(seconds=expires_in)
 
     def get_metadata(self, record_id):
         identifier = record_id
@@ -905,9 +910,9 @@ class OdiloCirculationMonitor(CollectionMonitor, TimelineMonitor):
 
         self.log.info("Starting recently_changed_ids, start: " + str(start) + ", cutoff: " + str(cutoff))
 
-        start_time = datetime.datetime.now()
+        start_time = utc_now()
         updated, new = self.all_ids(start)
-        finish_time = datetime.datetime.now()
+        finish_time = utc_now()
 
         time_elapsed = finish_time - start_time
         self.log.info("recently_changed_ids finished in: " + str(time_elapsed))

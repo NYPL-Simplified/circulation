@@ -2,6 +2,7 @@ import datetime
 import json
 import uuid
 
+import dateutil
 from flask_babel import lazy_gettext as _
 
 from api.admin.validator import Validator
@@ -78,10 +79,10 @@ class AnnouncementListValidator(Validator):
         validated['content'] = content
 
         # Validate the dates associated with the announcement
-        today = datetime.date.today()
+        today_local = datetime.date.today()
 
         start = self.validate_date(
-            'start', announcement.get('start', today)
+            'start', announcement.get('start', today_local)
         )
         if isinstance(start, ProblemDetail):
             return start
@@ -137,7 +138,11 @@ class AnnouncementListValidator(Validator):
         """
         if isinstance(value, str):
             try:
+                # Unlike most of the dates in this application,
+                # this is a date entered by an admin, so it should be
+                # interpreted as server local time, not UTC.
                 value = datetime.datetime.strptime(value, cls.DATE_FORMAT)
+                value = value.replace(tzinfo=dateutil.tz.tzlocal())
             except ValueError as e:
                 return INVALID_INPUT.detailed(
                     _("Value for %(field)s is not a date: %(date)s", field=field, date=value)

@@ -4,6 +4,10 @@ import re
 from enum import Enum
 from json import JSONDecoder, JSONEncoder
 from json.decoder import WHITESPACE
+from core.util.datetime_helpers import (
+    from_timestamp,
+    utc_now,
+)
 
 import six
 from onelogin.saml2.constants import OneLogin_Saml2_Constants
@@ -1071,11 +1075,10 @@ class SAMLSubject(object):
         if valid_till is None:
             self._valid_till = datetime.timedelta(minutes=30)
         elif isinstance(valid_till, datetime.datetime):
-            self._valid_till = valid_till - datetime.datetime.utcnow()
+            self._valid_till = valid_till - utc_now()
         elif isinstance(valid_till, int):
             self._valid_till = (
-                datetime.datetime.utcfromtimestamp(valid_till)
-                - datetime.datetime.utcnow()
+                from_timestamp(valid_till) - utc_now()
             )
         elif isinstance(valid_till, datetime.timedelta):
             self._valid_till = valid_till

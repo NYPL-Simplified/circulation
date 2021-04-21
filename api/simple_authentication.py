@@ -1,4 +1,3 @@
-import datetime
 from flask_babel import lazy_gettext as _
 
 from .authenticator import (
