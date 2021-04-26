@@ -1,5 +1,5 @@
 # Library Simplified Circulation Manager
-![Build Status](https://github.com/nypl-simplified/circulation/actions/workflows/test.yml/badge.svg?branch=develop) [![GitHub Release](https://img.shields.io/github/release/tterb/PlayMusic.svg?style=flat)]()
+![Build Status](https://github.com/nypl-simplified/circulation/actions/workflows/test.yml/badge.svg?branch=develop) [![GitHub Release](https://img.shields.io/github/release/nypl-simplified/circulation.svg?style=flat)]()
 
 Default Branch: `develop`
 
