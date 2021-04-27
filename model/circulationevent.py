@@ -2,12 +2,6 @@
 # CirculationEvent
 
 
-from . import (
-    Base,
-    get_one_or_create,
-)
-
-import datetime
 import logging
 from sqlalchemy import (
     Column,
@@ -18,6 +12,12 @@ from sqlalchemy import (
     String,
     Unicode,
 )
+
+from . import (
+    Base,
+    get_one_or_create,
+)
+from ..util.datetime_helpers import utc_now
 
 class CirculationEvent(Base):
 
@@ -37,8 +37,8 @@ class CirculationEvent(Base):
         Integer, ForeignKey('licensepools.id'), index=True)
 
     type = Column(String(32), index=True)
-    start = Column(DateTime, index=True)
-    end = Column(DateTime)
+    start = Column(DateTime(timezone=True), index=True)
+    end = Column(DateTime(timezone=True))
     old_value = Column(Integer)
     delta = Column(Integer)
     new_value = Column(Integer)
@@ -92,34 +92,34 @@ class CirculationEvent(Base):
     )
 
     # Constants for use in logging circulation events to JSON
-    SOURCE = u"source"
-    TYPE = u"event"
+    SOURCE = "source"
+    TYPE = "event"
 
     # The names of the circulation events we recognize.
     # They may be sent to third-party analytics services
     # as well as used locally.
 
     # Events that happen in a circulation manager.
-    NEW_PATRON = u"circulation_manager_new_patron"
-    CM_CHECKOUT = u"circulation_manager_check_out"
-    CM_CHECKIN = u"circulation_manager_check_in"
-    CM_HOLD_PLACE = u"circulation_manager_hold_place"
-    CM_HOLD_RELEASE = u"circulation_manager_hold_release"
-    CM_FULFILL = u"circulation_manager_fulfill"
+    NEW_PATRON = "circulation_manager_new_patron"
+    CM_CHECKOUT = "circulation_manager_check_out"
+    CM_CHECKIN = "circulation_manager_check_in"
+    CM_HOLD_PLACE = "circulation_manager_hold_place"
+    CM_HOLD_RELEASE = "circulation_manager_hold_release"
+    CM_FULFILL = "circulation_manager_fulfill"
 
     # Events that we hear about from a distributor.
-    DISTRIBUTOR_CHECKOUT = u"distributor_check_out"
-    DISTRIBUTOR_CHECKIN = u"distributor_check_in"
-    DISTRIBUTOR_HOLD_PLACE = u"distributor_hold_place"
-    DISTRIBUTOR_HOLD_RELEASE = u"distributor_hold_release"
-    DISTRIBUTOR_LICENSE_ADD = u"distributor_license_add"
-    DISTRIBUTOR_LICENSE_REMOVE = u"distributor_license_remove"
-    DISTRIBUTOR_AVAILABILITY_NOTIFY = u"distributor_availability_notify"
-    DISTRIBUTOR_TITLE_ADD = u"distributor_title_add"
-    DISTRIBUTOR_TITLE_REMOVE = u"distributor_title_remove"
+    DISTRIBUTOR_CHECKOUT = "distributor_check_out"
+    DISTRIBUTOR_CHECKIN = "distributor_check_in"
+    DISTRIBUTOR_HOLD_PLACE = "distributor_hold_place"
+    DISTRIBUTOR_HOLD_RELEASE = "distributor_hold_release"
+    DISTRIBUTOR_LICENSE_ADD = "distributor_license_add"
+    DISTRIBUTOR_LICENSE_REMOVE = "distributor_license_remove"
+    DISTRIBUTOR_AVAILABILITY_NOTIFY = "distributor_availability_notify"
+    DISTRIBUTOR_TITLE_ADD = "distributor_title_add"
+    DISTRIBUTOR_TITLE_REMOVE = "distributor_title_remove"
 
     # Events that we hear about from a client app.
-    OPEN_BOOK = u"open_book"
+    OPEN_BOOK = "open_book"
 
     CLIENT_EVENTS = [
         OPEN_BOOK,
@@ -140,7 +140,7 @@ class CirculationEvent(Base):
         else:
             delta = new_value - old_value
         if not start:
-            start = datetime.datetime.utcnow()
+            start = utc_now()
         if not end:
             end = start
         event, was_new = get_one_or_create(

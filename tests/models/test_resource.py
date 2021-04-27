@@ -198,7 +198,7 @@ class TestRepresentation(DatabaseTest):
         assert Representation.JPEG_MEDIA_TYPE == m_file(jpg_file)
         assert Representation.ZIP_MEDIA_TYPE == m_file(zip_file)
 
-        for extension, media_type in Representation.MEDIA_TYPE_FOR_EXTENSION.items():
+        for extension, media_type in list(Representation.MEDIA_TYPE_FOR_EXTENSION.items()):
             filename = "file" + extension
             assert media_type == m_file(filename)
 
@@ -289,14 +289,14 @@ class TestRepresentation(DatabaseTest):
         assert b"some text" == fh.read()
 
     def test_unicode_content_utf8_default(self):
-        unicode_content = u"It’s complicated."
+        unicode_content = "It’s complicated."
 
         utf8_content = unicode_content.encode("utf8")
 
         # This bytestring can be decoded as Windows-1252, but that
         # would be the wrong answer.
         bad_windows_1252 = utf8_content.decode("windows-1252")
-        assert u"Itâ€™s complicated." == bad_windows_1252
+        assert "Itâ€™s complicated." == bad_windows_1252
 
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content(unicode_content, None)
@@ -307,7 +307,7 @@ class TestRepresentation(DatabaseTest):
         assert unicode_content == representation.unicode_content
 
     def test_unicode_content_windows_1252(self):
-        unicode_content = u"A “love” story"
+        unicode_content = "A “love” story"
         windows_1252_content = unicode_content.encode("windows-1252")
 
         representation, ignore = self._representation(self._url, "text/plain")
@@ -525,7 +525,7 @@ class TestRepresentation(DatabaseTest):
             do_get=h.do_get, cautious_head_client=object()
         )
         assert 200 == status
-        assert "yay" == content
+        assert b"yay" == content
 
         # If the domain is obviously unsafe, no GET request or HEAD
         # request is made.
@@ -570,7 +570,7 @@ class TestRepresentation(DatabaseTest):
             do_get=h.do_get, cautious_head_client=mock_redirect
         )
         assert 200 == status
-        assert "good content" == content
+        assert b"good content" == content
 
     def test_get_would_be_useful(self):
         """Test the method that determines whether a GET request will go (or
@@ -674,7 +674,7 @@ class TestRepresentation(DatabaseTest):
         # And the normalized URL was used as the Representation's
         # storage key.
         normalized_url = "http://url/"
-        assert "yay" == representation.content
+        assert "yay" == representation.content.decode("utf-8")
         assert normalized_url == representation.url
         assert False == from_cache
 
@@ -832,7 +832,8 @@ class TestCoverResource(DatabaseTest):
         assert thumbnail == thumbnail2
         assert thumbnail2.content != old_content
         assert 400 == thumbnail.image_height
-        assert 266 == thumbnail.image_width
+        # The width turns out to be 266 or 267 depending on the machine.
+        assert 265 < thumbnail.image_width < 268
 
         # The thumbnail has been regenerated, so it needs to be mirrored again.
         assert None == thumbnail.mirrored_at

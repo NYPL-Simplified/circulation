@@ -6,7 +6,6 @@ configured, not that the code is correct.
 """
 
 import datetime
-
 from ..testing import DatabaseTest
 
 from ..selftest import (
@@ -15,10 +14,11 @@ from ..selftest import (
 )
 
 from ..util.http import IntegrationException
+from ..util.datetime_helpers import utc_now
 
 class TestSelfTestResult(DatabaseTest):
 
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     future = now + datetime.timedelta(seconds=5)
 
     def test_success_representation(self):
@@ -189,7 +189,7 @@ class TestHasSelfTests(DatabaseTest):
         )
         assert isinstance(result, SelfTestResult)
         assert False == result.success
-        assert "I don't work!" == unicode(result.exception)
+        assert "I don't work!" == str(result.exception)
 
     def test_exception_in_has_self_tests(self):
         """An exception raised in has_self_tests itself is converted into a
@@ -210,7 +210,7 @@ class TestHasSelfTests(DatabaseTest):
         # The Exception was turned into an IntegrationException so that
         # its traceback could be included as debug_message.
         assert isinstance(failure.exception, IntegrationException)
-        assert "oh no" == unicode(failure.exception)
+        assert "oh no" == str(failure.exception)
         assert failure.exception.debug_message.startswith("Traceback")
 
     def test_run_test_success(self):
@@ -237,7 +237,7 @@ class TestHasSelfTests(DatabaseTest):
         assert False == result.success
         assert "An unsuccessful test" == result.name
         assert None == result.result
-        assert "arg1" == unicode(result.exception)
+        assert "arg1" == str(result.exception)
         assert "arg2" == result.exception.debug_message
         assert (result.end-result.start).total_seconds() < 1
 
@@ -246,19 +246,19 @@ class TestHasSelfTests(DatabaseTest):
 
         # You can pass in an Exception...
         exception = Exception("argh")
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         result = o.test_failure("a failure", exception)
 
         # ...which will be turned into an IntegrationException.
         assert "a failure" == result.name
         assert isinstance(result.exception, IntegrationException)
-        assert "argh" == unicode(result.exception)
+        assert "argh" == str(result.exception)
         assert (result.start-now).total_seconds() < 1
 
         # ... or you can pass in arguments to an IntegrationException
         result = o.test_failure("another failure", "message", "debug")
         assert isinstance(result.exception, IntegrationException)
-        assert "message" == unicode(result.exception)
+        assert "message" == str(result.exception)
         assert "debug" == result.exception.debug_message
 
         # Since no test code actually ran, the end time is the

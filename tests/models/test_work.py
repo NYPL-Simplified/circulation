@@ -1,11 +1,12 @@
 # encoding: utf-8
 import pytest
 import datetime
-from ...external_search import MockExternalSearchIndex
 from mock import MagicMock
 import os
 from psycopg2.extras import NumericRange
 import random
+
+from ...external_search import MockExternalSearchIndex
 from ...testing import DatabaseTest
 from ...classifier import (
     Classifier,
@@ -37,6 +38,8 @@ from ...model.work import (
     Work,
     WorkGenre,
 )
+from ...util.datetime_helpers import from_timestamp
+from ...util.datetime_helpers import datetime_utc, utc_now
 
 
 class TestWork(DatabaseTest):
@@ -151,28 +154,28 @@ class TestWork(DatabaseTest):
         gutenberg_source = DataSource.GUTENBERG
         gitenberg_source = DataSource.PROJECT_GITENBERG
 
-        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
+        [bob], ignore = Contributor.lookup(self._db, "Bitshifter, Bob")
         bob.family_name, bob.display_name = bob.default_names()
 
         edition1, pool1 = self._edition(gitenberg_source, Identifier.GUTENBERG_ID,
             with_license_pool=True, with_open_access_download=True, authors=[])
-        edition1.title = u"The 1st Title"
-        edition1.subtitle = u"The 1st Subtitle"
+        edition1.title = "The 1st Title"
+        edition1.subtitle = "The 1st Subtitle"
         edition1.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
         edition2, pool2 = self._edition(gitenberg_source, Identifier.GUTENBERG_ID,
             with_license_pool=True, with_open_access_download=True, authors=[])
-        edition2.title = u"The 2nd Title"
-        edition2.subtitle = u"The 2nd Subtitle"
+        edition2.title = "The 2nd Title"
+        edition2.subtitle = "The 2nd Subtitle"
         edition2.add_contributor(bob, Contributor.AUTHOR_ROLE)
-        [alice], ignore = Contributor.lookup(self._db, u"Adder, Alice")
+        [alice], ignore = Contributor.lookup(self._db, "Adder, Alice")
         alice.family_name, alice.display_name = alice.default_names()
         edition2.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
         edition3, pool3 = self._edition(gutenberg_source, Identifier.GUTENBERG_ID,
             with_license_pool=True, with_open_access_download=True, authors=[])
-        edition3.title = u"The 2nd Title"
-        edition3.subtitle = u"The 2nd Subtitle"
+        edition3.title = "The 2nd Title"
+        edition3.subtitle = "The 2nd Subtitle"
         edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition3.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
@@ -274,14 +277,14 @@ class TestWork(DatabaseTest):
         assert "Adder, Alice ; Bitshifter, Bob" == work.sort_author
 
         # The summary has now been chosen.
-        assert chosen_summary == work.summary.representation.content
+        assert chosen_summary == work.summary.representation.content.decode("utf-8")
 
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
-        assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+        assert (utc_now() - work.last_update_time) < datetime.timedelta(seconds=2)
 
         # The index has not been updated.
-        assert [] == index.docs.items()
+        assert [] == list(index.docs.items())
 
         # The Work now has a complete set of WorkCoverageRecords
         # associated with it, reflecting all the operations that
@@ -334,7 +337,7 @@ class TestWork(DatabaseTest):
 
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
-        assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+        assert (utc_now() - work.last_update_time) < datetime.timedelta(seconds=2)
 
         # make a staff (admin interface) edition.  its fields should supercede all others below it
         # except when it has no contributors, and they do.
@@ -342,7 +345,7 @@ class TestWork(DatabaseTest):
 
         staff_edition = self._edition(data_source_name=DataSource.LIBRARY_STAFF,
             with_license_pool=False, authors=[])
-        staff_edition.title = u"The Staff Title"
+        staff_edition.title = "The Staff Title"
         staff_edition.primary_identifier = pool2.identifier
         # set edition's authorship to "nope", and make sure the lower-priority
         # editions' authors don't get clobbered
@@ -421,7 +424,7 @@ class TestWork(DatabaseTest):
         class Mock(Work):
             def set_summary(self, summary):
                 if isinstance(summary, Resource):
-                    self.summary_text = summary.representation.content
+                    self.summary_text = summary.representation.unicode_content
                 else:
                     self.summary_text = summary
 
@@ -488,7 +491,7 @@ class TestWork(DatabaseTest):
             self._db, DataSource.LIBRARY_STAFF
         )
         m([i1.id, i2.id], [], [])
-        assert l1.resource.representation.content == w.summary_text
+        assert l1.resource.representation.content.decode("utf-8") == w.summary_text
 
     def test_set_presentation_ready_based_on_content(self):
 
@@ -506,7 +509,7 @@ class TestWork(DatabaseTest):
         assert True == work.presentation_ready
 
         # The work has not been added to the search index.
-        assert [] == search.docs.keys()
+        assert [] == list(search.docs.keys())
 
         # But the work of adding it to the search engine has been
         # registered.
@@ -534,7 +537,7 @@ class TestWork(DatabaseTest):
         assert_record()
 
         # Restore the title, and everything is fixed.
-        presentation.title = u"foo"
+        presentation.title = "foo"
         work.set_presentation_ready_based_on_content(search_index_client=search)
         assert True == work.presentation_ready
 
@@ -570,13 +573,13 @@ class TestWork(DatabaseTest):
         work.assign_genres_from_weights({Romance : 1000, Fantasy : 1000})
         self._db.commit()
         before = sorted((x.genre.name, x.affinity) for x in work.work_genres)
-        assert [(u'Fantasy', 0.5), (u'Romance', 0.5)] == before
+        assert [('Fantasy', 0.5), ('Romance', 0.5)] == before
 
         # But now it's classified under Science Fiction and Romance.
         work.assign_genres_from_weights({Romance : 100, Science_Fiction : 300})
         self._db.commit()
         after = sorted((x.genre.name, x.affinity) for x in work.work_genres)
-        assert [(u'Romance', 0.25), (u'Science Fiction', 0.75)] == after
+        assert [('Romance', 0.25), ('Science Fiction', 0.75)] == after
 
     def test_classifications_with_genre(self):
         work = self._work(with_open_access_download=True)
@@ -845,7 +848,7 @@ class TestWork(DatabaseTest):
 
         cover_rep = cover_link.resource.representation
         cover_rep.mirror_url = cover_href
-        cover_rep.mirrored_at = datetime.datetime.utcnow()
+        cover_rep.mirrored_at = utc_now()
         cover_rep.thumbnails.append(thumbnail_rep)
 
         edition.set_cover(cover_link.resource)
@@ -1029,8 +1032,8 @@ class TestWork(DatabaseTest):
 
         # Add two custom lists. The work is featured on one list but
         # not the other.
-        appeared_1 = datetime.datetime(2010, 1, 1)
-        appeared_2 = datetime.datetime(2011, 1, 1)
+        appeared_1 = datetime_utc(2010, 1, 1)
+        appeared_2 = datetime_utc(2011, 1, 1)
         l1, ignore = self._customlist(num_entries=0)
         l1.add_entry(work, featured=False, update_external_index=False,
                      first_appearance=appeared_1)
@@ -1050,7 +1053,7 @@ class TestWork(DatabaseTest):
         work.summary_text = self._str
         work.rating = 5
         work.popularity = 4
-        work.last_update_time = datetime.datetime.utcnow()
+        work.last_update_time = utc_now()
 
         # Make sure all of this will show up in a database query.
         self._db.flush()
@@ -1068,7 +1071,7 @@ class TestWork(DatabaseTest):
             :param postgres: A float from the Postgres part.
             """
             expect = (
-                python - datetime.datetime.utcfromtimestamp(0)
+                python - from_timestamp(0)
             ).total_seconds()
             assert int(expect) == int(postgres)
 
@@ -1424,7 +1427,7 @@ class TestWork(DatabaseTest):
         # LicensePool.update_availability is called, meaning that
         # patron transactions always trigger a reindex).
         record.status = success
-        work.last_update_time = datetime.datetime.utcnow()
+        work.last_update_time = utc_now()
         assert registered == record.status
 
         # If its collection changes (which shouldn't happen), it needs
@@ -1494,7 +1497,7 @@ class TestWork(DatabaseTest):
         # The work was not added to the search index when we called
         # external_index_needs_updating. That happens later, when the
         # WorkCoverageRecord is processed.
-        assert [] == index.docs.values()
+        assert [] == list(index.docs.values())
 
     def test_for_unchecked_subjects(self):
 
@@ -1550,8 +1553,8 @@ class TestWork(DatabaseTest):
         work.marc_record = None
 
         work.calculate_marc_record()
-        assert work.title.encode("utf8") in work.marc_record
-        assert b"online resource" in work.marc_record
+        assert work.title in work.marc_record
+        assert "online resource" in work.marc_record
 
     def test_active_licensepool_ignores_superceded_licensepools(self):
         work = self._work(with_license_pool=True,
@@ -1721,7 +1724,7 @@ class TestWorkConsolidation(DatabaseTest):
         work, created = pool.calculate_work()
         assert None == work
 
-        edition.title = u"foo"
+        edition.title = "foo"
         work, created = pool.calculate_work()
         edition.calculate_presentation()
         assert True == created
@@ -1729,8 +1732,8 @@ class TestWorkConsolidation(DatabaseTest):
         # # The edition is the work's presentation edition.
         assert work == edition.work
         assert edition == work.presentation_edition
-        assert u"foo" == work.title
-        assert u"[Unknown]" == work.author
+        assert "foo" == work.title
+        assert "[Unknown]" == work.author
 
     def test_calculate_work_fails_when_presentation_edition_identifier_does_not_match_license_pool(self):
 

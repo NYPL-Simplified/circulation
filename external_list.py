@@ -1,21 +1,19 @@
 # encoding: utf-8
 from collections import defaultdict
-
-import datetime
 from dateutil.parser import parse
 import csv
 import os
 from sqlalchemy import or_
 from sqlalchemy.orm.session import Session
 
-from opds_import import SimplifiedOPDSLookup
+from .opds_import import SimplifiedOPDSLookup
 import logging
-from config import Configuration
-from metadata_layer import (
+from .config import Configuration
+from .metadata_layer import (
     CSVMetadataImporter,
     ReplacementPolicy,
 )
-from model import (
+from .model import (
     get_one,
     get_one_or_create,
     Classification,
@@ -27,7 +25,8 @@ from model import (
     Subject,
     Work,
 )
-from util import LanguageCodes
+from .util import LanguageCodes
+from .util.datetime_helpers import utc_now
 
 class CustomListFromCSV(CSVMetadataImporter):
     """Create a CustomList, with entries, from a CSV file."""
@@ -66,7 +65,7 @@ class CustomListFromCSV(CSVMetadataImporter):
         last_appeared date to its most recent appearance.
         """
         data_source = DataSource.lookup(_db, self.data_source_name)
-        now = datetime.datetime.utcnow()
+        now = utc_now()
 
         # Find or create the CustomList object itself.
         custom_list, was_new = get_one_or_create(
@@ -141,7 +140,7 @@ class CustomListFromCSV(CSVMetadataImporter):
             if annotation_author_affiliation:
                 annotation_extra += ', ' + annotation_author_affiliation
         if annotation_extra:
-            return u' —' + annotation_extra
+            return ' —' + annotation_extra
         return None
 
 
@@ -157,7 +156,7 @@ class TitleFromExternalList(object):
         self.metadata = metadata
         self.first_appearance = first_appearance or most_recent_appearance
         self.most_recent_appearance = (
-            most_recent_appearance or datetime.datetime.now()
+            most_recent_appearance or utc_now()
         )
         self.annotation = annotation
 
@@ -228,7 +227,7 @@ class TitleFromExternalList(object):
         # ID if possible.
         try:
             edition, is_new = self.metadata.edition(_db)
-        except ValueError, e:
+        except ValueError as e:
             self.log.info(
                 "Ignoring %s, no corresponding edition.", self.metadata.title
             )
@@ -262,7 +261,7 @@ class MembershipManager(object):
         self.custom_list = custom_list
 
     def update(self, update_time=None):
-        update_time = update_time or datetime.datetime.utcnow()
+        update_time = update_time or utc_now()
 
         # Map each Edition currently in this list to the corresponding
         # CustomListEntry.
@@ -291,7 +290,7 @@ class MembershipManager(object):
 
         # Anything still left in current_membership used to be in the
         # list but is no longer. Remove these entries from the list.
-        for entry_list in current_membership.values():
+        for entry_list in list(current_membership.values()):
             for entry in entry_list:
                 self.log.debug("Deleting %s" % entry.edition.title)
                 self._db.delete(entry)

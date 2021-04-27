@@ -1,21 +1,12 @@
 # encoding: utf-8
 # Identifier, Equivalency
-import datetime
 import logging
 import random
-import urllib
+from urllib.parse import quote, unquote
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from functools import total_ordering
-
 import isbnlib
-import six
-from classification import Classification, Subject
-from constants import IdentifierConstants, LinkRelations
-from coverage import CoverageRecord
-from datasource import DataSource
-from licensing import LicensePoolDeliveryMechanism, RightsStatus
-from measurement import Measurement
 from sqlalchemy import (
     Boolean,
     Column,
@@ -32,13 +23,18 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import and_, or_
 
-from ..util.string_helpers import native_string
-from ..util.summary import SummaryEvaluator
+from .classification import Classification, Subject
+from .constants import IdentifierConstants, LinkRelations
+from .coverage import CoverageRecord
+from .datasource import DataSource
+from .licensing import LicensePoolDeliveryMechanism, RightsStatus
+from .measurement import Measurement
 from . import Base, PresentationCalculationPolicy, create, get_one, get_one_or_create
+from ..util.summary import SummaryEvaluator
+from ..util.datetime_helpers import utc_now
 
 
-@six.add_metaclass(ABCMeta)
-class IdentifierParser(object):
+class IdentifierParser(metaclass=ABCMeta):
     """Interface for identifier parsers."""
 
     @abstractmethod
@@ -83,12 +79,10 @@ class Identifier(Base, IdentifierConstants):
     def __repr__(self):
         records = self.primarily_identifies
         if records and records[0].title:
-            title = u' prim_ed=%d ("%s")' % (records[0].id, six.ensure_text(records[0].title))
+            title = ' prim_ed=%d ("%s")' % (records[0].id, records[0].title)
         else:
-            title = u""
-        return native_string(
-            u"%s/%s ID=%s%s" % (six.ensure_text(self.type), six.ensure_text(self.identifier), self.id, title)
-        )
+            title = ""
+        return "%s/%s ID=%s%s" % (self.type, self.identifier, self.id, title)
 
     # One Identifier may serve as the primary identifier for
     # several Editions.
@@ -219,7 +213,7 @@ class Identifier(Base, IdentifierConstants):
 
     @property
     def urn(self):
-        identifier_text = urllib.quote(self.identifier)
+        identifier_text = quote(self.identifier)
         if self.type == Identifier.ISBN:
             return self.ISBN_URN_SCHEME_PREFIX + identifier_text
         elif self.type == Identifier.URI:
@@ -227,7 +221,7 @@ class Identifier(Base, IdentifierConstants):
         elif self.type == Identifier.GUTENBERG_ID:
             return self.GUTENBERG_URN_SCHEME_PREFIX + identifier_text
         else:
-            identifier_type = urllib.quote(self.type)
+            identifier_type = quote(self.type)
             return self.URN_SCHEME_PREFIX + "%s/%s" % (
                 identifier_type, identifier_text)
 
@@ -258,12 +252,12 @@ class Identifier(Base, IdentifierConstants):
             type = Identifier.URI
         elif identifier_string.startswith(Identifier.URN_SCHEME_PREFIX):
             identifier_string = identifier_string[len(Identifier.URN_SCHEME_PREFIX):]
-            type, identifier_string = map(
-                urllib.unquote, identifier_string.split("/", 1))
+            type, identifier_string = list(map(
+                unquote, identifier_string.split("/", 1)))
         elif identifier_string.startswith(Identifier.ISBN_URN_SCHEME_PREFIX):
             type = Identifier.ISBN
             identifier_string = identifier_string[len(Identifier.ISBN_URN_SCHEME_PREFIX):]
-            identifier_string = urllib.unquote(identifier_string)
+            identifier_string = unquote(identifier_string)
             # Make sure this is a valid ISBN, and convert it to an ISBN-13.
             if not (isbnlib.is_isbn10(identifier_string) or
                     isbnlib.is_isbn13(identifier_string)):
@@ -329,26 +323,26 @@ class Identifier(Base, IdentifierConstants):
                 identifiers_by_urn[identifier.urn] = identifier
 
         # Find identifiers that are already in the database.
-        find_existing_identifiers(identifier_details.values())
+        find_existing_identifiers(list(identifier_details.values()))
 
         # Remove the existing identifiers from the identifier_details list,
         # regardless of whether the provided URN was accurate.
-        existing_details = [(i.type, i.identifier) for i in identifiers_by_urn.values()]
+        existing_details = [(i.type, i.identifier) for i in list(identifiers_by_urn.values())]
         identifier_details = {
-            k: v for k, v in identifier_details.items()
-            if v not in existing_details and k not in identifiers_by_urn.keys()
+            k: v for k, v in list(identifier_details.items())
+            if v not in existing_details and k not in list(identifiers_by_urn.keys())
         }
 
         if not autocreate:
             # Don't make new identifiers. Send back unfound urns as failures.
-            failures.extend(identifier_details.keys())
+            failures.extend(list(identifier_details.keys()))
             return identifiers_by_urn, failures
 
         # Find any identifier details that don't correspond to an existing
         # identifier. Try to create them.
         new_identifiers = list()
         new_identifiers_details = set([])
-        for urn, details in identifier_details.items():
+        for urn, details in list(identifier_details.items()):
             if details in new_identifiers_details:
                 # For some reason, this identifier is here twice.
                 # Don't try to insert it twice.
@@ -361,7 +355,7 @@ class Identifier(Base, IdentifierConstants):
         if new_identifiers:
             _db.bulk_insert_mappings(cls, new_identifiers)
             _db.commit()
-        find_existing_identifiers(identifier_details.values())
+        find_existing_identifiers(list(identifier_details.values()))
 
         return identifiers_by_urn, failures
 
@@ -545,7 +539,7 @@ class Identifier(Base, IdentifierConstants):
         fetching, mirroring and scaling Representations as links are
         created. It might be good to move that code into here.
         """
-        from resource import Hyperlink, Representation, Resource
+        from .resource import Hyperlink, Representation, Resource
         _db = Session.object_session(self)
 
         # Find or create the Resource.
@@ -594,7 +588,7 @@ class Identifier(Base, IdentifierConstants):
             data_source.name, self.type, self.identifier,
             quantity_measured, value, weight)
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         taken_at = taken_at or now
         # Is there an existing most recent measurement?
         most_recent = get_one(
@@ -652,7 +646,7 @@ class Identifier(Base, IdentifierConstants):
                 identifier=self,
                 subject=subject,
                 data_source=data_source)
-        except MultipleResultsFound, e:
+        except MultipleResultsFound as e:
             # TODO: This is a hack.
             all_classifications = _db.query(Classification).filter(
                 Classification.identifier==self,
@@ -669,7 +663,7 @@ class Identifier(Base, IdentifierConstants):
     @classmethod
     def resources_for_identifier_ids(self, _db, identifier_ids, rel=None,
                                      data_source=None):
-        from resource import Hyperlink, Resource
+        from .resource import Hyperlink, Resource
         resources = _db.query(Resource).join(Resource.links).filter(
                 Hyperlink.identifier_id.in_(identifier_ids))
         if data_source:
@@ -694,7 +688,7 @@ class Identifier(Base, IdentifierConstants):
     def best_cover_for(cls, _db, identifier_ids, rel=None):
         # Find all image resources associated with any of
         # these identifiers.
-        from resource import Hyperlink, Resource
+        from .resource import Hyperlink, Resource
         rel = rel or Hyperlink.IMAGE
         images = cls.resources_for_identifier_ids(
             _db, identifier_ids, rel)
@@ -858,6 +852,9 @@ class Identifier(Base, IdentifierConstants):
         if other is None or not isinstance(other, Identifier):
             return False
         return (self.type, self.identifier) == (other.type, other.identifier)
+    
+    def __hash__(self):
+        return hash((self.type, self.identifier))
 
     def __lt__(self, other):
         """Comparison implementation for total_ordering."""
@@ -901,7 +898,7 @@ class Equivalency(Base):
     enabled = Column(Boolean, default=True, index=True)
 
     def __repr__(self):
-        r = u"[%s ->\n %s\n source=%s strength=%.2f votes=%d)]" % (
+        r = "[%s ->\n %s\n source=%s strength=%.2f votes=%d)]" % (
             repr(self.input).decode("utf8"),
             repr(self.output).decode("utf8"),
             self.data_source.name, self.strength, self.votes

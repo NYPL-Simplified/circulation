@@ -38,7 +38,7 @@ class HasFullTableCache(object):
                 cache[key] = obj
             if id_cache != cls.RESET:
                 id_cache[id] = obj
-        except TypeError, e:
+        except TypeError as e:
             # The cache was reset in between the time we checked for a
             # reset and the time we tried to put an object in the
             # cache. Stop trying to mess with the cache.
@@ -77,7 +77,7 @@ class HasFullTableCache(object):
         if cache != cls.RESET:
             try:
                 obj = cache.get(cache_key)
-            except TypeError, e:
+            except TypeError as e:
                 # This shouldn't happen. Even if the actual cache was
                 # reset just now, we still have a copy of the 'old'
                 # cache which passed the 'cache != cls.RESET' test.
@@ -105,7 +105,7 @@ class HasFullTableCache(object):
         if obj and obj not in _db:
             try:
                 obj = _db.merge(obj, load=False)
-            except Exception, e:
+            except Exception as e:
                 logging.error(
                     "Unable to merge cached object %r into database session",
                     obj, exc_info=e

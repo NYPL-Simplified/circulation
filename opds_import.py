@@ -1,16 +1,19 @@
 import datetime
 import logging
 import traceback
-import urllib
-from io import BytesIO, StringIO
+from io import BytesIO
 
 import dateutil
 import feedparser
-from config import CannotLoadConfiguration, IntegrationException
-from coverage import CoverageFailure
 from flask_babel import lazy_gettext as _
 from lxml import etree
-from metadata_layer import (
+from urllib.parse import urljoin, urlparse, quote
+from sqlalchemy.orm import aliased
+from sqlalchemy.orm.session import Session
+
+from .config import CannotLoadConfiguration, IntegrationException
+from .coverage import CoverageFailure
+from .metadata_layer import (
     CirculationData,
     ContributorData,
     IdentifierData,
@@ -21,8 +24,8 @@ from metadata_layer import (
     SubjectData,
     TimestampData,
 )
-from mirror import MirrorUploader
-from model import (
+from .mirror import MirrorUploader
+from .model import (
     Collection,
     CoverageRecord,
     DataSource,
@@ -38,19 +41,15 @@ from model import (
     Subject,
     get_one,
 )
-from model.configuration import ExternalIntegrationLink
-from monitor import CollectionMonitor
-
-from selftest import HasSelfTests, SelfTestResult
-from six.moves.urllib.parse import urljoin, urlparse
-from sqlalchemy.orm import aliased
-from sqlalchemy.orm.session import Session
-from util.http import HTTP, BadResponseException
-from util.opds_writer import OPDSFeed, OPDSMessage
-from util.string_helpers import base64
-from util.xmlparser import XMLParser
-
+from .model.configuration import ExternalIntegrationLink
+from .monitor import CollectionMonitor
+from .selftest import HasSelfTests, SelfTestResult
 from .classifier import Classifier
+from .util.http import HTTP, BadResponseException
+from .util.opds_writer import OPDSFeed, OPDSMessage
+from .util.string_helpers import base64
+from .util.xmlparser import XMLParser
+from .util.datetime_helpers import datetime_utc, utc_now
 
 
 def parse_identifier(db, identifier):
@@ -196,7 +195,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
         for c in _db.query(Collection):
             try:
                 metadata_identifier = c.metadata_identifier
-            except ValueError, e:
+            except ValueError as e:
                 continue
 
             lookup = lookup_class.from_config(_db, c)
@@ -212,7 +211,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
         metadata_identifier = None
         try:
             metadata_identifier = self.collection.metadata_identifier
-        except ValueError, e:
+        except ValueError as e:
             # This collection has no metadata identifier. It's
             # probably a "Manual intervention" collection. It cannot
             # interact with the metadata wrangler and there's no need
@@ -220,7 +219,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
             return
 
         # Check various endpoints that yield OPDS feeds.
-        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        one_day_ago = utc_now() - datetime.timedelta(days=1)
         for title, m, args in (
             (
                 "Metadata updates in last 24 hours",
@@ -249,7 +248,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
         self._annotate_feed_response(result, response)
 
         # We're all done.
-        result.end = datetime.datetime.utcnow()
+        result.end = utc_now()
         return result
 
     @classmethod
@@ -346,7 +345,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
         if self.collection.protocol == ExternalIntegration.OPDS_IMPORT:
             # Open access OPDS_IMPORT collections need to send a DataSource to
             # allow OPDS lookups on the Metadata Wrangler.
-            data_source = '?data_source=' + urllib.quote(self.collection.data_source.name)
+            data_source = '?data_source=' + quote(self.collection.data_source.name)
 
         return (self.base_url
             + self.collection.metadata_identifier
@@ -363,7 +362,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
     def add_with_metadata(self, feed):
         """Add a feed of items with metadata to an authenticated Metadata Wrangler Collection."""
         add_with_metadata_url = self.get_collection_url(self.ADD_WITH_METADATA_ENDPOINT)
-        return self._post(add_with_metadata_url, unicode(feed))
+        return self._post(add_with_metadata_url, str(feed))
 
     def metadata_needed(self, **kwargs):
         """Get a feed of items that need additional metadata to be processed
@@ -406,10 +405,10 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
             that goes into library records).
         """
         args = "display_name=%s" % (
-            urllib.quote(working_display_name.encode("utf8"))
+            quote(working_display_name.encode("utf8"))
         )
         if identifier:
-            args += "&urn=%s" % urllib.quote(identifier.urn)
+            args += "&urn=%s" % quote(identifier.urn)
         url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
         logging.info("GET %s", url)
         return self._get(url)
@@ -423,7 +422,7 @@ class MockSimplifiedOPDSLookup(SimplifiedOPDSLookup):
         super(MockSimplifiedOPDSLookup, self).__init__(*args, **kwargs)
 
     def queue_response(self, status_code, headers={}, content=None):
-        from testing import MockRequestsResponse
+        from .testing import MockRequestsResponse
         self.responses.insert(
             0, MockRequestsResponse(status_code, headers, content)
         )
@@ -699,7 +698,7 @@ class OPDSImporter(object):
         #
         # To avoid taking forever or antagonizing API providers, we'll
         # give up after `max_get_attempts` failures.
-        for link in self._open_access_links(metadata.values()):
+        for link in self._open_access_links(list(metadata.values())):
             url = link.href
             success = self._is_open_access_link(url, link.media_type)
             if success:
@@ -776,11 +775,11 @@ class OPDSImporter(object):
         # moving on. Let the exception propagate.
         metadata_objs, failures = self.extract_feed_data(feed, feed_url)
         # make editions.  if have problem, make sure associated pool and work aren't created.
-        for key, metadata in metadata_objs.iteritems():
+        for key, metadata in metadata_objs.items():
             # key is identifier.urn here
 
             # If there's a status message about this item, don't try to import it.
-            if key in failures.keys():
+            if key in list(failures.keys()):
                 continue
 
             try:
@@ -788,7 +787,7 @@ class OPDSImporter(object):
                 edition = self.import_edition_from_metadata(metadata)
                 if edition:
                     imported_editions[key] = edition
-            except Exception, e:
+            except Exception as e:
                 # Rather than scratch the whole import, treat this as a failure that only applies
                 # to this item.
                 self.log.error("Error importing an OPDS item", exc_info=e)
@@ -808,13 +807,13 @@ class OPDSImporter(object):
                     pools[key] = pool
                 if work:
                     works[key] = work
-            except Exception, e:
+            except Exception as e:
                 identifier, ignore = Identifier.parse_urn(self._db, key)
                 data_source = self.data_source
                 failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
                 failures[key] = failure
 
-        return imported_editions.values(), pools.values(), works.values(), failures
+        return list(imported_editions.values()), list(pools.values()), list(works.values()), failures
 
     def import_edition_from_metadata(
             self, metadata
@@ -882,7 +881,7 @@ class OPDSImporter(object):
 
     @classmethod
     def extract_next_links(self, feed):
-        if isinstance(feed, basestring):
+        if isinstance(feed, (bytes, str)):
             parsed = feedparser.parse(feed)
         else:
             parsed = feed
@@ -896,7 +895,7 @@ class OPDSImporter(object):
         return next_links
 
     def extract_last_update_dates(self, feed):
-        if isinstance(feed, basestring):
+        if isinstance(feed, (bytes, str)):
             parsed_feed = feedparser.parse(feed)
         else:
             parsed_feed = feed
@@ -922,7 +921,7 @@ class OPDSImporter(object):
         identifiers_by_urn, failures = Identifier.parse_urns(
             self._db, external_urns, autocreate=False
         )
-        external_identifiers = identifiers_by_urn.values()
+        external_identifiers = list(identifiers_by_urn.values())
 
         internal_identifier = aliased(Identifier)
         qu = self._db.query(Identifier, internal_identifier)\
@@ -952,18 +951,18 @@ class OPDSImporter(object):
 
         if self.map_from_collection:
             # Build the identifier_mapping based on the Collection.
-            self.build_identifier_mapping(fp_metadata.keys() + fp_failures.keys())
+            self.build_identifier_mapping(list(fp_metadata.keys()) + list(fp_failures.keys()))
 
         # translate the id in failures to identifier.urn
         identified_failures = {}
-        for urn, failure in fp_failures.items() + xml_failures.items():
+        for urn, failure in list(fp_failures.items()) + list(xml_failures.items()):
             identifier, failure = self.handle_failure(urn, failure)
             identified_failures[identifier.urn] = failure
 
         # Use one loop for both, since the id will be the same for both dictionaries.
         metadata = {}
         circulationdata = {}
-        for id, m_data_dict in fp_metadata.items():
+        for id, m_data_dict in list(fp_metadata.items()):
             xml_data_dict = xml_data_meta.get(id, {})
 
             external_identifier = None
@@ -995,7 +994,7 @@ class OPDSImporter(object):
                 internal_identifier = external_identifier
 
             # Don't process this item if there was already an error
-            if internal_identifier.urn in identified_failures.keys():
+            if internal_identifier.urn in list(identified_failures.keys()):
                 continue
 
             identifier_obj = IdentifierData(
@@ -1104,7 +1103,7 @@ class OPDSImporter(object):
         if not d2:
             return dict(d1)
         new_dict = dict(d1)
-        for k, v in d2.items():
+        for k, v in list(d2.items()):
             if k not in new_dict:
                 # There is no value from d1. Even if the d2 value
                 # is None, we want to set it.
@@ -1164,9 +1163,7 @@ class OPDSImporter(object):
         if isinstance(feed, bytes):
             inp = BytesIO(feed)
         else:
-            # NOTE: etree will not parse certain Unicode strings.
-            # It's generally better to feed it a bytestring.
-            inp = StringIO(feed)
+            inp = BytesIO(feed.encode("utf-8"))
         root = etree.parse(inp)
 
         # Some OPDS feeds (eg Standard Ebooks) contain relative urls,
@@ -1213,7 +1210,7 @@ class OPDSImporter(object):
         value = entry.get(key, None)
         if not value:
             return value
-        return datetime.datetime(*value[:6])
+        return datetime_utc(*value[:6])
 
     def last_update_date_for_feedparser_entry(self, entry):
         identifier = entry.get('id')
@@ -1236,7 +1233,7 @@ class OPDSImporter(object):
         try:
             kwargs_meta = cls._data_detail_for_feedparser_entry(entry, data_source)
             return identifier, kwargs_meta, None
-        except Exception, e:
+        except Exception as e:
             _db = Session.object_session(data_source)
             identifier_obj, ignore = Identifier.parse_urn(_db, identifier)
             failure = CoverageFailure(
@@ -1436,7 +1433,7 @@ class OPDSImporter(object):
         urn = message.urn
         try:
             identifier, ignore = Identifier.parse_urn(_db, urn)
-        except ValueError, e:
+        except ValueError as e:
             identifier = None
 
         if not identifier:
@@ -1458,9 +1455,9 @@ class OPDSImporter(object):
         description = message.message
         status_code = message.status_code
         if description and status_code:
-            exception = u"%s: %s" % (status_code, description)
+            exception = "%s: %s" % (status_code, description)
         elif status_code:
-            exception = unicode(status_code)
+            exception = str(status_code)
         elif description:
             exception = description
         else:
@@ -1495,7 +1492,7 @@ class OPDSImporter(object):
             )
             return identifier, data, None
 
-        except Exception, e:
+        except Exception as e:
             _db = Session.object_session(data_source)
             identifier_obj, ignore = Identifier.parse_urn(_db, identifier)
             failure = CoverageFailure(
@@ -1560,10 +1557,10 @@ class OPDSImporter(object):
             date_string = issued_tag[0].text
             # By default, the date for strings that only have a year will
             # be set to January 1 rather than the current date.
-            default = datetime.datetime(datetime.datetime.now().year, 1, 1)
+            default = datetime_utc(utc_now().year, 1, 1)
             try:
                 data["published"] = dateutil.parser.parse(date_string, default=default)
-            except Exception, e:
+            except Exception as e:
                 # This entry had an issued tag, but it was in a format we couldn't parse.
                 pass
 
@@ -1667,7 +1664,7 @@ class OPDSImporter(object):
         weight = attr.get('{http://schema.org/}ratingValue', default_weight)
         try:
             weight = int(weight)
-        except ValueError, e:
+        except ValueError as e:
             weight = default_weight
 
         return SubjectData(
@@ -2086,7 +2083,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
             )
 
         # Create CoverageRecords for the failures.
-        for urn, failure in failures.items():
+        for urn, failure in list(failures.items()):
             failure.to_coverage_record(
                 operation=CoverageRecord.IMPORT_OPERATION
             )

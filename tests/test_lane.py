@@ -1,45 +1,37 @@
 import datetime
 import json
 import logging
-
 import pytest
 from mock import (
     call,
     MagicMock,
 )
 import random
-
-from ..testing import (
-    DatabaseTest,
-)
-
 from sqlalchemy.sql.elements import Case
 from sqlalchemy import (
     and_,
     func,
     text,
 )
-
 from elasticsearch.exceptions import ElasticsearchException
 
+from ..testing import (
+    DatabaseTest,
+)
 from ..classifier import Classifier
-
 from ..config import Configuration
-
 from ..entrypoint import (
     AudiobooksEntryPoint,
     EbooksEntryPoint,
     EverythingEntryPoint,
     EntryPoint,
 )
-
 from ..external_search import (
     Filter,
     MockExternalSearchIndex,
     WorkSearchResult,
     mock_search_index,
 )
-
 from ..lane import (
     DatabaseBackedFacets,
     DatabaseBackedWorkList,
@@ -54,7 +46,6 @@ from ..lane import (
     WorkList,
     Lane,
 )
-
 from ..model import (
     dump_query,
     get_one_or_create,
@@ -74,6 +65,7 @@ from ..model import (
 from ..problem_details import INVALID_INPUT
 from ..testing import EndToEndSearchTest, LogCaptureHandler
 from ..util.opds_writer import OPDSFeed
+from ..util.datetime_helpers import utc_now
 
 class TestFacetsWithEntryPoint(DatabaseTest):
 
@@ -341,9 +333,9 @@ class TestFacets(DatabaseTest):
 
     def _configure_facets(self, library, enabled, default):
         """Set facet configuration for the given Library."""
-        for key, values in enabled.items():
+        for key, values in list(enabled.items()):
             library.enabled_facets_setting(key).value = json.dumps(values)
-        for key, value in default.items():
+        for key, value in list(default.items()):
             library.default_facet_setting(key).value = value
 
     def test_max_cache_age(self):
@@ -1821,16 +1813,16 @@ class TestWorkList(DatabaseTest):
         wl.initialize(library=self._default_library)
 
         # No audience.
-        assert u'' == wl.audience_key
+        assert '' == wl.audience_key
 
         # All audiences.
         wl.audiences = Classifier.AUDIENCES
-        assert u'' == wl.audience_key
+        assert '' == wl.audience_key
 
         # Specific audiences.
         wl.audiences = [Classifier.AUDIENCE_CHILDREN,
                         Classifier.AUDIENCE_YOUNG_ADULT]
-        assert u'Children,Young+Adult' == wl.audience_key
+        assert 'Children,Young+Adult' == wl.audience_key
 
     def test_parent(self):
         # A WorkList has no parent.
@@ -3129,7 +3121,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
 
         # It's possible to restrict a WorkList to works that were seen on
         # a certain list recently.
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         two_days_ago = now - datetime.timedelta(days=2)
         gutenberg_list_entry.most_recent_appearance = two_days_ago
 

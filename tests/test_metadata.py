@@ -2,7 +2,6 @@ import csv
 import datetime
 import os
 from copy import deepcopy
-
 import pytest
 from parameterized import parameterized
 
@@ -45,6 +44,12 @@ from ..model import (
 from ..model.configuration import ExternalIntegrationLink
 from ..s3 import MockS3Uploader
 from ..util.http import RemoteIntegrationException
+from ..util.datetime_helpers import (
+    datetime_utc,
+    strptime_utc,
+    to_utc,
+    utc_now,
+)
 
 
 class TestIdentifierData(object):
@@ -68,7 +73,7 @@ class TestMetadataImporter(DatabaseTest):
         generator = importer.to_metadata(reader)
         m1, m2, m3 = list(generator)
 
-        assert u"Horrorst\xf6r" == m1.title
+        assert "Horrorst\xf6r" == m1.title
         assert "Grady Hendrix" == m1.contributors[0].display_name
         assert "Martin Jensen" == m2.contributors[0].display_name
 
@@ -97,11 +102,11 @@ class TestMetadataImporter(DatabaseTest):
         # Now let's check out subjects.
         assert (
             [
-                ('schema:typicalAgeRange', u'Adult', 100),
-                ('tag', u'Character Driven', 100),
-                ('tag', u'Historical', 100),
-                ('tag', u'Nail-Biters', 100),
-                ('tag', u'Setting Driven', 100)
+                ('schema:typicalAgeRange', 'Adult', 100),
+                ('tag', 'Character Driven', 100),
+                ('tag', 'Historical', 100),
+                ('tag', 'Nail-Biters', 100),
+                ('tag', 'Setting Driven', 100)
             ] ==
             [(x.type, x.identifier, x.weight)
              for x in sorted(m2.subjects, key=lambda x: x.identifier)])
@@ -763,29 +768,29 @@ class TestMetadataImporter(DatabaseTest):
         coverage = CoverageRecord.lookup(edition, data_source)
         assert coverage == None
 
-        last_update = datetime.datetime(2015, 1, 1)
+        last_update = datetime_utc(2015, 1, 1)
 
         m = Metadata(data_source=data_source,
-                     title=u"New title", data_source_last_updated=last_update)
+                     title="New title", data_source_last_updated=last_update)
         m.apply(edition, None)
 
         coverage = CoverageRecord.lookup(edition, data_source)
         assert last_update == coverage.timestamp
-        assert u"New title" == edition.title
+        assert "New title" == edition.title
 
-        older_last_update = datetime.datetime(2014, 1, 1)
+        older_last_update = datetime_utc(2014, 1, 1)
         m = Metadata(data_source=data_source,
-                     title=u"Another new title",
+                     title="Another new title",
                      data_source_last_updated=older_last_update
         )
         m.apply(edition, None)
-        assert u"New title" == edition.title
+        assert "New title" == edition.title
 
         coverage = CoverageRecord.lookup(edition, data_source)
         assert last_update == coverage.timestamp
 
         m.apply(edition, None, force=True)
-        assert u"Another new title" == edition.title
+        assert "Another new title" == edition.title
         coverage = CoverageRecord.lookup(edition, data_source)
         assert older_last_update == coverage.timestamp
 
@@ -956,17 +961,17 @@ class TestContributorData(DatabaseTest):
         contributor_new, changed = contributor_data.apply(contributor_old)
 
         assert changed == True
-        assert contributor_new.sort_name == u"Doerr, John"
-        assert contributor_new.lc == u"1234567"
-        assert contributor_new.viaf == u"ABC123"
-        assert contributor_new.aliases == [u"Primo"]
-        assert contributor_new.display_name == u"Test Author For The Win"
-        assert contributor_new.family_name == u"TestAuttie"
-        assert contributor_new.wikipedia_name == u"TestWikiAuth"
-        assert contributor_new.biography == u"He was born on Main Street."
+        assert contributor_new.sort_name == "Doerr, John"
+        assert contributor_new.lc == "1234567"
+        assert contributor_new.viaf == "ABC123"
+        assert contributor_new.aliases == ["Primo"]
+        assert contributor_new.display_name == "Test Author For The Win"
+        assert contributor_new.family_name == "TestAuttie"
+        assert contributor_new.wikipedia_name == "TestWikiAuth"
+        assert contributor_new.biography == "He was born on Main Street."
 
-        assert contributor_new.extra[Contributor.BIRTH_DATE] == u"2001-01-01"
-        #assert_equal(contributor_new.contributions, u"Audio")
+        assert contributor_new.extra[Contributor.BIRTH_DATE] == "2001-01-01"
+        #assert_equal(contributor_new.contributions, "Audio")
 
         contributor_new, changed = contributor_data.apply(contributor_new)
         assert changed == False
@@ -1160,15 +1165,15 @@ class TestMetadata(DatabaseTest):
 
         metadata = Metadata(
             data_source=DataSource.OVERDRIVE,
-            title=u"The Harry Otter and the Seaweed of Ages",
-            sort_title=u"Harry Otter and the Seaweed of Ages, The",
-            subtitle=u"Kelp At It",
-            series=u"The Harry Otter Sagas",
-            series_position=u"4",
-            language=u"eng",
-            medium=u"Audio",
-            publisher=u"Scholastic Inc",
-            imprint=u"Follywood",
+            title="The Harry Otter and the Seaweed of Ages",
+            sort_title="Harry Otter and the Seaweed of Ages, The",
+            subtitle="Kelp At It",
+            series="The Harry Otter Sagas",
+            series_position="4",
+            language="eng",
+            medium="Audio",
+            publisher="Scholastic Inc",
+            imprint="Follywood",
             published=datetime.date(1987, 5, 4),
             issued=datetime.date(1989, 4, 5)
         )
@@ -1176,15 +1181,15 @@ class TestMetadata(DatabaseTest):
         edition_new, changed = metadata.apply(edition_old, pool.collection)
 
         assert changed == True
-        assert edition_new.title == u"The Harry Otter and the Seaweed of Ages"
-        assert edition_new.sort_title == u"Harry Otter and the Seaweed of Ages, The"
-        assert edition_new.subtitle == u"Kelp At It"
-        assert edition_new.series == u"The Harry Otter Sagas"
-        assert edition_new.series_position == u"4"
-        assert edition_new.language == u"eng"
-        assert edition_new.medium == u"Audio"
-        assert edition_new.publisher == u"Scholastic Inc"
-        assert edition_new.imprint == u"Follywood"
+        assert edition_new.title == "The Harry Otter and the Seaweed of Ages"
+        assert edition_new.sort_title == "Harry Otter and the Seaweed of Ages, The"
+        assert edition_new.subtitle == "Kelp At It"
+        assert edition_new.series == "The Harry Otter Sagas"
+        assert edition_new.series_position == "4"
+        assert edition_new.language == "eng"
+        assert edition_new.medium == "Audio"
+        assert edition_new.publisher == "Scholastic Inc"
+        assert edition_new.imprint == "Follywood"
         assert edition_new.published == datetime.date(1987, 5, 4)
         assert edition_new.issued == datetime.date(1989, 4, 5)
 
@@ -1208,7 +1213,7 @@ class TestMetadata(DatabaseTest):
         metadata = Metadata(
             data_source=DataSource.OVERDRIVE,
             primary_identifier=work.presentation_edition.primary_identifier,
-            title=u"The Harry Otter and the Seaweed of Ages",
+            title="The Harry Otter and the Seaweed of Ages",
         )
         edition, ignore = metadata.edition(self._db)
         metadata.apply(edition, None)
@@ -1287,7 +1292,7 @@ class TestMetadata(DatabaseTest):
         primary_as_data = IdentifierData(
             type=primary.type, identifier=primary.identifier
         )
-        other_data = IdentifierData(type=u"abc", identifier=u"def")
+        other_data = IdentifierData(type="abc", identifier="def")
 
         # Create a Metadata object that mentions the primary
         # identifier (as an Identifier) in `primary_identifier`, but doesn't
@@ -1325,8 +1330,8 @@ class TestMetadata(DatabaseTest):
         # list of identifiers.
         assert 1 == len(primary.equivalencies)
         [equivalency] = primary.equivalencies
-        assert equivalency.output.type == u"abc"
-        assert equivalency.output.identifier == u"def"
+        assert equivalency.output.type == "abc"
+        assert equivalency.output.identifier == "def"
 
     def test_apply_no_value(self):
         edition_old, pool = self._edition(with_license_pool=True)
@@ -1492,7 +1497,7 @@ class TestMetadata(DatabaseTest):
         primary_as_data = IdentifierData(
             type=identifier.type, identifier=identifier.identifier
         )
-        other_data = IdentifierData(type=u"abc", identifier=u"def")
+        other_data = IdentifierData(type="abc", identifier="def")
 
         m = Metadata(
             DataSource.GUTENBERG,
@@ -1511,11 +1516,11 @@ class TestMetadata(DatabaseTest):
             series="1",
             series_position=1,
             publisher="Hello World Publishing House",
-            imprint=u"Follywood",
-            issued=datetime.datetime.utcnow(),
-            published=datetime.datetime.utcnow(),
+            imprint="Follywood",
+            issued=utc_now(),
+            published=utc_now(),
             identifiers=[primary_as_data, other_data],
-            data_source_last_updated=datetime.datetime.utcnow(),
+            data_source_last_updated=utc_now(),
         )
 
         m_copy = deepcopy(m)
@@ -1686,7 +1691,7 @@ class TestTimestampData(DatabaseTest):
 
         # The timestamp values are set to sensible defaults.
         assert d.start == d.finish
-        assert (datetime.datetime.utcnow() - d.start).total_seconds() < 2
+        assert (utc_now() - d.start).total_seconds() < 2
 
         # Other fields are still at None.
         for i in d.achievements, d.counter, d.exception:
@@ -1743,7 +1748,7 @@ class TestTimestampData(DatabaseTest):
         collection = self._default_collection
         d.finalize("service", Timestamp.SCRIPT_TYPE, collection)
         d.apply(self._db)
-        now = datetime.datetime.utcnow()
+        now = utc_now()
 
         timestamp = Timestamp.lookup(
             self._db, "service", Timestamp.SCRIPT_TYPE, collection
@@ -1831,7 +1836,7 @@ class TestMARCExtractor(DatabaseTest):
 
     def test_parse_year(self):
         m = MARCExtractor.parse_year
-        nineteen_hundred = datetime.datetime.strptime("1900", "%Y")
+        nineteen_hundred = strptime_utc("1900", "%Y")
         assert nineteen_hundred == m("1900")
         assert nineteen_hundred == m("1900.")
         assert None == m("not a year")

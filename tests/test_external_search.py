@@ -1,7 +1,6 @@
 # encoding: utf-8
 import pytest
 from collections import defaultdict
-import datetime
 import json
 import logging
 import re
@@ -85,6 +84,8 @@ from ..testing import (
     ExternalSearchTest,
     EndToEndSearchTest,
 )
+from ..util.datetime_helpers import datetime_utc, from_timestamp
+
 
 RESEARCH = Term(audience=Classifier.AUDIENCE_RESEARCH.lower())
 
@@ -166,7 +167,7 @@ class TestExternalSearch(ExternalSearchTest):
     def test_set_works_index_and_alias(self):
         # If the index or alias don't exist, set_works_index_and_alias
         # will create them.
-        self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, u'banana')
+        self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, 'banana')
         self.search.set_works_index_and_alias(self._db)
 
         expected_index = 'banana-' + CurrentMapping.version_name()
@@ -196,7 +197,7 @@ class TestExternalSearch(ExternalSearchTest):
         # won't be reassigned. Instead, search will occur against the
         # index itself.
         ExternalSearchIndex.reset()
-        self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, u'my-app')
+        self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, 'my-app')
         self.search = ExternalSearchIndex(self._db)
 
         assert 'my-app-%s' % version == self.search.works_index
@@ -240,7 +241,7 @@ class TestExternalSearch(ExternalSearchTest):
             index='test_index-v9999', name='test_index-current')
 
         # And only exists on the new index.
-        alias_indices = self.search.indices.get_alias(name='test_index-current').keys()
+        alias_indices = list(self.search.indices.get_alias(name='test_index-current').keys())
         assert [original_index] == alias_indices
 
         # If the index doesn't have the same base name, an error is raised.
@@ -346,7 +347,7 @@ class TestExternalSearch(ExternalSearchTest):
         assert "Search document for 'a search term':" == test_results[1].name
         assert True == test_results[1].success
         result = json.loads(test_results[1].result)
-        sample_book = {"author": "author", "meta": {"id": "id", "_sort": [u'Sample Book Title', u'author', u'id']}, "id": "id", "title": "Sample Book Title"}
+        sample_book = {"author": "author", "meta": {"id": "id", "_sort": ['Sample Book Title', 'author', 'id']}, "id": "id", "title": "Sample Book Title"}
         assert sample_book == result
 
         assert "Raw search results for 'a search term':" == test_results[2].name
@@ -397,7 +398,7 @@ class TestCurrentMapping(object):
 
         # The special system author '[Unknown]' is replaced with
         # REPLACEMENT CHARACTER so it will be last in sorted lists.
-        filters_to("[Unknown]", u"\N{REPLACEMENT CHARACTER}")
+        filters_to("[Unknown]", "\N{REPLACEMENT CHARACTER}")
 
         # Periods are removed.
         filters_to("Tepper, Sheri S.", "Tepper, Sheri S")
@@ -434,13 +435,13 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.moby_dick.presentation_edition.series = "Classics"
         self.moby_dick.summary_text = "Ishmael"
         self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
-        self.moby_dick.last_update_time = datetime.datetime(2019, 1, 1)
+        self.moby_dick.last_update_time = datetime_utc(2019, 1, 1)
 
         self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
         self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
         self.moby_duck.summary_text = "A compulsively readable narrative"
         self.moby_duck.presentation_edition.publisher = "Penguin"
-        self.moby_duck.last_update_time = datetime.datetime(2019, 1, 2)
+        self.moby_duck.last_update_time = datetime_utc(2019, 1, 2)
         # This book is not currently loanable. It will still show up
         # in search results unless the library's settings disable it.
         self.moby_duck.license_pools[0].licenses_available = 0
@@ -461,7 +462,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.tiffany = _work(title="Breakfast at Tiffany's")
 
         self.les_mis = _work()
-        self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
+        self.les_mis.presentation_edition.title = "Les Mis\u00E9rables"
 
         self.modern_romance = _work(title="Modern Romance")
 
@@ -1226,9 +1227,9 @@ class TestSearchOrder(EndToEndSearchTest):
         self.b = self.moby_duck
         self.c = self.untitled
 
-        self.a.last_update_time = datetime.datetime(2000, 1, 1)
-        self.b.last_update_time = datetime.datetime(2001, 1, 1)
-        self.c.last_update_time = datetime.datetime(2002, 1, 1)
+        self.a.last_update_time = datetime_utc(2000, 1, 1)
+        self.b.last_update_time = datetime_utc(2001, 1, 1)
+        self.c.last_update_time = datetime_utc(2002, 1, 1)
 
         # Each work has one LicensePool associated with the default
         # collection.
@@ -1237,9 +1238,9 @@ class TestSearchOrder(EndToEndSearchTest):
         [self.a1] = self.a.license_pools
         [self.b1] = self.b.license_pools
         [self.c1] = self.c.license_pools
-        self.a1.availability_time = datetime.datetime(2010, 1, 1)
-        self.c1.availability_time = datetime.datetime(2011, 1, 1)
-        self.b1.availability_time = datetime.datetime(2012, 1, 1)
+        self.a1.availability_time = datetime_utc(2010, 1, 1)
+        self.c1.availability_time = datetime_utc(2011, 1, 1)
+        self.b1.availability_time = datetime_utc(2012, 1, 1)
 
         # Here's a second collection with the same books in a different
         # order.
@@ -1262,9 +1263,9 @@ class TestSearchOrder(EndToEndSearchTest):
 
         )
         self.c.license_pools.append(self.c2)
-        self.b2.availability_time = datetime.datetime(2020, 1, 1)
-        self.a2.availability_time = datetime.datetime(2021, 1, 1)
-        self.c2.availability_time = datetime.datetime(2022, 1, 1)
+        self.b2.availability_time = datetime_utc(2020, 1, 1)
+        self.a2.availability_time = datetime_utc(2021, 1, 1)
+        self.c2.availability_time = datetime_utc(2022, 1, 1)
 
         # Here are three custom lists which contain the same books but
         # with different first appearances.
@@ -1272,36 +1273,36 @@ class TestSearchOrder(EndToEndSearchTest):
             name="Custom list 1 - BCA", num_entries=0
         )
         self.list1.add_entry(
-            self.b, first_appearance=datetime.datetime(2030, 1, 1)
+            self.b, first_appearance=datetime_utc(2030, 1, 1)
         )
         self.list1.add_entry(
-            self.c, first_appearance=datetime.datetime(2031, 1, 1)
+            self.c, first_appearance=datetime_utc(2031, 1, 1)
         )
         self.list1.add_entry(
-            self.a, first_appearance=datetime.datetime(2032, 1, 1)
+            self.a, first_appearance=datetime_utc(2032, 1, 1)
         )
 
         self.list2, ignore = self._customlist(
             name="Custom list 2 - CAB", num_entries=0
         )
         self.list2.add_entry(
-            self.c, first_appearance=datetime.datetime(2001, 1, 1)
+            self.c, first_appearance=datetime_utc(2001, 1, 1)
         )
         self.list2.add_entry(
-            self.a, first_appearance=datetime.datetime(2014, 1, 1)
+            self.a, first_appearance=datetime_utc(2014, 1, 1)
         )
         self.list2.add_entry(
-            self.b, first_appearance=datetime.datetime(2015, 1, 1)
+            self.b, first_appearance=datetime_utc(2015, 1, 1)
         )
 
         self.list3, ignore = self._customlist(
             name="Custom list 3 -- CA", num_entries=0
         )
         self.list3.add_entry(
-            self.a, first_appearance=datetime.datetime(2032, 1, 1)
+            self.a, first_appearance=datetime_utc(2032, 1, 1)
         )
         self.list3.add_entry(
-            self.c, first_appearance=datetime.datetime(1999, 1, 1)
+            self.c, first_appearance=datetime_utc(1999, 1, 1)
         )
 
         # Create two custom lists which contain some of the same books,
@@ -1312,10 +1313,10 @@ class TestSearchOrder(EndToEndSearchTest):
             num_entries=0
         )
         self.by_publication_date.add_entry(
-            self.moby_duck, first_appearance=datetime.datetime(2011, 3, 1)
+            self.moby_duck, first_appearance=datetime_utc(2011, 3, 1)
         )
         self.by_publication_date.add_entry(
-            self.untitled, first_appearance=datetime.datetime(2018, 1, 1)
+            self.untitled, first_appearance=datetime_utc(2018, 1, 1)
         )
 
         self.staff_picks, ignore = self._customlist(
@@ -1323,10 +1324,10 @@ class TestSearchOrder(EndToEndSearchTest):
             num_entries=0
         )
         self.staff_picks.add_entry(
-            self.moby_dick, first_appearance=datetime.datetime(2015, 5, 2)
+            self.moby_dick, first_appearance=datetime_utc(2015, 5, 2)
         )
         self.staff_picks.add_entry(
-            self.moby_duck, first_appearance=datetime.datetime(2012, 8, 30)
+            self.moby_duck, first_appearance=datetime_utc(2012, 8, 30)
         )
 
         # Create two extra works, d and e, which are only used to
@@ -1337,19 +1338,19 @@ class TestSearchOrder(EndToEndSearchTest):
         self.collection3 = self._collection()
         self.d = self._work(collection=self.collection3, with_license_pool=True)
         self.e = self._work(collection=self.collection3, with_license_pool=True)
-        self.d.license_pools[0].availability_time = datetime.datetime(2010, 1, 1)
-        self.e.license_pools[0].availability_time = datetime.datetime(2011, 1, 1)
+        self.d.license_pools[0].availability_time = datetime_utc(2010, 1, 1)
+        self.e.license_pools[0].availability_time = datetime_utc(2011, 1, 1)
 
         self.extra_list, ignore = self._customlist(num_entries=0)
         self.extra_list.add_entry(
-            self.d, first_appearance=datetime.datetime(2020, 1, 1)
+            self.d, first_appearance=datetime_utc(2020, 1, 1)
         )
         self.extra_list.add_entry(
-            self.e, first_appearance=datetime.datetime(2021, 1, 1)
+            self.e, first_appearance=datetime_utc(2021, 1, 1)
         )
 
-        self.e.last_update_time = datetime.datetime(2090, 1, 1)
-        self.d.last_update_time = datetime.datetime(2091, 1, 1)
+        self.e.last_update_time = datetime_utc(2090, 1, 1)
+        self.d.last_update_time = datetime_utc(2091, 1, 1)
 
     def test_ordering(self):
 
@@ -1622,7 +1623,7 @@ class TestAuthorFilter(EndToEndSearchTest):
         # The filter can also accommodate very minor variants in names
         # such as those caused by capitalization differences and
         # accented characters.
-        for variant in ("ann leckie", u"Àñn Léckiê"):
+        for variant in ("ann leckie", "Àñn Léckiê"):
             author = ContributorData(display_name=variant)
             self._expect_results(
                 [self.justice, self.sword], None,
@@ -3511,7 +3512,7 @@ class TestFilter(DatabaseTest):
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         filter.excluded_audiobook_data_sources = [overdrive.id]
         filter.allow_holds = False
-        last_update_time = datetime.datetime(2019, 1, 1)
+        last_update_time = datetime_utc(2019, 1, 1)
         i1 = self._identifier()
         i2 = self._identifier()
         filter.identifiers = [i1, i2]
@@ -3650,7 +3651,7 @@ class TestFilter(DatabaseTest):
         # metadata. The datetime is converted to a number of seconds since
         # the epoch, since that's how we index times.
         expect = (
-            last_update_time - datetime.datetime.utcfromtimestamp(0)
+            last_update_time - from_timestamp(0)
         ).total_seconds()
         assert (
             {'bool': {'must': [
@@ -3757,7 +3758,7 @@ class TestFilter(DatabaseTest):
         added_to_collection = used_orders[Facets.ORDER_ADDED_TO_COLLECTION]
         series_position = used_orders[Facets.ORDER_SERIES_POSITION]
         last_update = used_orders[Facets.ORDER_LAST_UPDATE]
-        for sort_field in used_orders.values():
+        for sort_field in list(used_orders.values()):
             if sort_field in (added_to_collection, series_position,
                               last_update):
                 # These are complicated cases, tested below.
@@ -4388,14 +4389,14 @@ class TestBulkUpdate(DatabaseTest):
 
         # All three works were inserted into the index, even the one
         # that's not presentation-ready.
-        ids = set(x[-1] for x in index.docs.keys())
+        ids = set(x[-1] for x in list(index.docs.keys()))
         assert set([w1.id, w2.id, w3.id]) == ids
 
         # If a work stops being presentation-ready, it is kept in the
         # index.
         w2.presentation_ready = False
         successes, failures = index.bulk_update([w1, w2, w3])
-        assert set([w1.id, w2.id, w3.id]) == set([x[-1] for x in index.docs.keys()])
+        assert set([w1.id, w2.id, w3.id]) == set([x[-1] for x in list(index.docs.keys())])
         assert set([w1, w2, w3]) == set(successes)
         assert [] == failures
 
@@ -4413,7 +4414,7 @@ class TestSearchErrors(ExternalSearchTest):
                                        _id=doc['_id'],
                                        data=doc))
 
-            errors = map(error, docs)
+            errors = list(map(error, docs))
             return 0, errors
 
         self.search.bulk = bulk_with_timeout

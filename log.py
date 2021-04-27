@@ -1,18 +1,18 @@
 
-import datetime
 import logging
 import json
 import os
 import socket
 from flask_babel import lazy_gettext as _
-from config import Configuration
-from StringIO import StringIO
+from io import StringIO
 from loggly.handlers import HTTPSHandler as LogglyHandler
 from watchtower import CloudWatchLogHandler
 from boto3.session import Session as AwsSession
-from config import CannotLoadConfiguration
-from model import ExternalIntegration, ConfigurationSetting
-from util.string_helpers import native_string
+
+from .config import Configuration
+from .config import CannotLoadConfiguration
+from .model import ExternalIntegration, ConfigurationSetting
+from .util.datetime_helpers import utc_now
 
 class JSONFormatter(logging.Formatter):
     hostname = socket.gethostname()
@@ -25,27 +25,23 @@ class JSONFormatter(logging.Formatter):
         self.app_name = app_name or LogConfiguration.DEFAULT_APP_NAME
 
     def format(self, record):
-        message = native_string(record.msg)
-        def only_native_strings(s):
-            """Convert any kind of string-like object to the native string
-            implementation in this version of Python. Leave everything
-            else alone.
-
-            We've already converted the message to a native string, and
-            we don't want to try to interpolate an incompatible type; it
+        def ensure_str(s):
+            """Ensure that unicode strings are used for a record's message.
+            We don't want to try to interpolate an incompatible byte type; it
             could lead to a UnicodeDecodeError.
             """
-            if isinstance(s, (bytes, unicode)):
-                s = native_string(s)
+            if isinstance(s, bytes):
+                s = s.decode("utf-8")
             return s
+        message = ensure_str(record.msg)
 
         if record.args:
             record_args = tuple(
-                [only_native_strings(arg) for arg in record.args]
+                [ensure_str(arg) for arg in record.args]
             )
             try:
                 message = message % record_args
-            except Exception, e:
+            except Exception as e:
                 # There was a problem formatting the log message,
                 # which points to a bug. A problem with the logging
                 # code shouldn't break the code that actually does the
@@ -61,7 +57,7 @@ class JSONFormatter(logging.Formatter):
             level=record.levelname,
             filename=record.filename,
             message=message,
-            timestamp=datetime.datetime.utcnow().isoformat()
+            timestamp=utc_now().isoformat()
         )
         if record.exc_info:
             data['traceback'] = self.formatException(record.exc_info)
@@ -70,13 +66,10 @@ class JSONFormatter(logging.Formatter):
 
 class StringFormatter(logging.Formatter):
     """Encode all output as a string.
-    
-    In Python 2, this means a UTF-8 bytestring. In Python 3, it means a
-    Unicode string.
     """
     def format(self, record):
         data = super(StringFormatter, self).format(record)
-        return native_string(data)
+        return str(data)
 
 
 class Logger(object):
@@ -191,7 +184,7 @@ class Loggly(Logger):
     @classmethod
     def from_configuration(cls, _db, testing=False):
         loggly = None
-        from model import (ExternalIntegration, ConfigurationSetting)
+        from .model import (ExternalIntegration, ConfigurationSetting)
 
         app_name = cls.DEFAULT_APP_NAME
         if _db and not testing:
@@ -219,7 +212,7 @@ class Loggly(Logger):
             )
         try:
             url = cls._interpolate_loggly_url(url, token)
-        except (TypeError, KeyError), e:
+        except (TypeError, KeyError) as e:
             raise CannotLoadConfiguration(
                 "Cannot interpolate token %s into loggly URL %s" % (
                     token, url,
@@ -511,9 +504,9 @@ class LogConfiguration(object):
                 handler = logger.from_configuration(_db, testing)
                 if handler:
                     handlers.append(handler)
-            except Exception, e:
+            except Exception as e:
                 errors.append(
-                    "Error creating logger %s %s" % (logger.NAME, unicode(e))
+                    "Error creating logger %s %s" % (logger.NAME, str(e))
                 )
 
         return log_level, database_log_level, handlers, errors

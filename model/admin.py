@@ -7,7 +7,7 @@ from . import (
     get_one,
     get_one_or_create
 )
-from hasfulltablecache import HasFullTableCache
+from .hasfulltablecache import HasFullTableCache
 
 import bcrypt
 from sqlalchemy import (
@@ -63,7 +63,7 @@ class Admin(Base, HasFullTableCache):
 
     @password.setter
     def password(self, value):
-        self.password_hashed = unicode(bcrypt.hashpw(value, bcrypt.gensalt()))
+        self.password_hashed = str(bcrypt.hashpw(value, bcrypt.gensalt()))
 
     def has_password(self, password):
         return self.password_hashed == bcrypt.hashpw(password, self.password_hashed)
@@ -74,9 +74,9 @@ class Admin(Base, HasFullTableCache):
         :return: Admin or None
         """
         def lookup_hook():
-            return get_one(_db, Admin, email=unicode(email)), False
+            return get_one(_db, Admin, email=str(email)), False
 
-        match, ignore = Admin.by_cache_key(_db, unicode(email), lookup_hook)
+        match, ignore = Admin.by_cache_key(_db, str(email), lookup_hook)
         if match and not match.has_password(password):
             # Admin with this email was found, but password is invalid.
             match = None
@@ -167,7 +167,7 @@ class Admin(Base, HasFullTableCache):
             _db.delete(role)
 
     def __repr__(self):
-        return u"<Admin: email=%s>" % self.email
+        return "<Admin: email=%s>" % self.email
 
 class AdminRole(Base, HasFullTableCache):
 
@@ -202,7 +202,7 @@ class AdminRole(Base, HasFullTableCache):
         return dict(role=self.role)
 
     def __repr__(self):
-        return u"<AdminRole: role=%s library=%s admin=%s>" % (
+        return "<AdminRole: role=%s library=%s admin=%s>" % (
             self.role, (self.library and self.library.short_name), self.admin.email)
 
 

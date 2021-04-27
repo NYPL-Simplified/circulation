@@ -6,7 +6,7 @@ from threading import (
     Thread,
     settrace,
 )
-from Queue import Queue
+from queue import Queue
 
 # Much of the work in this file is based on
 # https://github.com/shazow/workerpool, with

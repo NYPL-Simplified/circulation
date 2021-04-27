@@ -19,7 +19,7 @@ from model import (
 )
 _db = production_session()
 log = logging.getLogger(name="Log configuration import")
-loggly_conf = Configuration.integration(u'loggly')
+loggly_conf = Configuration.integration('loggly')
 
 if loggly_conf:
     integration = EI(goal=EI.LOGGING_GOAL, protocol=EI.LOGGLY)

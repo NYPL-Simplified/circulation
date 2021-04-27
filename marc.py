@@ -1,24 +1,23 @@
 
-import datetime
 from io import BytesIO
 from flask_babel import lazy_gettext as _
 import re
-
 from pymarc import (
     Field,
     Record,
     MARCWriter
 )
-from config import (
+
+from .config import (
     Configuration,
     CannotLoadConfiguration,
 )
-from lane import BaseFacets
-from external_search import (
+from .lane import BaseFacets
+from .external_search import (
     ExternalSearchIndex,
     SortKeyPagination,
 )
-from model import (
+from .model import (
     get_one,
     get_one_or_create,
     CachedMARCFile,
@@ -32,11 +31,12 @@ from model import (
     Session,
     Work,
 )
-from classifier import Classifier
-from mirror import MirrorUploader
-from s3 import S3Uploader
-from lane import Lane
-from util import LanguageCodes
+from .classifier import Classifier
+from .mirror import MirrorUploader
+from .s3 import S3Uploader
+from .lane import Lane
+from .util import LanguageCodes
+from .util.datetime_helpers import utc_now
 
 class Annotator(object):
     """The Annotator knows how to add information about a Work to
@@ -106,7 +106,7 @@ class Annotator(object):
         # Field 003 (MARC organization code) is library-specific, so it's added separately.
 
         record.add_field(
-            Field(tag="005", data=datetime.datetime.now().strftime("%Y%m%d%H%M%S.0")))
+            Field(tag="005", data=utc_now().strftime("%Y%m%d%H%M%S.0")))
 
         # Field 006: m = computer file, d = the file is a document
         record.add_field(
@@ -124,7 +124,7 @@ class Annotator(object):
             Field(tag="007", data="cr cn ---" + file_formats_code + "nuuu"))
 
         # Field 008 (fixed-length data elements):
-        data = datetime.datetime.now().strftime("%y%m%d")
+        data = utc_now().strftime("%y%m%d")
         publication_date = edition.issued or edition.published
         if publication_date:
             date_type = "s" # single known date
@@ -188,11 +188,11 @@ class Annotator(object):
         if non_filing_characters > 9:
             non_filing_characters = 0
 
-        subfields = ["a", unicode(edition.title or "")]
+        subfields = ["a", str(edition.title or "")]
         if edition.subtitle:
-            subfields += ["b", unicode(edition.subtitle)]
+            subfields += ["b", str(edition.subtitle)]
         if edition.author:
-            subfields += ["c", unicode(edition.author)]
+            subfields += ["c", str(edition.author)]
         record.add_field(
             Field(
                 tag="245",
@@ -215,7 +215,7 @@ class Annotator(object):
                     tag="100",
                     indicators=["1"," "],
                     subfields=[
-                        "a", unicode(edition.sort_author),
+                        "a", str(edition.sort_author),
                     ]))
 
         if len(edition.contributions) > 1:
@@ -226,7 +226,7 @@ class Annotator(object):
                         tag="700",
                         indicators=["1", " "],
                         subfields=[
-                            "a", unicode(contributor.sort_name),
+                            "a", str(contributor.sort_name),
                             "e", contribution.role,
                         ]))
 
@@ -243,7 +243,7 @@ class Annotator(object):
                     indicators=[" ", "1"],
                     subfields=[
                         "a", "[Place of publication not identified]",
-                        "b", unicode(edition.publisher or ""),
+                        "b", str(edition.publisher or ""),
                         "c", year,
                     ]))
 
@@ -255,7 +255,7 @@ class Annotator(object):
                 tag="264",
                 indicators=[" ", "2"],
                 subfields=[
-                    "b", unicode(pool.data_source.name),
+                    "b", str(pool.data_source.name),
                 ]))
 
     @classmethod
@@ -367,7 +367,7 @@ class Annotator(object):
     @classmethod
     def add_series(cls, record, edition):
         if edition.series:
-            subfields = ["a", unicode(edition.series)]
+            subfields = ["a", str(edition.series)]
             if edition.series_position:
                 subfields.extend(["v", str(edition.series_position)])
             record.add_field(
@@ -480,9 +480,9 @@ class MARCExporter(object):
     # http://www.loc.gov/marc/organizations/org-search.php
     MARC_ORGANIZATION_CODE = "marc_organization_code"
 
-    WEB_CLIENT_URL = u'marc_web_client_url'
-    INCLUDE_SUMMARY = u'include_summary'
-    INCLUDE_SIMPLIFIED_GENRES = u'include_simplified_genres'
+    WEB_CLIENT_URL = 'marc_web_client_url'
+    INCLUDE_SUMMARY = 'include_summary'
+    INCLUDE_SIMPLIFIED_GENRES = 'include_simplified_genres'
 
     LIBRARY_SETTINGS = [
         { "key": UPDATE_FREQUENCY,
@@ -520,7 +520,7 @@ class MARCExporter(object):
         },
     ]
 
-    NO_MIRROR_INTEGRATION = u"NO_MIRROR"
+    NO_MIRROR_INTEGRATION = "NO_MIRROR"
     DEFAULT_MIRROR_INTEGRATION = dict(
         key=NO_MIRROR_INTEGRATION,
         label=_("None - Do not mirror MARC files")
@@ -589,7 +589,7 @@ class MARCExporter(object):
         record = None
         existing_record = getattr(work, annotator.marc_cache_field)
         if existing_record and not force_create:
-            record = Record(data=existing_record.encode("utf8"), force_utf8=True)
+            record = Record(data=existing_record.encode("utf-8"), force_utf8=True)
 
         if not record:
             record = Record(leader=annotator.leader(work), force_utf8=True)
@@ -614,7 +614,6 @@ class MARCExporter(object):
 
         # Add additional fields that should not be cached.
         annotator.annotate_work_record(work, pool, edition, identifier, record, integration)
-
         return record
 
     def records(self, lane, annotator, mirror_integration, start_time=None,
@@ -653,7 +652,7 @@ class MARCExporter(object):
         # End time is before we start the query, because if any records are changed
         # during the processing we may not catch them, and they should be handled
         # again on the next run.
-        end_time = datetime.datetime.utcnow()
+        end_time = utc_now()
 
         facets = MARCExporterFacets(start_time=start_time)
         pagination = SortKeyPagination(size=query_batch_size)

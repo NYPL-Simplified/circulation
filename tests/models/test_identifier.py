@@ -1,7 +1,6 @@
 # encoding: utf-8
 import pytest
 import datetime
-
 import feedparser
 from lxml import etree
 from mock import PropertyMock, create_autospec
@@ -13,7 +12,8 @@ from ...model.edition import Edition
 from ...model.identifier import Identifier
 from ...model.resource import Hyperlink, Representation
 from ...testing import DatabaseTest
-
+from ...util.datetime_helpers import utc_now
+from ...util.opds_writer import AtomFeed
 
 class TestIdentifier(DatabaseTest):
     def test_for_foreign_id(self):
@@ -604,10 +604,7 @@ class TestIdentifier(DatabaseTest):
         )[0]
 
         def get_entry_dict(entry):
-            return feedparser.parse(unicode(etree.tostring(entry))).entries[0]
-
-        def format_timestamp(timestamp):
-            return timestamp.strftime('%Y-%m-%dT%H:%M:%SZ')
+            return feedparser.parse(etree.tostring(entry, encoding="unicode")).entries[0]
 
         # The entry includes the urn, description, and cover link.
         entry = get_entry_dict(identifier.opds_entry())
@@ -622,10 +619,10 @@ class TestIdentifier(DatabaseTest):
 
         # This may be the time the cover image was mirrored.
         cover.resource.representation.set_as_mirrored(self._url)
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         cover.resource.representation.mirrored_at = now
         entry = get_entry_dict(identifier.opds_entry())
-        assert format_timestamp(now) == entry.updated
+        assert AtomFeed._strftime(now) == entry.updated
 
         # Or it may be a timestamp on a coverage record associated
         # with the Identifier.
@@ -645,7 +642,7 @@ class TestIdentifier(DatabaseTest):
         record.timestamp = the_future
         identifier.opds_entry()
         entry = get_entry_dict(identifier.opds_entry())
-        assert format_timestamp(record.timestamp) == entry.updated
+        assert AtomFeed._strftime(record.timestamp) == entry.updated
 
         # Basically the latest date is taken from either a coverage record
         # or a representation.
@@ -666,7 +663,7 @@ class TestIdentifier(DatabaseTest):
         assert any(filter(lambda l: l.href=='http://thumb', entry.links))
         # And the updated time has been changed accordingly.
         expected = thumbnail.resource.representation.mirrored_at
-        assert format_timestamp(even_later) == entry.updated
+        assert AtomFeed._strftime(even_later) == entry.updated
 
     @parameterized.expand([
         ('ascii_type_ascii_identifier_no_title', 'a', 'a', None),

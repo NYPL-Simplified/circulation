@@ -41,6 +41,6 @@ class RecalculateAgeRangeMonitor(WorkSweepMonitor):
         old_target_age = work.target_age
         work.target_age = NumericRange(*target_age)
         if work.target_age != old_target_age and work.target_age.lower != None:
-            print "%r: %r->%r" % (work.title, old_target_age, work.target_age)
+            print("%r: %r->%r" % (work.title, old_target_age, work.target_age))
 
 RunMonitorScript(RecalculateAgeRangeMonitor).run()

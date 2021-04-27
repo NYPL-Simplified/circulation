@@ -137,8 +137,8 @@ class WorkIDCalculator(object):
         Returns de-linted author's name.
         """
         if author is None or len(author) == 0:
-            author = u''
-        author = unicodedata.normalize("NFKD", unicode(author))
+            author = ''
+        author = unicodedata.normalize("NFKD", str(author))
         author = cls.bracketedCharacterStrip.sub("", author)
         author = cls.specialCharacterStrip.sub("", author)
 
@@ -219,7 +219,7 @@ class WorkIDCalculator(object):
         Lowercases.
         """
         if full_title is None:
-            full_title = u''
+            full_title = ''
         full_title = unicodedata.normalize("NFKD", full_title)
         # Remove any bracketed parts of the title
         tmp_title = cls.bracketedCharacterStrip.sub("", full_title)
@@ -242,9 +242,8 @@ class WorkIDCalculator(object):
         if len(tmp_title) > 0:
             title = tmp_title
         else:
-            # print "Just saved us from trimming %s to nothing" % full_title
-            title = cls.specialCharacterStrip.sub(
-                "", full_title)
+            # print("Just saved us from trimming %s to nothing" % full_title)
+            title = cls.specialCharacterStrip.sub("", full_title)
 
 
         # If the title includes a : in it, take the first part as the title and the second as the subtitle
@@ -279,7 +278,7 @@ class WorkIDCalculator(object):
             title = title[:title_end]
         title = title.strip()
         if not title:
-            # print "Title %s was normalized to nothing" % full_title
+            # print("Title %s was normalized to nothing" % full_title)
             title = full_title
         return title
 

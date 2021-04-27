@@ -1,11 +1,9 @@
-import datetime
 import os
 import random
 import shutil
 import stat
 import tempfile
-from StringIO import StringIO
-
+from io import StringIO
 import pytest
 from parameterized import parameterized
 
@@ -103,12 +101,17 @@ from ..testing import (
 from ..util.worker_pools import (
     DatabasePool,
 )
-
+from ..util.datetime_helpers import (
+    datetime_utc,
+    strptime_utc,
+    to_utc,
+    utc_now,
+)
 
 class TestScript(DatabaseTest):
 
     def test_parse_time(self):
-        reference_date = datetime.datetime(2016, 1, 1)
+        reference_date = datetime_utc(2016, 1, 1)
 
         assert Script.parse_time("2016-01-01") == reference_date
 
@@ -161,7 +164,7 @@ class TestTimestampScript(DatabaseTest):
 
         # The start and end points of do_run() have become
         # Timestamp.start and Timestamp.finish.
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         assert (now - timestamp.start).total_seconds() < 5
         assert (now - timestamp.finish).total_seconds() < 5
         assert timestamp.start < timestamp.finish
@@ -200,7 +203,7 @@ class TestTimestampScript(DatabaseTest):
         assert "i'm broken" in str(excinfo.value)
         timestamp = self._ts(script)
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         assert (now - timestamp.finish).total_seconds() < 5
 
         # A stack trace for the exception has been recorded in the
@@ -472,7 +475,7 @@ class TestRunMultipleMonitorsScript(DatabaseTest):
 
         # The exception that crashed the second monitor was stored as
         # .exception, in case we want to look at it.
-        assert "Doomed!" == unicode(m2.exception)
+        assert "Doomed!" == str(m2.exception)
         assert None == getattr(m1, 'exception', None)
 
 
@@ -701,7 +704,7 @@ class TestRunCoverageProviderScript(DatabaseTest):
         parsed = RunCoverageProviderScript.parse_command_line(
             self._db, cmd_args, MockStdin()
         )
-        assert datetime.datetime(2016, 5, 1) == parsed.cutoff_time
+        assert datetime_utc(2016, 5, 1) == parsed.cutoff_time
         assert [identifier] == parsed.identifiers
         assert identifier.type == parsed.identifier_type
 
@@ -850,7 +853,7 @@ class TestTimestampInfo(DatabaseTest):
         assert None == self.TimestampInfo.find(script, 'test')
 
         # If the Timestamp is stamped, it is returned.
-        timestamp.finish = datetime.datetime.utcnow()
+        timestamp.finish = utc_now()
         timestamp.counter = 1
         self._db.flush()
 
@@ -860,7 +863,7 @@ class TestTimestampInfo(DatabaseTest):
 
     def test_update(self):
         # Create a Timestamp to be updated.
-        past = datetime.datetime.strptime('19980101', '%Y%m%d')
+        past = strptime_utc('19980101', '%Y%m%d')
         stamp = Timestamp.stamp(
             self._db, 'test', Timestamp.SCRIPT_TYPE, None, start=past,
             finish=past
@@ -868,7 +871,7 @@ class TestTimestampInfo(DatabaseTest):
         script = DatabaseMigrationScript(self._db)
         timestamp_info = self.TimestampInfo.find(script, 'test')
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         timestamp_info.update(self._db, now, 2)
 
         # When we refresh the Timestamp object, it's been updated.
@@ -882,7 +885,7 @@ class TestTimestampInfo(DatabaseTest):
         timestamp_qu = self._db.query(Timestamp).filter(Timestamp.service=='test')
         assert False == timestamp_qu.exists()
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         timestamp_info = self.TimestampInfo('test', now, 47)
         timestamp_info.save(self._db)
 
@@ -947,7 +950,7 @@ class DatabaseMigrationScriptTest(DatabaseTest):
             fd, migration_file = tempfile.mkstemp(
                 prefix=prefix, suffix=suffix, dir=directory, text=True
             )
-            os.write(fd, content)
+            os.write(fd, content.encode("utf-8"))
 
             # If it's a python migration, make it executable.
             if migration_file.endswith('py'):
@@ -992,7 +995,7 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
 
     @pytest.fixture()
     def timestamp(self, script):
-        stamp = datetime.datetime.strptime('20260810', '%Y%m%d')
+        stamp = strptime_utc('20260810', '%Y%m%d')
         timestamp = Timestamp(
             service=script.name, start=stamp, finish=stamp
         )
@@ -1255,7 +1258,7 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
 
     def test_running_a_migration_updates_the_timestamps(self, timestamp, migration_file, migration_dirs, script):
         timestamp, python_timestamp, timestamp_info = timestamp
-        future_time = datetime.datetime.strptime('20261030', '%Y%m%d')
+        future_time = strptime_utc('20261030', '%Y%m%d')
         timestamp_info.finish = future_time
         [core_dir, server_dir] = migration_dirs
 
@@ -1428,12 +1431,12 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
     def test_accepts_last_run_date(self, script):
         # A timestamp can be passed via the command line.
         script.run(['--last-run-date', '20101010'])
-        expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
+        expected_stamp = strptime_utc('20101010', '%Y%m%d')
         assert expected_stamp == script.overall_timestamp.finish
 
         # It will override an existing timestamp if forced.
         script.run(['--last-run-date', '20111111', '--force'])
-        expected_stamp = datetime.datetime.strptime('20111111', '%Y%m%d')
+        expected_stamp = strptime_utc('20111111', '%Y%m%d')
         assert expected_stamp == script.overall_timestamp.finish
         assert expected_stamp == script.python_timestamp.finish
 
@@ -1443,14 +1446,14 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
 
         # With a date, the counter can be set.
         script.run(['--last-run-date', '20101010', '--last-run-counter', '7'])
-        expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
+        expected_stamp = strptime_utc('20101010', '%Y%m%d')
         assert expected_stamp == script.overall_timestamp.finish
         assert 7 == script.overall_timestamp.counter
 
         # When forced, the counter can be reset on an existing timestamp.
         previous_timestamp = script.overall_timestamp.finish
         script.run(['--last-run-date', '20121212', '--last-run-counter', '2', '-f'])
-        expected_stamp = datetime.datetime.strptime('20121212', '%Y%m%d')
+        expected_stamp = strptime_utc('20121212', '%Y%m%d')
         assert expected_stamp == script.overall_timestamp.finish
         assert expected_stamp == script.python_timestamp.finish
         assert 2 == script.overall_timestamp.counter
@@ -2491,7 +2494,7 @@ class TestListCollectionMetadataIdentifiersScript(DatabaseTest):
 
         def expected(c):
             return '(%s) %s/%s => %s\n' % (
-                unicode(c.id), c.name, c.protocol, c.metadata_identifier
+                str(c.id), c.name, c.protocol, c.metadata_identifier
             )
 
         # In the output, there's a header, a line describing the format,
@@ -2598,7 +2601,7 @@ class TestMirrorResourcesScript(DatabaseTest):
         )
 
         if settings:
-            for key, value in settings.iteritems():
+            for key, value in settings.items():
                 mirror.setting(key).value = value
 
         integration_link = self._external_integration_link(
@@ -2831,7 +2834,7 @@ class TestRebuildSearchIndexScript(DatabaseTest):
                 self.setup_index_called = True
 
             def bulk_update(self, works):
-                self.bulk_update_called_with = works
+                self.bulk_update_called_with = list(works)
                 return works, []
 
         index = MockSearchIndex()

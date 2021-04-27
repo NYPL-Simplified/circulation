@@ -1,10 +1,10 @@
-
 import datetime
 import logging
 from flask import Response
-
 from lxml import builder, etree
+import pytz
 
+from .datetime_helpers import utc_now
 
 class ElementMaker(builder.ElementMaker):
     """A helper object for creating etree elements."""
@@ -23,7 +23,8 @@ class AtomFeed(object):
 
     ATOM_LIKE_TYPES = [ATOM_TYPE, 'application/xml']
 
-    TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
+    TIME_FORMAT_UTC = '%Y-%m-%dT%H:%M:%S+00:00'
+    TIME_FORMAT_NAIVE = '%Y-%m-%dT%H:%M:%SZ'
 
     ATOM_NS = 'http://www.w3.org/2005/Atom'
     APP_NS = 'http://www.w3.org/2007/app'
@@ -62,11 +63,24 @@ class AtomFeed(object):
     SCHEMA = ElementMaker(typemap=default_typemap, nsmap=nsmap, namespace=SCHEMA_NS)
 
     @classmethod
-    def _strftime(self, date):
+    def _strftime(cls, date):
         """
-        Format a date the way Atom likes it (RFC3339?)
+        Format a date the way Atom likes it.
+
+        'A Date construct is an element whose content MUST conform to the
+        "date-time" production in [RFC3339].  In addition, an uppercase "T"
+        character MUST be used to separate date and time, and an uppercase
+        "Z" character MUST be present in the absence of a numeric time zone
+        offset.' (https://tools.ietf.org/html/rfc4287#section-3.3)
         """
-        return date.strftime(self.TIME_FORMAT)
+        if isinstance(date, datetime.datetime) and date.tzinfo is not None:
+            # Convert to UTC to make the formatting easier.
+            fmt = cls.TIME_FORMAT_UTC
+            date = date.astimezone(pytz.UTC)
+        else:
+            fmt = cls.TIME_FORMAT_NAIVE
+
+        return date.strftime(fmt)
 
 
     @classmethod
@@ -81,7 +95,7 @@ class AtomFeed(object):
     @classmethod
     def add_link_to_entry(cls, entry, children=None, **kwargs):
         if 'title' in kwargs:
-            kwargs['title'] = unicode(kwargs['title'])
+            kwargs['title'] = str(kwargs['title'])
         link = cls.E.link(**kwargs)
         entry.append(link)
         if children:
@@ -158,19 +172,16 @@ class AtomFeed(object):
         """
         self.feed = self.E.feed(
             self.E.id(url),
-            self.E.title(unicode(title)),
-            self.E.updated(self._strftime(datetime.datetime.utcnow())),
+            self.E.title(str(title)),
+            self.E.updated(self._strftime(utc_now())),
             self.E.link(href=url, rel="self"),
         )
         super(AtomFeed, self).__init__(**kwargs)
 
-
-    # TODO PYTHON3 rename to __str__
-    def __unicode__(self):
+    def __str__(self):
         if self.feed is None:
             return None
-
-        return etree.tounicode(self.feed, pretty_print=True)
+        return etree.tostring(self.feed, encoding="unicode", pretty_print=True)
 
 
 class OPDSFeed(AtomFeed):
@@ -215,7 +226,7 @@ class OPDSMessage(object):
         self.message = message
 
     def __str__(self):
-        return etree.tounicode(self.tag)
+        return etree.tostring(self.tag, encoding="unicode")
 
     def __repr__(self):
         return etree.tostring(self.tag)
@@ -244,6 +255,6 @@ class OPDSMessage(object):
         message_tag.append(status_tag)
 
         description_tag = AtomFeed.SCHEMA.description()
-        description_tag.text = unicode(self.message)
+        description_tag.text = str(self.message)
         message_tag.append(description_tag)
         return message_tag

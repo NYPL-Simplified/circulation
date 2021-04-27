@@ -10,8 +10,8 @@ from ...model.admin import (
 class TestAdmin(DatabaseTest):
     def setup_method(self):
         super(TestAdmin, self).setup_method()
-        self.admin, ignore = create(self._db, Admin, email=u"admin@nypl.org")
-        self.admin.password = u"password"
+        self.admin, ignore = create(self._db, Admin, email="admin@nypl.org")
+        self.admin.password = "password"
 
     def test_password_hashed(self):
         pytest.raises(NotImplementedError, lambda: self.admin.password)
@@ -34,16 +34,16 @@ class TestAdmin(DatabaseTest):
         assert set([admin, admin2]) == set(Admin.with_password(self._db).all())
 
     def test_with_email_spaces(self):
-        admin_spaces, ignore = create(self._db, Admin, email=u"test@email.com ")
-        assert u"test@email.com" == admin_spaces.email
+        admin_spaces, ignore = create(self._db, Admin, email="test@email.com ")
+        assert "test@email.com" == admin_spaces.email
 
     def test_has_password(self):
-        assert True == self.admin.has_password(u"password")
-        assert False == self.admin.has_password(u"banana")
+        assert True == self.admin.has_password("password")
+        assert False == self.admin.has_password("banana")
 
     def test_authenticate(self):
-        other_admin, ignore = create(self._db, Admin, email=u"other@nypl.org")
-        other_admin.password = u"banana"
+        other_admin, ignore = create(self._db, Admin, email="other@nypl.org")
+        other_admin.password = "banana"
         assert self.admin == Admin.authenticate(self._db, "admin@nypl.org", "password")
         assert None == Admin.authenticate(self._db, "other@nypl.org", "password")
         assert None == Admin.authenticate(self._db, "example@nypl.org", "password")

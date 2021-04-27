@@ -30,6 +30,6 @@ class RecalculateFictionStatusMonitor(SubjectSweepMonitor):
         old_fiction = subject.fiction
         old_audience = subject.audience
         subject.assign_to_genre()
-        print "%s %s %s" % (subject.identifier, subject.fiction, subject.audience)
+        print("%s %s %s" % (subject.identifier, subject.fiction, subject.audience))
 
 RunMonitorScript(RecalculateFictionStatusMonitor).run()

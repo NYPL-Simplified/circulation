@@ -1,19 +1,18 @@
 import datetime
 import logging
-import urllib
+from urllib.parse import quote
 from collections import (
     defaultdict,
 )
-
 from lxml import etree
 
 from sqlalchemy.orm.session import Session
 
-from cdn import cdnify
-from classifier import Classifier
-from entrypoint import EntryPoint
-from facets import FacetConstants
-from lane import (
+from .cdn import cdnify
+from .classifier import Classifier
+from .entrypoint import EntryPoint
+from .facets import FacetConstants
+from .lane import (
     Facets,
     FacetsWithEntryPoint,
     FeaturedFacets,
@@ -21,8 +20,8 @@ from lane import (
     Pagination,
     SearchFacets,
 )
-from lcp.credential import LCPCredentialFactory
-from model import (
+from .lcp.credential import LCPCredentialFactory
+from .model import (
     CachedFeed,
     Contributor,
     DataSource,
@@ -35,15 +34,16 @@ from model import (
     Work,
     ExternalIntegration
 )
-from util.flask_util import (
+from .util.flask_util import (
     OPDSEntryResponse,
     OPDSFeedResponse,
 )
-from util.opds_writer import (
+from .util.opds_writer import (
     AtomFeed,
     OPDSFeed,
     OPDSMessage,
 )
+from .util.datetime_helpers import utc_now
 
 
 class UnfulfillableWork(Exception):
@@ -142,7 +142,7 @@ class Annotator(object):
             # available to people using this application.
             avail = active_license_pool.availability_time
             if avail:
-                now = datetime.datetime.utcnow()
+                now = utc_now()
                 today = datetime.date.today()
                 if isinstance(avail, datetime.datetime):
                     avail = avail.date()
@@ -161,7 +161,7 @@ class Annotator(object):
         if group_uri:
             OPDSFeed.add_link_to_entry(
                 entry, rel=OPDSFeed.GROUP_REL, href=group_uri,
-                title=unicode(group_title)
+                title=str(group_title)
             )
 
         if not updated and work.last_update_time:
@@ -256,7 +256,7 @@ class Annotator(object):
 
         if simplified_genres:
             categories[Subject.SIMPLIFIED_GENRE] = [
-                dict(term=Subject.SIMPLIFIED_GENRE + urllib.quote(x),
+                dict(term=Subject.SIMPLIFIED_GENRE + quote(x),
                      label=x)
                 for x in simplified_genres
             ]
@@ -380,7 +380,7 @@ class Annotator(object):
         series_details = dict()
         series_details['name'] = series_name
         if series_position != None:
-            series_details[AtomFeed.schema_('position')] = unicode(series_position)
+            series_details[AtomFeed.schema_('position')] = str(series_position)
         series_tag = AtomFeed.makeelement(AtomFeed.schema_("Series"), **series_details)
         return series_tag
 
@@ -530,7 +530,7 @@ class VerboseAnnotator(Annotator):
 
         # Collapse by_scheme_and_term to by_scheme
         by_scheme = defaultdict(list)
-        for (scheme, term), value in by_scheme_and_term.items():
+        for (scheme, term), value in list(by_scheme_and_term.items()):
             by_scheme[scheme].append(value)
         by_scheme.update(super(VerboseAnnotator, cls).categories(work))
         return by_scheme
@@ -1017,7 +1017,7 @@ class AcquisitionFeed(OPDSFeed):
             AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="previous", href=previous_url)
 
         # Add "up" link.
-        AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(lane), title=unicode(lane.display_name))
+        AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(lane), title=str(lane.display_name))
 
         # We do not add breadcrumbs to this feed since you're not
         # technically searching the this lane; you are searching the
@@ -1025,7 +1025,7 @@ class AcquisitionFeed(OPDSFeed):
         # imposed by this lane (notably language and audience).
 
         annotator.annotate_feed(opds_feed, lane)
-        return OPDSFeedResponse(response=unicode(opds_feed), **response_kwargs)
+        return OPDSFeedResponse(response=str(opds_feed), **response_kwargs)
 
     @classmethod
     def single_entry(
@@ -1071,13 +1071,13 @@ class AcquisitionFeed(OPDSFeed):
         if raw or entry is None:
             return entry
         if isinstance(entry, OPDSMessage):
-            entry = unicode(entry)
+            entry = str(entry)
             # This is probably an error message; don't cache it
             # even if it would otherwise be cached.
             response_kwargs['max_age'] = 0
             response_kwargs['private'] = True
         elif isinstance(entry, etree._Element):
-            entry = etree.tostring(entry)
+            entry = etree.tostring(entry, encoding="unicode")
 
         # It's common for a single OPDS entry to be returned as the
         # result of an unsafe operation, so we will default to setting
@@ -1116,7 +1116,7 @@ class AcquisitionFeed(OPDSFeed):
                 # or just weird junk data.
                 continue
             yield cls.facet_link(
-                url, unicode(facet_title), unicode(group_title), selected
+                url, str(facet_title), str(group_title), selected
             )
 
     def __init__(self, _db, title, url, works, annotator=None,
@@ -1202,7 +1202,7 @@ class AcquisitionFeed(OPDSFeed):
                 work, active_license_pool, active_edition, identifier,
                 force_create, use_cache
             )
-        except UnfulfillableWork, e:
+        except UnfulfillableWork as e:
             logging.info(
                 "Work %r is not fulfillable, refusing to create an <entry>.",
                 work,
@@ -1212,7 +1212,7 @@ class AcquisitionFeed(OPDSFeed):
                 403,
                 "I know about this work but can offer no way of fulfilling it."
             )
-        except Exception, e:
+        except Exception as e:
             logging.error(
                 "Exception generating OPDS entry for %r", work,
                 exc_info = e
@@ -1352,16 +1352,16 @@ class AcquisitionFeed(OPDSFeed):
 
         categories_by_scheme = self.annotator.categories(work)
         category_tags = []
-        for scheme, categories in categories_by_scheme.items():
+        for scheme, categories in list(categories_by_scheme.items()):
             for category in categories:
-                if isinstance(category, basestring):
+                if isinstance(category, (bytes, str)):
                     category = dict(term=category)
-                category = dict(map(unicode, (k, v)) for k, v in category.items())
+                category = dict(list(map(str, (k, v))) for k, v in list(category.items()))
                 category_tag = AtomFeed.category(scheme=scheme, **category)
                 category_tags.append(category_tag)
         entry.extend(category_tags)
 
-        # print " ID %s TITLE %s AUTHORS %s" % (tag, work.title, work.authors)
+        # print(" ID %s TITLE %s AUTHORS %s" % (tag, work.title, work.authors))
         language = edition.language_code
         if language:
             language_tag = AtomFeed.makeelement("{%s}language" % AtomFeed.DCTERMS_NS)
@@ -1396,7 +1396,7 @@ class AcquisitionFeed(OPDSFeed):
         issued = edition.issued or edition.published
         if (isinstance(issued, datetime.datetime)
             or isinstance(issued, datetime.date)):
-            now = datetime.datetime.utcnow()
+            now = utc_now()
             today = datetime.date.today()
             issued_already = False
             if isinstance(issued, datetime.datetime):
@@ -1793,7 +1793,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
             return self._create_entry(
                 work, active_licensepool, edition, identifier
             )
-        except UnfulfillableWork, e:
+        except UnfulfillableWork as e:
             logging.info(
                 "Work %r is not fulfillable, refusing to create an <entry>.",
                 work

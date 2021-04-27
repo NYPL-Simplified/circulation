@@ -14,7 +14,7 @@ class TestJSONable(object):
             return dict(value=1)
 
     def test_as_dict(self):
-        assert u'{"value": 1}' == unicode(self.Mock())
+        assert '{"value": 1}' == str(self.Mock())
 
     def test_json_ready(self):
         m = JSONable.json_ready

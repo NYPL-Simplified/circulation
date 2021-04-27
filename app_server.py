@@ -12,17 +12,17 @@ from functools import wraps
 from flask import url_for, make_response
 from flask_babel import lazy_gettext as _
 from io import BytesIO
-from util.flask_util import problem
-from util.problem_detail import ProblemDetail
+from .util.flask_util import problem
+from .util.problem_detail import ProblemDetail
 import traceback
 import logging
-from entrypoint import EntryPoint
-from opds import (
+from .entrypoint import EntryPoint
+from .opds import (
     AcquisitionFeed,
     LookupAcquisitionFeed,
 )
-from util.flask_util import OPDSFeedResponse
-from util.opds_writer import (
+from .util.flask_util import OPDSFeedResponse
+from .util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
@@ -31,21 +31,21 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
-from log import LogConfiguration
-from model import (
+from .log import LogConfiguration
+from .model import (
     get_one,
     Complaint,
     Identifier,
     Patron,
 )
-from cdn import cdnify
-from classifier import Classifier
-from config import Configuration
-from lane import (
+from .cdn import cdnify
+from .classifier import Classifier
+from .config import Configuration
+from .lane import (
     Facets,
     Pagination,
 )
-from problem_details import *
+from .problem_details import *
 
 
 def cdn_url_for(*args, **kwargs):
@@ -199,7 +199,7 @@ class ErrorHandler(object):
                 debug = debug or (
                     LogConfiguration.DEBUG in (log_level, database_log_level)
                 )
-            except SQLAlchemyError, e:
+            except SQLAlchemyError as e:
                 # The database session could not be used, possibly due to
                 # the very error under consideration. Go with the
                 # preexisting value for `debug`.
@@ -254,7 +254,7 @@ class ErrorHandler(object):
                 body = tb
             else:
                 body = _('An internal error occured')
-            response = make_response(unicode(body), 500, {"Content-Type": "text/plain"})
+            response = make_response(str(body), 500, {"Content-Type": "text/plain"})
 
         log_method("Exception in web app: %s", exception, exc_info=exception)
         return response
@@ -305,7 +305,7 @@ class URNLookupController(object):
             self._db, "Lookup results", this_url, handler.works, annotator,
             precomposed_entries=handler.precomposed_entries,
         )
-        return OPDSFeedResponse(opds_feed)
+        return OPDSFeedResponse(str(opds_feed))
 
     def process_urns(self, urns, **process_urn_kwargs):
         """Process a number of URNs by instantiating a URNLookupHandler
@@ -339,7 +339,7 @@ class URNLookupController(object):
             self._db, urn, this_url, works, annotator,
             precomposed_entries=handler.precomposed_entries
         )
-        return OPDSFeedResponse(opds_feed)
+        return OPDSFeedResponse(str(opds_feed))
 
 
 class URNLookupHandler(object):
@@ -370,7 +370,7 @@ class URNLookupHandler(object):
         identifiers_by_urn, failures = Identifier.parse_urns(self._db, urns)
         self.add_urn_failure_messages(failures)
 
-        for urn, identifier in identifiers_by_urn.items():
+        for urn, identifier in list(identifiers_by_urn.items()):
             self.process_identifier(identifier, urn, **process_urn_kwargs)
         self.post_lookup_hook()
 
@@ -432,7 +432,7 @@ class ComplaintController(object):
         _db = Session.object_session(license_pool)
         try:
             data = json.loads(raw_data)
-        except ValueError, e:
+        except ValueError as e:
             return problem(None, 400, _("Invalid problem detail document"))
 
         type = data.get('type')
@@ -447,9 +447,9 @@ class ComplaintController(object):
         try:
             complaint = Complaint.register(license_pool, type, source, detail)
             _db.commit()
-        except ValueError, e:
+        except ValueError as e:
             return problem(
-                None, 400, _("Error registering complaint: %(error)s", error=unicode(e))
+                None, 400, _("Error registering complaint: %(error)s", error=str(e))
             )
 
-        return make_response(unicode(_("Success")), 201, {"Content-Type": "text/plain"})
+        return make_response(str(_("Success")), 201, {"Content-Type": "text/plain"})

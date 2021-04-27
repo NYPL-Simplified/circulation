@@ -1,12 +1,13 @@
 
 import importlib
 import contextlib
-import datetime
 import os
 from collections import defaultdict
-from model import ExternalIntegration
-from config import CannotLoadConfiguration
 from sqlalchemy.orm.session import Session
+
+from .model import ExternalIntegration
+from .config import CannotLoadConfiguration
+from .util.datetime_helpers import utc_now
 
 class Analytics(object):
 
@@ -48,12 +49,12 @@ class Analytics(object):
                             Analytics.LIBRARY_ENABLED.add(library.id)
                 else:
                     self.initialization_exceptions[integration.id] = "Module %s does not have Provider defined." % module
-            except (ImportError, CannotLoadConfiguration), e:
+            except (ImportError, CannotLoadConfiguration) as e:
                 self.initialization_exceptions[integration.id] = e
 
     def collect_event(self, library, license_pool, event_type, time=None, **kwargs):
         if not time:
-            time = datetime.datetime.utcnow()
+            time = utc_now()
         providers = list(self.sitewide_providers)
         if library:
             providers.extend(self.library_providers[library.id])

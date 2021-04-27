@@ -10,8 +10,8 @@ from . import (
     numericrange_to_tuple,
     tuple_to_numericrange,
 )
-from constants import DataSourceConstants
-from hasfulltablecache import HasFullTableCache
+from .constants import DataSourceConstants
+from .hasfulltablecache import HasFullTableCache
 
 from .. import classifier
 from ..classifier import (
@@ -20,7 +20,6 @@ from ..classifier import (
     Erotica,
     GenreData,
 )
-from ..util.string_helpers import native_string
 
 import logging
 
@@ -94,7 +93,7 @@ class Subject(Base):
     }
 
     uri_lookup = dict()
-    for k, v in by_uri.items():
+    for k, v in list(by_uri.items()):
         uri_lookup[v] = k
 
     __tablename__ = 'subjects'
@@ -148,9 +147,9 @@ class Subject(Base):
 
     def __repr__(self):
         if self.name:
-            name = u' ("%s")' % self.name
+            name = ' ("%s")' % self.name
         else:
-            name = u""
+            name = ""
         if self.audience:
             audience = " audience=%s" % self.audience
         else:
@@ -171,9 +170,9 @@ class Subject(Base):
             age_range= " " + self.target_age_string
         else:
             age_range = ""
-        a = u'[%s:%s%s%s%s%s%s]' % (
+        a = '[%s:%s%s%s%s%s%s]' % (
             self.type, self.identifier, name, fiction, audience, genre, age_range)
-        return native_string(a)
+        return str(a)
 
     @property
     def target_age_string(self):

@@ -1,14 +1,6 @@
 # encoding: utf-8
 # BaseCoverageRecord, Timestamp, CoverageRecord, WorkCoverageRecord
 
-
-from . import (
-    Base,
-    get_one,
-    get_one_or_create,
-)
-
-import datetime
 from sqlalchemy import (
     Column,
     DateTime,
@@ -28,15 +20,22 @@ from sqlalchemy.sql.expression import (
     literal_column,
 )
 
+from . import (
+    Base,
+    get_one,
+    get_one_or_create,
+)
+from ..util.datetime_helpers import utc_now
+
 class BaseCoverageRecord(object):
     """Contains useful constants used by both CoverageRecord and
     WorkCoverageRecord.
     """
 
-    SUCCESS = u'success'
-    TRANSIENT_FAILURE = u'transient failure'
-    PERSISTENT_FAILURE = u'persistent failure'
-    REGISTERED = u'registered'
+    SUCCESS = 'success'
+    TRANSIENT_FAILURE = 'transient failure'
+    PERSISTENT_FAILURE = 'persistent failure'
+    REGISTERED = 'registered'
 
     ALL_STATUSES = [REGISTERED, SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
 
@@ -66,7 +65,7 @@ class BaseCoverageRecord(object):
         """
         if not count_as_covered:
             count_as_covered = cls.DEFAULT_COUNT_AS_COVERED
-        elif isinstance(count_as_covered, basestring):
+        elif isinstance(count_as_covered, (bytes, str)):
             count_as_covered = [count_as_covered]
 
         # If there is no coverage record, then of course the item is
@@ -128,11 +127,11 @@ class Timestamp(Base):
                            index=True, nullable=True)
 
     # The last time the service _started_ running.
-    start = Column(DateTime, nullable=True)
+    start = Column(DateTime(timezone=True), nullable=True)
 
     # The last time the service _finished_ running. In most cases this
     # is the 'timestamp' proper.
-    finish = Column(DateTime)
+    finish = Column(DateTime(timezone=True))
 
     # A description of the things the service achieved during its last
     # run. Each service may decide for itself what counts as an
@@ -165,7 +164,7 @@ class Timestamp(Base):
         else:
             collection = None
 
-        message = u"<Timestamp %s: collection=%s, start=%s finish=%s counter=%s>" % (
+        message = "<Timestamp %s: collection=%s, start=%s finish=%s counter=%s>" % (
             self.service, collection, start, finish, self.counter
         )
         return message
@@ -216,7 +215,7 @@ class Timestamp(Base):
             stopped the service from running.
         """
         if start is None and finish is None:
-            start = finish = datetime.datetime.utcnow()
+            start = finish = utc_now()
         elif start is None:
             start = finish
         elif finish is None:
@@ -284,13 +283,13 @@ class CoverageRecord(Base, BaseCoverageRecord):
     """A record of a Identifier being used as input into some process."""
     __tablename__ = 'coveragerecords'
 
-    SET_EDITION_METADATA_OPERATION = u'set-edition-metadata'
-    CHOOSE_COVER_OPERATION = u'choose-cover'
-    REAP_OPERATION = u'reap'
-    IMPORT_OPERATION = u'import'
-    RESOLVE_IDENTIFIER_OPERATION = u'resolve-identifier'
-    REPAIR_SORT_NAME_OPERATION = u'repair-sort-name'
-    METADATA_UPLOAD_OPERATION = u'metadata-upload'
+    SET_EDITION_METADATA_OPERATION = 'set-edition-metadata'
+    CHOOSE_COVER_OPERATION = 'choose-cover'
+    REAP_OPERATION = 'reap'
+    IMPORT_OPERATION = 'import'
+    RESOLVE_IDENTIFIER_OPERATION = 'resolve-identifier'
+    REPAIR_SORT_NAME_OPERATION = 'repair-sort-name'
+    METADATA_UPLOAD_OPERATION = 'metadata-upload'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
@@ -303,7 +302,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
     )
     operation = Column(String(255), default=None)
 
-    timestamp = Column(DateTime, index=True)
+    timestamp = Column(DateTime(timezone=True), index=True)
 
     status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
@@ -354,9 +353,9 @@ class CoverageRecord(Base, BaseCoverageRecord):
     @classmethod
     def lookup(cls, edition_or_identifier, data_source, operation=None,
                collection=None):
-        from datasource import DataSource
-        from edition import Edition
-        from identifier import Identifier
+        from .datasource import DataSource
+        from .edition import Edition
+        from .identifier import Identifier
 
         _db = Session.object_session(edition_or_identifier)
         if isinstance(edition_or_identifier, Identifier):
@@ -367,7 +366,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             raise ValueError(
                 "Cannot look up a coverage record for %r." % edition)
 
-        if isinstance(data_source, basestring):
+        if isinstance(data_source, (bytes, str)):
             data_source = DataSource.lookup(_db, data_source)
 
         return get_one(
@@ -382,8 +381,8 @@ class CoverageRecord(Base, BaseCoverageRecord):
     @classmethod
     def add_for(self, edition, data_source, operation=None, timestamp=None,
                 status=BaseCoverageRecord.SUCCESS, collection=None):
-        from edition import Edition
-        from identifier import Identifier
+        from .edition import Edition
+        from .identifier import Identifier
 
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
@@ -393,7 +392,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
         else:
             raise ValueError(
                 "Cannot create a coverage record for %r." % edition)
-        timestamp = timestamp or datetime.datetime.utcnow()
+        timestamp = timestamp or utc_now()
         coverage_record, is_new = get_one_or_create(
             _db, CoverageRecord,
             identifier=identifier,
@@ -414,14 +413,14 @@ class CoverageRecord(Base, BaseCoverageRecord):
         """Create and update CoverageRecords so that every Identifier in
         `identifiers` has an identical record.
         """
-        from identifier import Identifier
+        from .identifier import Identifier
 
         if not identifiers:
             # Nothing to do.
             return
 
         _db = Session.object_session(identifiers[0])
-        timestamp = timestamp or datetime.datetime.utcnow()
+        timestamp = timestamp or utc_now()
         identifier_ids = [i.id for i in identifiers]
 
         equivalent_record = and_(
@@ -501,9 +500,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
                 new_and_updated_record_ids
             )).all()
 
-        ignored_identifiers = filter(
-            lambda i: i.id not in impacted_identifier_ids, identifiers
-        )
+        ignored_identifiers = [i for i in identifiers if i.id not in impacted_identifier_ids]
 
         return new_records, ignored_identifiers
 
@@ -518,19 +515,19 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
     """
     __tablename__ = 'workcoveragerecords'
 
-    CHOOSE_EDITION_OPERATION = u'choose-edition'
-    CLASSIFY_OPERATION = u'classify'
-    SUMMARY_OPERATION = u'summary'
-    QUALITY_OPERATION = u'quality'
-    GENERATE_OPDS_OPERATION = u'generate-opds'
-    GENERATE_MARC_OPERATION = u'generate-marc'
-    UPDATE_SEARCH_INDEX_OPERATION = u'update-search-index'
+    CHOOSE_EDITION_OPERATION = 'choose-edition'
+    CLASSIFY_OPERATION = 'classify'
+    SUMMARY_OPERATION = 'summary'
+    QUALITY_OPERATION = 'quality'
+    GENERATE_OPDS_OPERATION = 'generate-opds'
+    GENERATE_MARC_OPERATION = 'generate-marc'
+    UPDATE_SEARCH_INDEX_OPERATION = 'update-search-index'
 
     id = Column(Integer, primary_key=True)
     work_id = Column(Integer, ForeignKey('works.id'), index=True)
     operation = Column(String(255), index=True, default=None)
 
-    timestamp = Column(DateTime, index=True)
+    timestamp = Column(DateTime(timezone=True), index=True)
 
     status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
@@ -565,7 +562,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
     def add_for(self, work, operation, timestamp=None,
                 status=CoverageRecord.SUCCESS):
         _db = Session.object_session(work)
-        timestamp = timestamp or datetime.datetime.utcnow()
+        timestamp = timestamp or utc_now()
         coverage_record, is_new = get_one_or_create(
             _db, WorkCoverageRecord,
             work=work,
@@ -582,13 +579,13 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         """Create and update WorkCoverageRecords so that every Work in
         `works` has an identical record.
         """
-        from work import Work
+        from .work import Work
 
         if not works:
             # Nothing to do.
             return
         _db = Session.object_session(works[0])
-        timestamp = timestamp or datetime.datetime.utcnow()
+        timestamp = timestamp or utc_now()
         work_ids = [w.id for w in works]
 
         # Make sure that works that previously had a

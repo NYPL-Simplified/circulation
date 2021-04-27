@@ -130,7 +130,7 @@ class SummaryEvaluator(object):
 
         try:
             sentences = len(blob.sentences)
-        except Exception, e:
+        except Exception as e:
             # Can't parse into sentences for whatever reason.
             # Make a really bad guess.
             sentences = summary.count(". ") + 1

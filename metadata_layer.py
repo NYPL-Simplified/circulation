@@ -6,10 +6,8 @@ This acts as an intermediary between the third-party integrations
 model. Doing a third-party integration should be as simple as putting
 the information into this format.
 """
-
 from collections import defaultdict
 from sqlalchemy.orm.session import Session
-
 from dateutil.parser import parse
 from sqlalchemy.sql.expression import and_, or_
 from sqlalchemy.orm.exc import (
@@ -20,15 +18,14 @@ import csv
 import datetime
 import logging
 import re
-
 from pymarc import MARCReader
 
-from classifier import Classifier
-from util import LanguageCodes
-from util.http import RemoteIntegrationException
-from util.personal_names import name_tidy
-from util.median import median
-from model import (
+from .classifier import Classifier
+from .util import LanguageCodes
+from .util.http import RemoteIntegrationException
+from .util.personal_names import name_tidy
+from .util.median import median
+from .model import (
     get_one,
     get_one_or_create,
     CirculationEvent,
@@ -55,10 +52,11 @@ from model import (
     Timestamp,
     Work,
 )
-from model.configuration import ExternalIntegrationLink
-from classifier import NO_VALUE, NO_NUMBER
-from analytics import Analytics
-from util.personal_names import display_name_to_sort_name
+from .model.configuration import ExternalIntegrationLink
+from .classifier import NO_VALUE, NO_NUMBER
+from .analytics import Analytics
+from .util.personal_names import display_name_to_sort_name
+from .util.datetime_helpers import strptime_utc, to_utc, utc_now
 
 class ReplacementPolicy(object):
     """How serious should we be about overwriting old metadata with
@@ -275,7 +273,7 @@ class ContributorData(object):
             lc=lc,
             viaf=viaf
         )
-        for k, values in values_by_field.items():
+        for k, values in list(values_by_field.items()):
             if len(values) == 1:
                 # All the Contributors we found have the same
                 # value for this field. We can use it.
@@ -312,7 +310,7 @@ class ContributorData(object):
             destination.aliases = new_aliases
             made_changes = True
 
-        for k, v in self.extra.items():
+        for k, v in list(self.extra.items()):
             if not k in destination.extra:
                 destination.extra[k] = v
 
@@ -381,7 +379,7 @@ class ContributorData(object):
                 sort_name = self.display_name_to_sort_name_through_canonicalizer(
                     _db, identifiers, metadata_client
                 )
-            except RemoteIntegrationException, e:
+            except RemoteIntegrationException as e:
                 # There was some kind of problem with the metadata
                 # wrangler. Act as though no metadata wrangler had
                 # been provided.
@@ -434,7 +432,7 @@ class ContributorData(object):
             identifier_obj, self.display_name)
         sort_name = None
 
-        if isinstance(response, basestring):
+        if isinstance(response, (bytes, str)):
             sort_name = response
         else:
             log = logging.getLogger("Abstract metadata layer")
@@ -569,7 +567,7 @@ class MeasurementData(object):
             value = float(value)
         self.value = value
         self.weight = weight
-        self.taken_at = taken_at or datetime.datetime.utcnow()
+        self.taken_at = taken_at or utc_now()
 
     def __repr__(self):
         return '<MeasurementData quantity="%s" value=%f weight=%d taken=%s>' % (
@@ -676,7 +674,7 @@ class TimestampData(object):
             self.start = start
         if self.finish is None:
             if finish is None:
-                finish = datetime.datetime.utcnow()
+                finish = utc_now()
             self.finish = finish
         if self.start is None:
             self.start = self.finish
@@ -967,7 +965,7 @@ class CirculationData(MetaToModelUtility):
 
         # If no 'last checked' data was provided, assume the data was
         # just gathered.
-        self.last_checked = last_checked or datetime.datetime.utcnow()
+        self.last_checked = last_checked or utc_now()
 
         # format contains pdf/epub, drm, link
         self.formats = formats or []
@@ -1606,7 +1604,7 @@ class Metadata(MetaToModelUtility):
         for i in self.identifiers:
             by_weight[(i.type, i.identifier)].append(i.weight)
         new_identifiers = []
-        for (type, identifier), weights in by_weight.items():
+        for (type, identifier), weights in list(by_weight.items()):
             new_identifiers.append(
                 IdentifierData(type=type, identifier=identifier,
                                weight=median(weights))
@@ -1810,7 +1808,7 @@ class Metadata(MetaToModelUtility):
             identifier.classifications = surviving_classifications
 
         # Apply all new subjects to the identifier.
-        for subject in new_subjects.values():
+        for subject in list(new_subjects.values()):
             identifier.classify(
                 data_source, subject.type, subject.identifier,
                 subject.name, weight=subject.weight)
@@ -2104,7 +2102,7 @@ class Metadata(MetaToModelUtility):
             by_type[identifier.type].append(identifier.identifier)
 
         self.recommendations = []
-        for type, identifiers in by_type.items():
+        for type, identifiers in list(by_type.items()):
             existing_identifiers = _db.query(Identifier).\
                 filter(Identifier.type==type).\
                 filter(Identifier.identifier.in_(identifiers))
@@ -2191,7 +2189,7 @@ class CSVMetadataImporter(object):
         # Make sure this CSV file has some way of identifying books.
         found_identifier_field = False
         possibilities = []
-        for field_name, weight in self.identifier_fields.values():
+        for field_name, weight in list(self.identifier_fields.values()):
             possibilities.append(field_name)
             if field_name in fields:
                 found_identifier_field = True
@@ -2209,7 +2207,7 @@ class CSVMetadataImporter(object):
         title = self._field(row, self.title_field)
         language = self._field(row, self.language_field, self.default_language)
         medium = self._field(row, self.medium_field, self.default_medium)
-        if medium not in Edition.medium_to_additional_type.keys():
+        if medium not in list(Edition.medium_to_additional_type.keys()):
             self.log.warn("Ignored unrecognized medium %s" % medium)
             medium = Edition.BOOK_MEDIUM
         series = self._field(row, self.series_field)
@@ -2223,7 +2221,7 @@ class CSVMetadataImporter(object):
         # TODO: This is annoying and could use some work.
         for identifier_type in self.IDENTIFIER_PRECEDENCE:
             correct_type = False
-            for target_type, v in self.identifier_fields.items():
+            for target_type, v in list(self.identifier_fields.items()):
                 if isinstance(v, tuple):
                     field_name, weight = v
                 else:
@@ -2246,7 +2244,7 @@ class CSVMetadataImporter(object):
                         primary_identifier = identifier
 
         subjects = []
-        for (field_name, (subject_type, weight)) in self.subject_fields.items():
+        for (field_name, (subject_type, weight)) in list(self.subject_fields.items()):
             values = self.list_field(row, field_name)
             for value in values:
                 subjects.append(
@@ -2291,7 +2289,7 @@ class CSVMetadataImporter(object):
         """All potential field names that would identify an identifier."""
         for identifier_type in self.IDENTIFIER_PRECEDENCE:
             field_names = self.identifier_fields.get(identifier_type, [])
-            if isinstance(field_names, basestring):
+            if isinstance(field_names, (bytes, str)):
                 field_names = [field_names]
             for field_name in field_names:
                 yield field_name
@@ -2307,7 +2305,7 @@ class CSVMetadataImporter(object):
         """Get a value from one of the given fields and ensure it comes in as
         Unicode.
         """
-        if isinstance(names, basestring):
+        if isinstance(names, (bytes, str)):
             return self.__field(row, names, default)
         if not names:
             return default
@@ -2333,7 +2331,7 @@ class CSVMetadataImporter(object):
         value = self._field(row, field_name)
         if value:
             try:
-                value = parse(value)
+                value = to_utc(parse(value))
             except ValueError:
                 self.log.warn('Could not parse date "%s"' % value)
                 value = None
@@ -2369,11 +2367,11 @@ class MARCExtractor(object):
         return name
 
     @classmethod
-    def parse_year(self, value):
+    def parse_year(cls, value):
         """Handle a publication year that may not be in the right format."""
         for format in ("%Y", "%Y."):
             try:
-                return datetime.datetime.strptime(value, format)
+                return strptime_utc(value, format)
             except ValueError:
                 continue
         return None

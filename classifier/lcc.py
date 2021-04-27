@@ -98,11 +98,11 @@ class LCCClassifier(Classifier):
 
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
-        for genre, strings in cls.GENRES.items():
+        for genre, strings in list(cls.GENRES.items()):
             for s in strings:
                 if identifier.startswith(s):
                     return genre
-        for prefix, genre in cls.LEFTOVERS.items():
+        for prefix, genre in list(cls.LEFTOVERS.items()):
             if identifier.startswith(prefix):
                 return genre
         return None

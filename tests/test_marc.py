@@ -1,13 +1,11 @@
 import datetime
-
 import pytest
 from pymarc import Record, MARCReader
-from StringIO import StringIO
-import urllib
+from io import StringIO
+from urllib.parse import quote
 from sqlalchemy.orm.session import Session
 
 from ..testing import DatabaseTest
-
 from ..model import (
     CachedMARCFile,
     Contributor,
@@ -33,12 +31,12 @@ from ..marc import (
   MARCExporter,
   MARCExporterFacets,
 )
-
 from ..s3 import (
     MockS3Uploader,
     S3Uploader,
 )
 from ..lane import WorkList
+from ..util.datetime_helpers import datetime_utc, utc_now
 
 class TestAnnotator(DatabaseTest):
 
@@ -87,9 +85,9 @@ class TestAnnotator(DatabaseTest):
         # This edition has one format and was published before 1900.
         edition, pool = self._edition(with_license_pool=True)
         identifier = pool.identifier
-        edition.issued = datetime.datetime(956, 1, 1)
+        edition.issued = datetime_utc(956, 1, 1)
 
-        now = datetime.datetime.now()
+        now = utc_now()
         record = Record()
 
         Annotator.add_control_fields(record, identifier, pool, edition)
@@ -104,7 +102,7 @@ class TestAnnotator(DatabaseTest):
         # This French edition has two formats and was published in 2018.
         edition2, pool2 = self._edition(with_license_pool=True)
         identifier2 = pool2.identifier
-        edition2.issued = datetime.datetime(2018, 2, 3)
+        edition2.issued = datetime_utc(2018, 2, 3)
         edition2.language = "fre"
         LicensePoolDeliveryMechanism.set(
             pool2.data_source, identifier2, Representation.PDF_MEDIA_TYPE,
@@ -211,7 +209,7 @@ class TestAnnotator(DatabaseTest):
     def test_add_publisher(self):
         edition = self._edition()
         edition.publisher = self._str
-        edition.issued = datetime.datetime(1894, 4, 5)
+        edition.issued = datetime_utc(1894, 4, 5)
 
         record = Record()
         Annotator.add_publisher(record, edition)
@@ -295,7 +293,7 @@ class TestAnnotator(DatabaseTest):
         assert [] == record.get_fields("380")
 
     def test_add_audience(self):
-        for audience, term in Annotator.AUDIENCE_TERMS.items():
+        for audience, term in list(Annotator.AUDIENCE_TERMS.items()):
             work = self._work(audience=audience)
             record = Record()
             Annotator.add_audience(record, work)
@@ -420,10 +418,10 @@ class TestMARCExporter(DatabaseTest):
         [distributor_field] = record.get_fields("264")
         assert DataSource.OVERDRIVE == distributor_field.get_subfields("b")[0]
         cached = work.marc_record
-        assert b"old title" in cached
-        assert b"author, old" in cached
+        assert "old title" in cached
+        assert "author, old" in cached
         # The distributor isn't part of the cached record.
-        assert DataSource.OVERDRIVE.encode("utf8") not in cached
+        assert DataSource.OVERDRIVE not in cached
 
         work.presentation_edition.title = "new title"
         work.presentation_edition.sort_author = "author, new"
@@ -450,10 +448,10 @@ class TestMARCExporter(DatabaseTest):
         [distributor_field] = record.get_fields("264")
         assert DataSource.BIBLIOTHECA == distributor_field.get_subfields("b")[0]
         cached = work.marc_record
-        assert b"old title" not in cached
-        assert b"author, old" not in cached
-        assert b"new title" in cached
-        assert b"author, new" in cached
+        assert "old title" not in cached
+        assert "author, old" not in cached
+        assert "new title" in cached
+        assert "author, new" in cached
 
         # If we pass in an integration, it's passed along to the annotator.
         integration = self._integration()
@@ -476,8 +474,8 @@ class TestMARCExporter(DatabaseTest):
 
         # Creates a new record and saves it to the database
         work = self._work(
-          title=u"Little Mimi\u2019s First Counting Lesson",
-          authors=[u"Lagerlo\xf6f, Selma Ottiliana Lovisa,"],
+          title="Little Mimi\u2019s First Counting Lesson",
+          authors=["Lagerlo\xf6f, Selma Ottiliana Lovisa,"],
           with_license_pool=True
         )
         record = MARCExporter.create_record(work, annotator)
@@ -492,7 +490,7 @@ class TestMARCExporter(DatabaseTest):
 
     def test_records(self):
         integration = self._integration()
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         exporter = MARCExporter.from_config(self._default_library)
         annotator = Annotator()
         lane = self._lane("Test Lane", genres=["Mystery"])
@@ -525,8 +523,8 @@ class TestMARCExporter(DatabaseTest):
         assert None == cache.representation.content
         assert ("https://test-marc-bucket.s3.amazonaws.com/%s/%s/%s.mrc" % (
             self._default_library.short_name,
-            urllib.quote(str(cache.representation.fetched_at)),
-            urllib.quote(lane.display_name)) ==
+            quote(str(cache.representation.fetched_at)),
+            quote(lane.display_name)) ==
             mirror.uploaded[0].mirror_url)
         assert None == cache.start_time
         assert cache.end_time > now
@@ -541,8 +539,8 @@ class TestMARCExporter(DatabaseTest):
         titles = [fields[0].get_subfields("a")[0] for fields in title_fields]
         assert set([w1.title, w2.title]) == set(titles)
 
-        assert w1.title.encode("utf8") in w1.marc_record
-        assert w2.title.encode("utf8") in w2.marc_record
+        assert w1.title in w1.marc_record
+        assert w2.title in w2.marc_record
 
         self._db.delete(cache)
 
@@ -562,8 +560,8 @@ class TestMARCExporter(DatabaseTest):
         assert None == cache.representation.content
         assert ("https://test-marc-bucket.s3.amazonaws.com/%s/%s/%s.mrc" % (
             self._default_library.short_name,
-            urllib.quote(str(cache.representation.fetched_at)),
-            urllib.quote(worklist.display_name)) ==
+            quote(str(cache.representation.fetched_at)),
+            quote(worklist.display_name)) ==
             mirror.uploaded[0].mirror_url)
         assert None == cache.start_time
         assert cache.end_time > now
@@ -590,14 +588,15 @@ class TestMARCExporter(DatabaseTest):
             upload_batch_size=2, search_engine=search_engine
         )
         [cache] = self._db.query(CachedMARCFile).all()
+
         assert self._default_library == cache.library
         assert lane == cache.lane
         assert mirror.uploaded[0] == cache.representation
         assert None == cache.representation.content
         assert ("https://test-marc-bucket.s3.amazonaws.com/%s/%s-%s/%s.mrc" % (
-            self._default_library.short_name, urllib.quote(str(start_time)),
-            urllib.quote(str(cache.representation.fetched_at)),
-            urllib.quote(lane.display_name)) ==
+            self._default_library.short_name, quote(str(start_time)),
+            quote(str(cache.representation.fetched_at)),
+            quote(lane.display_name)) ==
             mirror.uploaded[0].mirror_url)
         assert start_time == cache.start_time
         assert cache.end_time > now

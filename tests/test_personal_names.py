@@ -1,5 +1,5 @@
 # encoding: utf-8
-from StringIO import StringIO
+from io import StringIO
 import datetime
 import os
 import sys
@@ -47,65 +47,66 @@ class TestNameConversions(DatabaseTest):
             # because it's in "Family, Given" format or for some other
             # reason.
             assert x == m(x)
-        unchanged(u"Bitshifter, Bob")
-        unchanged(u"Prince")
-        unchanged(u"Pope Francis")
-        unchanged(u"Heliodorus (bp. of Tricca.)")
-        unchanged(u"谢新源 (Xie Xinyuan)")
-        unchanged(u"Alfred, Lord Tennyson")
-        unchanged(u"Bob, The Grand Duke of Awesomeness")
 
-        sort_name = m(u"Bob Bitshifter")
-        assert u"Bitshifter, Bob" == sort_name
+        unchanged("Bitshifter, Bob")
+        unchanged("Prince")
+        unchanged("Pope Francis")
+        unchanged("Heliodorus (bp. of Tricca.)")
+        unchanged("谢新源 (Xie Xinyuan)")
+        unchanged("Alfred, Lord Tennyson")
+        unchanged("Bob, The Grand Duke of Awesomeness")
+
+        sort_name = m("Bob Bitshifter")
+        assert "Bitshifter, Bob" == sort_name
 
         # foreign characters don't confuse the algorithm
-        sort_name = m(u"Боб Битшифтер")
-        assert u"Битшифтер, Боб" == sort_name
+        sort_name = m("Боб Битшифтер")
+        assert "Битшифтер, Боб" == sort_name
 
-        sort_name = m(u"Bob Bitshifter, Jr.")
-        assert u"Bitshifter, Bob Jr." == sort_name
+        sort_name = m("Bob Bitshifter, Jr.")
+        assert "Bitshifter, Bob Jr." == sort_name
 
-        sort_name = m(u"Bob Bitshifter, III")
-        assert u"Bitshifter, Bob III" == sort_name
+        sort_name = m("Bob Bitshifter, III")
+        assert "Bitshifter, Bob III" == sort_name
 
         assert ("Beck, James M. (James Montgomery)" ==
             m("James M. (James Montgomery) Beck"))
 
         # all forms of PhD are recognized
-        sort_name = m(u"John Doe, PhD")
-        assert u"Doe, John PhD" == sort_name
-        sort_name = m(u"John Doe, Ph.D.")
-        assert u"Doe, John PhD" == sort_name
-        sort_name = m(u"John Doe, Ph D")
-        assert u"Doe, John PhD" == sort_name
-        sort_name = m(u"John Doe, Ph. D.")
-        assert u"Doe, John PhD" == sort_name
-        sort_name = m(u"John Doe, PHD")
-        assert u"Doe, John PhD" == sort_name
+        sort_name = m("John Doe, PhD")
+        assert "Doe, John PhD" == sort_name
+        sort_name = m("John Doe, Ph.D.")
+        assert "Doe, John PhD" == sort_name
+        sort_name = m("John Doe, Ph D")
+        assert "Doe, John PhD" == sort_name
+        sort_name = m("John Doe, Ph. D.")
+        assert "Doe, John PhD" == sort_name
+        sort_name = m("John Doe, PHD")
+        assert "Doe, John PhD" == sort_name
 
-        sort_name = m(u"John Doe, M.D.")
-        assert u"Doe, John MD" == sort_name
+        sort_name = m("John Doe, M.D.")
+        assert "Doe, John MD" == sort_name
 
         # corporate names are unchanged
-        unchanged(u"Church of Jesus Christ of Latter-day Saints")
-        unchanged(u"(C) 2006 Vanguard")
+        unchanged("Church of Jesus Christ of Latter-day Saints")
+        unchanged("(C) 2006 Vanguard")
 
         # NOTE: These results are not the best.
-        assert "XVI, Pope Benedict" == m(u"Pope Benedict XVI")
-        assert "Byron, Lord" == m(u"Lord Byron")
+        assert "XVI, Pope Benedict" == m("Pope Benedict XVI")
+        assert "Byron, Lord" == m("Lord Byron")
 
     def test_name_tidy(self):
         # remove improper comma
-        sort_name = display_name_to_sort_name(u"Bitshifter, Bob,")
-        assert u"Bitshifter, Bob" == sort_name
+        sort_name = display_name_to_sort_name("Bitshifter, Bob,")
+        assert "Bitshifter, Bob" == sort_name
 
         # remove improper period
-        sort_name = display_name_to_sort_name(u"Bitshifter, Bober.")
-        assert u"Bitshifter, Bober" == sort_name
+        sort_name = display_name_to_sort_name("Bitshifter, Bober.")
+        assert "Bitshifter, Bober" == sort_name
 
         # retain proper period
-        sort_name = display_name_to_sort_name(u"Bitshifter, B.")
-        assert u"Bitshifter, B." == sort_name
+        sort_name = display_name_to_sort_name("Bitshifter, B.")
+        assert "Bitshifter, B." == sort_name
 
 
 

@@ -2,9 +2,7 @@
 # Credential, DRMDeviceIdentifier, DelegatedPatronIdentifier
 import datetime
 import uuid
-
 import sqlalchemy
-
 from sqlalchemy import (
     Column,
     DateTime,
@@ -18,9 +16,9 @@ from sqlalchemy.orm import backref, relationship
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import and_
 
-from ..util import is_session
-from ..util.string_helpers import is_string
 from . import Base, get_one, get_one_or_create
+from ..util import is_session
+from ..util.datetime_helpers import utc_now
 
 
 class Credential(Base):
@@ -32,7 +30,7 @@ class Credential(Base):
     collection_id = Column(Integer, ForeignKey('collections.id'), index=True)
     type = Column(String(255), index=True)
     credential = Column(String)
-    expires = Column(DateTime, index=True)
+    expires = Column(DateTime(timezone=True), index=True)
 
     # One Credential can have many associated DRMDeviceIdentifiers.
     drm_device_identifiers = relationship(
@@ -105,7 +103,7 @@ class Credential(Base):
             else:
                 # It's an error that this token never expires. It's invalid.
                 return None
-        elif credential.expires > datetime.datetime.utcnow():
+        elif credential.expires > utc_now():
             return credential
         else:
             # Token has expired.
@@ -115,8 +113,8 @@ class Credential(Base):
     def lookup(cls, _db, data_source, token_type, patron, refresher_method,
                allow_persistent_token=False, allow_empty_token=False,
                collection=None, force_refresh=False):
-        from datasource import DataSource
-        if is_string(data_source):
+        from .datasource import DataSource
+        if isinstance(data_source, str):
             data_source = DataSource.lookup(_db, data_source)
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=token_type, patron=patron, collection=collection)
@@ -125,7 +123,7 @@ class Credential(Base):
             or (not credential.expires and not allow_persistent_token)
             or (not credential.credential and not allow_empty_token)
             or (credential.expires
-                and credential.expires <= datetime.datetime.utcnow())):
+                and credential.expires <= utc_now())):
             if refresher_method:
                 refresher_method(credential)
         return credential
@@ -183,13 +181,13 @@ class Credential(Base):
             a data source should be created in the case it doesn't
         :type auto_create_datasource: bool
         """
-        from patron import Patron
+        from .patron import Patron
 
         if not is_session(_db):
             raise ValueError('"_db" argument must be a valid SQLAlchemy session')
-        if not is_string(data_source_name) or not data_source_name:
+        if not isinstance(data_source_name, str) or not data_source_name:
             raise ValueError('"data_source_name" argument must be a non-empty string')
-        if not is_string(token_type) or not token_type:
+        if not isinstance(token_type, str) or not token_type:
             raise ValueError('"token_type" argument must be a non-empty string')
         if not isinstance(patron, Patron):
             raise ValueError('"patron" argument must be an instance of Patron class')
@@ -198,7 +196,7 @@ class Credential(Base):
         if not isinstance(auto_create_datasource, bool):
             raise ValueError('"auto_create_datasource" argument must be boolean')
 
-        from datasource import DataSource
+        from .datasource import DataSource
         data_source = DataSource.lookup(
             _db,
             data_source_name,
@@ -220,7 +218,7 @@ class Credential(Base):
         credential = cls.lookup_by_token(_db, data_source, type, token)
         if not credential:
             return None
-        credential.expires = datetime.datetime.utcnow() - datetime.timedelta(
+        credential.expires = utc_now() - datetime.timedelta(
             seconds=5)
         return credential
 
@@ -237,7 +235,7 @@ class Credential(Base):
         """Create a temporary token for the given data_source/type/patron.
         The token will be good for the specified `duration`.
         """
-        expires = datetime.datetime.utcnow() + duration
+        expires = utc_now() + duration
         token_string = value or str(uuid.uuid1())
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=token_type, patron=patron)
@@ -316,7 +314,7 @@ class DelegatedPatronIdentifier(Base):
     the SimplyE app.
     Those identifiers are stored here.
     """
-    ADOBE_ACCOUNT_ID = u'Adobe Account ID'
+    ADOBE_ACCOUNT_ID = 'Adobe Account ID'
 
     __tablename__ = 'delegatedpatronidentifiers'
     id = Column(Integer, primary_key=True)

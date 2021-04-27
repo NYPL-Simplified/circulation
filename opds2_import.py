@@ -2,15 +2,15 @@ import logging
 
 import webpub_manifest_parser.opds2.ast as opds2_ast
 from flask_babel import lazy_gettext as _
-from six import StringIO
-from six.moves.urllib.parse import urljoin, urlparse
+from io import StringIO
+from urllib.parse import urljoin, urlparse
 from webpub_manifest_parser.errors import BaseError
 from webpub_manifest_parser.opds2.parsers import OPDS2DocumentParserFactory
 from webpub_manifest_parser.opds2.registry import (
     OPDS2LinkRelationsRegistry,
     OPDS2MediaTypesRegistry,
 )
-from webpub_manifest_parser.utils import encode, first_or_default, is_string
+from webpub_manifest_parser.utils import encode, first_or_default
 
 from .metadata_layer import (
     CirculationData,
@@ -54,7 +54,7 @@ def parse_feed(feed, silent=True):
     """
     parsed_feed = None
 
-    if is_string(feed):
+    if isinstance(feed, str):
         try:
             input_stream = StringIO(feed)
             parser_factory = OPDS2DocumentParserFactory()
@@ -91,8 +91,8 @@ class OPDS2Importer(OPDSImporter):
     """Imports editions and license pools from an OPDS 2.0 feed."""
 
     NAME = ExternalIntegration.OPDS2_IMPORT
-    DESCRIPTION = _(u"Import books from a publicly-accessible OPDS 2.0 feed.")
-    NEXT_LINK_RELATION = u"next"
+    DESCRIPTION = _("Import books from a publicly-accessible OPDS 2.0 feed.")
+    NEXT_LINK_RELATION = "next"
 
     def __init__(
         self,
@@ -162,13 +162,13 @@ class OPDS2Importer(OPDSImporter):
         :return: List of subjects metadata
         :rtype: List[SubjectMetadata]
         """
-        self._logger.debug(u"Started extracting subjects metadata")
+        self._logger.debug("Started extracting subjects metadata")
 
         subject_metadata_list = []
 
         for subject in subjects:
             self._logger.debug(
-                u"Started extracting subject metadata from {0}".format(encode(subject))
+                "Started extracting subject metadata from {0}".format(encode(subject))
             )
 
             scheme = subject.scheme
@@ -186,13 +186,13 @@ class OPDS2Importer(OPDSImporter):
             subject_metadata_list.append(subject_metadata)
 
             self._logger.debug(
-                u"Finished extracting subject metadata from {0}: {1}".format(
+                "Finished extracting subject metadata from {0}: {1}".format(
                     encode(subject), encode(subject_metadata)
                 )
             )
 
         self._logger.debug(
-            u"Finished extracting subjects metadata: {0}".format(
+            "Finished extracting subjects metadata: {0}".format(
                 encode(subject_metadata_list)
             )
         )
@@ -211,13 +211,13 @@ class OPDS2Importer(OPDSImporter):
         :return: List of contributors metadata
         :rtype: List[ContributorData]
         """
-        self._logger.debug(u"Started extracting contributors metadata")
+        self._logger.debug("Started extracting contributors metadata")
 
         contributor_metadata_list = []
 
         for contributor in contributors:
             self._logger.debug(
-                u"Started extracting contributor metadata from {0}".format(
+                "Started extracting contributor metadata from {0}".format(
                     encode(contributor)
                 )
             )
@@ -231,7 +231,7 @@ class OPDS2Importer(OPDSImporter):
             )
 
             self._logger.debug(
-                u"Finished extracting contributor metadata from {0}: {1}".format(
+                "Finished extracting contributor metadata from {0}: {1}".format(
                     encode(contributor), encode(contributor_metadata)
                 )
             )
@@ -239,7 +239,7 @@ class OPDS2Importer(OPDSImporter):
             contributor_metadata_list.append(contributor_metadata)
 
         self._logger.debug(
-            u"Finished extracting contributors metadata: {0}".format(
+            "Finished extracting contributors metadata: {0}".format(
                 encode(contributor_metadata_list)
             )
         )
@@ -262,7 +262,7 @@ class OPDS2Importer(OPDSImporter):
         :rtype: LinkData
         """
         self._logger.debug(
-            u"Started extracting link metadata from {0}".format(encode(link))
+            "Started extracting link metadata from {0}".format(encode(link))
         )
 
         # FIXME: It seems that OPDS 2.0 spec doesn't contain information about rights so we use the default one.
@@ -284,7 +284,7 @@ class OPDS2Importer(OPDSImporter):
         )
 
         self._logger.debug(
-            u"Finished extracting link metadata from {0}: {1}".format(
+            "Finished extracting link metadata from {0}: {1}".format(
                 encode(link), encode(link_metadata)
             )
         )
@@ -301,7 +301,7 @@ class OPDS2Importer(OPDSImporter):
         :rtype: LinkData
         """
         self._logger.debug(
-            u"Started extracting a description link from {0}".format(
+            "Started extracting a description link from {0}".format(
                 encode(publication.metadata.description)
             )
         )
@@ -316,7 +316,7 @@ class OPDS2Importer(OPDSImporter):
             )
 
         self._logger.debug(
-            u"Finished extracting a description link from {0}: {1}".format(
+            "Finished extracting a description link from {0}: {1}".format(
                 encode(publication.metadata.description), encode(description_link)
             )
         )
@@ -336,7 +336,7 @@ class OPDS2Importer(OPDSImporter):
         :rtype: List[LinkData]
         """
         self._logger.debug(
-            u"Started extracting image links from {0}".format(
+            "Started extracting image links from {0}".format(
                 encode(publication.images)
             )
         )
@@ -354,7 +354,7 @@ class OPDS2Importer(OPDSImporter):
         sorted_raw_image_links = list(
             reversed(
                 sorted(
-                    publication.images.links, key=lambda link: (link.width, link.height)
+                    publication.images.links, key=lambda link: (link.width or 0, link.height or 0)
                 )
             )
         )
@@ -377,7 +377,7 @@ class OPDS2Importer(OPDSImporter):
             image_links.append(cover_link)
 
         self._logger.debug(
-            u"Finished extracting image links from {0}: {1}".format(
+            "Finished extracting image links from {0}: {1}".format(
                 encode(publication.images), encode(image_links)
             )
         )
@@ -397,7 +397,7 @@ class OPDS2Importer(OPDSImporter):
         :rtype: List[LinkData]
         """
         self._logger.debug(
-            u"Started extracting links from {0}".format(encode(publication.links))
+            "Started extracting links from {0}".format(encode(publication.links))
         )
 
         links = []
@@ -415,7 +415,7 @@ class OPDS2Importer(OPDSImporter):
             links.extend(image_links)
 
         self._logger.debug(
-            u"Finished extracting links from {0}: {1}".format(
+            "Finished extracting links from {0}: {1}".format(
                 encode(publication.links), encode(links)
             )
         )
@@ -432,7 +432,7 @@ class OPDS2Importer(OPDSImporter):
         :rtype: List[Tuple[str, str]]
         """
         self._logger.debug(
-            u"Started extracting media types and a DRM scheme from {0}".format(
+            "Started extracting media types and a DRM scheme from {0}".format(
                 encode(link)
             )
         )
@@ -470,7 +470,7 @@ class OPDS2Importer(OPDSImporter):
                 media_types_and_drm_scheme.append((link.type, DeliveryMechanism.NO_DRM))
 
         self._logger.debug(
-            u"Finished extracting media types and a DRM scheme from {0}: {1}".format(
+            "Finished extracting media types and a DRM scheme from {0}: {1}".format(
                 encode(link), encode(media_types_and_drm_scheme)
             )
         )
@@ -549,7 +549,7 @@ class OPDS2Importer(OPDSImporter):
         :rtype: Metadata
         """
         self._logger.debug(
-            u"Started extracting metadata from publication {0}".format(
+            "Started extracting metadata from publication {0}".format(
                 encode(publication)
             )
         )
@@ -671,7 +671,7 @@ class OPDS2Importer(OPDSImporter):
         )
 
         self._logger.debug(
-            u"Finished extracting metadata from publication {0}: {1}".format(
+            "Finished extracting metadata from publication {0}: {1}".format(
                 encode(publication), encode(metadata)
             )
         )

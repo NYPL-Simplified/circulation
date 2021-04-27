@@ -7,8 +7,6 @@ import binascii
 import os
 import sys
 
-import six
-
 
 class UnicodeAwareBase64(object):
     """Simulate the interface of the base64 module, but make it look as
@@ -52,9 +50,10 @@ class UnicodeAwareBase64(object):
     urlsafe_b64encode = wrap(stdlib_base64.urlsafe_b64encode)
     urlsafe_b64decode = wrap(stdlib_base64.urlsafe_b64decode)
 
-    # These are deprecated in base64 and we should stop using them.
-    encodestring = wrap(stdlib_base64.encodestring)
-    decodestring = wrap(stdlib_base64.decodestring)
+    # encodestring and decodestring are deprecated in base64
+    # and we should use these instead:
+    encodebytes = wrap(stdlib_base64.encodebytes)
+    decodebytes = wrap(stdlib_base64.decodebytes)
     
 # If you're okay with a Unicode strings being converted to/from UTF-8
 # when you try to encode/decode them, you can use this object instead of
@@ -68,39 +67,3 @@ def random_string(size):
     :return: A Unicode string.
     """
     return binascii.hexlify(os.urandom(size)).decode("utf8")
-
-
-def native_string(x):
-    """Convert a bytestring or a Unicode string to the 'native string'
-    class for this version of Python.
-
-    In Python 2, the native string class is a bytestring. In Python 3,
-    the native string class is a Unicode string.
-
-    This function exists to smooth the conversion process and can be
-    removed once we convert to Python 3.
-    """
-    if sys.version_info.major == 2:
-        if isinstance(x, unicode):
-            x = x.encode("utf8")
-    else:
-        if isinstance(x, bytes):
-            x = x.decode("utf8")
-    return x
-
-
-def is_string(value):
-    """Return a boolean value indicating whether the value is a string or not.
-
-    This method is compatible with both Python 2.7 and Python 3.x.
-    NOTE:
-    1. We can't use isinstance(string_value, str) because strings in Python 2.7 can have "unicode" type.
-    2. We can't use isinstance(string_value, basestring) because "basestring" type is not available in Python 3.x.
-
-    :param value: Value
-    :type value: Any
-
-    :return: Boolean value indicating whether the value is a string or not
-    :rtype: bool
-    """
-    return isinstance(value, six.string_types)

@@ -67,7 +67,7 @@ class TestProfileController(object):
         self.controller.storage = BadStorage()
         problem = self.controller.get()
         assert 500 == problem.status_code
-        assert u"Oh no" == problem.debug_message
+        assert "Oh no" == problem.debug_message
 
     def test_get_non_dictionary_profile_document(self):
         """Test what happens if the profile_document is not a dictionary.
@@ -76,12 +76,12 @@ class TestProfileController(object):
         class BadStorage(MockProfileStorage):
             @property
             def profile_document(self):
-                return u"Here it is!"
+                return "Here it is!"
 
         self.controller.storage = BadStorage()
         problem = self.controller.get()
         assert 500 == problem.status_code
-        assert (u"Profile profile_document is not a JSON object: u'Here it is!'." ==
+        assert ("Profile profile_document is not a JSON object: 'Here it is!'." ==
             problem.debug_message)
 
     def test_get_non_dictionary_profile_document(self):
@@ -97,7 +97,7 @@ class TestProfileController(object):
         problem = self.controller.get()
         assert 500 == problem.status_code
         assert problem.debug_message.startswith(
-            u"Could not convert profile document to JSON: {'key': <object object"
+            "Could not convert profile document to JSON: {'key': <object object"
         )
 
     def test_put_bad_media_type(self):
@@ -114,14 +114,14 @@ class TestProfileController(object):
         headers = {"Content-Type" : ProfileController.MEDIA_TYPE}
         problem = self.controller.put(headers, "blah blah")
         assert 400 == problem.status_code
-        assert u"Submitted profile document was not valid JSON." == problem.detail
+        assert "Submitted profile document was not valid JSON." == problem.detail
 
     def test_put_non_object(self):
         """You can't send any random JSON string, it has to be an object."""
         headers = {"Content-Type" : ProfileController.MEDIA_TYPE}
         problem = self.controller.put(headers, json.dumps("blah blah"))
         assert 400 == problem.status_code
-        assert (u'Submitted profile document was not a JSON object.' ==
+        assert ('Submitted profile document was not a JSON object.' ==
             problem.detail)
 
     def test_attempt_to_set_read_only_setting(self):

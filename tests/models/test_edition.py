@@ -16,6 +16,7 @@ from ...model.resource import (
     Hyperlink,
     Representation,
 )
+from ...util.datetime_helpers import utc_now
 
 class TestEdition(DatabaseTest):
 
@@ -289,8 +290,8 @@ class TestEdition(DatabaseTest):
         self._db.delete(wr.contributions[0])
         self._db.commit()
         wr.calculate_presentation()
-        assert u"[Unknown]" == wr.sort_author
-        assert u"[Unknown]" == wr.author
+        assert "[Unknown]" == wr.sort_author
+        assert "[Unknown]" == wr.author
 
     def test_calculate_presentation_author(self):
         bob, ignore = self._contributor(sort_name="Bitshifter, Bob")
@@ -392,11 +393,11 @@ class TestEdition(DatabaseTest):
         # Here's a cover image with a thumbnail.
         representation, ignore = get_one_or_create(self._db, Representation, url="http://cover")
         representation.media_type = Representation.JPEG_MEDIA_TYPE
-        representation.mirrored_at = datetime.datetime.now()
+        representation.mirrored_at = utc_now()
         representation.mirror_url = "http://mirror/cover"
         thumb, ignore = get_one_or_create(self._db, Representation, url="http://thumb")
         thumb.media_type = Representation.JPEG_MEDIA_TYPE
-        thumb.mirrored_at = datetime.datetime.now()
+        thumb.mirrored_at = utc_now()
         thumb.mirror_url = "http://mirror/thumb"
         thumb.thumbnail_of_id = representation.id
 
@@ -427,12 +428,12 @@ class TestEdition(DatabaseTest):
         link, ignore = e.primary_identifier.add_link(Hyperlink.IMAGE, "http://nearby-cover", e.data_source)
         nearby, ignore = get_one_or_create(self._db, Representation, url=link.resource.url)
         nearby.media_type = Representation.JPEG_MEDIA_TYPE
-        nearby.mirrored_at = datetime.datetime.now()
+        nearby.mirrored_at = utc_now()
         nearby.mirror_url = "http://mirror/nearby-cover"
         link.resource.representation = nearby
         nearby_thumb, ignore = get_one_or_create(self._db, Representation, url="http://nearby-thumb")
         nearby_thumb.media_type = Representation.JPEG_MEDIA_TYPE
-        nearby_thumb.mirrored_at = datetime.datetime.now()
+        nearby_thumb.mirrored_at = utc_now()
         nearby_thumb.mirror_url = "http://mirror/nearby-thumb"
         nearby_thumb.thumbnail_of_id = nearby.id
         e.calculate_presentation()
@@ -488,7 +489,7 @@ class TestEdition(DatabaseTest):
         edition.calculate_permanent_work_id()
         assert None == edition.permanent_work_id
 
-        edition.title = u'something'
+        edition.title = 'something'
         edition.calculate_permanent_work_id()
         assert None != edition.permanent_work_id
 

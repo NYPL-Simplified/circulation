@@ -64,7 +64,7 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
             set_trace()
 
         if lp.edition.medium != correct_medium:
-            print "%s is actually %s, not %s" % (lp.edition.title, correct_medium, lp.edition.medium)
+            print(("%s is actually %s, not %s" % (lp.edition.title, correct_medium, lp.edition.medium)))
             lp.edition.medium = correct_medium or Edition.BOOK_MEDIUM
 
 RunMonitorScript(SetDeliveryMechanismMonitor).run()

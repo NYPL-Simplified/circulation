@@ -141,11 +141,11 @@ class FacetConfig(FacetConstants):
     def from_library(cls, library):
 
         enabled_facets = dict()
-        for group in FacetConstants.DEFAULT_ENABLED_FACETS.keys():
+        for group in list(FacetConstants.DEFAULT_ENABLED_FACETS.keys()):
             enabled_facets[group] = library.enabled_facets(group)
 
         default_facets = dict()
-        for group in FacetConstants.DEFAULT_FACET.keys():
+        for group in list(FacetConstants.DEFAULT_FACET.keys()):
             default_facets[group] = library.default_facet(group)
 
         return FacetConfig(enabled_facets, default_facets)

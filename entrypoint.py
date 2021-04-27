@@ -52,7 +52,7 @@ class EntryPoint(object):
             raise ValueError(
                 "Duplicate entry point internal name: %s" % value
             )
-        if display_title in cls.DISPLAY_TITLES.values():
+        if display_title in list(cls.DISPLAY_TITLES.values()):
             raise ValueError(
                 "Duplicate entry point display name: %s" % display_title
             )
@@ -117,7 +117,7 @@ class MediumEntryPoint(EntryPoint):
         """Modify a query against Work+LicensePool+Edition
         to match only items with the right medium.
         """
-        from model import Edition
+        from .model import Edition
         return qu.filter(Edition.medium==cls.INTERNAL_NAME)
 
     @classmethod
@@ -132,10 +132,10 @@ class MediumEntryPoint(EntryPoint):
 
 class EbooksEntryPoint(MediumEntryPoint):
     INTERNAL_NAME = "Book"
-    URI = u"http://schema.org/EBook"
+    URI = "http://schema.org/EBook"
 EntryPoint.register(EbooksEntryPoint, "eBooks", default_enabled=True)
 
 class AudiobooksEntryPoint(MediumEntryPoint):
     INTERNAL_NAME = "Audio"
-    URI = u"http://bib.schema.org/Audiobook"
+    URI = "http://bib.schema.org/Audiobook"
 EntryPoint.register(AudiobooksEntryPoint, "Audiobooks")

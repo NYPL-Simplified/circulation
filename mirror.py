@@ -1,18 +1,15 @@
-import datetime
 from abc import abstractmethod, ABCMeta
-from urlparse import urlsplit
+from urllib.parse import urlsplit
 
-from config import CannotLoadConfiguration
+from .config import CannotLoadConfiguration
+from .util.datetime_helpers import utc_now
 
-
-class MirrorUploader(object):
+class MirrorUploader(metaclass=ABCMeta):
     """Handles the job of uploading a representation's content to
     a mirror that we control.
     """
 
-    __metaclass__ = ABCMeta
-
-    STORAGE_GOAL = u'storage'
+    STORAGE_GOAL = 'storage'
 
     # Depending on the .protocol of an ExternalIntegration with
     # .goal=STORAGE, a different subclass might be initialized by
@@ -40,7 +37,7 @@ class MirrorUploader(object):
     @classmethod
     def integration_by_name(cls, _db, storage_name=None):
         """Find the ExternalIntegration for the mirror by storage name."""
-        from model import ExternalIntegration
+        from .model import ExternalIntegration
         qu = _db.query(ExternalIntegration).filter(
             ExternalIntegration.goal==cls.STORAGE_GOAL,
             ExternalIntegration.name==storage_name
@@ -64,12 +61,12 @@ class MirrorUploader(object):
         :return: A MirrorUploader, or None if the Collection has no
             mirror integration.
         """
-        from model import ExternalIntegration
+        from .model import ExternalIntegration
         try:
-            from model import Session
+            from .model import Session
             _db = Session.object_session(collection)
             integration = ExternalIntegration.for_collection_and_purpose(_db, collection, purpose)
-        except CannotLoadConfiguration, e:
+        except CannotLoadConfiguration as e:
             return None
         return cls.implementation(integration)
 
@@ -123,7 +120,7 @@ class MirrorUploader(object):
         :param collection: Collection
         :type collection: Optional[Collection]
         """
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         exception = self.do_upload(representation)
         representation.mirror_exception = exception
         if exception:

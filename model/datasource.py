@@ -7,12 +7,12 @@ from . import (
     get_one,
     get_one_or_create,
 )
-from constants import (
+from .constants import (
     DataSourceConstants,
     IdentifierConstants,
 )
-from hasfulltablecache import HasFullTableCache
-from licensing import LicensePoolDeliveryMechanism
+from .hasfulltablecache import HasFullTableCache
+from .licensing import LicensePoolDeliveryMechanism
 
 from collections import defaultdict
 from sqlalchemy import (
@@ -30,6 +30,7 @@ from sqlalchemy.orm import (
     backref,
     relationship,
 )
+from urllib.parse import quote, unquote
 
 class DataSource(Base, HasFullTableCache, DataSourceConstants):
 
@@ -123,7 +124,7 @@ class DataSource(Base, HasFullTableCache, DataSourceConstants):
         obj, is_new = cls.by_cache_key(_db, name, lookup_hook)
         return obj
 
-    URI_PREFIX = u"http://librarysimplified.org/terms/sources/"
+    URI_PREFIX = "http://librarysimplified.org/terms/sources/"
 
     @classmethod
     def name_from_uri(cls, uri):
@@ -133,7 +134,7 @@ class DataSource(Base, HasFullTableCache, DataSourceConstants):
         if not uri.startswith(cls.URI_PREFIX):
             return None
         name = uri[len(cls.URI_PREFIX):]
-        return urllib.unquote(name)
+        return unquote(name)
 
     @classmethod
     def from_uri(cls, _db, uri):
@@ -141,7 +142,7 @@ class DataSource(Base, HasFullTableCache, DataSourceConstants):
 
     @property
     def uri(self):
-        return self.URI_PREFIX + urllib.quote(self.name)
+        return self.URI_PREFIX + quote(self.name)
 
     @classmethod
     def license_source_for(cls, _db, identifier):
@@ -158,7 +159,7 @@ class DataSource(Base, HasFullTableCache, DataSourceConstants):
         """A query that locates all DataSources that provide licenses for
         books identified by the given identifier.
         """
-        if isinstance(identifier, basestring):
+        if isinstance(identifier, (bytes, str)):
             type = identifier
         else:
             type = identifier.type
@@ -171,7 +172,7 @@ class DataSource(Base, HasFullTableCache, DataSourceConstants):
         """Finds the DataSources that provide metadata for books
         identified by the given identifier.
         """
-        if isinstance(identifier, basestring):
+        if isinstance(identifier, (bytes, str)):
             type = identifier
         else:
             type = identifier.type

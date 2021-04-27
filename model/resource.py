@@ -2,26 +2,6 @@
 # Resource, ResourceTransformation, Hyperlink, Representation
 
 
-from . import (
-    Base,
-    get_one,
-    get_one_or_create,
-)
-from ..config import Configuration
-from constants import (
-    DataSourceConstants,
-    IdentifierConstants,
-    LinkRelations,
-    MediaTypes,
-)
-from edition import Edition
-from licensing import (
-    LicensePool,
-    LicensePoolDeliveryMechanism,
-)
-from ..util.http import HTTP
-from ..util.string_helpers import native_string
-
 from io import BytesIO
 import datetime
 import json
@@ -51,8 +31,27 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import or_
 import time
 import traceback
-import urllib
-import urlparse
+from urllib.parse import urlparse, urlsplit, quote
+
+from . import (
+    Base,
+    get_one,
+    get_one_or_create,
+)
+from ..config import Configuration
+from .constants import (
+    DataSourceConstants,
+    IdentifierConstants,
+    LinkRelations,
+    MediaTypes,
+)
+from .edition import Edition
+from .licensing import (
+    LicensePool,
+    LicensePoolDeliveryMechanism,
+)
+from ..util.http import HTTP
+from ..util.datetime_helpers import utc_now
 
 class Resource(Base):
     """An external resource that may be mirrored locally.
@@ -81,7 +80,7 @@ class Resource(Base):
 
     # Many Works may use this resource (as opposed to other resources
     # linked to them with rel="description") as their summary.
-    from work import Work
+    from .work import Work
     summary_works = relationship("Work", backref="summary", foreign_keys=[Work.summary_id])
 
     # Many LicensePools (but probably one at most) may use this
@@ -416,7 +415,7 @@ class Hyperlink(Base, LinkRelations):
         thumbnail was created of it. (We do cover the case where the thumbnail
         was created but not mirrored.)
         """
-        from identifier import Identifier
+        from .identifier import Identifier
         _db = Session.object_session(collection)
         qu = _db.query(Hyperlink).join(
             Hyperlink.identifier
@@ -454,10 +453,10 @@ class Hyperlink(Base, LinkRelations):
         given link relation for a given identifier), you'll need some
         other way of coming up with generic URIs.
         """
-        l = [identifier.urn, urllib.quote(data_source.name), urllib.quote(rel)]
+        l = [identifier.urn, quote(data_source.name), quote(rel)]
         if content:
             m = md5()
-            if isinstance(content, unicode):
+            if isinstance(content, str):
                 content = content.encode("utf8")
             m.update(content)
             l.append(m.hexdigest())
@@ -502,7 +501,7 @@ class Representation(Base, MediaTypes):
     ### Records of things we tried to do with this representation.
 
     # When the representation was last fetched from `url`.
-    fetched_at = Column(DateTime, index=True)
+    fetched_at = Column(DateTime(timezone=True), index=True)
 
     # A textual description of the error encountered the last time
     # we tried to fetch the representation
@@ -513,7 +512,7 @@ class Representation(Base, MediaTypes):
     mirror_url = Column(Unicode, index=True)
 
     # When the representation was last pushed to `mirror_url`.
-    mirrored_at = Column(DateTime, index=True)
+    mirrored_at = Column(DateTime(timezone=True), index=True)
 
     # An exception that happened while pushing this representation
     # to `mirror_url.
@@ -521,7 +520,7 @@ class Representation(Base, MediaTypes):
 
     # If this image is a scaled-down version of some other image,
     # `scaled_at` is the time it was last generated.
-    scaled_at = Column(DateTime, index=True)
+    scaled_at = Column(DateTime(timezone=True), index=True)
 
     # If this image is a scaled-down version of some other image,
     # this is the exception that happened the last time we tried
@@ -593,7 +592,7 @@ class Representation(Base, MediaTypes):
     def age(self):
         if not self.fetched_at:
             return 1000000
-        return (datetime.datetime.utcnow() - self.fetched_at).total_seconds()
+        return (utc_now() - self.fetched_at).total_seconds()
 
     @property
     def has_content(self):
@@ -617,7 +616,7 @@ class Representation(Base, MediaTypes):
         elif self.resource:
             # This really shouldn't happen.
             url = self.resource.url
-        return native_string(url)
+        return url
 
     @property
     def is_usable(self):
@@ -654,7 +653,7 @@ class Representation(Base, MediaTypes):
         """Guess a likely media type from the URL's path component."""
         if not url:
             return None
-        path = urlparse.urlparse(url).path
+        path = urlparse(url).path
         return cls.guess_media_type(path)
 
     @classmethod
@@ -663,7 +662,7 @@ class Representation(Base, MediaTypes):
         if not filename:
             return None
         filename = filename.lower()
-        for extension, media_type in cls.MEDIA_TYPE_FOR_EXTENSION.items():
+        for extension, media_type in list(cls.MEDIA_TYPE_FOR_EXTENSION.items()):
             if filename.endswith(extension):
                 return media_type
         return None
@@ -797,7 +796,7 @@ class Representation(Base, MediaTypes):
             if representation.etag:
                 headers['If-None-Match'] = representation.etag
 
-        fetched_at = datetime.datetime.utcnow()
+        fetched_at = utc_now()
         if pause_before:
             time.sleep(pause_before)
         media_type = None
@@ -811,7 +810,7 @@ class Representation(Base, MediaTypes):
                 response_reviewer((status_code, headers, content))
             exception = None
             media_type = cls._best_media_type(url, headers, presumed_media_type)
-            if isinstance(content, unicode):
+            if isinstance(content, str):
                 content = content.encode("utf8")
         except Exception as e:
             # This indicates there was a problem with making the HTTP
@@ -835,7 +834,7 @@ class Representation(Base, MediaTypes):
             or normalized_url != representation.url):
             representation, is_new = get_one_or_create(
                 _db, Representation, url=normalized_url,
-                media_type=unicode(media_type)
+                media_type=str(media_type)
             )
 
         if fetch_exception:
@@ -875,7 +874,6 @@ class Representation(Base, MediaTypes):
                 setattr(representation, field, value)
 
             representation.headers = cls.headers_to_string(headers)
-            representation.content = content
             representation.update_image_size()
             return representation, False
 
@@ -988,7 +986,7 @@ class Representation(Base, MediaTypes):
             try:
                 content = self.content.decode(encoding)
                 break
-            except UnicodeDecodeError, e:
+            except UnicodeDecodeError as e:
                 pass
         return content
 
@@ -997,13 +995,13 @@ class Representation(Base, MediaTypes):
         This is used when the content of the representation is obtained
         through some other means.
         """
-        if isinstance(content, unicode):
+        if isinstance(content, str):
             content = content.encode("utf8")
         self.content = content
 
         self.local_content_path = self.normalize_content_path(content_path)
         self.status_code = 200
-        self.fetched_at = datetime.datetime.utcnow()
+        self.fetched_at = utc_now()
         self.fetch_exception = None
         self.update_image_size()
 
@@ -1014,7 +1012,7 @@ class Representation(Base, MediaTypes):
         mirror operation.
         """
         self.mirror_url = mirror_url
-        self.mirrored_at = datetime.datetime.utcnow()
+        self.mirrored_at = utc_now()
         self.mirror_exception = None
 
     @classmethod
@@ -1136,7 +1134,7 @@ class Representation(Base, MediaTypes):
             return any(domain == x or domain.endswith('.' + x)
                        for x in check_against)
 
-        netloc = urlparse.urlparse(url).netloc
+        netloc = urlparse(url).netloc
         if has_domain(netloc, do_not_access):
             # The link points directly to a domain we don't want to
             # access.
@@ -1158,7 +1156,7 @@ class Representation(Base, MediaTypes):
         # Yes, it's a redirect. Does it redirect to a
         # domain we don't want to access?
         location = head_response.headers.get('location', '')
-        netloc = urlparse.urlparse(location).netloc
+        netloc = urlparse(location).netloc
         return not has_domain(netloc, do_not_access)
 
     @property
@@ -1184,11 +1182,11 @@ class Representation(Base, MediaTypes):
     def url_extension(self):
         """The file extension in this representation's original url."""
 
-        url_path = urlparse.urlparse(self.url).path
+        url_path = urlparse(self.url).path
 
         # Known extensions can be followed by a version number (.epub3)
         # or an additional extension (.epub.noimages)
-        known_extensions = "|".join(self.FILE_EXTENSIONS.values())
+        known_extensions = "|".join(list(self.FILE_EXTENSIONS.values()))
         known_extension_re = re.compile("\.(%s)\d?\.?[\w\d]*$" % known_extensions, re.I)
 
         known_match = known_extension_re.search(url_path)
@@ -1249,7 +1247,7 @@ class Representation(Base, MediaTypes):
     def default_filename(self, link=None, destination_type=None):
         """Try to come up with a good filename for this representation."""
 
-        scheme, netloc, path, query, fragment = urlparse.urlsplit(self.url)
+        scheme, netloc, path, query, fragment = urlsplit(self.url)
         path_parts = path.split("/")
         filename = None
         if path_parts:
@@ -1288,6 +1286,8 @@ class Representation(Base, MediaTypes):
         or in a file on disk.
         """
         if self.content:
+            if not isinstance(self.content, bytes):
+                self.content = self.content.encode("utf-8")
             return BytesIO(self.content)
         elif self.local_path:
             if not os.path.exists(self.local_path):
@@ -1334,7 +1334,7 @@ class Representation(Base, MediaTypes):
         image = None
         try:
             image = self.as_image()
-        except Exception, e:
+        except Exception as e:
             self.scale_exception = traceback.format_exc()
             self.scaled_at = None
             # This most likely indicates an error during the fetch
@@ -1377,21 +1377,21 @@ class Representation(Base, MediaTypes):
         #
         # Because the representation of this image is being
         # changed, it will need to be mirrored later on.
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         thumbnail.mirrored_at = None
         thumbnail.mirror_exception = None
 
-        args = [(max_width, max_height),
-                Image.ANTIALIAS]
+        args = [(max_width, max_height), Image.LANCZOS]
+
         try:
             image.thumbnail(*args)
-        except IOError, e:
+        except IOError as e:
             # I'm not sure why, but sometimes just trying
             # it again works.
             original_exception = traceback.format_exc()
             try:
                 image.thumbnail(*args)
-            except IOError, e:
+            except IOError as e:
                 self.scale_exception = original_exception
                 self.scaled_at = None
                 return self, False
@@ -1403,7 +1403,7 @@ class Representation(Base, MediaTypes):
             image = image.convert('RGB')
         try:
             image.save(output, pil_format)
-        except Exception, e:
+        except Exception as e:
             self.scale_exception = traceback.format_exc()
             self.scaled_at = None
             # This most likely indicates a problem during the fetch phase,

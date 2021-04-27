@@ -1,14 +1,12 @@
 # encoding: utf-8
 # CachedFeed, WillNotGenerateExpensiveFeed
 
-
 from . import (
     Base,
     flush,
     get_one,
     get_one_or_create,
 )
-
 from collections import namedtuple
 import datetime
 import logging
@@ -23,7 +21,9 @@ from sqlalchemy import (
 from sqlalchemy.sql.expression import (
     and_,
 )
+
 from ..util.flask_util import OPDSFeedResponse
+from ..util.datetime_helpers import utc_now
 
 class CachedFeed(Base):
 
@@ -38,7 +38,7 @@ class CachedFeed(Base):
         nullable=True, index=True)
 
     # Every feed has a timestamp reflecting when it was created.
-    timestamp = Column(DateTime, nullable=True, index=True)
+    timestamp = Column(DateTime(timezone=True), nullable=True, index=True)
 
     # A feed is of a certain type--such as 'page' or 'groups'.
     type = Column(Unicode, nullable=False)
@@ -67,14 +67,14 @@ class CachedFeed(Base):
         nullable=True, index=True)
 
     # Distinct types of feeds that might be cached.
-    GROUPS_TYPE = u'groups'
-    PAGE_TYPE = u'page'
-    NAVIGATION_TYPE = u'navigation'
-    CRAWLABLE_TYPE = u'crawlable'
-    RELATED_TYPE = u'related'
-    RECOMMENDATIONS_TYPE = u'recommendations'
-    SERIES_TYPE = u'series'
-    CONTRIBUTOR_TYPE = u'contributor'
+    GROUPS_TYPE = 'groups'
+    PAGE_TYPE = 'page'
+    NAVIGATION_TYPE = 'navigation'
+    CRAWLABLE_TYPE = 'crawlable'
+    RELATED_TYPE = 'related'
+    RECOMMENDATIONS_TYPE = 'recommendations'
+    SERIES_TYPE = 'series'
+    CONTRIBUTOR_TYPE = 'contributor'
 
     # Special constants for cache durations.
     CACHE_FOREVER = object()
@@ -156,8 +156,8 @@ class CachedFeed(Base):
         if should_refresh:
             # This is a cache miss. Either feed_obj is None or
             # it's no good. We need to generate a new feed.
-            feed_data = unicode(refresher_method())
-            generation_time = datetime.datetime.utcnow()
+            feed_data = str(refresher_method())
+            generation_time = utc_now()
 
             if max_age is not cls.IGNORE_CACHE:
                 # Having gone through all the trouble of generating
@@ -277,7 +277,7 @@ class CachedFeed(Base):
             should_refresh = False
         elif (feed_obj.timestamp
               and feed_obj.timestamp + datetime.timedelta(seconds=max_age) <=
-                  datetime.datetime.utcnow()
+                  utc_now()
         ):
             # Here it comes down to a date comparison: how old is the
             # CachedFeed?
@@ -328,13 +328,19 @@ class CachedFeed(Base):
             lane_id = None
             unique_key = worklist.unique_key
 
-        facets_key = u""
+        facets_key = ""
         if facets is not None:
-            facets_key = unicode(facets.query_string)
+            if isinstance(facets.query_string, bytes):
+                facets_key = facets.query_string.decode("utf-8")
+            else:
+                facets_key = facets.query_string
 
-        pagination_key = u""
+        pagination_key = ""
         if pagination is not None:
-            pagination_key = unicode(pagination.query_string)
+            if isinstance(pagination.query_string, bytes):
+                pagination_key = pagination.query_string.decode("utf-8")
+            else:
+                pagination_key = pagination.query_string
 
         return cls.CachedFeedKeys(
             feed_type=feed_type, library=library, work=work, lane_id=lane_id,
@@ -344,7 +350,7 @@ class CachedFeed(Base):
 
     def update(self, _db, content):
         self.content = content
-        self.timestamp = datetime.datetime.utcnow()
+        self.timestamp = utc_now()
         flush(_db)
 
     def __repr__(self):
@@ -393,5 +399,5 @@ class CachedMARCFile(Base):
         Integer, ForeignKey('representations.id'),
         nullable=False)
 
-    start_time = Column(DateTime, nullable=True, index=True)
-    end_time = Column(DateTime, nullable=True, index=True)
+    start_time = Column(DateTime(timezone=True), nullable=True, index=True)
+    end_time = Column(DateTime(timezone=True), nullable=True, index=True)

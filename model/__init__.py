@@ -1,6 +1,5 @@
 # encoding: utf-8
 
-
 import logging
 import os
 import warnings
@@ -38,7 +37,7 @@ from sqlalchemy.sql.expression import (
 
 Base = declarative_base()
 
-from constants import (
+from .constants import (
     DataSourceConstants,
     EditionConstants,
     IdentifierConstants,
@@ -46,6 +45,7 @@ from constants import (
     MediaTypes,
 )
 from .. import classifier
+from ..util.datetime_helpers import utc_now
 
 def flush(db):
     """Flush the database connection unless it's known to already be flushing."""
@@ -119,7 +119,7 @@ def get_one_or_create(db, model, create_method='',
             obj = create(db, model, create_method, create_method_kwargs, **kwargs)
             __transaction.commit()
             return obj
-        except IntegrityError, e:
+        except IntegrityError as e:
             logging.info(
                 "INTEGRITY ERROR on %r %r, %r: %r", model, create_method_kwargs,
                 kwargs, e)
@@ -291,8 +291,8 @@ def dump_query(query):
     comp.compile()
     enc = dialect.encoding
     params = {}
-    for k,v in comp.params.iteritems():
-        if isinstance(v, unicode):
+    for k,v in list(comp.params.items()):
+        if isinstance(v, str):
             v = v.encode(enc)
         params[k] = sqlescape(v)
     return (comp.string.encode(enc) % params).decode(enc)
@@ -396,7 +396,7 @@ class SessionManager(object):
         """Initialize the database schema."""
         # Use SQLAlchemy to create all the tables.
         to_create = [
-            table_obj for name, table_obj in Base.metadata.tables.items()
+            table_obj for name, table_obj in list(Base.metadata.tables.items())
             if not name.startswith('mv_')
         ]
         Base.metadata.create_all(engine, tables=to_create)
@@ -418,16 +418,16 @@ class SessionManager(object):
     @classmethod
     def initialize_data(cls, session, set_site_configuration=True):
         # Create initial content.
-        from datasource import DataSource
-        from classification import Genre
-        from licensing import DeliveryMechanism
+        from .datasource import DataSource
+        from .classification import Genre
+        from .licensing import DeliveryMechanism
         list(DataSource.well_known_sources(session))
 
         # Load all existing Genre objects.
         Genre.populate_cache(session)
 
         # Create any genres not in the database.
-        for g in classifier.genres.values():
+        for g in list(classifier.genres.values()):
             # TODO: On the very first startup this is rather expensive
             # because the cache is invalidated every time a Genre is
             # created, then populated the next time a Genre is looked
@@ -448,7 +448,7 @@ class SessionManager(object):
         timestamp, is_new = get_one_or_create(
             session, Timestamp, collection=None,
             service=Configuration.SITE_CONFIGURATION_CHANGED,
-            create_method_kwargs=dict(finish=datetime.datetime.utcnow())
+            create_method_kwargs=dict(finish=utc_now())
         )
         if is_new:
             site_configuration_has_changed(session)
@@ -476,62 +476,62 @@ def production_session(initialize_data=True):
     LogConfiguration.initialize(_db)
     return _db
 
-from admin import (
+from .admin import (
     Admin,
     AdminRole,
 )
-from coverage import (
+from .coverage import (
     BaseCoverageRecord,
     CoverageRecord,
     Timestamp,
     WorkCoverageRecord,
 )
-from cachedfeed import (
+from .cachedfeed import (
     CachedFeed,
     WillNotGenerateExpensiveFeed,
     CachedMARCFile,
 )
-from circulationevent import CirculationEvent
-from classification import (
+from .circulationevent import CirculationEvent
+from .classification import (
     Classification,
     Genre,
     Subject,
 )
-from collection import (
+from .collection import (
     Collection,
     CollectionIdentifier,
     CollectionMissing,
     collections_identifiers,
 )
-from configuration import (
+from .configuration import (
     ConfigurationSetting,
     ExternalIntegration,
     ExternalIntegrationLink,
 )
-from complaint import Complaint
-from contributor import (
+from .complaint import Complaint
+from .contributor import (
     Contribution,
     Contributor,
 )
-from credential import (
+from .credential import (
     Credential,
     DelegatedPatronIdentifier,
     DRMDeviceIdentifier,
 )
-from customlist import (
+from .customlist import (
     CustomList,
     CustomListEntry,
 )
-from datasource import DataSource
-from edition import Edition
-from hasfulltablecache import HasFullTableCache
-from identifier import (
+from .datasource import DataSource
+from .edition import Edition
+from .hasfulltablecache import HasFullTableCache
+from .identifier import (
     Equivalency,
     Identifier,
 )
-from integrationclient import IntegrationClient
-from library import Library
-from licensing import (
+from .integrationclient import IntegrationClient
+from .library import Library
+from .licensing import (
     DeliveryMechanism,
     License,
     LicensePool,
@@ -539,8 +539,8 @@ from licensing import (
     PolicyException,
     RightsStatus,
 )
-from measurement import Measurement
-from patron import (
+from .measurement import Measurement
+from .patron import (
     Annotation,
     Hold,
     Loan,
@@ -548,14 +548,14 @@ from patron import (
     Patron,
     PatronProfileStorage,
 )
-from listeners import *
-from resource import (
+from .listeners import *
+from .resource import (
     Hyperlink,
     Representation,
     Resource,
     ResourceTransformation,
 )
-from work import (
+from .work import (
     Work,
     WorkGenre,
 )

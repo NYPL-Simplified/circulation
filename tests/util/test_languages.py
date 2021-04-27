@@ -24,6 +24,7 @@ class TestLanguageCodes(object):
 
     def test_lookups(self):
         c = LanguageCodes
+
         assert "eng" == c.two_to_three['en']
         assert "en" == c.three_to_two['eng']
         assert ["English"] == c.english_names['en']
@@ -35,8 +36,8 @@ class TestLanguageCodes(object):
         assert "es" == c.three_to_two['spa']
         assert ['Spanish', 'Castilian'] == c.english_names['es']
         assert ['Spanish', 'Castilian'] == c.english_names['spa']
-        assert [u"español", "castellano"] == c.native_names['es']
-        assert [u"español", "castellano"] == c.native_names['spa']
+        assert ["español", "castellano"] == c.native_names['es']
+        assert ["español", "castellano"] == c.native_names['spa']
 
         assert "chi" == c.two_to_three['zh']
         assert "zh" == c.three_to_two['chi']
@@ -71,13 +72,14 @@ class TestLanguageCodes(object):
 
     def test_name_for_languageset(self):
         m = LanguageCodes.name_for_languageset
+
         assert "" == m([])
         assert "English" == m(["en"])
         assert "English" == m(["eng"])
-        assert u"español" == m(['es'])
-        assert u"English/español" == m(["eng", "spa"])
-        assert u"español/English" == m("spa,eng")
-        assert u"español/English/Chinese" == m(["spa","eng","chi"])
+        assert "español" == m(['es'])
+        assert "English/español" == m(["eng", "spa"])
+        assert "español/English" == m("spa,eng")
+        assert "español/English/Chinese" == m(["spa","eng","chi"])
         pytest.raises(ValueError, m, ["eng, nxx"])
 
 

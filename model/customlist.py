@@ -1,19 +1,8 @@
 # encoding: utf-8
 # CustomList, CustomListEntry
 
-
-from . import (
-    Base,
-    get_one_or_create,
-)
-from datasource import DataSource
+from pdb import set_trace
 from functools import total_ordering
-from identifier import Identifier
-from licensing import LicensePool
-from work import Work
-from ..util.string_helpers import native_string
-
-import datetime
 import logging
 from sqlalchemy import (
     Boolean,
@@ -29,11 +18,21 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql.expression import or_
 from sqlalchemy.orm.session import Session
 
+from . import (
+    Base,
+    get_one_or_create,
+)
+from .datasource import DataSource
+from .identifier import Identifier
+from .licensing import LicensePool
+from .work import Work
+from ..util.datetime_helpers import utc_now
+
 @total_ordering
 class CustomList(Base):
     """A custom grouping of Editions."""
 
-    STAFF_PICKS_NAME = u"Staff Picks"
+    STAFF_PICKS_NAME = "Staff Picks"
 
     __tablename__ = 'customlists'
     id = Column(Integer, primary_key=True)
@@ -42,8 +41,8 @@ class CustomList(Base):
     foreign_identifier = Column(Unicode, index=True)
     name = Column(Unicode, index=True)
     description = Column(Unicode)
-    created = Column(DateTime, index=True)
-    updated = Column(DateTime, index=True)
+    created = Column(DateTime(timezone=True), index=True)
+    updated = Column(DateTime(timezone=True), index=True)
     responsible_party = Column(Unicode)
     library_id = Column(Integer, ForeignKey('libraries.id'), index=True, nullable=True)
 
@@ -64,9 +63,8 @@ class CustomList(Base):
     # interface for managing this.
 
     def __repr__(self):
-        return native_string(
-            u'<Custom List name="%s" foreign_identifier="%s" [%d entries]>' % (
-            self.name, self.foreign_identifier, len(self.entries))
+        return '<Custom List name="%s" foreign_identifier="%s" [%d entries]>' % (
+            self.name, self.foreign_identifier, len(self.entries)
         )
 
     def __eq__(self, other):
@@ -94,7 +92,7 @@ class CustomList(Base):
             data_sources = [data_sources]
         ids = []
         for ds in data_sources:
-            if isinstance(ds, basestring):
+            if isinstance(ds, (bytes, str)):
                 ds = DataSource.lookup(_db, ds)
             ids.append(ds.id)
         return _db.query(CustomList).filter(CustomList.data_source_id.in_(ids))
@@ -107,12 +105,12 @@ class CustomList(Base):
         source_name = data_source
         if isinstance(data_source, DataSource):
             source_name = data_source.name
-        foreign_identifier = unicode(foreign_identifier_or_name)
+        foreign_identifier = str(foreign_identifier_or_name)
 
         qu = _db.query(cls)
         if source_name:
             qu = qu.join(CustomList.data_source).filter(
-                DataSource.name==unicode(source_name))
+                DataSource.name==str(source_name))
 
         qu = qu.filter(
             or_(CustomList.foreign_identifier==foreign_identifier,
@@ -157,7 +155,7 @@ class CustomList(Base):
           is probably no longer be necessary since we no longer update the
           external index in real time.
         """
-        first_appearance = first_appearance or datetime.datetime.utcnow()
+        first_appearance = first_appearance or utc_now()
         _db = Session.object_session(self)
 
         if isinstance(work_or_edition, Work):
@@ -206,14 +204,14 @@ class CustomList(Base):
             or entry.most_recent_appearance < first_appearance):
             entry.most_recent_appearance = first_appearance
         if annotation:
-            entry.annotation = unicode(annotation)
+            entry.annotation = str(annotation)
         if work and not entry.work:
             entry.work = edition.work
         if featured is not None:
             entry.featured = featured
 
         if was_new:
-            self.updated = datetime.datetime.utcnow()
+            self.updated = utc_now()
             self.size += 1
         # Make sure the Work's search document is updated to reflect its new
         # list membership.
@@ -238,7 +236,7 @@ class CustomList(Base):
             _db.delete(entry)
 
         if existing_entries:
-            self.updated = datetime.datetime.utcnow()
+            self.updated = utc_now()
             self.size -= len(existing_entries)
         _db.commit()
 
@@ -293,8 +291,8 @@ class CustomListEntry(Base):
     # These two fields are for best-seller lists. Even after a book
     # drops off the list, the fact that it once was on the list is
     # still relevant.
-    first_appearance = Column(DateTime, index=True)
-    most_recent_appearance = Column(DateTime, index=True)
+    first_appearance = Column(DateTime(timezone=True), index=True)
+    most_recent_appearance = Column(DateTime(timezone=True), index=True)
 
     def set_work(self, metadata=None, metadata_client=None, policy=None):
         """If possible, identify a locally known Work that is the same
@@ -321,7 +319,7 @@ class CustomListEntry(Base):
         potential_license_pools = metadata.guess_license_pools(
             _db, metadata_client)
         for lp, quality in sorted(
-                potential_license_pools.items(), key=lambda x: -x[1]):
+                list(potential_license_pools.items()), key=lambda x: -x[1]):
             if lp.deliverable and lp.work and quality >= 0.8:
                 # This work has at least one deliverable LicensePool
                 # associated with it, so it's likely to be real
@@ -404,7 +402,7 @@ class CustomListEntry(Base):
             [e.most_recent_appearance for e in equivalent_entries]
         )
 
-        annotations = [unicode(e.annotation) for e in equivalent_entries
+        annotations = [str(e.annotation) for e in equivalent_entries
                        if e.annotation]
         if annotations:
             if len(annotations) > 1:

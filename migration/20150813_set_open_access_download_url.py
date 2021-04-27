@@ -36,13 +36,13 @@ class OpenAccessDownloadSetMonitor(EditionSweepMonitor):
         if set_delivery_mechanism:
             link = edition.best_open_access_link
             if link:
-                print edition.id, edition.title, link.url
+                print(edition.id, edition.title, link.url)
                 edition.license_pool.set_delivery_mechanism(
                     Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
                     link
                 )
         else:
-            print edition.id, edition.title, "[no link]"
+            print(edition.id, edition.title, "[no link]")
         return True
 
 RunMonitorScript(OpenAccessDownloadSetMonitor).run()

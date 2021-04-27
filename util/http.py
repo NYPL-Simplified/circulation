@@ -1,9 +1,9 @@
 import logging
 
 import requests
-import urlparse
+from urllib.parse import urlparse
 from flask_babel import lazy_gettext as _
-from problem_detail import (
+from .problem_detail import (
     ProblemDetail as pd,
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
 )
@@ -61,7 +61,7 @@ class RemoteIntegrationException(IntegrationException):
         if (url_or_service and
             any(url_or_service.startswith(x) for x in ('http:', 'https:'))):
             self.url = url_or_service
-            self.service = urlparse.urlparse(url_or_service).netloc
+            self.service = urlparse(url_or_service).netloc
         else:
             self.url = self.service = url_or_service
         if not debug_message:
@@ -74,12 +74,12 @@ class RemoteIntegrationException(IntegrationException):
 
     def document_detail(self, debug=True):
         if debug:
-            return _(unicode(self.detail), service=self.url)
-        return _(unicode(self.detail), service=self.service)
+            return _(str(self.detail), service=self.url)
+        return _(str(self.detail), service=self.service)
 
     def document_debug_message(self, debug=True):
         if debug:
-            return _(unicode(self.detail), service=self.url)
+            return _(str(self.detail), service=self.url)
         return None
 
     def as_problem_detail_document(self, debug):
@@ -126,6 +126,10 @@ class BadResponseException(RemoteIntegrationException):
         else:
             status_code = response.status_code
             content = response.content
+        # The HTTP content response is a bytestring that we want to
+        # convert to unicode for the debug message.
+        if content and isinstance(content, bytes):
+            content = content.decode("utf-8")
         return BadResponseException(
             url, message,
             status_code=status_code,
@@ -214,21 +218,22 @@ class HTTP(object):
         allowed_response_codes = kwargs.pop('allowed_response_codes', [])
         disallowed_response_codes = kwargs.pop('disallowed_response_codes', [])
         verbose = kwargs.pop('verbose', False)
+        expected_encoding = kwargs.pop('expected_encoding', 'utf-8')
 
         if not 'timeout' in kwargs:
             kwargs['timeout'] = 20
 
         # Unicode data can't be sent over the wire. Convert it
         # to UTF-8.
-        if 'data' in kwargs and isinstance(kwargs['data'], unicode):
+        if 'data' in kwargs and isinstance(kwargs['data'], str):
             kwargs['data'] = kwargs.get('data').encode("utf8")
         if 'headers' in kwargs:
             headers = kwargs['headers']
             new_headers = {}
-            for k, v in headers.items():
-                if isinstance(k, unicode):
+            for k, v in list(headers.items()):
+                if isinstance(k, str):
                     k = k.encode("utf8")
-                if isinstance(v, unicode):
+                if isinstance(v, str):
                     v = v.encode("utf8")
                 new_headers[k] = v
             kwargs['headers'] = new_headers
@@ -250,22 +255,22 @@ class HTTP(object):
                     url, response.status_code, response.headers,
                     response.content
                 )
-        except requests.exceptions.Timeout, e:
+        except requests.exceptions.Timeout as e:
             # Wrap the requests-specific Timeout exception
             # in a generic RequestTimedOut exception.
-            raise RequestTimedOut(url, e.message)
-        except requests.exceptions.RequestException, e:
+            raise RequestTimedOut(url, e)
+        except requests.exceptions.RequestException as e:
             # Wrap all other requests-specific exceptions in
             # a generic RequestNetworkException.
-            raise RequestNetworkException(url, e.message)
+            raise RequestNetworkException(url, e)
 
         return process_response_with(
-            url, response, allowed_response_codes, disallowed_response_codes
+            url, response, allowed_response_codes, disallowed_response_codes, expected_encoding
         )
 
     @classmethod
     def _process_response(cls, url, response, allowed_response_codes=None,
-                          disallowed_response_codes=None):
+                        disallowed_response_codes=None, expected_encoding="utf-8"):
         """Raise a RequestNetworkException if the response code indicates a
         server-side failure, or behavior so unpredictable that we can't
         continue.
@@ -275,14 +280,16 @@ class HTTP(object):
             BadResponseExceptions.
         :param disallowed_response_codes The values passed are added to 5xx, as
             http status codes that would generate BadResponseExceptions.
+        :param expected_encoding Typically we expect HTTP responses to be UTF-8
+            encoded, but for certain requests we can change the encoding type.
         """
         if allowed_response_codes:
-            allowed_response_codes = map(str, allowed_response_codes)
+            allowed_response_codes = list(map(str, allowed_response_codes))
             status_code_not_in_allowed = "Got status code %%s from external server, but can only continue on: %s." % (
                 ", ".join(sorted(allowed_response_codes)),
             )
         if disallowed_response_codes:
-            disallowed_response_codes = map(str, disallowed_response_codes)
+            disallowed_response_codes = list(map(str, disallowed_response_codes))
         else:
             disallowed_response_codes = []
 
@@ -311,11 +318,18 @@ class HTTP(object):
         )):
             error_message = status_code_not_in_allowed
         if error_message:
+            response_content = response.content
+            if response_content and isinstance(response_content, bytes):
+                try:
+                    response_content = response_content.decode(expected_encoding)
+                except Exception as e:
+                    raise RequestNetworkException(url, e)
+
             raise BadResponseException(
                 url,
                 error_message % code,
                 status_code=code,
-                debug_message="Response content: %s" % response.content
+                debug_message="Response content: %s" % response_content
             )
         return response
 
@@ -363,16 +377,20 @@ class HTTP(object):
         )
 
     @classmethod
-    def process_debuggable_response(cls, url, response, disallowed_response_codes=None, allowed_response_codes=None):
+    def process_debuggable_response(cls, url, response, disallowed_response_codes=None,
+                        allowed_response_codes=None, expected_encoding="utf-8"
+        ):
         """If there was a problem with an integration request,
         return an appropriate ProblemDetail. Otherwise, return the
         response to the original request.
 
         :param response: A Response object from the requests library.
+        :param expected_encoding: Typically we expect HTTP responses to be UTF-8
+            encoded, but for certain requests we can change the encoding type.
         """
 
         allowed_response_codes = allowed_response_codes or ['2xx', '3xx']
-        allowed_response_codes = map(str, allowed_response_codes)
+        allowed_response_codes = list(map(str, allowed_response_codes))
         code = response.status_code
         series = cls.series(code)
         if str(code) in allowed_response_codes or series in allowed_response_codes:
@@ -381,22 +399,28 @@ class HTTP(object):
             return response
 
         content_type = response.headers.get('Content-Type')
+        response_content = response.content
+        if response_content and isinstance(response_content, bytes):
+            try:
+                response_content = response_content.decode(expected_encoding)
+            except Exception as e:
+                return RequestNetworkException(url, e)
         if content_type == PROBLEM_DETAIL_JSON_MEDIA_TYPE:
             # The server returned a problem detail document. Wrap it
             # in a new document that represents the integration
             # failure.
             problem = INTEGRATION_ERROR.detailed(
                 _('Remote service returned a problem detail document: %r') % (
-                    response.content
+                    response_content
                 )
             )
-            problem.debug_message = response.content
+            problem.debug_message = response_content
             return problem
         # There's been a problem. Return the message we got from the
         # server, verbatim.
         return INTEGRATION_ERROR.detailed(
             _("%s response from integration server: %r") % (
                 response.status_code,
-                response.content,
+                response_content,
             )
         )

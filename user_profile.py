@@ -1,6 +1,6 @@
 
 import json
-from problem_details import *
+from .problem_details import *
 from flask_babel import lazy_gettext as _
 
 class ProfileController(object):
@@ -29,11 +29,11 @@ class ProfileController(object):
         profile_document = None
         try:
             profile_document = self.storage.profile_document
-        except Exception, e:
+        except Exception as e:
             if hasattr(e, 'as_problem_detail_document'):
                 return e.as_problem_detail_document()
             else:
-                return INTERNAL_SERVER_ERROR.with_debug(unicode(e))
+                return INTERNAL_SERVER_ERROR.with_debug(str(e))
         if not isinstance(profile_document, dict):
             return INTERNAL_SERVER_ERROR.with_debug(
                 _("Profile document is not a JSON object: %r.") % (
@@ -42,7 +42,7 @@ class ProfileController(object):
             )
         try:
             body = json.dumps(profile_document)
-        except Exception, e:
+        except Exception as e:
             return INTERNAL_SERVER_ERROR.with_debug(
                 _("Could not convert profile document to JSON: %r.") % (
                     profile_document
@@ -65,7 +65,7 @@ class ProfileController(object):
             )
         try:
             profile_document = json.loads(body)
-        except Exception, e:
+        except Exception as e:
             return INVALID_INPUT.detailed(
                 _("Submitted profile document was not valid JSON.")
             )
@@ -78,7 +78,7 @@ class ProfileController(object):
             # The incoming document is a request to change at least one
             # setting in the profile.
             writable = set(self.storage.writable_setting_names)
-            for k in new_settings.keys():
+            for k in list(new_settings.keys()):
                 # A Profile document is invalid if it attempts to
                 # change the value of a read-only profile setting.
                 if k not in writable:
@@ -88,12 +88,12 @@ class ProfileController(object):
             try:
                 # Update the profile storage with the new settings.
                 self.storage.update(new_settings, profile_document)
-            except Exception, e:
+            except Exception as e:
                 # There was a problem updating the profile storage.
                 if hasattr(e, 'as_problem_detail_document'):
                     return e.as_problem_detail_document()
                 else:
-                    return INTERNAL_SERVER_ERROR.with_debug(unicode(e))
+                    return INTERNAL_SERVER_ERROR.with_debug(str(e))
         return body, 200, {"Content-Type": "text/plain"}
 
 
@@ -179,10 +179,10 @@ class MockProfileStorage(ProfileStorage):
         """(Try to) change the user's profile so it looks like the provided
         Profile document.
         """
-        for k, v in new_values.items():
+        for k, v in list(new_values.items()):
             self.writable_settings[k] = v
 
     @property
     def writable_setting_names(self):
         """Return the subset of fields that are considered writable."""
-        return self.writable_settings.keys()
+        return list(self.writable_settings.keys())

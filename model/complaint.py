@@ -1,14 +1,6 @@
 # encoding: utf-8
 # Complaint
 
-
-from . import (
-    Base,
-    create,
-    get_one_or_create,
-)
-
-import datetime
 from sqlalchemy import (
     Column,
     DateTime,
@@ -18,13 +10,20 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm.session import Session
 
+from . import (
+    Base,
+    create,
+    get_one_or_create,
+)
+from ..util.datetime_helpers import utc_now
+
 class Complaint(Base):
     """A complaint about a LicensePool (or, potentially, something else)."""
 
     __tablename__ = 'complaints'
 
     VALID_TYPES = set([
-        u"http://librarysimplified.org/terms/problem/" + x
+        "http://librarysimplified.org/terms/problem/" + x
         for x in [
                 'wrong-genre',
                 'wrong-audience',
@@ -63,10 +62,10 @@ class Complaint(Base):
     # Detailed information about the complaint.
     detail = Column(String, nullable=True)
 
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
 
     # When the complaint was resolved.
-    resolved = Column(DateTime, nullable=True)
+    resolved = Column(DateTime(timezone=True), nullable=True)
 
     @classmethod
     def register(self, license_pool, type, source, detail, resolved=None):
@@ -78,7 +77,7 @@ class Complaint(Base):
         _db = Session.object_session(license_pool)
         if type not in self.VALID_TYPES:
             raise ValueError("Unrecognized complaint type: %s" % type)
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         if source:
             complaint, is_new = get_one_or_create(
                 _db, Complaint,
@@ -110,5 +109,5 @@ class Complaint(Base):
         return any(self.type.endswith(t) for t in self.LICENSE_POOL_TYPES)
 
     def resolve(self):
-        self.resolved = datetime.datetime.utcnow()
+        self.resolved = utc_now()
         return self.resolved

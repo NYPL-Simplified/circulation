@@ -34,19 +34,19 @@ from elasticsearch_dsl.query import (
 from spellchecker import SpellChecker
 
 from flask_babel import lazy_gettext as _
-from config import (
+from .config import (
     Configuration,
     CannotLoadConfiguration,
 )
-from classifier import (
+from .classifier import (
     KeywordBasedClassifier,
     GradeLevelClassifier,
     AgeClassifier,
     Classifier,
 )
-from facets import FacetConstants
-from metadata_layer import IdentifierData
-from model import (
+from .facets import FacetConstants
+from .metadata_layer import IdentifierData
+from .model import (
     numericrange_to_tuple,
     Collection,
     Contributor,
@@ -59,20 +59,21 @@ from model import (
     Work,
     WorkCoverageRecord,
 )
-from lane import Pagination
-from monitor import WorkSweepMonitor
-from coverage import (
+from .lane import Pagination
+from .monitor import WorkSweepMonitor
+from .coverage import (
     CoverageFailure,
     WorkPresentationProvider,
 )
-from problem_details import INVALID_INPUT
-from selftest import (
+from .problem_details import INVALID_INPUT
+from .selftest import (
     HasSelfTests,
     SelfTestResult,
 )
-from util.personal_names import display_name_to_sort_name
-from util.problem_detail import ProblemDetail
-from util.stopwords import ENGLISH_STOPWORDS
+from .util.personal_names import display_name_to_sort_name
+from .util.problem_detail import ProblemDetail
+from .util.stopwords import ENGLISH_STOPWORDS
+from .util.datetime_helpers import from_timestamp
 
 import os
 import logging
@@ -100,11 +101,11 @@ class ExternalSearchIndex(HasSelfTests):
     # instantiating new ExternalSearchIndex objects.
     MOCK_IMPLEMENTATION = None
 
-    WORKS_INDEX_PREFIX_KEY = u'works_index_prefix'
-    DEFAULT_WORKS_INDEX_PREFIX = u'circulation-works'
+    WORKS_INDEX_PREFIX_KEY = 'works_index_prefix'
+    DEFAULT_WORKS_INDEX_PREFIX = 'circulation-works'
 
-    TEST_SEARCH_TERM_KEY = u'test_search_term'
-    DEFAULT_TEST_SEARCH_TERM = u'test'
+    TEST_SEARCH_TERM_KEY = 'test_search_term'
+    DEFAULT_TEST_SEARCH_TERM = 'test'
 
     work_document_type = 'work-type'
     __client = None
@@ -256,7 +257,7 @@ class ExternalSearchIndex(HasSelfTests):
                 # This is almost certainly a problem with our code,
                 # not a communications error.
                 raise
-            except ElasticsearchException, e:
+            except ElasticsearchException as e:
                 raise CannotLoadConfiguration(
                     "Exception communicating with Elasticsearch server: %s" %
                     repr(e)
@@ -355,7 +356,7 @@ class ExternalSearchIndex(HasSelfTests):
 
             # If only the source code was provided, configure it as a
             # Painless script.
-            if isinstance(definition, basestring):
+            if isinstance(definition, (bytes, str)):
                 definition = dict(script=dict(lang="painless", source=definition))
 
             # Put it in the database.
@@ -388,7 +389,7 @@ class ExternalSearchIndex(HasSelfTests):
         # We know the alias already exists. Before we set it to point
         # to self.works_index, we may need to remove it from some
         # other indices.
-        other_indices = self.indices.get_alias(name=alias_name).keys()
+        other_indices = list(self.indices.get_alias(name=alias_name).keys())
 
         if self.works_index in other_indices:
             # If the alias already points to the works index,
@@ -439,7 +440,7 @@ class ExternalSearchIndex(HasSelfTests):
             # which represent data not available through the database.
             fields = ["work_id"]
             if filter:
-                fields += filter.script_fields.keys()
+                fields += list(filter.script_fields.keys())
 
         # Change the Search object so it only retrieves the fields
         # we're asking for.
@@ -755,7 +756,7 @@ class MappingDocument(object):
 
         defaults = dict(index=True, store=False)
         description['type'] = type
-        for default_name, default_value in defaults.items():
+        for default_name, default_value in list(defaults.items()):
             if default_name not in description:
                 description[default_name] = default_value
 
@@ -774,7 +775,7 @@ class MappingDocument(object):
         Useful when you have a lot of fields that don't need any
         customization.
         """
-        for type, properties in properties_by_type.items():
+        for type, properties in list(properties_by_type.items()):
             for name in properties:
                 self.add_property(name, type)
 
@@ -901,7 +902,7 @@ class Mapping(MappingDocument):
         properties = dict(self.properties)
 
         # Add subdocuments as additional properties.
-        for name, subdocument in self.subdocuments.items():
+        for name, subdocument in list(self.subdocuments.items()):
             properties[name] = dict(
                 type="nested", properties=subdocument.properties
             )
@@ -942,7 +943,7 @@ class CurrentMapping(Mapping):
     for name, pattern, replacement in [
         # The special author name "[Unknown]" should sort after everything
         # else. REPLACEMENT CHARACTER is the final valid Unicode character.
-        ("unknown_author", "\[Unknown\]", u"\N{REPLACEMENT CHARACTER}"),
+        ("unknown_author", "\[Unknown\]", "\N{REPLACEMENT CHARACTER}"),
 
         # Works by a given primary author should be secondarily sorted
         # by title, not by the other contributors.
@@ -1515,12 +1516,12 @@ class Query(SearchBase):
         # universal nested filters -- no suppressed license pools,
         # etc.
         universal_nested_filters = Filter.universal_nested_filters() or {}
-        for key, values in universal_nested_filters.items():
+        for key, values in list(universal_nested_filters.items()):
             nested_filters[key].extend(values)
 
         # Now we can convert any nested filters (universal or
         # otherwise) into nested queries.
-        for path, subfilters in nested_filters.items():
+        for path, subfilters in list(nested_filters.items()):
             for subfilter in subfilters:
                 # This ensures that the filter logic is executed in
                 # filter context rather than query context.
@@ -2348,7 +2349,7 @@ class Filter(SearchBase):
             return self._audiences
 
         as_is = self._audiences
-        if isinstance(as_is, basestring):
+        if isinstance(as_is, (bytes, str)):
             as_is = [as_is]
 
         # At this point we know we have a specific list of audiences.
@@ -2551,7 +2552,7 @@ class Filter(SearchBase):
             updated_after = self.updated_after
             if isinstance(updated_after, datetime.datetime):
                 updated_after = (
-                    updated_after - datetime.datetime.utcfromtimestamp(0)
+                    updated_after - from_timestamp(0)
                 ).total_seconds()
             last_update_time_query = self._match_range(
                 'last_update_time', 'gte', updated_after
@@ -2927,7 +2928,7 @@ class Filter(SearchBase):
         """
         if s is None:
             return []
-        if isinstance(s, basestring):
+        if isinstance(s, (bytes, str)):
             s = [s]
         return [cls._scrub(x) for x in s]
 
@@ -3006,7 +3007,7 @@ class SortKeyPagination(Pagination):
         if pagination_key:
             try:
                 pagination_key = json.loads(pagination_key)
-            except ValueError, e:
+            except ValueError as e:
                 return INVALID_INPUT.detailed(
                     _("Invalid page key: %(key)s", key=pagination_key)
                 )
@@ -3137,7 +3138,7 @@ class MockExternalSearchIndex(ExternalSearchIndex):
         self.works_alias = "works-current"
         self.log = logging.getLogger("Mock external search index")
         self.queries = []
-        self.search = self.docs.keys()
+        self.search = list(self.docs.keys())
         self.test_search_term = "a search term"
 
     def _key(self, index, doc_type, id):
@@ -3145,7 +3146,7 @@ class MockExternalSearchIndex(ExternalSearchIndex):
 
     def index(self, index, doc_type, id, body):
         self.docs[self._key(index, doc_type, id)] = body
-        self.search = self.docs.keys()
+        self.search = list(self.docs.keys())
 
     def delete(self, index, doc_type, id):
         key = self._key(index, doc_type, id)
@@ -3156,7 +3157,7 @@ class MockExternalSearchIndex(ExternalSearchIndex):
         return self._key(index, doc_type, id) in self.docs
 
     def create_search_doc(self, query_string, filter=None, pagination=None, debug=False):
-        return self.docs.values()
+        return list(self.docs.values())
 
     def query_works(self, query_string, filter, pagination, debug=False):
         self.queries.append((query_string, filter, pagination, debug))
@@ -3170,7 +3171,7 @@ class MockExternalSearchIndex(ExternalSearchIndex):
                 return x.work_id
             else:
                 return x['_id']
-        docs = sorted(self.docs.values(), key=sort_key)
+        docs = sorted(list(self.docs.values()), key=sort_key)
         if pagination:
             start_at = 0
             if isinstance(pagination, SortKeyPagination):
@@ -3273,7 +3274,7 @@ class SearchIndexCoverageProvider(WorkPresentationProvider):
 
         records = list(successes)
         for (work, error) in failures:
-            if not isinstance(error, basestring):
+            if not isinstance(error, (bytes, str)):
                 error = repr(error)
             records.append(CoverageFailure(work, error))
 

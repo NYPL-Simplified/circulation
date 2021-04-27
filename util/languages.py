@@ -29,7 +29,7 @@ class LanguageCodes(object):
     english_names_to_three = LookupTable()
     native_names = defaultdict(list)
 
-    RAW_DATA = u"""aar||aa|Afar|afar
+    RAW_DATA = """aar||aa|Afar|afar
 abk||ab|Abkhazian|abkhaze
 ace|||Achinese|aceh
 ach|||Acoli|acoli
@@ -517,18 +517,18 @@ zxx|||No linguistic content; Not applicable|pas de contenu linguistique; non app
 zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki; kirmanjki; zazaki"""
 
     NATIVE_NAMES_RAW_DATA =  [
-        {"code":"en","name":"English","nativeName":u"English"},
-        {"code":"fr","name":"French","nativeName":u"français"},
-        {"code":"de","name":"German","nativeName":u"Deutsch"},
-        {"code":"el","name":"Greek, Modern","nativeName":u"Ελληνικά"},
-        {"code":"hu","name":"Hungarian","nativeName":u"Magyar"},
-        {"code":"it","name":"Italian","nativeName":u"Italiano"},
-        {"code":"no","name":"Norwegian","nativeName":u"Norsk"},
-        {"code":"pl","name":"Polish","nativeName":u"polski"},
-        {"code":"pt","name":"Portuguese","nativeName":u"Português"},
-        {"code":"ru","name":"Russian","nativeName":u"русский"},
-        {"code":"es","name":"Spanish, Castilian","nativeName":u"español, castellano"},
-        {"code":"sv","name":"Swedish","nativeName":u"svenska"},
+        {"code":"en","name":"English","nativeName":"English"},
+        {"code":"fr","name":"French","nativeName":"français"},
+        {"code":"de","name":"German","nativeName":"Deutsch"},
+        {"code":"el","name":"Greek, Modern","nativeName":"Ελληνικά"},
+        {"code":"hu","name":"Hungarian","nativeName":"Magyar"},
+        {"code":"it","name":"Italian","nativeName":"Italiano"},
+        {"code":"no","name":"Norwegian","nativeName":"Norsk"},
+        {"code":"pl","name":"Polish","nativeName":"polski"},
+        {"code":"pt","name":"Portuguese","nativeName":"Português"},
+        {"code":"ru","name":"Russian","nativeName":"русский"},
+        {"code":"es","name":"Spanish, Castilian","nativeName":"español, castellano"},
+        {"code":"sv","name":"Swedish","nativeName":"svenska"},
     ]
 
     for i in RAW_DATA.split("\n"):
@@ -589,7 +589,7 @@ zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki
 
     @classmethod
     def name_for_languageset(cls, languages):
-        if isinstance(languages, basestring):
+        if isinstance(languages, str):
             languages = languages.split(",")
         all_names = []
         if not languages:
@@ -665,7 +665,7 @@ class LanguageNames(object):
                 name_to_codes[name].add(alpha)
 
         # Process the English-language names found in the ISO spec.
-        for alpha, name_list in LanguageCodes.english_names.items():
+        for alpha, name_list in list(LanguageCodes.english_names.items()):
             for names in name_list:
                 for name in names.split(";"):
                     add(name, alpha)
@@ -697,7 +697,7 @@ class LanguageNames(object):
     def _build_name_re(cls):
         return re.compile(
             r"(\b%s\b)" %
-            r"\b|\b".join(cls.name_to_codes.keys()),
+            r"\b|\b".join(list(cls.name_to_codes.keys())),
             re.I
         )
 

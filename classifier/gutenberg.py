@@ -106,7 +106,7 @@ class GutenbergBookshelfClassifier(Classifier):
             "Ainslee's",
             "Prairie Farmer",
             "Blackwood's Edinburgh Magazine",
-            u"Barnavännen",
+            "Barnavännen",
             "Buchanan's Journal of Man",
             "Bulletin de Lille",
             "Celtic Magazine",
@@ -256,7 +256,7 @@ class GutenbergBookshelfClassifier(Classifier):
 
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
-        for l, v in cls.GENRES.items():
+        for l, v in list(cls.GENRES.items()):
             if identifier == v or (isinstance(v, list) and identifier in v):
                 return l
         return None

@@ -1,9 +1,9 @@
 import os
 import datetime
 import random
-import urllib
-from StringIO import StringIO
-
+from urllib.parse import quote
+from io import StringIO
+import feedparser
 import pytest
 
 from lxml import etree
@@ -25,11 +25,6 @@ from ..opds_import import (
     OPDSImportMonitor,
     OPDSXMLParser,
     SimplifiedOPDSLookup,
-)
-from ..util.opds_writer import (
-    AtomFeed,
-    OPDSFeed,
-    OPDSMessage,
 )
 from ..metadata_layer import (
     LinkData,
@@ -57,7 +52,6 @@ from ..model import (
 )
 from ..model.configuration import ExternalIntegrationLink
 from ..coverage import CoverageFailure
-
 from ..s3 import (
     S3Uploader,
     MockS3Uploader,
@@ -69,7 +63,12 @@ from ..testing import (
     MockRequestsResponse,
 )
 from ..util.http import BadResponseException
-
+from ..util.opds_writer import (
+    AtomFeed,
+    OPDSFeed,
+    OPDSMessage,
+)
+from ..util.datetime_helpers import datetime_utc, utc_now
 
 class DoomedOPDSImporter(OPDSImporter):
     def import_edition_from_metadata(self, metadata, *args):
@@ -94,10 +93,10 @@ class DoomedWorkOPDSImporter(OPDSImporter):
 class OPDSTest(DatabaseTest):
     """A unit test that knows how to find OPDS files for use in tests."""
 
-    def sample_opds(self, filename):
+    def sample_opds(self, filename, file_type="r"):
         base_path = os.path.split(__file__)[0]
         resource_path = os.path.join(base_path, "files", "opds")
-        return open(os.path.join(resource_path, filename)).read()
+        return open(os.path.join(resource_path, filename), file_type).read()
 
 
 class TestMetadataWranglerOPDSLookup(OPDSTest):
@@ -110,7 +109,7 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
             password='secret', url="http://metadata.in"
         )
         self.collection = self._collection(
-            protocol=ExternalIntegration.OVERDRIVE, external_account_id=u'library'
+            protocol=ExternalIntegration.OVERDRIVE, external_account_id='library'
         )
 
     def test_authenticates_wrangler_requests(self):
@@ -169,7 +168,7 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
             data_source_name=DataSource.OA_CONTENT_SERVER
         )
         lookup.collection = opds
-        data_source_args = '?data_source=%s' % urllib.quote(opds.data_source.name)
+        data_source_args = '?data_source=%s' % quote(opds.data_source.name)
         assert lookup.get_collection_url('banana').endswith(data_source_args)
 
     def test_lookup_endpoint(self):
@@ -294,7 +293,7 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         assert 'Metadata updates in last 24 hours' == title1
         assert with_collection.updates == method1
         [timestamp] = args1
-        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
+        one_day_ago = utc_now() - datetime.timedelta(hours=24)
         assert (one_day_ago - timestamp).total_seconds() < 1
 
         # The second self-test wants to count work that the metadata
@@ -417,7 +416,7 @@ class OPDSImporterTest(OPDSTest):
         self.content_server_feed = self.sample_opds("content_server.opds")
         self.content_server_mini_feed = self.sample_opds("content_server_mini.opds")
         self.audiobooks_opds = self.sample_opds("audiobooks.opds")
-        self.feed_with_id_and_dcterms_identifier = self.sample_opds("feed_with_id_and_dcterms_identifier.opds")
+        self.feed_with_id_and_dcterms_identifier = self.sample_opds("feed_with_id_and_dcterms_identifier.opds", "rb")
         self._default_collection.external_integration.setting('data_source').value = (
             DataSource.OA_CONTENT_SERVER
         )
@@ -481,10 +480,10 @@ class TestOPDSImporter(OPDSImporterTest):
         identifier2, updated2 = last_update_dates[1]
 
         assert "urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441" == identifier1
-        assert datetime.datetime(2015, 1, 2, 16, 56, 40) == updated1
+        assert datetime_utc(2015, 1, 2, 16, 56, 40) == updated1
 
         assert "urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557" == identifier2
-        assert datetime.datetime(2015, 1, 2, 16, 56, 40) == updated2
+        assert datetime_utc(2015, 1, 2, 16, 56, 40) == updated2
 
     def test_extract_last_update_dates_ignores_entries_with_no_update(self):
         importer = OPDSImporter(
@@ -522,8 +521,8 @@ class TestOPDSImporter(OPDSImporterTest):
         assert data_source_name == c1._data_source
         assert data_source_name == c2._data_source
 
-        [failure] = failures.values()
-        assert u"202: I'm working to locate a source for this identifier." == failure.exception
+        [failure] = list(failures.values())
+        assert "202: I'm working to locate a source for this identifier." == failure.exception
 
     def test_use_dcterm_identifier_as_id_with_id_and_dcterms_identifier(self):
         data_source_name = "Data source name " + self._str
@@ -677,7 +676,7 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # No metadata was extracted.
-        assert 0 == len(values.keys())
+        assert 0 == len(list(values.keys()))
 
         # There are 2 failures, both from exceptions. The 202 message
         # found in content_server_mini.opds is not extracted
@@ -734,7 +733,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
         assert [] == book['measurements']
 
-        assert datetime.datetime(1862, 6, 1) == book["published"]
+        assert datetime_utc(1862, 6, 1) == book["published"]
 
         [link] = book['links']
         assert Hyperlink.OPEN_ACCESS_DOWNLOAD == link.rel
@@ -772,7 +771,7 @@ class TestOPDSImporter(OPDSImporterTest):
         assert 'Animal Colors' == periodical['series']
         assert '1' == periodical['series_position']
 
-        assert datetime.datetime(1910, 1, 1) == periodical["published"]
+        assert datetime_utc(1910, 1, 1) == periodical["published"]
 
     def test_extract_metadata_from_elementtree_treats_message_as_failure(self):
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
@@ -788,7 +787,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # The CoverageFailure contains the information that was in a
         # <simplified:message> tag in unrecognized_identifier.opds.
         key = 'http://www.gutenberg.org/ebooks/100'
-        assert [key] == failures.keys()
+        assert [key] == list(failures.keys())
         failure = failures[key]
         assert "404: I've never heard of this work." == failure.exception
         assert key == failure.obj.urn
@@ -1001,7 +1000,7 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # No metadata was extracted.
-        assert 0 == len(values.keys())
+        assert 0 == len(list(values.keys()))
 
         # There are 3 CoverageFailures - every <entry> threw an
         # exception and the <simplified:message> indicated failure.
@@ -1353,7 +1352,7 @@ class TestOPDSImporter(OPDSImporterTest):
             ).import_from_feed(feed)
         )
 
-        [failure] = failures.values()
+        [failure] = list(failures.values())
         assert isinstance(failure, CoverageFailure)
         assert True == failure.transient
         assert "404: I've never heard of this work." == failure.exception
@@ -1932,7 +1931,7 @@ class TestMirroring(OPDSImporterTest):
 
     @pytest.fixture()
     def svg(self):
-        svg = u"""<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+        svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
           "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 
         <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500">
@@ -1942,7 +1941,7 @@ class TestMirroring(OPDSImporterTest):
 
     @pytest.fixture()
     def png(self):
-        with open(self.sample_cover_path("test-book-cover.png")) as png_file:
+        with open(self.sample_cover_path("test-book-cover.png"), "rb") as png_file:
             png = png_file.read()
         return png
 
@@ -2162,7 +2161,7 @@ class TestMirroring(OPDSImporterTest):
         # the open-access content source, the default data source used
         # when no distributor was specified for a book.
         book1_url = 'https://test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
-        book1_svg_cover = u'https://test-cover-bucket.s3.amazonaws.com/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.svg'
+        book1_svg_cover = 'https://test-cover-bucket.s3.amazonaws.com/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.svg'
         book2_url = 'https://test-content-bucket.s3.amazonaws.com/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/Johnny%20Crow%27s%20Party.epub.images'
         book2_png_cover = 'https://test-cover-bucket.s3.amazonaws.com/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/working-cover-image.png'
         book2_png_thumbnail = 'https://test-cover-bucket.s3.amazonaws.com/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/working-cover-image.png'
@@ -2175,7 +2174,7 @@ class TestMirroring(OPDSImporterTest):
         # If we fetch the feed again, and the entries have been updated since the
         # cutoff, but the content of the open access links hasn't changed, we won't mirror
         # them again.
-        cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
+        cutoff = datetime_utc(2013, 1, 2, 16, 56, 40)
 
         http.queue_response(
             epub10441['url'],
@@ -2382,12 +2381,12 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         record, ignore = CoverageRecord.add_for(
             editions[0], data_source, CoverageRecord.IMPORT_OPERATION
         )
-        record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
+        record.timestamp = datetime_utc(2016, 1, 1, 1, 1, 1)
 
         record2, ignore = CoverageRecord.add_for(
             editions[1], data_source, CoverageRecord.IMPORT_OPERATION
         )
-        record2.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
+        record2.timestamp = datetime_utc(2016, 1, 1, 1, 1, 1)
 
         assert False == monitor.feed_contains_new_data(feed)
 
@@ -2399,13 +2398,13 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         # If an entry was updated after the date given in that entry's
         # CoverageRecord, there's new data.
-        record2.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
+        record2.timestamp = datetime_utc(1970, 1, 1, 1, 1, 1)
         assert True == monitor.feed_contains_new_data(feed)
 
         # If a CoverageRecord is a transient failure, we try again
         # regardless of whether it's been updated.
         for r in [record, record2]:
-            r.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
+            r.timestamp = datetime_utc(2016, 1, 1, 1, 1, 1)
             r.exception = "Failure!"
             r.status = CoverageRecord.TRANSIENT_FAILURE
         assert True == monitor.feed_contains_new_data(feed)
@@ -2416,7 +2415,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         assert False == monitor.feed_contains_new_data(feed)
 
         # ...unless the feed updates.
-        record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
+        record.timestamp = datetime_utc(1970, 1, 1, 1, 1, 1)
         assert True == monitor.feed_contains_new_data(feed)
 
     def http_with_feed(self, feed, content_type=OPDSFeed.ACQUISITION_FEED_TYPE):
@@ -2441,7 +2440,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         assert 1 == len(next_links)
         assert "http://localhost:5000/?after=327&size=100" == next_links[0]
 
-        assert feed == content
+        assert feed.encode("utf-8") == content
 
         # Now import the editions and add coverage records.
         monitor.importer.import_from_feed(feed)
@@ -2454,7 +2453,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             record, ignore = CoverageRecord.add_for(
                 edition, data_source, CoverageRecord.IMPORT_OPERATION
             )
-            record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
+            record.timestamp = datetime_utc(2016, 1, 1, 1, 1, 1)
 
 
         # If there's no new data, follow_one_link returns no next
@@ -2601,8 +2600,8 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         # default value will be used.
         headers = {'Some other': 'header'}
         new_headers = monitor._update_headers(headers)
-        assert ['Some other'] == headers.keys()
-        assert ['Accept', 'Some other'] == sorted(new_headers.keys())
+        assert ['Some other'] == list(headers.keys())
+        assert ['Accept', 'Some other'] == sorted(list(new_headers.keys()))
 
         # If a custom_accept_header exist, will be used instead a default value
         new_headers = monitor._update_headers(headers)

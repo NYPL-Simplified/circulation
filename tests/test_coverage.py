@@ -1,5 +1,4 @@
 import datetime
-
 import pytest
 from ..testing import (
     DatabaseTest
@@ -62,6 +61,7 @@ from ..coverage import (
     WorkClassificationCoverageProvider,
     WorkPresentationEditionCoverageProvider,
 )
+from ..util.datetime_helpers import datetime_utc, utc_now
 
 class TestCoverageFailure(DatabaseTest):
     """Test the CoverageFailure class."""
@@ -132,31 +132,31 @@ class CoverageProviderTest(DatabaseTest):
     def bibliographic_data(self):
         return Metadata(
             DataSource.OVERDRIVE,
-            publisher=u'Perfection Learning',
+            publisher='Perfection Learning',
             language='eng',
-            title=u'A Girl Named Disaster',
-            published=datetime.datetime(1998, 3, 1, 0, 0),
+            title='A Girl Named Disaster',
+            published=datetime_utc(1998, 3, 1, 0, 0),
             primary_identifier=IdentifierData(
                 type=Identifier.OVERDRIVE_ID,
-                identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
+                identifier='ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
             ),
             identifiers = [
                 IdentifierData(
                         type=Identifier.OVERDRIVE_ID,
-                        identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
+                        identifier='ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
                     ),
-                IdentifierData(type=Identifier.ISBN, identifier=u'9781402550805')
+                IdentifierData(type=Identifier.ISBN, identifier='9781402550805')
             ],
             contributors = [
-                ContributorData(sort_name=u"Nancy Farmer",
+                ContributorData(sort_name="Nancy Farmer",
                                 roles=[Contributor.PRIMARY_AUTHOR_ROLE])
             ],
             subjects = [
                 SubjectData(type=Subject.TOPIC,
-                            identifier=u'Action & Adventure'),
+                            identifier='Action & Adventure'),
                 SubjectData(type=Subject.FREEFORM_AUDIENCE,
-                            identifier=u'Young Adult'),
-                SubjectData(type=Subject.PLACE, identifier=u'Africa')
+                            identifier='Young Adult'),
+                SubjectData(type=Subject.PLACE, identifier='Africa')
             ],
         )
 
@@ -173,7 +173,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             OPERATION = "An Operation"
             DEFAULT_BATCH_SIZE = 50
 
-        now = cutoff_time=datetime.datetime.utcnow()
+        now = cutoff_time=utc_now()
         provider = ValidMock(self._db, cutoff_time=now)
 
         # Class variables defined in subclasses become appropriate
@@ -216,15 +216,15 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # timing information, since run_once_and_update_timestamp()
         # didn't provide anything.
         assert isinstance(result, CoverageProviderProgress)
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         assert result.start < result.finish
         for time in (result.start, result.finish):
             assert (now - time).total_seconds() < 5
 
     def test_run_with_custom_result(self):
 
-        start = datetime.datetime(2011, 1, 1)
-        finish = datetime.datetime(2012, 1, 1)
+        start = datetime_utc(2011, 1, 1)
+        finish = datetime_utc(2012, 1, 1)
         counter = -100
 
         class MockProvider(BaseCoverageProvider):
@@ -263,7 +263,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             expect_offset = 0
 
             def run_once(self, progress, count_as_covered=None):
-                now = datetime.datetime.utcnow()
+                now = utc_now()
 
                 # We never see progress.finish set to a non-None
                 # value. When _we_ set it to a non-None value, it means
@@ -312,7 +312,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # The Timestamp's .start and .finish are now set to recent
         # values -- the start and end points of run_once().
         timestamp = provider.timestamp
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         assert (now - timestamp.start).total_seconds() < 1
         assert (now - timestamp.finish).total_seconds() < 1
         assert timestamp.start < timestamp.finish
@@ -350,7 +350,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         provider.run_once_and_update_timestamp()
 
         timestamp = provider.timestamp
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         assert (now - timestamp.start).total_seconds() < 1
         assert (now - timestamp.finish).total_seconds() < 1
         assert timestamp.start < timestamp.finish
@@ -374,7 +374,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         provider.run_once_and_update_timestamp()
 
         timestamp = provider.timestamp
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         assert (now - timestamp.start).total_seconds() < 1
         assert (now - timestamp.finish).total_seconds() < 1
         assert timestamp.start < timestamp.finish
@@ -648,7 +648,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         """Verify that should_update gives the correct answer when we
         ask if a CoverageRecord needs to be updated.
         """
-        cutoff = datetime.datetime(2016, 1, 1)
+        cutoff = datetime_utc(2016, 1, 1)
         provider = AlwaysSuccessfulCoverageProvider(
             self._db, cutoff_time = cutoff
         )
@@ -661,7 +661,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         record, ignore = CoverageRecord.add_for(
             identifier, provider.data_source
         )
-        record.timestamp = datetime.datetime(2015, 1, 1)
+        record.timestamp = datetime_utc(2015, 1, 1)
         assert True == provider.should_update(record)
 
         # If coverage is up-to-date, we should not update.
@@ -1131,7 +1131,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
 
     def test_run_on_specific_identifiers_respects_cutoff_time(self):
 
-        last_run = datetime.datetime(2016, 1, 1)
+        last_run = datetime_utc(2016, 1, 1)
 
         # Once upon a time we successfully added coverage for
         # self.identifier. But now something has gone wrong, and if we
@@ -1157,7 +1157,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
 
         # But if we move the cutoff time forward, the provider will run
         # on self.identifier and fail.
-        provider.cutoff_time = datetime.datetime(2016, 2, 1)
+        provider.cutoff_time = datetime_utc(2016, 2, 1)
         (success, transient_failure, persistent_failure), records = (
             provider.run_on_specific_identifiers([self.identifier])
         )
@@ -1198,7 +1198,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
             self._db, provider.service_name,
             service_type=Timestamp.COVERAGE_PROVIDER_TYPE, collection=None
         )
-        assert (datetime.datetime.utcnow() - value).total_seconds() < 1
+        assert (utc_now() - value).total_seconds() < 1
 
     def test_run_transient_failure(self):
         """Verify that TransientFailureCoverageProvider works the
@@ -1215,7 +1215,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
                 service_type=Timestamp.COVERAGE_PROVIDER_TYPE, collection=None
             ))
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         provider.run()
 
         # We have a CoverageRecord representing the transient failure.
@@ -1653,7 +1653,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
     def test_items_that_need_coverage(self):
         # Here's an Identifier that was covered on 01/01/2016.
         identifier = self._identifier()
-        cutoff_time = datetime.datetime(2016, 1, 1)
+        cutoff_time = datetime_utc(2016, 1, 1)
         provider = AlwaysSuccessfulCoverageProvider(self._db)
         record, is_new = CoverageRecord.add_for(
             identifier, provider.data_source, timestamp=cutoff_time
@@ -1711,12 +1711,12 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # So let's use the CoverageProvider to create an Edition
         # with minimal bibliographic information.
         edition = provider.edition(identifier)
-        edition.title = u"A title"
+        edition.title = "A title"
 
         # Now we can create a Work.
         work = provider.work(identifier)
         assert isinstance(work, Work)
-        assert u"A title" == work.title
+        assert "A title" == work.title
 
         # If necessary, we can tell work() to use a specific
         # LicensePool when calculating the Work. This is an extreme
@@ -1756,10 +1756,10 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # If a work exists but is not presentation-ready,
         # CollectionCoverageProvider.work() will call calculate_work()
         # in an attempt to fix it.
-        edition.title = u'Finally a title'
+        edition.title = 'Finally a title'
         work2 = provider.work(pool.identifier, pool)
         assert work2 == work
-        assert u'Finally a title' == work.title
+        assert 'Finally a title' == work.title
         assert True == work.presentation_ready
 
         # Once the work is presentation_ready, calling
@@ -1918,7 +1918,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # mark it presentation ready.
         pool = provider.license_pool(identifier)
         edition = provider.edition(identifier)
-        edition.title = u'A title'
+        edition.title = 'A title'
         result = provider.set_presentation_ready(identifier)
         assert result == identifier
         assert True == pool.work.presentation_ready
@@ -1969,9 +1969,8 @@ class TestBibliographicCoverageProvider(CoverageProviderTest):
         self.identifier = self.pool.identifier
 
     def test_work_set_presentation_ready_on_success(self):
-        """When a Work is successfully run through a
-        BibliographicCoverageProvider, it's set as presentation-ready.
-        """
+        # When a Work is successfully run through a
+        # BibliographicCoverageProvider, it's set as presentation-ready.
         provider = AlwaysSuccessfulBibliographicCoverageProvider(
             self.pool.collection
         )
@@ -2021,7 +2020,7 @@ class TestWorkCoverageProvider(DatabaseTest):
                 service_type=Timestamp.COVERAGE_PROVIDER_TYPE, collection=None
             ))
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         provider.run()
 
         # There is now one relevant WorkCoverageRecord, for our single work.
@@ -2060,7 +2059,7 @@ class TestWorkCoverageProvider(DatabaseTest):
             self._db, service_name,
             service_type=Timestamp.COVERAGE_PROVIDER_TYPE, collection=None
         )
-        assert (datetime.datetime.utcnow()-value).total_seconds() < 2
+        assert (utc_now()-value).total_seconds() < 2
 
     def test_persistent_failure(self):
         class MockProvider(NeverSuccessfulWorkCoverageProvider):
@@ -2086,7 +2085,7 @@ class TestWorkCoverageProvider(DatabaseTest):
             self._db, service_name,
             service_type=Timestamp.COVERAGE_PROVIDER_TYPE, collection=None
         )
-        assert (datetime.datetime.utcnow()-value).total_seconds() < 2
+        assert (utc_now()-value).total_seconds() < 2
 
     def test_items_that_need_coverage(self):
         # Here's a WorkCoverageProvider.
@@ -2235,17 +2234,17 @@ class TestMARCRecordWorkCoverageProvider(DatabaseTest):
 
         provider = MARCRecordWorkCoverageProvider(self._db)
         work = self._work(with_license_pool=True)
-        work.marc_record = b'old junk'
+        work.marc_record = 'old junk'
         work.presentation_ready = False
 
         # The work is not presentation-ready, so nothing happens.
         provider.run()
-        assert b'old junk' == work.marc_record
+        assert 'old junk' == work.marc_record
 
         # The work is presentation-ready, so its MARC record is
         # regenerated.
         work.presentation_ready = True
         provider.run()
-        assert work.title.encode("utf8") in work.marc_record
-        assert b"online resource" in work.marc_record
+        assert work.title in work.marc_record
+        assert "online resource" in work.marc_record
 

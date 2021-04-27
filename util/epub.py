@@ -6,7 +6,7 @@ from lxml import etree
 from io import BytesIO
 from zipfile import ZipFile
 
-from http import HTTP
+from .http import HTTP
 
 
 class EpubAccessor(object):

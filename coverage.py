@@ -1,12 +1,10 @@
-
-import datetime
 import logging
 import traceback
 
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.functions import func
 
-from model import (
+from .model import (
     get_one,
     get_one_or_create,
     BaseCoverageRecord,
@@ -23,13 +21,13 @@ from model import (
     Work,
     WorkCoverageRecord,
 )
-from metadata_layer import (
+from .metadata_layer import (
     ReplacementPolicy,
     TimestampData,
 )
-from util.worker_pools import DatabaseJob
-
-import log # This sets the appropriate log format.
+from .util.worker_pools import DatabaseJob
+from .util.datetime_helpers import utc_now
+from . import log # This sets the appropriate log format.
 
 class CoverageFailure(object):
     """Object representing the failure to provide coverage."""
@@ -211,7 +209,7 @@ class BaseCoverageProvider(object):
         return self.OPERATION
 
     def run(self):
-        start = datetime.datetime.utcnow()
+        start = utc_now()
         result = self.run_once_and_update_timestamp()
 
         result = result or CoverageProviderProgress()
@@ -226,7 +224,7 @@ class BaseCoverageProvider(object):
             BaseCoverageRecord.PREVIOUSLY_ATTEMPTED,
             BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
         ]
-        start_time = datetime.datetime.utcnow()
+        start_time = utc_now()
         timestamp = self.timestamp
 
         # We'll use this TimestampData object to track our progress
@@ -256,13 +254,13 @@ class BaseCoverageProvider(object):
                     # in-place the one it was passed.
                     if new_progress is not None:
                         progress = new_progress
-                except Exception, e:
+                except Exception as e:
                     logging.error(
                         "CoverageProvider %s raised uncaught exception.",
                         self.service_name, exc_info=e
                     )
                     progress.exception=traceback.format_exc()
-                    progress.finish=datetime.datetime.utcnow()
+                    progress.finish=utc_now()
 
                 # The next run_once() call might raise an exception,
                 # so let's write the work to the database as it's
@@ -336,7 +334,7 @@ class BaseCoverageProvider(object):
 
         if not batch.count():
             # The batch is empty. We're done.
-            progress.finish = datetime.datetime.utcnow()
+            progress.finish = utc_now()
             return progress
 
         (successes, transient_failures, persistent_failures), results = (
@@ -772,7 +770,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             return DataSource.lookup(_db, cls.DATA_SOURCE_NAME)
         if isinstance(data_source, DataSource):
             return data_source
-        if isinstance(data_source, basestring):
+        if isinstance(data_source, (bytes, str)):
             return DataSource.lookup(_db, data_source, autocreate=autocreate)
 
     @property
@@ -1146,7 +1144,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             return license_pools[0]
 
         data_source = data_source or self.data_source
-        if isinstance(data_source, basestring):
+        if isinstance(data_source, (bytes, str)):
             data_source = DataSource.lookup(self._db, data_source)
 
         # This Collection has no LicensePool for the given Identifier.

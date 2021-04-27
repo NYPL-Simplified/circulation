@@ -1,11 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from enum import Enum
 
-import six
-
-
-@six.add_metaclass(ABCMeta)
-class Visitor(object):
+class Visitor(metaclass=ABCMeta):
     """Interface for visitors walking through abstract syntax trees (AST)."""
 
     @abstractmethod
@@ -18,8 +14,7 @@ class Visitor(object):
         raise NotImplementedError()
 
 
-@six.add_metaclass(ABCMeta)
-class Visitable(object):
+class Visitable(metaclass=ABCMeta):
     """Interface for objects walkable by AST visitors."""
 
     @abstractmethod

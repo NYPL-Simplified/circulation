@@ -1,25 +1,14 @@
 # encoding: utf-8
 from collections import defaultdict
-
 import datetime
 import logging
 import time
-import urllib
-
+from urllib.parse import quote_plus
 from psycopg2.extras import NumericRange
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import Select
 from sqlalchemy.dialects.postgresql import JSON
-
-from config import Configuration
 from flask_babel import lazy_gettext as _
-
-import classifier
-from classifier import (
-    Classifier,
-    GenreData,
-)
-
 from sqlalchemy import (
     and_,
     case,
@@ -46,12 +35,31 @@ from sqlalchemy.orm import (
     relationship,
 )
 from sqlalchemy.sql.expression import literal
+import elasticsearch
+from sqlalchemy import (
+    event,
+    Boolean,
+    Column,
+    ForeignKey,
+    Integer,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import (
+    ARRAY,
+    INT4RANGE,
+)
 
-from entrypoint import (
+from . import classifier
+from .config import Configuration
+from .classifier import (
+    Classifier,
+    GenreData,
+)
+from .entrypoint import (
     EntryPoint,
     EverythingEntryPoint,
 )
-from model import (
+from .model import (
     directly_modified,
     get_one_or_create,
     numericrange_to_tuple,
@@ -74,31 +82,18 @@ from model import (
     Work,
     WorkGenre,
 )
-from model.constants import EditionConstants
-from facets import FacetConstants
-from problem_details import *
-from util import (
+from .model.constants import EditionConstants
+from .facets import FacetConstants
+from .problem_details import *
+from .util import (
     fast_query_count,
     LanguageCodes,
 )
-from util.problem_detail import ProblemDetail
-from util.accept_language import parse_accept_language
-from util.opds_writer import OPDSFeed
+from .util.problem_detail import ProblemDetail
+from .util.accept_language import parse_accept_language
+from .util.opds_writer import OPDSFeed
+from .util.datetime_helpers import utc_now
 
-import elasticsearch
-
-from sqlalchemy import (
-    event,
-    Boolean,
-    Column,
-    ForeignKey,
-    Integer,
-    UniqueConstraint,
-)
-from sqlalchemy.dialects.postgresql import (
-    ARRAY,
-    INT4RANGE,
-)
 
 class BaseFacets(FacetConstants):
     """Basic faceting class that doesn't modify a search filter at all.
@@ -341,7 +336,7 @@ class FacetsWithEntryPoint(BaseFacets):
 
         try:
             value = int(value)
-        except ValueError, e:
+        except ValueError as e:
             value = None
 
         # At the moment, the only acceptable value that can be set
@@ -370,7 +365,7 @@ class FacetsWithEntryPoint(BaseFacets):
                 value = 0
             else:
                 value = self.max_cache_age
-            yield (self.MAX_CACHE_AGE_NAME, unicode(value))
+            yield (self.MAX_CACHE_AGE_NAME, str(value))
 
     def modify_search_filter(self, filter):
         """Modify the given external_search.Filter object
@@ -554,7 +549,7 @@ class Facets(FacetsWithEntryPoint):
 
 
     def items(self):
-        for k,v in super(Facets, self).items():
+        for k,v in list(super(Facets, self).items()):
             yield k, v
         if self.order:
             yield (self.ORDER_FACET_GROUP_NAME, self.order)
@@ -735,7 +730,7 @@ class DefaultSortOrderFacets(Facets):
         # adding it if necessary.
         order = cls.DEFAULT_SORT_ORDER
         if order in default:
-            default = filter(lambda x: x!=order, default)
+            default = [x for x in default if x!=order]
         return [order] + default
 
     @classmethod
@@ -988,7 +983,7 @@ class SearchFacets(Facets):
             if language_header:
                 languages = parse_accept_language(language_header)
                 languages = [l[0] for l in languages]
-                languages = map(LanguageCodes.iso_639_2_for_locale, languages)
+                languages = list(map(LanguageCodes.iso_639_2_for_locale, languages))
                 languages = [l for l in languages if l]
             languages = languages or None
 
@@ -997,7 +992,7 @@ class SearchFacets(Facets):
         if min_score is not None:
             try:
                 min_score = int(min_score)
-            except ValueError, e:
+            except ValueError as e:
                 min_score = None
         if min_score is not None:
             extra['min_score'] = min_score
@@ -1082,13 +1077,13 @@ class SearchFacets(Facets):
         This means the EntryPoint (handled by the superclass)
         as well as possible settings for 'media' and "min_score".
         """
-        for k, v in super(SearchFacets, self).items():
+        for k, v in list(super(SearchFacets, self).items()):
             yield k, v
         if self.media_argument:
             yield ("media", self.media_argument)
 
         if self.min_score is not None:
-            yield ('min_score', unicode(self.min_score))
+            yield ('min_score', str(self.min_score))
 
     def navigate(self, **kwargs):
         min_score = kwargs.pop('min_score', self.min_score)
@@ -1176,7 +1171,7 @@ class Pagination(object):
 
     @property
     def query_string(self):
-       return "&".join("=".join(map(str, x)) for x in self.items())
+       return "&".join("=".join(map(str, x)) for x in list(self.items()))
 
     @property
     def first_page(self):
@@ -1575,7 +1570,7 @@ class WorkList(object):
         """A human-readable identifier for this WorkList that
         captures its position within the heirarchy.
         """
-        full_parentage = [unicode(x.display_name) for x in self.hierarchy]
+        full_parentage = [str(x.display_name) for x in self.hierarchy]
         if getattr(self, 'library', None):
             # This WorkList is associated with a specific library.
             # incorporate the library's name to distinguish between it
@@ -1597,12 +1592,12 @@ class WorkList(object):
     @property
     def audience_key(self):
         """Translates audiences list into url-safe string"""
-        key = u''
+        key = ''
         if (self.audiences and
             Classifier.AUDIENCES.difference(self.audiences)):
             # There are audiences and they're not the default
             # "any audience", so add them to the URL.
-            audiences = [urllib.quote_plus(a) for a in sorted(self.audiences)]
+            audiences = [quote_plus(a) for a in sorted(self.audiences)]
             key += ','.join(audiences)
         return key
 
@@ -1745,7 +1740,7 @@ class WorkList(object):
             that generates such a list when executed.
 
         """
-        from external_search import (
+        from .external_search import (
             Filter,
             ExternalSearchIndex,
         )
@@ -1763,7 +1758,7 @@ class WorkList(object):
         Using this ensures that modify_search_filter_hook() is always
         called.
         """
-        from external_search import Filter
+        from .external_search import Filter
         filter = Filter.from_worklist(_db, self, facets)
         modified = self.modify_search_filter_hook(filter)
         if modified is None:
@@ -1799,7 +1794,7 @@ class WorkList(object):
         """Convert a list of lists of Hit objects into a list
         of lists of Work objects.
         """
-        from external_search import (
+        from .external_search import (
             Filter,
             WorkSearchResult,
         )
@@ -1861,7 +1856,7 @@ class WorkList(object):
 
         b = time.time()
         logging.info(
-            u"Obtained %sxWork in %.2fsec", len(all_works), b-a
+            "Obtained %sxWork in %.2fsec", len(all_works), b-a
         )
         return work_lists
 
@@ -1898,7 +1893,7 @@ class WorkList(object):
             hits = search_client.query_works(
                 query, filter, pagination, debug
             )
-        except elasticsearch.exceptions.ElasticsearchException, e:
+        except elasticsearch.exceptions.ElasticsearchException as e:
             logging.error(
                 "Problem communicating with ElasticSearch. Returning empty list of search results.",
                 exc_info=e
@@ -1946,7 +1941,7 @@ class WorkList(object):
         else:
             target_size = pagination.size
 
-        from external_search import ExternalSearchIndex
+        from .external_search import ExternalSearchIndex
         search_engine = search_engine or ExternalSearchIndex.load(_db)
 
         if isinstance(self, Lane):
@@ -1973,7 +1968,7 @@ class WorkList(object):
                 # previous lane to fill out this lane. Stick
                 # them at the end.
                 by_lane[lane].extend(
-                    might_need_to_reuse.values()[:num_missing]
+                    list(might_need_to_reuse.values())[:num_missing]
                 )
 
         used_works = set()
@@ -2063,7 +2058,7 @@ class WorkList(object):
         queries = []
         for lane in lanes:
             overview_facets = lane.overview_facets(_db, facets)
-            from external_search import Filter
+            from .external_search import Filter
             filter = Filter.from_worklist(_db, lane, overview_facets)
             queries.append((None, filter, pagination))
         resultsets = list(search_engine.query_works_multi(queries))
@@ -2363,7 +2358,7 @@ class DatabaseBackedWorkList(WorkList):
         if customlist_ids is not None:
             clauses.append(a_entry.list_id.in_(customlist_ids))
         if self.list_seen_in_previous_days:
-            cutoff = datetime.datetime.utcnow() - datetime.timedelta(
+            cutoff = utc_now() - datetime.timedelta(
                 self.list_seen_in_previous_days
             )
             clauses.append(a_entry.most_recent_appearance >=cutoff)
@@ -2720,7 +2715,7 @@ class Lane(Base, DatabaseBackedWorkList, HierarchyWorkList):
         """
         if self._audiences and self._target_age and value != self._audiences:
             raise ValueError("Cannot modify Lane.audiences when Lane.target_age is set!")
-        if isinstance(value, basestring):
+        if isinstance(value, (bytes, str)):
             value = [value]
         self._audiences = value
 
@@ -2830,7 +2825,7 @@ class Lane(Base, DatabaseBackedWorkList, HierarchyWorkList):
     def update_size(self, _db, search_engine=None):
         """Update the stored estimate of the number of Works in this Lane."""
         library = self.get_library(_db)
-        from external_search import ExternalSearchIndex
+        from .external_search import ExternalSearchIndex
         search_engine = search_engine or ExternalSearchIndex.load(_db)
 
         # Do the estimate for every known entry point.
@@ -2954,7 +2949,7 @@ class Lane(Base, DatabaseBackedWorkList, HierarchyWorkList):
         Mainly used in tests.
         """
         _db = Session.object_session(self)
-        if isinstance(genre, basestring):
+        if isinstance(genre, (bytes, str)):
             genre, ignore = Genre.lookup(_db, genre)
         lanegenre, is_new = get_one_or_create(
             _db, LaneGenre, lane=self, genre=genre

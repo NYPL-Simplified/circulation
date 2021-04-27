@@ -2,7 +2,6 @@
 import datetime
 import flask
 from lxml import etree
-
 from flask import Response as FlaskResponse
 from wsgiref.handlers import format_date_time
 import time
@@ -10,7 +9,8 @@ import time
 from . import (
     problem_detail,
 )
-from opds_writer import OPDSFeed
+from .opds_writer import OPDSFeed
+from .datetime_helpers import utc_now
 
 def problem_raw(type, status, title, detail=None, instance=None, headers={}):
     data = problem_detail.json(type, status, title, detail, instance)
@@ -68,8 +68,8 @@ class Response(FlaskResponse):
         body = response
         if isinstance(body, etree._Element):
             body = etree.tostring(body)
-        elif not isinstance(body, (bytes, unicode)):
-            body = unicode(body)
+        elif not isinstance(body, (bytes, str)):
+            body = str(body)
 
         super(Response, self).__init__(
             response=body,
@@ -80,12 +80,12 @@ class Response(FlaskResponse):
             direct_passthrough=direct_passthrough
         )
 
-    def __unicode__(self):
+    def __str__(self):
         """This object can be treated as a string, e.g. in tests.
 
         :return: The entity-body portion of the response.
         """
-        return self.data
+        return self.get_data(as_text=True)
 
     def _headers(self, headers={}):
         """Build an appropriate set of HTTP response headers."""
@@ -107,7 +107,7 @@ class Response(FlaskResponse):
             )
 
             # Explicitly set Expires based on max-age; some clients need this.
-            expires_at = datetime.datetime.utcnow() + datetime.timedelta(
+            expires_at = utc_now() + datetime.timedelta(
                 seconds=self.max_age
             )
             headers['Expires'] = format_date_time(

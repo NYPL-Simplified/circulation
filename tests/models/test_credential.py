@@ -2,6 +2,7 @@
 import pytest
 import datetime
 from sqlalchemy.exc import IntegrityError
+
 from ...testing import DatabaseTest
 from ...model.credential import (
     Credential,
@@ -9,6 +10,7 @@ from ...model.credential import (
     DRMDeviceIdentifier,
 )
 from ...model.datasource import DataSource
+from ...util.datetime_helpers import utc_now
 
 class TestCredentials(DatabaseTest):
 
@@ -18,7 +20,7 @@ class TestCredentials(DatabaseTest):
         duration = datetime.timedelta(hours=1)
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)
         patron = self._patron()
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         expect_expires = now + duration
         token, is_new = Credential.temporary_token_create(
             self._db, data_source, "some random type", patron, duration)

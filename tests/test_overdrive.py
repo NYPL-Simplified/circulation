@@ -182,7 +182,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         self.api.queue_response(200, content="some content")
         status_code, headers, content = self.api.get(self._url, {})
         assert 200 == status_code
-        assert "some content" == content
+        assert b"some content" == content
 
     def test_failure_to_get_library_is_fatal(self):
         self.api.queue_response(500)
@@ -196,7 +196,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
             """This Overdrive client has valid credentials but the library
             can't be found -- probably because the library ID is wrong."""
             def get_library(self):
-                return {u'errorCode': u'Some error', u'message': u'Some message.', u'token': u'abc-def-ghi'}
+                return {'errorCode': 'Some error', 'message': 'Some message.', 'token': 'abc-def-ghi'}
 
         # Just instantiating the API doesn't cause this error.
         api = MisconfiguredOverdriveAPI(self._db, self.collection)
@@ -226,7 +226,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         status_code, headers, content = self.api.get(self._url, {})
 
         assert 200 == status_code
-        assert "at last, the content" == content
+        assert b"at last, the content" == content
 
         # The bearer token has been updated.
         assert "new bearer token" == self.api.token
@@ -476,7 +476,7 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         assert 31 == metadata.published.day
 
         [author] = metadata.contributors
-        assert u"Rüping, Andreas" == author.sort_name
+        assert "Rüping, Andreas" == author.sort_name
         assert "Andreas R&#252;ping" == author.display_name
         assert [Contributor.AUTHOR_ROLE] == author.roles
 
@@ -609,7 +609,7 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
             [x.identifier for x in metadata.subjects
              if x.type==Subject.GRADE_LEVEL]
         )
-        assert ([u'Grade 4', u'Grade 5', u'Grade 6', u'Grade 7', u'Grade 8'] ==
+        assert (['Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8'] ==
             grade_levels)
 
     def test_book_info_with_awards(self):
@@ -832,8 +832,8 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         assert 0 == pool.licenses_owned
         [lpdm1, lpdm2] = pool.delivery_mechanisms
         names = [x.delivery_mechanism.name for x in pool.delivery_mechanisms]
-        assert sorted([u'application/pdf (application/vnd.adobe.adept+xml)',
-                    u'Kindle via Amazon (Kindle DRM)']) == sorted(names)
+        assert sorted(['application/pdf (application/vnd.adobe.adept+xml)',
+                    'Kindle via Amazon (Kindle DRM)']) == sorted(names)
 
         # A Work was created and made presentation ready.
         assert "Agile Documentation" == pool.work.title

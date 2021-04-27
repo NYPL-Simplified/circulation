@@ -1,8 +1,7 @@
 import functools
 import logging
-import urllib
 from contextlib import contextmanager
-from urlparse import urlsplit
+from urllib.parse import quote, urlsplit, unquote_plus
 
 import boto3
 import botocore
@@ -13,12 +12,14 @@ from botocore.exceptions import (
 )
 from enum import Enum
 from flask_babel import lazy_gettext as _
-
-from mirror import MirrorUploader
-from model import ExternalIntegration
-from model.configuration import ConfigurationOption, ConfigurationGrouping, ConfigurationMetadata, \
+from .mirror import MirrorUploader
+from .model import ExternalIntegration
+from .model.configuration import (
+    ConfigurationOption,
+    ConfigurationGrouping,
+    ConfigurationMetadata,
     ConfigurationAttributeType
-
+)
 
 class MultipartS3Upload():
     def __init__(self, uploader, representation, mirror_to):
@@ -103,29 +104,29 @@ class S3AddressingStyle(Enum):
 
 
 class S3UploaderConfiguration(ConfigurationGrouping):
-    S3_REGION = u's3_region'
-    S3_DEFAULT_REGION = u'us-east-1'
+    S3_REGION = 's3_region'
+    S3_DEFAULT_REGION = 'us-east-1'
 
-    S3_ADDRESSING_STYLE = u's3_addressing_style'
+    S3_ADDRESSING_STYLE = 's3_addressing_style'
     S3_DEFAULT_ADDRESSING_STYLE = S3AddressingStyle.VIRTUAL.value
 
-    S3_PRESIGNED_URL_EXPIRATION = u's3_presigned_url_expiration'
+    S3_PRESIGNED_URL_EXPIRATION = 's3_presigned_url_expiration'
     S3_DEFAULT_PRESIGNED_URL_EXPIRATION = 3600
 
-    BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
-    OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
-    PROTECTED_CONTENT_BUCKET_KEY = u'protected_content_bucket'
-    MARC_BUCKET_KEY = u'marc_bucket'
+    BOOK_COVERS_BUCKET_KEY = 'book_covers_bucket'
+    OA_CONTENT_BUCKET_KEY = 'open_access_content_bucket'
+    PROTECTED_CONTENT_BUCKET_KEY = 'protected_content_bucket'
+    MARC_BUCKET_KEY = 'marc_bucket'
 
-    URL_TEMPLATE_KEY = u'bucket_name_transform'
-    URL_TEMPLATE_HTTP = u'http'
-    URL_TEMPLATE_HTTPS = u'https'
-    URL_TEMPLATE_DEFAULT = u'identity'
+    URL_TEMPLATE_KEY = 'bucket_name_transform'
+    URL_TEMPLATE_HTTP = 'http'
+    URL_TEMPLATE_HTTPS = 'https'
+    URL_TEMPLATE_DEFAULT = 'identity'
 
     URL_TEMPLATES_BY_TEMPLATE = {
-        URL_TEMPLATE_HTTP: u'http://%(bucket)s/%(key)s',
-        URL_TEMPLATE_HTTPS: u'https://%(bucket)s/%(key)s',
-        URL_TEMPLATE_DEFAULT: u'https://%(bucket)s.s3.%(region)s/%(key)s'
+        URL_TEMPLATE_HTTP: 'http://%(bucket)s/%(key)s',
+        URL_TEMPLATE_HTTPS: 'https://%(bucket)s/%(key)s',
+        URL_TEMPLATE_DEFAULT: 'https://%(bucket)s.s3.%(region)s/%(key)s'
     }
 
     access_key = ConfigurationMetadata(
@@ -417,6 +418,8 @@ class S3Uploader(MirrorUploader):
             # This is a list of key components that need to be quoted
             # and assembled.
             path = self.key_join(path, encode=custom_url)
+        if isinstance(path, bytes):
+            path = path.decode("utf-8")
         if path.startswith('/'):
             path = path[1:]
 
@@ -469,27 +472,22 @@ class S3Uploader(MirrorUploader):
         :param key: Either a key, or a list of parts to be
                     assembled into a key.
 
-        :return: A bytestring that can be used as an S3 key.
-
-        TODO PYTHON3 This is rewritten to return a Unicode string.
+        :return: A string that can be used as an S3 key.
         """
-        if isinstance(key, basestring):
+        if isinstance(key, str):
             parts = key.split('/')
         else:
             parts = key
         new_parts = []
+
         for part in parts:
-            if isinstance(part, unicode):
-                part = part.encode("utf-8")
-            else:
-                part = str(part)
-
+            if isinstance(part, bytes):
+                part = part.decode("utf-8")
             if encode:
-                part = urllib.quote(part)
-
+                part = quote(str(part))
             new_parts.append(part)
 
-        return b'/'.join(new_parts)
+        return '/'.join(new_parts)
 
     def book_url(self, identifier, extension='.epub', open_access=True,
                  data_source=None, title=None):
@@ -580,7 +578,7 @@ class S3Uploader(MirrorUploader):
             filename = path[1:]
 
         if unquote:
-            filename = urllib.unquote_plus(filename)
+            filename = unquote_plus(filename)
 
         return bucket, filename
 
@@ -646,7 +644,7 @@ class S3Uploader(MirrorUploader):
                              source, representation.mirror_url)
             else:
                 logging.info("MIRRORED %s", representation.mirror_url)
-        except (BotoCoreError, ClientError), e:
+        except (BotoCoreError, ClientError) as e:
             # BotoCoreError happens when there's a problem with
             # the network transport. ClientError happens when
             # there's a problem with the credentials. Either way,
@@ -665,10 +663,10 @@ class S3Uploader(MirrorUploader):
         try:
             yield upload
             upload.complete()
-        except Exception, e:
+        except Exception as e:
             logging.error("Multipart upload of %s failed: %r", mirror_to, e, exc_info=e)
             upload.abort()
-            representation.mirror_exception = unicode(e)
+            representation.mirror_exception = str(e)
 
 
 # MirrorUploader.implementation will instantiate an S3Uploader

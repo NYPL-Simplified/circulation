@@ -1,5 +1,7 @@
 # encoding: utf-8
-import datetime
+import pytest
+from pdb import set_trace
+
 from ...testing import DatabaseTest
 from ...model import get_one_or_create
 from ...model.coverage import WorkCoverageRecord
@@ -8,7 +10,7 @@ from ...model.customlist import (
     CustomListEntry,
 )
 from ...model.datasource import DataSource
-import pytest
+from ...util.datetime_helpers import utc_now
 
 class TestCustomList(DatabaseTest):
 
@@ -54,7 +56,7 @@ class TestCustomList(DatabaseTest):
 
     def test_add_entry(self):
         custom_list = self._customlist(num_entries=0)[0]
-        now = datetime.datetime.utcnow()
+        now = utc_now()
 
         # An edition without a work can create an entry.
         workless_edition = self._edition()
@@ -99,7 +101,7 @@ class TestCustomList(DatabaseTest):
         annotated_entry = custom_list.add_entry(
             annotated_edition, annotation="Sure, this is a good book."
         )[0]
-        assert u"Sure, this is a good book." == annotated_entry.annotation
+        assert "Sure, this is a good book." == annotated_entry.annotation
         assert 4 == custom_list.size
 
         # A first_appearance time can be passed to an entry.
@@ -121,7 +123,7 @@ class TestCustomList(DatabaseTest):
 
         # If the entry already exists, the most_recent_appearance can be
         # updated by passing in a later first_appearance.
-        later = datetime.datetime.utcnow()
+        later = utc_now()
         new_timed_entry = custom_list.add_entry(timed_edition, first_appearance=later)[0]
         assert timed_entry == new_timed_entry
         assert now == new_timed_entry.first_appearance
@@ -265,7 +267,7 @@ class TestCustomList(DatabaseTest):
     def test_remove_entry(self):
         custom_list, editions = self._customlist(num_entries=3)
         [first, second, third] = editions
-        now = datetime.datetime.utcnow()
+        now = utc_now()
 
         # An entry is removed if its edition is passed in.
         first.work.coverage_records = []
@@ -398,12 +400,12 @@ class TestCustomListEntry(DatabaseTest):
         custom_list, [edition] = self._customlist(entries_exist_as_works=False)
         identifier = edition.primary_identifier
         [entry] = custom_list.entries
-        entry_attributes = vars(entry).values()
+        entry_attributes = list(vars(entry).values())
         created = entry.first_appearance
 
         # Running update without entries or forcing doesn't change the entry.
         entry.update(self._db)
-        assert entry_attributes == vars(entry).values()
+        assert entry_attributes == list(vars(entry).values())
 
         # Trying to update an entry with entries from a different
         # CustomList is a no-go.
@@ -441,7 +443,7 @@ class TestCustomListEntry(DatabaseTest):
         # But the most recent appearance is of the entry created last.
         assert equivalent_entry.most_recent_appearance == entry.most_recent_appearance
         # Annotations are shared.
-        assert u"Whoo, go books!" == entry.annotation
+        assert "Whoo, go books!" == entry.annotation
         # The Edition and LicensePool are updated to have a Work.
         assert entry.edition == work.presentation_edition
         assert entry.work == equivalent.work

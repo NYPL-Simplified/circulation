@@ -42,7 +42,7 @@ class TestHTTP(object):
             "http://url/", fake_200_response, "GET", kwarg="value"
         )
         assert 200 == response.status_code
-        assert "Success!" == response.content
+        assert b"Success!" == response.content
 
     def test_request_with_timeout_failure(self):
 
@@ -122,7 +122,8 @@ class TestHTTP(object):
         try:
             m(url, fake_200_response,
               disallowed_response_codes=["2xx"])
-        except Exception, exc:
+        except Exception as e:
+            exc = e
             pass
         assert exc is not None
 
@@ -158,8 +159,8 @@ class TestHTTP(object):
         url = "http://foo"
         response = HTTP._request_with_timeout(
             url, generator.response, "POST",
-            headers = { u"unicode header": u"unicode value"},
-            data=u"unicode data"
+            headers = { "unicode header": "unicode value"},
+            data="unicode data"
         )
         [(args, kwargs)] = generator.requests
         url, method = args
@@ -168,7 +169,7 @@ class TestHTTP(object):
 
         # All the Unicode data was converted to bytes before being sent
         # "over the wire".
-        for k,v in headers.items():
+        for k,v in list(headers.items()):
             assert isinstance(k, bytes)
             assert isinstance(v, bytes)
         assert isinstance(data, bytes)
@@ -214,7 +215,7 @@ class TestHTTP(object):
         problem = m("url", error)
         assert isinstance(problem, ProblemDetail)
         assert INTEGRATION_ERROR.uri == problem.uri
-        assert (u"Remote service returned a problem detail document: %r" % content ==
+        assert ("Remote service returned a problem detail document: %r" % content ==
             problem.detail)
         assert content == problem.debug_message
         # You can force a response to be treated as successful by
@@ -231,8 +232,8 @@ class TestRemoteIntegrationException(object):
         name.
         """
         exc = RemoteIntegrationException(
-            u"Unreliable Service",
-            u"I just can't handle your request right now."
+            "Unreliable Service",
+            "I just can't handle your request right now."
         )
 
         # Since only the service name is provided, there are no details to
@@ -241,7 +242,7 @@ class TestRemoteIntegrationException(object):
         other_detail = exc.document_detail(debug=False)
         assert debug_detail == other_detail
 
-        assert (u'The server tried to access Unreliable Service but the third-party service experienced an error.' ==
+        assert ('The server tried to access Unreliable Service but the third-party service experienced an error.' ==
             debug_detail)
 
 class TestBadResponseException(object):
@@ -260,8 +261,9 @@ class TestBadResponseException(object):
         assert 'Bad response' == doc['title']
         assert 'The server made a request to http://url/, and got an unexpected or invalid response.' == doc['detail']
         assert (
-            u'Bad response from http://url/: Terrible response, just terrible\n\nStatus code: 102\nContent: nonsense' ==
-            doc['debug_message'])
+            'Bad response from http://url/: Terrible response, just terrible\n\nStatus code: 102\nContent: nonsense' ==
+            doc['debug_message']
+        )
 
         # Unless debug is turned off, in which case none of that
         # information is present.

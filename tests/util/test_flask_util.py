@@ -5,12 +5,14 @@ import datetime
 import time
 from flask import Response as FlaskResponse
 from wsgiref.handlers import format_date_time
+
 from ...util.flask_util import (
     OPDSEntryResponse,
     OPDSFeedResponse,
     Response,
 )
 from ...util.opds_writer import OPDSFeed
+from ...util.datetime_helpers import utc_now
 
 class TestResponse(object):
 
@@ -22,7 +24,7 @@ class TestResponse(object):
         assert 1002 == response.max_age
         assert isinstance(response, FlaskResponse)
         assert 401 == response.status_code
-        assert "content" == response.data
+        assert "content" == str(response)
         assert True == response.direct_passthrough
 
         # Response.headers is tested in more detail below.
@@ -57,7 +59,7 @@ class TestResponse(object):
 
         # We expect the Expires header to look basically like this.
         expect_expires = (
-            datetime.datetime.utcnow() + datetime.timedelta(seconds=max_age)
+            utc_now() + datetime.timedelta(seconds=max_age)
         )
         expect_expires_string = format_date_time(
             time.mktime(expect_expires.timetuple())
@@ -80,8 +82,8 @@ class TestResponse(object):
     def test_unicode(self):
         # You can easily convert a Response object to Unicode
         # for use in a test.
-        obj = Response(u"some data")
-        assert u"some data" == unicode(obj)
+        obj = Response("some data")
+        assert "some data" == str(obj)
 
 
 class TestOPDSFeedResponse(object):

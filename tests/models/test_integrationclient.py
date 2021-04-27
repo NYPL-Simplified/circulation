@@ -1,10 +1,10 @@
 # encoding: utf-8
 import datetime
-
 import pytest
 
 from ...testing import DatabaseTest
 from ...model.integrationclient import IntegrationClient
+from ...util.datetime_helpers import utc_now
 
 class TestIntegrationClient(DatabaseTest):
 
@@ -13,7 +13,7 @@ class TestIntegrationClient(DatabaseTest):
         self.client = self._integration_client()
 
     def test_for_url(self):
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         url = self._url
         client, is_new = IntegrationClient.for_url(self._db, url)
 
@@ -37,7 +37,7 @@ class TestIntegrationClient(DatabaseTest):
         assert client == client2
 
     def test_register(self):
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         client, is_new = IntegrationClient.register(self._db, self._url)
 
         # It creates a shared_secret.
@@ -55,10 +55,10 @@ class TestIntegrationClient(DatabaseTest):
 
     def test_authenticate(self):
 
-        result = IntegrationClient.authenticate(self._db, u"secret")
+        result = IntegrationClient.authenticate(self._db, "secret")
         assert self.client == result
 
-        result = IntegrationClient.authenticate(self._db, u"wrong_secret")
+        result = IntegrationClient.authenticate(self._db, "wrong_secret")
         assert None == result
 
     def test_normalize_url(self):

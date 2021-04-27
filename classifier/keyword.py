@@ -1322,7 +1322,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         matches = Counter()
         match_against = [name]
         for l in [cls.LEVEL_3_KEYWORDS, cls.LEVEL_2_KEYWORDS, cls.CATCHALL_KEYWORDS]:
-            for genre, keywords in l.items():
+            for genre, keywords in list(l.items()):
                 if genre and fiction is not None and genre.is_fiction != fiction:
                     continue
                 if (genre and audience and genre.audience_restriction
@@ -1353,7 +1353,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         genre = cls.genre(None, query, exclude_examples=True)
         if genre:
             for kwlist in [cls.LEVEL_3_KEYWORDS, cls.LEVEL_2_KEYWORDS, cls.CATCHALL_KEYWORDS]:
-                if genre in kwlist.keys():
+                if genre in list(kwlist.keys()):
                     genre_keywords = kwlist[genre]
                     match = genre_keywords["search"](query, exclude_examples=True)
                     if match:

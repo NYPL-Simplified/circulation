@@ -13,7 +13,7 @@ class TestContributor(DatabaseTest):
         that's important enough we gave it a constant in the Contributor
         class.
         """
-        for constant, value in Contributor.__dict__.items():
+        for constant, value in list(Contributor.__dict__.items()):
             if not constant.endswith('_ROLE'):
                 # Not a constant.
                 continue
@@ -58,47 +58,47 @@ class TestContributor(DatabaseTest):
     def test_lookup_by_name(self):
 
         # Two contributors named Bob.
-        bob1, new = Contributor.lookup(self._db, sort_name=u"Bob", lc=u"foo")
-        bob2, new = Contributor.lookup(self._db, sort_name=u"Bob", lc=u"bar")
+        bob1, new = Contributor.lookup(self._db, sort_name="Bob", lc="foo")
+        bob2, new = Contributor.lookup(self._db, sort_name="Bob", lc="bar")
 
         # Lookup by name finds both of them.
-        bobs, new = Contributor.lookup(self._db, sort_name=u"Bob")
+        bobs, new = Contributor.lookup(self._db, sort_name="Bob")
         assert False == new
         assert ["Bob", "Bob"] == [x.sort_name for x in bobs]
 
     def test_create_by_lookup(self):
-        [bob1], new = Contributor.lookup(self._db, sort_name=u"Bob")
+        [bob1], new = Contributor.lookup(self._db, sort_name="Bob")
         assert "Bob" == bob1.sort_name
         assert True == new
 
-        [bob2], new = Contributor.lookup(self._db, sort_name=u"Bob")
+        [bob2], new = Contributor.lookup(self._db, sort_name="Bob")
         assert bob1 == bob2
         assert False == new
 
     def test_merge(self):
 
         # Here's Robert.
-        [robert], ignore = Contributor.lookup(self._db, sort_name=u"Robert")
+        [robert], ignore = Contributor.lookup(self._db, sort_name="Robert")
 
         # Here's Bob.
-        [bob], ignore = Contributor.lookup(self._db, sort_name=u"Jones, Bob")
-        bob.extra[u'foo'] = u'bar'
-        bob.aliases = [u'Bobby']
-        bob.viaf = u'viaf'
-        bob.lc = u'lc'
-        bob.display_name = u"Bob Jones"
-        bob.family_name = u"Bobb"
-        bob.wikipedia_name = u"Bob_(Person)"
+        [bob], ignore = Contributor.lookup(self._db, sort_name="Jones, Bob")
+        bob.extra['foo'] = 'bar'
+        bob.aliases = ['Bobby']
+        bob.viaf = 'viaf'
+        bob.lc = 'lc'
+        bob.display_name = "Bob Jones"
+        bob.family_name = "Bobb"
+        bob.wikipedia_name = "Bob_(Person)"
 
         # Each is a contributor to a Edition.
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
 
         roberts_book, ignore = Edition.for_foreign_id(
-            self._db, data_source, Identifier.GUTENBERG_ID, u"1")
+            self._db, data_source, Identifier.GUTENBERG_ID, "1")
         roberts_book.add_contributor(robert, Contributor.AUTHOR_ROLE)
 
         bobs_book, ignore = Edition.for_foreign_id(
-            self._db, data_source, Identifier.GUTENBERG_ID, u"10")
+            self._db, data_source, Identifier.GUTENBERG_ID, "10")
         bobs_book.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
         # In a shocking turn of events, it transpires that "Bob" and
@@ -108,18 +108,18 @@ class TestContributor(DatabaseTest):
 
         # 'Bob' is now listed as an alias for Robert, as is Bob's
         # alias.
-        assert [u'Jones, Bob', u'Bobby'] == robert.aliases
+        assert ['Jones, Bob', 'Bobby'] == robert.aliases
 
         # The extra information associated with Bob is now associated
         # with Robert.
-        assert u'bar' == robert.extra['foo']
+        assert 'bar' == robert.extra['foo']
 
-        assert u"viaf" == robert.viaf
-        assert u"lc" == robert.lc
-        assert u"Bobb" == robert.family_name
-        assert u"Bob Jones" == robert.display_name
-        assert u"Robert" == robert.sort_name
-        assert u"Bob_(Person)" == robert.wikipedia_name
+        assert "viaf" == robert.viaf
+        assert "lc" == robert.lc
+        assert "Bobb" == robert.family_name
+        assert "Bob Jones" == robert.display_name
+        assert "Robert" == robert.sort_name
+        assert "Bob_(Person)" == robert.wikipedia_name
 
         # The standalone 'Bob' record has been removed from the database.
         assert (
@@ -132,9 +132,9 @@ class TestContributor(DatabaseTest):
 
         # confirm the sort_name is propagated, if not already set in the destination contributor
         robert.sort_name = None
-        [bob], ignore = Contributor.lookup(self._db, sort_name=u"Jones, Bob")
+        [bob], ignore = Contributor.lookup(self._db, sort_name="Jones, Bob")
         bob.merge_into(robert)
-        assert u"Jones, Bob" == robert.sort_name
+        assert "Jones, Bob" == robert.sort_name
 
 
 
@@ -199,5 +199,5 @@ class TestContributor(DatabaseTest):
         assert "Bitshifter, Bob" == bob.sort_name
 
         # test that human name parser doesn't die badly on foreign names
-        bob, ignore = self._contributor(sort_name=u"Боб  Битшифтер")
-        assert u"Битшифтер, Боб" == bob.sort_name
+        bob, ignore = self._contributor(sort_name="Боб  Битшифтер")
+        assert "Битшифтер, Боб" == bob.sort_name

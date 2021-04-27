@@ -4,23 +4,21 @@ import isbnlib
 import os
 import json
 import logging
-import urlparse
-import urllib
+from urllib.parse import urlsplit, quote, urlunsplit
 import sys
-
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
 from sqlalchemy.orm.session import Session
 
-from classifier import Classifier
-from config import (
+from .classifier import Classifier
+from .config import (
     temp_config,
     CannotLoadConfiguration,
     Configuration,
 )
 
-from model import (
+from .model import (
     get_one,
     get_one_or_create,
     Classification,
@@ -41,7 +39,7 @@ from model import (
     Subject,
 )
 
-from metadata_layer import (
+from .metadata_layer import (
     CirculationData,
     ContributorData,
     FormatData,
@@ -52,20 +50,20 @@ from metadata_layer import (
     SubjectData,
 )
 
-from coverage import (
+from .coverage import (
     BibliographicCoverageProvider,
 )
 
-from testing import DatabaseTest
+from .testing import DatabaseTest
 
-from util.http import (
+from .util.http import (
     HTTP,
     BadResponseException,
 )
-from util.string_helpers import base64
-from util.worker_pools import RLock
-
-from testing import MockRequestsResponse
+from .util.string_helpers import base64
+from .util.worker_pools import RLock
+from .util.datetime_helpers import strptime_utc, to_utc, utc_now
+from .testing import MockRequestsResponse
 
 class OverdriveAPI(object):
 
@@ -94,7 +92,7 @@ class OverdriveAPI(object):
     # Authentication and Patron Authentication, but we use the same
     # system as for other hostnames to give a consistent look to the
     # templates.
-    for host in HOSTS.values():
+    for host in list(HOSTS.values()):
         host['oauth_patron_host'] = "https://oauth-patron.overdrive.com"
         host['oauth_host'] = "https://oauth.overdrive.com"
 
@@ -146,14 +144,14 @@ class OverdriveAPI(object):
 
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
-    WEBSITE_ID = u"website_id"
+    WEBSITE_ID = "website_id"
 
     # When associating an Overdrive account with a library, it's
     # necessary to also specify an "ILS name" obtained from
     # Overdrive. Components that don't authenticate patrons (such as
     # the metadata wrangler) don't need to set this value.
-    ILS_NAME_KEY = u"ils_name"
-    ILS_NAME_DEFAULT = u"default"
+    ILS_NAME_KEY = "ils_name"
+    ILS_NAME_DEFAULT = "default"
 
     def __init__(self, _db, collection):
         if collection.protocol != ExternalIntegration.OVERDRIVE:
@@ -358,7 +356,7 @@ class OverdriveAPI(object):
         """Copy Overdrive OAuth data into a Credential object."""
         credential.credential = overdrive_data['access_token']
         expires_in = (overdrive_data['expires_in'] * 0.9)
-        credential.expires = datetime.datetime.utcnow() + datetime.timedelta(
+        credential.expires = utc_now() + datetime.timedelta(
             seconds=expires_in)
 
     @property
@@ -449,7 +447,7 @@ class OverdriveAPI(object):
         """
         # We don't cache this because it changes constantly.
         status_code, headers, content = self.get(link, {})
-        if isinstance(content, basestring):
+        if isinstance(content, str):
             content = json.loads(content)
 
         # Find the link to the next page of results, if any.
@@ -505,7 +503,7 @@ class OverdriveAPI(object):
             item_id=identifier.identifier
         )
         status_code, headers, content = self.get(url, {})
-        if isinstance(content, basestring):
+        if isinstance(content, (bytes, str)):
             content = json.loads(content)
         return content
 
@@ -516,7 +514,7 @@ class OverdriveAPI(object):
             item_id=identifier
         )
         status_code, headers, content = self.get(url, {})
-        if isinstance(content, (bytes, unicode)):
+        if isinstance(content, (bytes, str)):
             content = json.loads(content)
         return OverdriveRepresentationExtractor.book_info_to_metadata(content)
 
@@ -531,8 +529,8 @@ class OverdriveAPI(object):
         The availability part is to make sure we always use v2 of the
         availability API, even if Overdrive sent us a link to v1.
         """
-        parts = list(urlparse.urlsplit(url))
-        parts[2] = urllib.quote(parts[2])
+        parts = list(urlsplit(url))
+        parts[2] = quote(parts[2])
         endings = ("/availability", "/availability/")
         if (parts[2].startswith("/v1/collections/")
             and any(parts[2].endswith(x) for x in endings)):
@@ -545,7 +543,7 @@ class OverdriveAPI(object):
         query_string = query_string.replace("{", "%7B")
         query_string = query_string.replace("}", "%7D")
         parts[3] = query_string
-        return urlparse.urlunsplit(tuple(parts))
+        return urlunsplit(tuple(parts))
 
     def _do_get(self, url, headers):
         """This method is overridden in MockOverdriveAPI."""
@@ -565,8 +563,8 @@ class MockOverdriveAPI(OverdriveAPI):
     @classmethod
     def mock_collection(self, _db, library=None,
                         name="Test Overdrive Collection",
-                        client_key=u"a", client_secret=u"b",
-                        library_id=u"c", website_id="d",
+                        client_key="a", client_secret="b",
+                        library_id="c", website_id="d",
                         ils_name="e",
                         ):
         """Create a mock Overdrive collection for use in tests."""
@@ -968,7 +966,7 @@ class OverdriveRepresentationExtractor(object):
             imprint = book.get('imprint', None)
 
             if 'publishDate' in book:
-                published = datetime.datetime.strptime(
+                published = strptime_utc(
                     book['publishDate'][:10], cls.DATE_FORMAT)
             else:
                 published = None
@@ -1280,7 +1278,7 @@ class OverdriveAdvantageAccount(object):
             parent = Collection.by_protocol(_db, ExternalIntegration.OVERDRIVE).filter(
                 Collection.external_account_id==self.parent_library_id
             ).one()
-        except NoResultFound, e:
+        except NoResultFound as e:
             # Without the parent's credentials we can't access the child.
             raise ValueError(
                 "Cannot create a Collection whose parent does not already exist."

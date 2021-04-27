@@ -7,12 +7,12 @@ import re
 import pytest
 from parameterized import parameterized
 
-from ...util.string_helpers import UnicodeAwareBase64, base64, is_string, random_string
+from ...util.string_helpers import UnicodeAwareBase64, base64, random_string
 
 
 class TestUnicodeAwareBase64(object):
     def test_encoding(self):
-        string = u"םולש"
+        string = "םולש"
 
         # Run the same tests against two different encodings that can
         # handle Hebrew characters.
@@ -38,7 +38,7 @@ class TestUnicodeAwareBase64(object):
             ('b64encode', 'b64decode'),
             ('standard_b64encode', 'standard_b64decode'),
             ('urlsafe_b64encode', 'urlsafe_b64decode'),
-            ('encodestring', 'decodestring')
+            ('encodebytes', 'decodebytes')
         ]:
             encode_method = getattr(base64, encode)
             decode_method = getattr(base64, decode)
@@ -68,7 +68,7 @@ class TestUnicodeAwareBase64(object):
         # UnicodeAwareBase64 object that encodes as UTF-8 by default.
         assert isinstance(base64, UnicodeAwareBase64)
         assert "utf8" == base64.encoding
-        snowman = u"☃"
+        snowman = "☃"
         snowman_utf8 = snowman.encode("utf8")
         as_base64 = base64.b64encode(snowman)
         assert "4piD" == as_base64
@@ -95,7 +95,7 @@ class TestRandomString(object):
             x = m(size)
 
             # The strings are Unicode strings, not bytestrings
-            assert isinstance(x, unicode)
+            assert isinstance(x, str)
 
             # The strings are entirely composed of lowercase hex digits.
             assert None == re.compile("[^a-f0-9]").search(x)
@@ -103,17 +103,3 @@ class TestRandomString(object):
             # Each byte is represented as two digits, so the length of the
             # string is twice the length passed in to the function.
             assert size * 2 == len(x)
-
-
-class TestIsString(object):
-    @parameterized.expand(
-        [
-            ("byte_string", "test", True),
-            ("unicode_string", u"test", True),
-            ("not_string", 1, False),
-        ]
-    )
-    def test_is_string(self, _, value, expected_result):
-        result = is_string(value)
-
-        assert expected_result == result

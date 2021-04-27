@@ -14,6 +14,7 @@ from ...model.configuration import ConfigurationSetting
 from ...opds import AcquisitionFeed
 from ...util.flask_util import OPDSFeedResponse
 from ...util.opds_writer import OPDSFeed
+from ...util.datetime_helpers import utc_now
 
 class MockFeedGenerator(object):
 
@@ -22,7 +23,7 @@ class MockFeedGenerator(object):
 
     def __call__(self):
         self.calls.append(object())
-        return b"This is feed #%d" % len(self.calls)
+        return "This is feed #%d" % len(self.calls)
 
 
 class TestCachedFeed(DatabaseTest):
@@ -53,8 +54,8 @@ class TestCachedFeed(DatabaseTest):
                 work=work,
                 lane_id=lane.id,
                 unique_key="unique key",
-                facets_key=u'facets',
-                pagination_key=u'pagination',
+                facets_key='facets',
+                pagination_key='pagination',
             )
 
             @classmethod
@@ -92,14 +93,14 @@ class TestCachedFeed(DatabaseTest):
             self._db, worklist, facets, pagination, refresher, max_age,
             raw=True
         )
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         assert isinstance(result1, CachedFeed)
 
         # The content of the CachedFeed comes from refresher(). It was
         # converted to Unicode. (Verifying the unicode() call may seem
         # like a small thing, but it means a refresher method can
         # return an OPDSFeed object.)
-        assert u"This is feed #1" == result1.content
+        assert "This is feed #1" == result1.content
 
         # The timestamp is recent.
         timestamp1 = result1.timestamp
@@ -111,8 +112,8 @@ class TestCachedFeed(DatabaseTest):
         assert k.feed_type == result1.type
         assert k.lane_id == result1.lane_id
         assert k.unique_key == result1.unique_key
-        assert unicode(k.facets_key) == result1.facets
-        assert unicode(k.pagination_key) == result1.pagination
+        assert str(k.facets_key) == result1.facets
+        assert str(k.pagination_key) == result1.pagination
 
         # Now let's verify that the helper methods were called with the
         # right arguments.
@@ -250,7 +251,7 @@ class TestCachedFeed(DatabaseTest):
         #
         # Here, the other thread wins by setting .timestamp on the
         # existing CachedFeed to a date in the future.
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         tomorrow = now + datetime.timedelta(days=1)
         yesterday = now - datetime.timedelta(days=1)
         def tomorrow_vs_now():
@@ -300,7 +301,7 @@ class TestCachedFeed(DatabaseTest):
             self._db, wl, facets, pagination, timestamp_cleared_in_background,
             0, raw=True
         )
-        now = datetime.datetime.utcnow()
+        now = utc_now()
 
         # result2 is a brand new CachedFeed.
         assert result2 != result
@@ -322,7 +323,7 @@ class TestCachedFeed(DatabaseTest):
             self._db, wl, facets, pagination, content_cleared_in_background, 0,
             raw=True
         )
-        now = datetime.datetime.utcnow()
+        now = utc_now()
 
         # Again, a brand new CachedFeed.
         assert result3 != result2
@@ -357,7 +358,7 @@ class TestCachedFeed(DatabaseTest):
         assert 200 == r.status_code
         assert OPDSFeed.ACQUISITION_FEED_TYPE == r.content_type
         assert 102 == r.max_age
-        assert "Here's a feed." == r.data
+        assert "Here's a feed." == str(r)
 
         # The extra argument `private`, not used by CachedFeed.fetch, was
         # passed on to the OPDSFeedResponse constructor.
@@ -376,7 +377,7 @@ class TestCachedFeed(DatabaseTest):
         assert 200 == r.status_code
         assert OPDSFeed.ACQUISITION_FEED_TYPE == r.content_type
         assert 102 == r.max_age
-        assert "Here's a feed." == r.data
+        assert "Here's a feed." == str(r)
 
         # If we tell CachedFeed to cache its feed 'forever', that only
         # applies to the _database_ cache. The client is told to cache
@@ -499,14 +500,14 @@ class TestCachedFeed(DatabaseTest):
         assert None == keys.work
         assert lane.id == keys.lane_id
         assert None == keys.unique_key
-        assert u'' == keys.facets_key
-        assert u'' == keys.pagination_key
+        assert '' == keys.facets_key
+        assert '' == keys.pagination_key
 
         # When pagination and/or facets are available, facets_key and
         # pagination_key are set appropriately.
         keys = m(self._db, lane, MockFacets, MockPagination)
-        assert u"facets query string" == keys.facets_key
-        assert u"pagination query string" == keys.pagination_key
+        assert "facets query string" == keys.facets_key
+        assert "pagination query string" == keys.pagination_key
 
         # Now we can check that feed_type was obtained by passing
         # `worklist` and `facets` into MockCachedFeed.feed_type.
@@ -528,8 +529,8 @@ class TestCachedFeed(DatabaseTest):
         assert None == keys.lane_id
         assert "wl-eng,spa-Children" == keys.unique_key
         assert keys.unique_key == worklist.unique_key
-        assert u'' == keys.facets_key
-        assert u'' == keys.pagination_key
+        assert '' == keys.facets_key
+        assert '' == keys.pagination_key
 
         # When a WorkList is associated with a specific .work,
         # that information is included as keys.work.
@@ -549,7 +550,7 @@ class TestCachedFeed(DatabaseTest):
             def __init__(self, timestamp):
                 self.timestamp = timestamp
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
 
         # This feed was generated five minutes ago.
         five_minutes_old = MockCachedFeed(
@@ -582,7 +583,7 @@ class TestCachedFeed(DatabaseTest):
     def test_lifecycle_with_lane(self):
         facets = Facets.default(self._default_library)
         pagination = Pagination.default()
-        lane = self._lane(u"My Lane", languages=['eng','chi'])
+        lane = self._lane("My Lane", languages=['eng','chi'])
 
         # Fetch a cached feed from the database. It comes out updated.
         refresher = MockFeedGenerator()

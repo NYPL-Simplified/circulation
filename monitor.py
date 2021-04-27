@@ -1,17 +1,16 @@
 import datetime
 import logging
 import traceback
-
 from sqlalchemy.orm import defer
 from sqlalchemy.sql.expression import (
     and_,
     or_,
 )
 
-import log # This sets the appropriate log format and level.
-from config import Configuration
-from metadata_layer import TimestampData
-from model import (
+from . import log # This sets the appropriate log format and level.
+from .config import Configuration
+from .metadata_layer import TimestampData
+from .model import (
     CachedFeed,
     CirculationEvent,
     Collection,
@@ -31,7 +30,8 @@ from model import (
     get_one,
     get_one_or_create,
 )
-from model.configuration import ConfigurationSetting
+from .model.configuration import ConfigurationSetting
+from .util.datetime_helpers import utc_now
 
 
 class CollectionMonitorLogger(logging.LoggerAdapter):
@@ -98,7 +98,7 @@ class Monitor(object):
         default_start_time = cls.DEFAULT_START_TIME
         if isinstance(default_start_time, datetime.timedelta):
             default_start_time = (
-                datetime.datetime.utcnow() - default_start_time
+                utc_now() - default_start_time
             )
         self.default_start_time = default_start_time
         self.default_counter = cls.DEFAULT_COUNTER
@@ -137,7 +137,7 @@ class Monitor(object):
             return None
         if self.default_start_time:
             return self.default_start_time
-        return datetime.datetime.utcnow()
+        return utc_now()
 
     def timestamp(self):
         """Find or create a Timestamp for this Monitor.
@@ -172,13 +172,13 @@ class Monitor(object):
         timestamp_obj = self.timestamp()
         progress = timestamp_obj.to_data()
 
-        this_run_start = datetime.datetime.utcnow()
+        this_run_start = utc_now()
         exception = None
 
         ignorable = (None, TimestampData.CLEAR_VALUE)
         try:
             new_timestamp = self.run_once(progress)
-            this_run_finish = datetime.datetime.utcnow()
+            this_run_finish = utc_now()
             if new_timestamp is None:
                 # Assume this Monitor has no special needs surrounding
                 # its timestamp.
@@ -205,7 +205,7 @@ class Monitor(object):
                 # exception, below.
                 exception = new_timestamp.exception
         except Exception:
-            this_run_finish = datetime.datetime.utcnow()
+            this_run_finish = utc_now()
             self.log.exception(
                 "Error running %s monitor. Timestamp will not be updated.",
                 self.service_name
@@ -266,7 +266,7 @@ class TimelineMonitor(Monitor):
             start = self.initial_start_time
         else:
             start = progress.finish - self.OVERLAP
-        cutoff = datetime.datetime.utcnow()
+        cutoff = utc_now()
         self.catch_up_from(start, cutoff, progress)
 
         if progress.is_failure:
@@ -399,8 +399,7 @@ class CollectionMonitor(Monitor):
                         [c.name for c in collections_for_protocol]
                     )
                     e.args += (additional_info,)
-                    e.message += '\n' + additional_info
-                    raise
+                    raise ValueError(str(e) + '\n' + additional_info)
         else:
             collections = collections_for_protocol.order_by(
                 Timestamp.start.asc().nullsfirst()
@@ -454,16 +453,16 @@ class SweepMonitor(CollectionMonitor):
         # since a certain time -- so we're going to make sure the
         # timestamp is set from the start of the run to the end of the
         # last _successful_ batch.
-        run_started_at = datetime.datetime.utcnow()
+        run_started_at = utc_now()
         timestamp.start = run_started_at
 
         total_processed = 0
         while True:
             old_offset = offset
-            batch_started_at = datetime.datetime.utcnow()
+            batch_started_at = utc_now()
             new_offset, batch_size = self.process_batch(offset)
             total_processed += batch_size
-            batch_ended_at = datetime.datetime.utcnow()
+            batch_ended_at = utc_now()
 
             self.log.debug(
                 "%s monitor went from offset %s to %s in %.2f sec",
@@ -711,13 +710,13 @@ class MakePresentationReadyMonitor(NotPresentationReadyWorkSweepMonitor):
 
         try:
             self.prepare(work)
-        except CoverageProvidersFailed, e:
+        except CoverageProvidersFailed as e:
             exception = "Provider(s) failed: %s" % e
-        except Exception, e:
+        except Exception as e:
             self.log.error(
                 "Exception processing work %r", work, exc_info=e
             )
-            exception = unicode(e)
+            exception = str(e)
 
         if exception:
             # Unlike with most Monitors, an exception is not a good
@@ -822,7 +821,7 @@ class ReaperMonitor(Monitor):
             max_age = self.MAX_AGE
         else:
             max_age = datetime.timedelta(days=self.MAX_AGE)
-        return datetime.datetime.utcnow() - max_age
+        return utc_now() - max_age
 
     @property
     def timestamp_field(self):
@@ -897,7 +896,7 @@ class WorkReaper(ReaperMonitor):
     MODEL_CLASS = Work
 
     def __init__(self, *args, **kwargs):
-        from external_search import ExternalSearchIndex
+        from .external_search import ExternalSearchIndex
         search_index_client = kwargs.pop('search_index_client', None)
         super(WorkReaper, self).__init__(*args, **kwargs)
         self.search_index_client = (
@@ -956,7 +955,7 @@ class MeasurementReaper(ReaperMonitor):
     def run_once(self, *args, **kwargs):
         rows_deleted = self.query().delete()
         self._db.commit()
-        return TimestampData(achievements=u"Items deleted: %d" % rows_deleted)
+        return TimestampData(achievements="Items deleted: %d" % rows_deleted)
 
 ReaperMonitor.REGISTRY.append(MeasurementReaper)
 

@@ -17,7 +17,7 @@ import json
 import os
 import pkgutil
 import re
-import urllib
+from urllib.parse import urlparse
 from collections import (
     Counter,
     defaultdict,
@@ -32,12 +32,7 @@ resource_dir = os.path.join(base_dir, "..", "resources")
 NO_VALUE = "NONE"
 NO_NUMBER = -1
 
-class Classifier(object):
-
-    """Turn an external classification into an internal genre, an
-    audience, an age level, and a fiction status.
-    """
-
+class ClassifierConstants(object):
     DDC = "DDC"
     LCC = "LCC"
     LCSH = "LCSH"
@@ -91,12 +86,18 @@ class Classifier(object):
     AUDIENCES_ADULT = [AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY, AUDIENCE_ALL_AGES]
     AUDIENCES = set([AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY, AUDIENCE_YOUNG_ADULT,
                      AUDIENCE_CHILDREN, AUDIENCE_ALL_AGES, AUDIENCE_RESEARCH])
-    AUDIENCES_NO_RESEARCH = [
-        x for x in AUDIENCES if x != AUDIENCE_RESEARCH
-    ]
 
     SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
     SIMPLIFIED_FICTION_STATUS = "http://librarysimplified.org/terms/fiction/"
+
+class Classifier(ClassifierConstants):
+    """Turn an external classification into an internal genre, an
+    audience, an age level, and a fiction status.
+    """
+
+    AUDIENCES_NO_RESEARCH = [
+        x for x in ClassifierConstants.AUDIENCES if x != ClassifierConstants.AUDIENCE_RESEARCH
+    ]
 
     classifiers = dict()
 
@@ -570,170 +571,170 @@ class AgeClassifier(Classifier):
 # name of the genre, and the 'subgenres' argument is the list of the
 # subgenres.
 
-COMICS_AND_GRAPHIC_NOVELS = u"Comics & Graphic Novels"
+COMICS_AND_GRAPHIC_NOVELS = "Comics & Graphic Novels"
 
 fiction_genres = [
-    u"Adventure",
-    u"Classics",
+    "Adventure",
+    "Classics",
     COMICS_AND_GRAPHIC_NOVELS,
-    u"Drama",
-    dict(name=u"Erotica", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
-    dict(name=u"Fantasy", subgenres=[
-        u"Epic Fantasy",
-        u"Historical Fantasy",
-        u"Urban Fantasy",
+    "Drama",
+    dict(name="Erotica", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
+    dict(name="Fantasy", subgenres=[
+        "Epic Fantasy",
+        "Historical Fantasy",
+        "Urban Fantasy",
     ]),
-    u"Folklore",
-    u"Historical Fiction",
-    dict(name=u"Horror", subgenres=[
-        u"Gothic Horror",
-        u"Ghost Stories",
-        u"Vampires",
-        u"Werewolves",
-        u"Occult Horror",
+    "Folklore",
+    "Historical Fiction",
+    dict(name="Horror", subgenres=[
+        "Gothic Horror",
+        "Ghost Stories",
+        "Vampires",
+        "Werewolves",
+        "Occult Horror",
     ]),
-    u"Humorous Fiction",
-    u"Literary Fiction",
-    u"LGBTQ Fiction",
-    dict(name=u"Mystery", subgenres=[
-        u"Crime & Detective Stories",
-        u"Hard-Boiled Mystery",
-        u"Police Procedural",
-        u"Cozy Mystery",
-        u"Historical Mystery",
-        u"Paranormal Mystery",
-        u"Women Detectives",
+    "Humorous Fiction",
+    "Literary Fiction",
+    "LGBTQ Fiction",
+    dict(name="Mystery", subgenres=[
+        "Crime & Detective Stories",
+        "Hard-Boiled Mystery",
+        "Police Procedural",
+        "Cozy Mystery",
+        "Historical Mystery",
+        "Paranormal Mystery",
+        "Women Detectives",
     ]),
-    u"Poetry",
-    u"Religious Fiction",
-    dict(name=u"Romance", subgenres=[
-        u"Contemporary Romance",
-        u"Gothic Romance",
-        u"Historical Romance",
-        u"Paranormal Romance",
-        u"Western Romance",
-        u"Romantic Suspense",
+    "Poetry",
+    "Religious Fiction",
+    dict(name="Romance", subgenres=[
+        "Contemporary Romance",
+        "Gothic Romance",
+        "Historical Romance",
+        "Paranormal Romance",
+        "Western Romance",
+        "Romantic Suspense",
     ]),
-    dict(name=u"Science Fiction", subgenres=[
-        u"Dystopian SF",
-        u"Space Opera",
-        u"Cyberpunk",
-        u"Military SF",
-        u"Alternative History",
-        u"Steampunk",
-        u"Romantic SF",
-        u"Media Tie-in SF",
+    dict(name="Science Fiction", subgenres=[
+        "Dystopian SF",
+        "Space Opera",
+        "Cyberpunk",
+        "Military SF",
+        "Alternative History",
+        "Steampunk",
+        "Romantic SF",
+        "Media Tie-in SF",
     ]),
-    u"Short Stories",
-    dict(name=u"Suspense/Thriller",
+    "Short Stories",
+    dict(name="Suspense/Thriller",
         subgenres=[
-            u"Historical Thriller",
-            u"Espionage",
-            u"Supernatural Thriller",
-            u"Medical Thriller",
-            u"Political Thriller",
-            u"Psychological Thriller",
-            u"Technothriller",
-            u"Legal Thriller",
-            u"Military Thriller",
+            "Historical Thriller",
+            "Espionage",
+            "Supernatural Thriller",
+            "Medical Thriller",
+            "Political Thriller",
+            "Psychological Thriller",
+            "Technothriller",
+            "Legal Thriller",
+            "Military Thriller",
         ],
     ),
-    u"Urban Fiction",
-    u"Westerns",
-    u"Women's Fiction",
+    "Urban Fiction",
+    "Westerns",
+    "Women's Fiction",
 ]
 
 nonfiction_genres = [
-    dict(name=u"Art & Design", subgenres=[
-        u"Architecture",
-        u"Art",
-        u"Art Criticism & Theory",
-        u"Art History",
-        u"Design",
-        u"Fashion",
-        u"Photography",
+    dict(name="Art & Design", subgenres=[
+        "Architecture",
+        "Art",
+        "Art Criticism & Theory",
+        "Art History",
+        "Design",
+        "Fashion",
+        "Photography",
     ]),
-    u"Biography & Memoir",
-    u"Education",
-    dict(name=u"Personal Finance & Business", subgenres=[
-        u"Business",
-        u"Economics",
-        u"Management & Leadership",
-        u"Personal Finance & Investing",
-        u"Real Estate",
+    "Biography & Memoir",
+    "Education",
+    dict(name="Personal Finance & Business", subgenres=[
+        "Business",
+        "Economics",
+        "Management & Leadership",
+        "Personal Finance & Investing",
+        "Real Estate",
     ]),
-    dict(name=u"Parenting & Family", subgenres=[
-        u"Family & Relationships",
-        u"Parenting",
+    dict(name="Parenting & Family", subgenres=[
+        "Family & Relationships",
+        "Parenting",
     ]),
-    dict(name=u"Food & Health", subgenres=[
-        u"Bartending & Cocktails",
-        u"Cooking",
-        u"Health & Diet",
-        u"Vegetarian & Vegan",
+    dict(name="Food & Health", subgenres=[
+        "Bartending & Cocktails",
+        "Cooking",
+        "Health & Diet",
+        "Vegetarian & Vegan",
     ]),
-    dict(name=u"History", subgenres=[
-        u"African History",
-        u"Ancient History",
-        u"Asian History",
-        u"Civil War History",
-        u"European History",
-        u"Latin American History",
-        u"Medieval History",
-        u"Middle East History",
-        u"Military History",
-        u"Modern History",
-        u"Renaissance & Early Modern History",
-        u"United States History",
-        u"World History",
+    dict(name="History", subgenres=[
+        "African History",
+        "Ancient History",
+        "Asian History",
+        "Civil War History",
+        "European History",
+        "Latin American History",
+        "Medieval History",
+        "Middle East History",
+        "Military History",
+        "Modern History",
+        "Renaissance & Early Modern History",
+        "United States History",
+        "World History",
     ]),
-    dict(name=u"Hobbies & Home", subgenres=[
-        u"Antiques & Collectibles",
-        u"Crafts & Hobbies",
-        u"Gardening",
-        u"Games",
-        u"House & Home",
-        u"Pets",
+    dict(name="Hobbies & Home", subgenres=[
+        "Antiques & Collectibles",
+        "Crafts & Hobbies",
+        "Gardening",
+        "Games",
+        "House & Home",
+        "Pets",
     ]),
-    u"Humorous Nonfiction",
-    dict(name=u"Entertainment", subgenres=[
-        u"Film & TV",
-        u"Music",
-        u"Performing Arts",
+    "Humorous Nonfiction",
+    dict(name="Entertainment", subgenres=[
+        "Film & TV",
+        "Music",
+        "Performing Arts",
     ]),
-    u"Life Strategies",
-    u"Literary Criticism",
-    u"Periodicals",
-    u"Philosophy",
-    u"Political Science",
-    dict(name=u"Reference & Study Aids", subgenres=[
-        u"Dictionaries",
-        u"Foreign Language Study",
-        u"Law",
-        u"Study Aids",
+    "Life Strategies",
+    "Literary Criticism",
+    "Periodicals",
+    "Philosophy",
+    "Political Science",
+    dict(name="Reference & Study Aids", subgenres=[
+        "Dictionaries",
+        "Foreign Language Study",
+        "Law",
+        "Study Aids",
     ]),
-    dict(name=u"Religion & Spirituality", subgenres=[
-        u"Body, Mind & Spirit",
-        u"Buddhism",
-        u"Christianity",
-        u"Hinduism",
-        u"Islam",
-        u"Judaism",
+    dict(name="Religion & Spirituality", subgenres=[
+        "Body, Mind & Spirit",
+        "Buddhism",
+        "Christianity",
+        "Hinduism",
+        "Islam",
+        "Judaism",
     ]),
-    dict(name=u"Science & Technology", subgenres=[
-        u"Computers",
-        u"Mathematics",
-        u"Medical",
-        u"Nature",
-        u"Psychology",
-        u"Science",
-        u"Social Sciences",
-        u"Technology",
+    dict(name="Science & Technology", subgenres=[
+        "Computers",
+        "Mathematics",
+        "Medical",
+        "Nature",
+        "Psychology",
+        "Science",
+        "Social Sciences",
+        "Technology",
     ]),
-    u"Self-Help",
-    u"Sports",
-    u"Travel",
-    u"True Crime",
+    "Self-Help",
+    "Sports",
+    "Travel",
+    "True Crime",
 ]
 
 
@@ -743,7 +744,7 @@ class GenreData(object):
         self.parent = parent
         self.is_fiction = is_fiction
         self.subgenres = []
-        if isinstance(audience_restriction, basestring):
+        if isinstance(audience_restriction, str):
             audience_restriction = [audience_restriction]
         self.audience_restriction = audience_restriction
 
@@ -845,14 +846,14 @@ class GenreData(object):
 genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
 
-class Lowercased(unicode):
+class Lowercased(str):
     """A lowercased string that remembers its original value."""
     def __new__(cls, value):
         if isinstance(value, Lowercased):
             # Nothing to do.
             return value
-        if not isinstance(value, basestring):
-            value = unicode(value)
+        if not isinstance(value, str):
+            value = str(value)
         new_value = value.lower()
         if new_value.endswith('.'):
             new_value = new_value[:-1]
@@ -1467,27 +1468,27 @@ class WorkClassifier(object):
         proportion of the weight of the parent genre, assign the
         parent's weight to the subgenre and remove the parent.
         """
-        #print "Before consolidation:"
+        #print("Before consolidation:")
         #for genre, weight in weights.items():
-        #    print "", genre, weight
+        #    print("", genre, weight)
 
         # Convert Genre objects to GenreData.
         consolidated = Counter()
-        for genre, weight in weights.items():
+        for genre, weight in list(weights.items()):
             if not isinstance(genre, GenreData):
                 genre = genres[genre.name]
             consolidated[genre] += weight
 
         heaviest_child = dict()
-        for genre, weight in consolidated.items():
+        for genre, weight in list(consolidated.items()):
             for parent in genre.parents:
                 if parent in consolidated:
                     if ((not parent in heaviest_child)
                         or weight > heaviest_child[parent][1]):
                         heaviest_child[parent] = (genre, weight)
-        #print "Heaviest child:"
+        #print("Heaviest child:")
         #for parent, (genre, weight) in heaviest_child.items():
-        #    print "", parent, genre, weight
+        #    print("", parent, genre, weight)
         made_it = False
         while not made_it:
             for parent, (child, weight) in sorted(list(heaviest_child.items())):
@@ -1506,12 +1507,12 @@ class WorkClassifier(object):
                         break
             # We made it all the way through the dict without changing it.
             made_it = True
-        #print "Final heaviest child:"
+        #print("Final heaviest child:")
         #for parent, (genre, weight) in heaviest_child.items():
-        #    print "", parent, genre, weight
-        #print "After consolidation:"
+        #    print("", parent, genre, weight)
+        #print("After consolidation:")
         #for genre, weight in consolidated.items():
-        #    print "", genre, weight
+        #    print("", genre, weight)
         return consolidated
 
 # Make a dictionary of classification schemes to classifiers.
@@ -1520,26 +1521,26 @@ Classifier.classifiers[Classifier.FREEFORM_AUDIENCE] = FreeformAudienceClassifie
 Classifier.classifiers[Classifier.AXIS_360_AUDIENCE] = AgeOrGradeClassifier
 
 # Finally, import classifiers described in submodules.
-from age import (
+from .age import (
     GradeLevelClassifier,
     InterestLevelClassifier,
     AgeClassifier,
 )
-from bisac import BISACClassifier
-from rbdigital import (
+from .bisac import BISACClassifier
+from .rbdigital import (
     RBDigitalAudienceClassifier,
     RBDigitalSubjectClassifier,
 )
-from ddc import DeweyDecimalClassifier
-from lcc import LCCClassifier
-from gutenberg import GutenbergBookshelfClassifier
-from bic import BICClassifier
-from simplified import (
+from .ddc import DeweyDecimalClassifier
+from .lcc import LCCClassifier
+from .gutenberg import GutenbergBookshelfClassifier
+from .bic import BICClassifier
+from .simplified import (
     SimplifiedFictionClassifier,
     SimplifiedGenreClassifier,
 )
-from overdrive import OverdriveClassifier
-from keyword import (
+from .overdrive import OverdriveClassifier
+from .keyword import (
     KeywordBasedClassifier,
     LCSHClassifier,
     FASTClassifier,

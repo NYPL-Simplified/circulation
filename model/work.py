@@ -1,10 +1,8 @@
 # encoding: utf-8
 # WorkGenre, Work
 
-import datetime
 import logging
 from collections import Counter
-
 from sqlalchemy import (
     Boolean,
     Column,
@@ -34,21 +32,21 @@ from sqlalchemy.sql.expression import (
 )
 from sqlalchemy.sql.functions import func
 
-from constants import (
+from .constants import (
     DataSourceConstants,
 )
-from contributor import (
+from .contributor import (
     Contribution,
     Contributor,
 )
-from coverage import (
+from .coverage import (
     CoverageRecord,
     WorkCoverageRecord,
 )
-from datasource import DataSource
-from edition import Edition
-from identifier import Identifier
-from measurement import Measurement
+from .datasource import DataSource
+from .edition import Edition
+from .identifier import Identifier
+from .measurement import Measurement
 from . import (
     Base,
     flush,
@@ -64,7 +62,7 @@ from ..classifier import (
 )
 from ..config import CannotLoadConfiguration
 from ..util import LanguageCodes
-from ..util.string_helpers import native_string
+from ..util.datetime_helpers import utc_now
 
 
 class WorkGenre(Base):
@@ -89,13 +87,13 @@ class WorkGenre(Base):
 class Work(Base):
     APPEALS_URI = "http://librarysimplified.org/terms/appeals/"
 
-    CHARACTER_APPEAL = u"Character"
-    LANGUAGE_APPEAL = u"Language"
-    SETTING_APPEAL = u"Setting"
-    STORY_APPEAL = u"Story"
-    UNKNOWN_APPEAL = u"Unknown"
-    NOT_APPLICABLE_APPEAL = u"Not Applicable"
-    NO_APPEAL = u"None"
+    CHARACTER_APPEAL = "Character"
+    LANGUAGE_APPEAL = "Language"
+    SETTING_APPEAL = "Setting"
+    STORY_APPEAL = "Story"
+    UNKNOWN_APPEAL = "Unknown"
+    NOT_APPLICABLE_APPEAL = "Not Applicable"
+    NO_APPEAL = "None"
 
     CURRENTLY_AVAILABLE = "currently_available"
     ALL = "all"
@@ -193,7 +191,7 @@ class Work(Base):
     appeal_story = Column(Float, default=None, index=True)
 
     # The last time the availability or metadata changed for this Work.
-    last_update_time = Column(DateTime, index=True)
+    last_update_time = Column(DateTime(timezone=True), index=True)
 
     # This is set to True once all metadata and availability
     # information has been obtained for this Work. Until this is True,
@@ -201,7 +199,7 @@ class Work(Base):
     presentation_ready = Column(Boolean, default=False, index=True)
 
     # This is the last time we tried to make this work presentation ready.
-    presentation_ready_attempt = Column(DateTime, default=None, index=True)
+    presentation_ready_attempt = Column(DateTime(timezone=True), default=None, index=True)
 
     # This is the error that occured while trying to make this Work
     # presentation ready. Until this is cleared, no further attempt
@@ -322,12 +320,10 @@ class Work(Base):
         return complaints
 
     def __repr__(self):
-        return native_string(
-            u'<Work #%s "%s" (by %s) %s lang=%s (%s lp)>' % (
-                self.id, self.title, self.author,
-                ", ".join([g.name for g in self.genres]), self.language,
-                len(self.license_pools)
-            )
+        return '<Work #%s "%s" (by %s) %s lang=%s (%s lp)>' % (
+            self.id, self.title, self.author,
+            ", ".join([g.name for g in self.genres]), self.language,
+            len(self.license_pools)
         )
 
     @classmethod
@@ -351,11 +347,11 @@ class Work(Base):
 
     @classmethod
     def for_unchecked_subjects(cls, _db):
-        from classification import (
+        from .classification import (
             Classification,
             Subject,
         )
-        from licensing import LicensePool
+        from .licensing import LicensePool
         """Find all Works whose LicensePools have an Identifier that
         is classified under an unchecked Subject.
         This is a good indicator that the Work needs to be
@@ -379,7 +375,7 @@ class Work(Base):
         Counter tallying the number of affected LicensePools
         associated with a given work.
         """
-        from licensing import LicensePool
+        from .licensing import LicensePool
         qu = _db.query(LicensePool).join(
             LicensePool.presentation_edition).filter(
                 LicensePool.open_access==True
@@ -461,7 +457,7 @@ class Work(Base):
                 work.make_exclusive_open_access_for_permanent_work_id(
                     pwid, medium, language
                 )
-                for needs_merge in licensepools_for_work.keys():
+                for needs_merge in list(licensepools_for_work.keys()):
                     if needs_merge != work:
 
                         # Make sure that Work we're about to merge has
@@ -504,7 +500,7 @@ class Work(Base):
             elif not pool.presentation_edition:
                 # A LicensePool with no presentation edition
                 # cannot have an associated Work.
-                logging.warn(
+                logging.warning(
                     "LicensePool %r has no presentation edition, setting .work to None.",
                     pool
                 )
@@ -515,7 +511,7 @@ class Work(Base):
                 if not this_pwid:
                     # A LicensePool with no permanent work ID
                     # cannot have an associated Work.
-                    logging.warn(
+                    logging.warning(
                         "Presentation edition for LicensePool %r has no PWID, setting .work to None.",
                         pool
                     )
@@ -599,8 +595,8 @@ class Work(Base):
     @classmethod
     def with_genre(cls, _db, genre):
         """Find all Works classified under the given genre."""
-        from classification import Genre
-        if isinstance(genre, basestring):
+        from .classification import Genre
+        if isinstance(genre, (bytes, str)):
             genre, ignore = Genre.lookup(_db, genre)
         return _db.query(Work).join(WorkGenre).filter(WorkGenre.genre==genre)
 
@@ -624,7 +620,7 @@ class Work(Base):
            Identifiers. By default, this method will be very strict
            about equivalencies.
         """
-        from licensing import LicensePool
+        from .licensing import LicensePool
         identifier_ids = [identifier.id for identifier in identifiers]
         if not identifier_ids:
             return None
@@ -652,8 +648,8 @@ class Work(Base):
     def reject_covers(cls, _db, works_or_identifiers,
                         search_index_client=None):
         """Suppresses the currently visible covers of a number of Works"""
-        from licensing import LicensePool
-        from resource import (
+        from .licensing import LicensePool
+        from .resource import (
             Resource,
             Hyperlink,
         )
@@ -732,7 +728,7 @@ class Work(Base):
            determine how far to go when looking for equivalent
            Identifiers.
         """
-        from licensing import LicensePool
+        from .licensing import LicensePool
         _db = Session.object_session(self)
         identifier_ids_subquery = Identifier.recursively_equivalent_identifier_ids_query(
             LicensePool.identifier_id, policy=policy
@@ -768,7 +764,7 @@ class Work(Base):
         )
 
         all_identifier_ids = set()
-        for equivs in equivalent_lists.values():
+        for equivs in list(equivalent_lists.values()):
             all_identifier_ids.update(equivs)
         return all_identifier_ids
 
@@ -990,7 +986,7 @@ class Work(Base):
             )
 
         if self.summary_text:
-            if isinstance(self.summary_text, unicode):
+            if isinstance(self.summary_text, str):
                 new_summary_text = self.summary_text
             else:
                 new_summary_text = self.summary_text.decode("utf8")
@@ -1009,7 +1005,7 @@ class Work(Base):
             # last_update_time tracks the last time the data actually
             # changed, not the last time we checked whether or not to
             # change it.
-            self.last_update_time = datetime.datetime.utcnow()
+            self.last_update_time = utc_now()
 
         if changed or policy.regenerate_opds_entries:
             self.calculate_opds_entries()
@@ -1132,7 +1128,7 @@ class Work(Base):
         def _ensure(s):
             if not s:
                 return ""
-            elif isinstance(s, unicode):
+            elif isinstance(s, str):
                 return s
             else:
                 return s.decode("utf8", "replace")
@@ -1143,7 +1139,7 @@ class Work(Base):
             l.append(d)
 
         l = [_ensure(s) for s in l]
-        return u"\n".join(l)
+        return "\n".join(l)
 
     def calculate_opds_entries(self, verbose=True):
         from ..opds import (
@@ -1261,7 +1257,7 @@ class Work(Base):
         In most cases you should call set_presentation_ready_based_on_content
         instead, which runs those checks.
         """
-        as_of = as_of or datetime.datetime.utcnow()
+        as_of = as_of or utc_now()
         self.presentation_ready = True
         self.presentation_ready_exception = None
         self.presentation_ready_attempt = as_of
@@ -1293,7 +1289,7 @@ class Work(Base):
             # processed, this work will be removed from the search
             # index.
             self.external_index_needs_updating()
-            logging.warn("Work is not presentation ready: %r", self)
+            logging.warning("Work is not presentation ready: %r", self)
         else:
             self.set_presentation_ready(search_index_client=search_index_client)
 
@@ -1306,7 +1302,7 @@ class Work(Base):
         quantities = set([
             Measurement.POPULARITY, Measurement.QUALITY, Measurement.RATING
         ])
-        quantities = quantities.union(Measurement.PERCENTILE_SCALES.keys())
+        quantities = quantities.union(list(Measurement.PERCENTILE_SCALES.keys()))
         measurements = _db.query(Measurement).filter(
             Measurement.identifier_id.in_(identifier_ids)).filter(
                 Measurement.is_most_recent==True).filter(
@@ -1357,7 +1353,7 @@ class Work(Base):
 
     def assign_genres_from_weights(self, genre_weights):
         # Assign WorkGenre objects to the remainder.
-        from classification import Genre
+        from .classification import Genre
         changed = False
         _db = Session.object_session(self)
         total_genre_weight = float(sum(genre_weights.values()))
@@ -1366,7 +1362,7 @@ class Work(Base):
         by_genre = dict()
         for wg in current_workgenres:
             by_genre[wg.genre] = wg
-        for g, score in genre_weights.items():
+        for g, score in list(genre_weights.items()):
             affinity = score / total_genre_weight
             if not isinstance(g, Genre):
                 g, ignore = Genre.lookup(_db, g.name)
@@ -1384,7 +1380,7 @@ class Work(Base):
 
         # Any WorkGenre objects left over represent genres the Work
         # was once classified under, but is no longer. Delete them.
-        for wg in by_genre.values():
+        for wg in list(by_genre.values()):
             _db.delete(wg)
             changed = True
 
@@ -1519,12 +1515,12 @@ class Work(Base):
 
         # This subquery gets Collection IDs for collections
         # that own more than zero licenses for this book.
-        from classification import (
+        from .classification import (
             Genre,
             Subject,
         )
-        from customlist import CustomListEntry
-        from licensing import LicensePool
+        from .customlist import CustomListEntry
+        from .licensing import LicensePool
 
         # We need information about LicensePools for a few reasons:
         #
@@ -1666,7 +1662,7 @@ class Work(Base):
 
         # Map our constants for Subject type to their URIs.
         scheme_column = case(
-            [(Subject.type==key, literal_column("'%s'" % val)) for key, val in Subject.uri_lookup.items()]
+            [(Subject.type==key, literal_column("'%s'" % val)) for key, val in list(Subject.uri_lookup.items())]
         )
 
         # If the Subject has a name, use that, otherwise use the Subject's identifier.
@@ -1675,7 +1671,7 @@ class Work(Base):
         term_column = func.replace(case([(Subject.name != None, Subject.name)], else_=Subject.identifier), "/", " ")
 
         # Normalize by dividing each weight by the sum of the weights for that Identifier's Classifications.
-        from classification import Classification
+        from .classification import Classification
         weight_column = func.sum(Classification.weight) / func.sum(func.sum(Classification.weight)).over()
 
         # The subquery for Subjects, with those three columns. The labels will become keys in json objects.
@@ -1855,7 +1851,7 @@ class Work(Base):
         return qu
 
     def classifications_with_genre(self):
-        from classification import (
+        from .classification import (
             Classification,
             Subject,
         )
@@ -1868,7 +1864,7 @@ class Work(Base):
             .order_by(Classification.weight.desc())
 
     def top_genre(self):
-        from classification import Genre
+        from .classification import Genre
         _db = Session.object_session(self)
         genre = _db.query(Genre) \
             .join(WorkGenre) \
@@ -1884,7 +1880,7 @@ class Work(Base):
             try:
                 from ..external_search import ExternalSearchIndex
                 search_index = ExternalSearchIndex(_db)
-            except CannotLoadConfiguration, e:
+            except CannotLoadConfiguration as e:
                 # No search index is configured. This is fine -- just skip that part.
                 pass
         if search_index is not None:
