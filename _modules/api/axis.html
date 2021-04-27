@@ -104,6 +104,11 @@
 <span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="n">DatabaseTest</span>
 
 <span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">datetime_utc</span><span class="p">,</span>
+    <span class="n">strptime_utc</span><span class="p">,</span>
+    <span class="n">utc_now</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HTTP</span><span class="p">,</span>
@@ -257,7 +262,7 @@
             <span class="k">return</span>
 
         <span class="k">def</span> <span class="nf">_count_events</span><span class="p">():</span>
-            <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
             <span class="n">five_minutes_ago</span> <span class="o">=</span> <span class="n">now</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
             <span class="n">count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">recent_activity</span><span class="p">(</span><span class="n">since</span><span class="o">=</span><span class="n">five_minutes_ago</span><span class="p">)))</span>
             <span class="k">return</span> <span class="s2">&quot;Found </span><span class="si">%d</span><span class="s2"> event(s)&quot;</span> <span class="o">%</span> <span class="n">count</span>
@@ -604,7 +609,7 @@
 
     <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">AXIS_360</span>
 
-    <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1970</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">datetime_utc</span><span class="p">(</span><span class="mi">1970</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">Axis360API</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">Axis360CirculationMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
@@ -804,7 +809,17 @@
 
     <span class="n">SHORT_DATE_FORMAT</span> <span class="o">=</span> <span class="s2">&quot;%m/</span><span class="si">%d</span><span class="s2">/%Y&quot;</span>
     <span class="n">FULL_DATE_FORMAT_IMPLICIT_UTC</span> <span class="o">=</span> <span class="s2">&quot;%m/</span><span class="si">%d</span><span class="s2">/%Y %I:%M:%S %p&quot;</span>
-    <span class="n">FULL_DATE_FORMAT</span> <span class="o">=</span> <span class="s2">&quot;%m/</span><span class="si">%d</span><span class="s2">/%Y %I:%M:%S %p +00:00&quot;</span>
+    <span class="n">FULL_DATE_FORMAT_EXPLICIT_UTC</span> <span class="o">=</span> <span class="s2">&quot;%m/</span><span class="si">%d</span><span class="s2">/%Y %I:%M:%S %p +00:00&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_pd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">date</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Stupid function to parse a date.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">date</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">date</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">strptime_utc</span><span class="p">(</span><span class="n">date</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">FULL_DATE_FORMAT_IMPLICIT_UTC</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="k">return</span> <span class="n">strptime_utc</span><span class="p">(</span><span class="n">date</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">FULL_DATE_FORMAT_EXPLICIT_UTC</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_xpath1_boolean</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">ns</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="n">text</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
@@ -817,15 +832,7 @@
 
     <span class="k">def</span> <span class="nf">_xpath1_date</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">ns</span><span class="p">):</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">value</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">attempt</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
-                <span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">FULL_DATE_FORMAT_IMPLICIT_UTC</span><span class="p">)</span>
-            <span class="n">value</span> <span class="o">+=</span> <span class="s1">&#39; +00:00&#39;</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-            <span class="k">pass</span>
-        <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">FULL_DATE_FORMAT</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pd</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="BibliographicParser"><a class="viewcode-back" href="../../api.html#api.axis.BibliographicParser">[docs]</a><span class="k">class</span> <span class="nc">BibliographicParser</span><span class="p">(</span><span class="n">Axis360Parser</span><span class="p">):</span>
 
@@ -876,14 +883,8 @@
         <span class="n">availability_updated</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span>
             <span class="n">availability</span><span class="p">,</span> <span class="s1">&#39;axis:updateDate&#39;</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">availability_updated</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">attempt</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
-                    <span class="n">availability_updated</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">FULL_DATE_FORMAT_IMPLICIT_UTC</span><span class="p">)</span>
-                <span class="n">availability_updated</span> <span class="o">+=</span> <span class="s1">&#39; +00:00&#39;</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-                <span class="k">pass</span>
-            <span class="n">availability_updated</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
-                    <span class="n">availability_updated</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">FULL_DATE_FORMAT</span><span class="p">)</span>
+            <span class="c1"># NOTE: We don&#39;t actually do anything with this.</span>
+            <span class="n">availability_updated</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pd</span><span class="p">(</span><span class="n">availability_updated</span><span class="p">)</span>
 
         <span class="n">circulation_data</span><span class="o">.</span><span class="n">licenses_owned</span><span class="o">=</span><span class="n">total_copies</span>
         <span class="n">circulation_data</span><span class="o">.</span><span class="n">licenses_available</span><span class="o">=</span><span class="n">available_copies</span>
@@ -1014,8 +1015,9 @@
         <span class="n">publication_date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span>
             <span class="n">element</span><span class="p">,</span> <span class="s1">&#39;axis:publicationDate&#39;</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">publication_date</span><span class="p">:</span>
-            <span class="n">publication_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
-                <span class="n">publication_date</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">SHORT_DATE_FORMAT</span><span class="p">)</span>
+            <span class="n">publication_date</span> <span class="o">=</span> <span class="n">strptime_utc</span><span class="p">(</span>
+                <span class="n">publication_date</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">SHORT_DATE_FORMAT</span>
+            <span class="p">)</span>
 
         <span class="n">series</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="s1">&#39;axis:series&#39;</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
         <span class="n">publisher</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="s1">&#39;axis:publisher&#39;</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
@@ -1308,10 +1310,9 @@
 
         <span class="k">if</span> <span class="n">expiration_date</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">expiration_date</span> <span class="o">=</span> <span class="n">expiration_date</span><span class="o">.</span><span class="n">text</span>
-            <span class="n">expiration_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
-                <span class="n">expiration_date</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">FULL_DATE_FORMAT</span><span class="p">)</span>
+            <span class="n">expiration_date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pd</span><span class="p">(</span><span class="n">expiration_date</span><span class="p">)</span>
 
-        <span class="n">loan_start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">loan_start</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">loan</span> <span class="o">=</span> <span class="n">LoanInfo</span><span class="p">(</span>
             <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="o">=</span><span class="n">DataSource</span><span class="o">.</span><span class="n">AXIS_360</span><span class="p">,</span>
             <span class="n">identifier_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">id_type</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -1346,7 +1347,7 @@
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Invalid queue position: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">queue_position</span><span class="p">)</span>
                 <span class="n">queue_position</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="n">hold_start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">hold_start</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="c1"># NOTE: The caller needs to fill in Collection -- we have no idea</span>
         <span class="c1"># what collection this is.</span>
         <span class="n">hold</span> <span class="o">=</span> <span class="n">HoldInfo</span><span class="p">(</span>
@@ -1603,7 +1604,7 @@
             <span class="n">date</span> <span class="o">=</span> <span class="n">date</span><span class="p">[:</span><span class="n">date</span><span class="o">.</span><span class="n">rindex</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)]</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">date</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">date</span><span class="p">,</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">)</span>
+            <span class="n">date</span> <span class="o">=</span> <span class="n">strptime_utc</span><span class="p">(</span><span class="n">date</span><span class="p">,</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span>
                 <span class="s2">&quot;Could not parse expiration date: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">date</span><span class="p">,</span>

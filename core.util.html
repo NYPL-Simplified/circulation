@@ -168,6 +168,75 @@ in an Authentication For OPDS document.</p>
 </dd></dl>
 
 </div>
+<div class="section" id="module-core.util.datetime_helpers">
+<span id="core-util-datetime-helpers-module"></span><h2>core.util.datetime_helpers module<a class="headerlink" href="#module-core.util.datetime_helpers" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="core.util.datetime_helpers.datetime_utc">
+<code class="descclassname">core.util.datetime_helpers.</code><code class="descname">datetime_utc</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/datetime_helpers.html#datetime_utc"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.datetime_helpers.datetime_utc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a datetime object but with UTC information from pytz.
+:return: datetime object</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="core.util.datetime_helpers.from_timestamp">
+<code class="descclassname">core.util.datetime_helpers.</code><code class="descname">from_timestamp</code><span class="sig-paren">(</span><em>ts</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/datetime_helpers.html#from_timestamp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.datetime_helpers.from_timestamp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a UTC datetime object from a timestamp.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">datetime object</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="core.util.datetime_helpers.strptime_utc">
+<code class="descclassname">core.util.datetime_helpers.</code><code class="descname">strptime_utc</code><span class="sig-paren">(</span><em>date_string</em>, <em>format</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/datetime_helpers.html#strptime_utc"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.datetime_helpers.strptime_utc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse a string that describes a time but includes no timezone,
+into a timezone-aware datetime object set to UTC.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body"><strong>ValueError</strong> – If <cite>format</cite> expects timezone information to be
+present in <cite>date_string</cite>.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="core.util.datetime_helpers.to_utc">
+<code class="descclassname">core.util.datetime_helpers.</code><code class="descname">to_utc</code><span class="sig-paren">(</span><em>dt</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/datetime_helpers.html#to_utc"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.datetime_helpers.to_utc" title="Permalink to this definition">¶</a></dt>
+<dd><p>This converts a naive datetime object that represents UTC into
+an aware datetime object.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">datetime object, or None if <cite>dt</cite> was None.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="core.util.datetime_helpers.utc_now">
+<code class="descclassname">core.util.datetime_helpers.</code><code class="descname">utc_now</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/datetime_helpers.html#utc_now"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.datetime_helpers.utc_now" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the current time in UTC.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">datetime object</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
 <div class="section" id="module-core.util.epub">
 <span id="core-util-epub-module"></span><h2>core.util.epub module<a class="headerlink" href="#module-core.util.epub" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
@@ -759,8 +828,13 @@ rather than raising a ValueError.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="core.util.opds_writer.AtomFeed.TIME_FORMAT">
-<code class="descname">TIME_FORMAT</code><em class="property"> = '%Y-%m-%dT%H:%M:%SZ%z'</em><a class="headerlink" href="#core.util.opds_writer.AtomFeed.TIME_FORMAT" title="Permalink to this definition">¶</a></dt>
+<dt id="core.util.opds_writer.AtomFeed.TIME_FORMAT_NAIVE">
+<code class="descname">TIME_FORMAT_NAIVE</code><em class="property"> = '%Y-%m-%dT%H:%M:%SZ'</em><a class="headerlink" href="#core.util.opds_writer.AtomFeed.TIME_FORMAT_NAIVE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.util.opds_writer.AtomFeed.TIME_FORMAT_UTC">
+<code class="descname">TIME_FORMAT_UTC</code><em class="property"> = '%Y-%m-%dT%H:%M:%S+00:00'</em><a class="headerlink" href="#core.util.opds_writer.AtomFeed.TIME_FORMAT_UTC" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -1334,7 +1408,7 @@ edition of the book.</p>
 
 <dl class="attribute">
 <dt id="core.util.summary.SummaryEvaluator.bad_res">
-<code class="descname">bad_res</code><em class="property"> = {re.compile('Includes'), re.compile('the [^ ]+ Collection'), re.compile('This is')}</em><a class="headerlink" href="#core.util.summary.SummaryEvaluator.bad_res" title="Permalink to this definition">¶</a></dt>
+<code class="descname">bad_res</code><em class="property"> = {re.compile('the [^ ]+ Collection'), re.compile('This is'), re.compile('Includes')}</em><a class="headerlink" href="#core.util.summary.SummaryEvaluator.bad_res" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">

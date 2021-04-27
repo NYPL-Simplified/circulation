@@ -85,6 +85,7 @@
     <span class="n">IdentifierSweepMonitor</span><span class="p">,</span>
     <span class="n">TimelineMonitor</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">strptime_utc</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
 <span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="n">ReplacementPolicy</span>
 <span class="kn">from</span> <span class="nn">core.scripts</span> <span class="kn">import</span> <span class="n">Script</span>
@@ -714,7 +715,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
+            <span class="k">return</span> <span class="n">strptime_utc</span><span class="p">(</span>
                 <span class="n">data</span><span class="p">[</span><span class="n">field_name</span><span class="p">],</span> <span class="bp">cls</span><span class="o">.</span><span class="n">TIME_FORMAT</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
@@ -738,10 +739,14 @@
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_pd</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Stupid method to parse a date.&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Stupid method to parse a date.</span>
+
+<span class="sd">        TIME_FORMAT mentions &quot;Z&quot; for Zulu time, which is the same as</span>
+<span class="sd">        UTC.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">d</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">d</span>
-        <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">strptime_utc</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
 
 <div class="viewcode-block" id="OverdriveAPI.patron_activity"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.patron_activity">[docs]</a>    <span class="k">def</span> <span class="nf">patron_activity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>

@@ -68,6 +68,7 @@
 <span class="kn">import</span> <span class="nn">ssl</span>
 <span class="kn">import</span> <span class="nn">tempfile</span>
 <span class="kn">from</span> <span class="nn">api.sip.dialect</span> <span class="kn">import</span> <span class="n">GenericILS</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">utc_now</span>
 
 <span class="c1"># SIP2 defines a large number of fields which are used in request and</span>
 <span class="c1"># response messages. This library focuses on defining the response</span>
@@ -764,7 +765,7 @@
 
 <div class="viewcode-block" id="SIPClient.now"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.now">[docs]</a>    <span class="k">def</span> <span class="nf">now</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return the current time, formatted as SIP expects it.&quot;&quot;&quot;</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">now</span><span class="p">,</span> <span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">0000%H%M%S&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SIPClient.summary"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.summary">[docs]</a>    <span class="k">def</span> <span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hold_items</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">overdue_items</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>

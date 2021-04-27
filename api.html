@@ -461,7 +461,7 @@ Adobe’s lack of support for authdata in deactivation.</p>
 
 <dl class="attribute">
 <dt id="api.adobe_vendor_id.AuthdataUtility.EPOCH">
-<code class="descname">EPOCH</code><em class="property"> = datetime.datetime(1970, 1, 1, 0, 0)</em><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.EPOCH" title="Permalink to this definition">¶</a></dt>
+<code class="descname">EPOCH</code><em class="property"> = datetime.datetime(1970, 1, 1, 0, 0, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.EPOCH" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2539,7 +2539,7 @@ WorkCoverageProvider, and must be handled in a subclass.</p>
 
 <dl class="attribute">
 <dt id="api.axis.Axis360CirculationMonitor.DEFAULT_START_TIME">
-<code class="descname">DEFAULT_START_TIME</code><em class="property"> = datetime.datetime(1970, 1, 1, 0, 0)</em><a class="headerlink" href="#api.axis.Axis360CirculationMonitor.DEFAULT_START_TIME" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DEFAULT_START_TIME</code><em class="property"> = datetime.datetime(1970, 1, 1, 0, 0, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.axis.Axis360CirculationMonitor.DEFAULT_START_TIME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2627,8 +2627,8 @@ _content_expires.</p>
 <em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">Axis360Parser</code><a class="reference internal" href="_modules/api/axis.html#Axis360Parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360Parser" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.util.html#core.util.xmlparser.XMLParser" title="core.util.xmlparser.XMLParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.util.xmlparser.XMLParser</span></code></a></p>
 <dl class="attribute">
-<dt id="api.axis.Axis360Parser.FULL_DATE_FORMAT">
-<code class="descname">FULL_DATE_FORMAT</code><em class="property"> = '%m/%d/%Y %I:%M:%S %p +00:00'</em><a class="headerlink" href="#api.axis.Axis360Parser.FULL_DATE_FORMAT" title="Permalink to this definition">¶</a></dt>
+<dt id="api.axis.Axis360Parser.FULL_DATE_FORMAT_EXPLICIT_UTC">
+<code class="descname">FULL_DATE_FORMAT_EXPLICIT_UTC</code><em class="property"> = '%m/%d/%Y %I:%M:%S %p +00:00'</em><a class="headerlink" href="#api.axis.Axis360Parser.FULL_DATE_FORMAT_EXPLICIT_UTC" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9117,7 +9117,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2021, 4, 30, 14, 23, 43, 622146)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2021, 5, 7, 21, 15, 46, 31680, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9531,6 +9531,11 @@ the Author property since there are multiple contributors.</p>
 <code class="descname">DATE_FORMAT</code><em class="property"> = '%Y-%m-%d'</em><a class="headerlink" href="#api.nyt.NYTAPI.DATE_FORMAT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="attribute">
+<dt id="api.nyt.NYTAPI.TIME_ZONE">
+<code class="descname">TIME_ZONE</code><em class="property"> = tzfile('/usr/share/zoneinfo/America/New_York')</em><a class="headerlink" href="#api.nyt.NYTAPI.TIME_ZONE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="classmethod">
 <dt id="api.nyt.NYTAPI.date_string">
 <em class="property">classmethod </em><code class="descname">date_string</code><span class="sig-paren">(</span><em>d</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/nyt.html#NYTAPI.date_string"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.nyt.NYTAPI.date_string" title="Permalink to this definition">¶</a></dt>
@@ -9539,7 +9544,17 @@ the Author property since there are multiple contributors.</p>
 <dl class="classmethod">
 <dt id="api.nyt.NYTAPI.parse_date">
 <em class="property">classmethod </em><code class="descname">parse_date</code><span class="sig-paren">(</span><em>d</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/nyt.html#NYTAPI.parse_date"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.nyt.NYTAPI.parse_date" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Used to parse the publication date of a book.</p>
+<p>We don’t know the timezone here, so the date will end up being
+stored as midnight UTC.</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="api.nyt.NYTAPI.parse_datetime">
+<em class="property">classmethod </em><code class="descname">parse_datetime</code><span class="sig-paren">(</span><em>d</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/nyt.html#NYTAPI.parse_datetime"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.nyt.NYTAPI.parse_datetime" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used to parse the publication date of a NYT best-seller list.</p>
+<p>We take midnight Eastern time to be the publication time.</p>
+</dd></dl>
 
 </dd></dl>
 
@@ -10322,11 +10337,6 @@ circulation manager.</p>
 <code class="descname">STATUS_VALUES</code><em class="property"> = ['ready', 'active', 'revoked', 'returned', 'cancelled', 'expired']</em><a class="headerlink" href="#api.odl.ODLAPI.STATUS_VALUES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.odl.ODLAPI.TIME_FORMAT">
-<code class="descname">TIME_FORMAT</code><em class="property"> = '%Y-%m-%dT%H:%M:%SZ'</em><a class="headerlink" href="#api.odl.ODLAPI.TIME_FORMAT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
 <dl class="method">
 <dt id="api.odl.ODLAPI.checkin">
 <code class="descname">checkin</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>licensepool</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/odl.html#ODLAPI.checkin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.odl.ODLAPI.checkin" title="Permalink to this definition">¶</a></dt>
@@ -10554,11 +10564,6 @@ by another circulation manager.</p>
 <dl class="attribute">
 <dt id="api.odl.SharedODLAPI.SUPPORTS_STAGING">
 <code class="descname">SUPPORTS_STAGING</code><em class="property"> = False</em><a class="headerlink" href="#api.odl.SharedODLAPI.SUPPORTS_STAGING" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.odl.SharedODLAPI.TIME_FORMAT">
-<code class="descname">TIME_FORMAT</code><em class="property"> = '%Y-%m-%dT%H:%M:%SZ'</em><a class="headerlink" href="#api.odl.SharedODLAPI.TIME_FORMAT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -11463,7 +11468,7 @@ routes and arguments for ‘loan info’ and ‘hold info’.</p>
 
 <dl class="attribute">
 <dt id="api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES">
-<code class="descname">SUPPORTED_MEDIA_TYPES</code><em class="property"> = ['application/audiobook+json', 'application/pdf', 'application/epub+zip']</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SUPPORTED_MEDIA_TYPES</code><em class="property"> = ['application/epub+zip', 'application/audiobook+json', 'application/pdf']</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -13308,7 +13313,7 @@ we hear from the metadata wrangler.</p>
 
 <dl class="attribute">
 <dt id="api.rbdigital.RBDigitalCirculationMonitor.DEFAULT_START_TIME">
-<code class="descname">DEFAULT_START_TIME</code><em class="property"> = datetime.datetime(1970, 1, 1, 0, 0)</em><a class="headerlink" href="#api.rbdigital.RBDigitalCirculationMonitor.DEFAULT_START_TIME" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DEFAULT_START_TIME</code><em class="property"> = datetime.datetime(1970, 1, 1, 0, 0, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.rbdigital.RBDigitalCirculationMonitor.DEFAULT_START_TIME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -14393,17 +14398,17 @@ the given dictionary?</p>
 <p>A test that needs to create announcements.</p>
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.a_week_ago">
-<code class="descname">a_week_ago</code><em class="property"> = '2021-04-13'</em><a class="headerlink" href="#api.testing.AnnouncementTest.a_week_ago" title="Permalink to this definition">¶</a></dt>
+<code class="descname">a_week_ago</code><em class="property"> = '2021-04-20'</em><a class="headerlink" href="#api.testing.AnnouncementTest.a_week_ago" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.active">
-<code class="descname">active</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-04-21', 'id': 'active', 'start': '2021-04-20'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.active" title="Permalink to this definition">¶</a></dt>
+<code class="descname">active</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-04-28', 'id': 'active', 'start': '2021-04-27'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.active" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.expired">
-<code class="descname">expired</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-04-19', 'id': 'expired', 'start': '2021-04-13'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.expired" title="Permalink to this definition">¶</a></dt>
+<code class="descname">expired</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-04-26', 'id': 'expired', 'start': '2021-04-20'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.expired" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -14413,27 +14418,27 @@ the given dictionary?</p>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.forthcoming">
-<code class="descname">forthcoming</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-04-27', 'id': 'forthcoming', 'start': '2021-04-21'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.forthcoming" title="Permalink to this definition">¶</a></dt>
+<code class="descname">forthcoming</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-05-04', 'id': 'forthcoming', 'start': '2021-04-28'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.forthcoming" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.in_a_week">
-<code class="descname">in_a_week</code><em class="property"> = '2021-04-27'</em><a class="headerlink" href="#api.testing.AnnouncementTest.in_a_week" title="Permalink to this definition">¶</a></dt>
+<code class="descname">in_a_week</code><em class="property"> = '2021-05-04'</em><a class="headerlink" href="#api.testing.AnnouncementTest.in_a_week" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.today">
-<code class="descname">today</code><em class="property"> = '2021-04-20'</em><a class="headerlink" href="#api.testing.AnnouncementTest.today" title="Permalink to this definition">¶</a></dt>
+<code class="descname">today</code><em class="property"> = '2021-04-27'</em><a class="headerlink" href="#api.testing.AnnouncementTest.today" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.tomorrow">
-<code class="descname">tomorrow</code><em class="property"> = '2021-04-21'</em><a class="headerlink" href="#api.testing.AnnouncementTest.tomorrow" title="Permalink to this definition">¶</a></dt>
+<code class="descname">tomorrow</code><em class="property"> = '2021-04-28'</em><a class="headerlink" href="#api.testing.AnnouncementTest.tomorrow" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.yesterday">
-<code class="descname">yesterday</code><em class="property"> = '2021-04-19'</em><a class="headerlink" href="#api.testing.AnnouncementTest.yesterday" title="Permalink to this definition">¶</a></dt>
+<code class="descname">yesterday</code><em class="property"> = '2021-04-26'</em><a class="headerlink" href="#api.testing.AnnouncementTest.yesterday" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

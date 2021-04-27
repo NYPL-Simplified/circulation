@@ -33,8 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for api.onix</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">import</span> <span class="nn">logging</span>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
 
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
@@ -55,6 +54,7 @@
     <span class="n">Representation</span><span class="p">,</span>
     <span class="n">Subject</span><span class="p">,</span>
     <span class="n">LicensePool</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">strptime_utc</span>
 <span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
 
 
@@ -257,7 +257,7 @@
             <span class="n">publishing_date</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;publishingdetail/publishingdate/b306&#39;</span><span class="p">)</span>
             <span class="n">issued</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">if</span> <span class="n">publishing_date</span><span class="p">:</span>
-                <span class="n">issued</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">publishing_date</span><span class="p">,</span> <span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">issued</span> <span class="o">=</span> <span class="n">strptime_utc</span><span class="p">(</span><span class="n">publishing_date</span><span class="p">,</span> <span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
 
             <span class="n">identifier_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;productidentifier&#39;</span><span class="p">)</span>
             <span class="n">identifiers</span> <span class="o">=</span> <span class="p">[]</span>

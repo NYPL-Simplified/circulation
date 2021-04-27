@@ -86,8 +86,11 @@
     <span class="n">Work</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">strptime_utc</span><span class="p">,</span>
+    <span class="n">utc_now</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">import</span> <span class="nn">base64</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">date</span><span class="p">,</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span><span class="p">,</span> <span class="n">ImageDraw</span><span class="p">,</span> <span class="n">ImageFont</span>
@@ -331,7 +334,7 @@
         <span class="n">new_issued</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;issued&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">new_issued</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">new_issued</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">new_issued</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">new_issued</span><span class="p">,</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">new_issued</span> <span class="o">=</span> <span class="n">strptime_utc</span><span class="p">(</span><span class="n">new_issued</span><span class="p">,</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1">&#39;</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
                 <span class="k">return</span> <span class="n">INVALID_DATE_FORMAT</span>
@@ -996,7 +999,7 @@
                         <span class="k">return</span> <span class="n">MISSING_CUSTOM_LIST</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Could not find list </span><span class="se">\&quot;</span><span class="si">%(list_name)s</span><span class="se">\&quot;</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">list_name</span><span class="o">=</span><span class="n">name</span><span class="p">))</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="nb">list</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">CustomList</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="n">staff_data_source</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">)</span>
-                    <span class="nb">list</span><span class="o">.</span><span class="n">created</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+                    <span class="nb">list</span><span class="o">.</span><span class="n">created</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
                 <span class="n">entry</span><span class="p">,</span> <span class="n">was_new</span> <span class="o">=</span> <span class="nb">list</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">featured</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">was_new</span><span class="p">:</span>
                     <span class="k">for</span> <span class="n">lane</span> <span class="ow">in</span> <span class="n">Lane</span><span class="o">.</span><span class="n">affected_by_customlist</span><span class="p">(</span><span class="nb">list</span><span class="p">):</span>

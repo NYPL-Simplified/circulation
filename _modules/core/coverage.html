@@ -33,9 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for core.coverage</h1><div class="highlight"><pre>
-<span></span>
-<span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">import</span> <span class="nn">logging</span>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">traceback</span>
 
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
@@ -63,7 +61,7 @@
     <span class="n">TimestampData</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">.util.worker_pools</span> <span class="kn">import</span> <span class="n">DatabaseJob</span>
-
+<span class="kn">from</span> <span class="nn">.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">utc_now</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">log</span> <span class="c1"># This sets the appropriate log format.</span>
 
 <div class="viewcode-block" id="CoverageFailure"><a class="viewcode-back" href="../../core.html#core.coverage.CoverageFailure">[docs]</a><span class="k">class</span> <span class="nc">CoverageFailure</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -246,7 +244,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">OPERATION</span>
 
 <div class="viewcode-block" id="BaseCoverageProvider.run"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_once_and_update_timestamp</span><span class="p">()</span>
 
         <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="ow">or</span> <span class="n">CoverageProviderProgress</span><span class="p">()</span>
@@ -261,7 +259,7 @@
             <span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">PREVIOUSLY_ATTEMPTED</span><span class="p">,</span>
             <span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">DEFAULT_COUNT_AS_COVERED</span>
         <span class="p">]</span>
-        <span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span>
 
         <span class="c1"># We&#39;ll use this TimestampData object to track our progress</span>
@@ -297,7 +295,7 @@
                         <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
                     <span class="p">)</span>
                     <span class="n">progress</span><span class="o">.</span><span class="n">exception</span><span class="o">=</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
-                    <span class="n">progress</span><span class="o">.</span><span class="n">finish</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+                    <span class="n">progress</span><span class="o">.</span><span class="n">finish</span><span class="o">=</span><span class="n">utc_now</span><span class="p">()</span>
 
                 <span class="c1"># The next run_once() call might raise an exception,</span>
                 <span class="c1"># so let&#39;s write the work to the database as it&#39;s</span>
@@ -371,7 +369,7 @@
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">batch</span><span class="o">.</span><span class="n">count</span><span class="p">():</span>
             <span class="c1"># The batch is empty. We&#39;re done.</span>
-            <span class="n">progress</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="n">progress</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">progress</span>
 
         <span class="p">(</span><span class="n">successes</span><span class="p">,</span> <span class="n">transient_failures</span><span class="p">,</span> <span class="n">persistent_failures</span><span class="p">),</span> <span class="n">results</span> <span class="o">=</span> <span class="p">(</span>

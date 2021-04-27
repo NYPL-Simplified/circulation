@@ -122,6 +122,7 @@
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 <span class="kn">from</span> <span class="nn">api.proquest.importer</span> <span class="kn">import</span> <span class="n">ProQuestOPDS2Importer</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">utc_now</span>
 
 
 <div class="viewcode-block" id="setup_admin_controllers"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.setup_admin_controllers">[docs]</a><span class="k">def</span> <span class="nf">setup_admin_controllers</span><span class="p">(</span><span class="n">manager</span><span class="p">):</span>
@@ -1286,13 +1287,16 @@
         <span class="n">date_format</span> <span class="o">=</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">&quot;</span>
         <span class="k">def</span> <span class="nf">get_date</span><span class="p">(</span><span class="n">field</span><span class="p">):</span>
             <span class="c1"># Return a date or datetime object representing the</span>
-            <span class="c1"># _beginning_ of the asked-for day.</span>
+            <span class="c1"># _beginning_ of the asked-for day, local time.</span>
+            <span class="c1">#</span>
+            <span class="c1"># Unlike most places in this application we do not</span>
+            <span class="c1"># use UTC since the sime was selected by a human user.</span>
             <span class="n">today</span> <span class="o">=</span> <span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>
             <span class="n">value</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">today</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">date_format</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">date_format</span><span class="p">)</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
             <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># This won&#39;t happen in real life since the format is</span>
                 <span class="c1"># controlled by the calendar widget. There&#39;s no need</span>
@@ -2054,7 +2058,7 @@
         <span class="c1"># things for us.</span>
         <span class="n">public_key_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s1">&#39;RSA&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">public_key</span><span class="p">)</span>
         <span class="n">public_key_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;public_key_document&#39;</span><span class="p">)</span>
-        <span class="n">in_one_minute</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+        <span class="n">in_one_minute</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
         <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;exp&#39;</span><span class="p">:</span> <span class="n">in_one_minute</span><span class="p">}</span>
         <span class="c1"># Sign a JWT with the private key to prove ownership of the site.</span>
         <span class="n">token</span> <span class="o">=</span> <span class="n">jwt</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="n">private_key</span><span class="p">,</span> <span class="n">algorithm</span><span class="o">=</span><span class="s1">&#39;RS256&#39;</span><span class="p">)</span>

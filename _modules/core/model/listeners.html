@@ -40,8 +40,11 @@
     <span class="n">event</span><span class="p">,</span>
     <span class="n">text</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pdb</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.base</span> <span class="kn">import</span> <span class="n">NO_VALUE</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">threading</span> <span class="kn">import</span> <span class="n">RLock</span>
+<span class="kn">from</span> <span class="nn">pdb</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
 <span class="p">)</span>
@@ -63,8 +66,8 @@
     <span class="n">LicensePool</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">.work</span> <span class="kn">import</span> <span class="n">Work</span>
+<span class="kn">from</span> <span class="nn">..util.datetime_helpers</span> <span class="kn">import</span> <span class="n">to_utc</span><span class="p">,</span> <span class="n">utc_now</span>
 
-<span class="kn">from</span> <span class="nn">threading</span> <span class="kn">import</span> <span class="n">RLock</span>
 
 <span class="n">site_configuration_has_changed_lock</span> <span class="o">=</span> <span class="n">RLock</span><span class="p">()</span>
 <div class="viewcode-block" id="site_configuration_has_changed"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.site_configuration_has_changed">[docs]</a><span class="k">def</span> <span class="nf">site_configuration_has_changed</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">cooldown</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
@@ -96,8 +99,9 @@
 
 <span class="k">def</span> <span class="nf">_site_configuration_has_changed</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">cooldown</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Actually changes the timestamp on the site configuration.&quot;&quot;&quot;</span>
-    <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+    <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
     <span class="n">last_update</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">_site_configuration_last_update</span><span class="p">()</span>
+
     <span class="k">if</span> <span class="ow">not</span> <span class="n">last_update</span> <span class="ow">or</span> <span class="p">(</span><span class="n">now</span> <span class="o">-</span> <span class="n">last_update</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">cooldown</span><span class="p">:</span>
         <span class="c1"># The configuration last changed more than `cooldown` ago, which</span>
         <span class="c1"># means it&#39;s time to reset the Timestamp that says when the</span>
@@ -109,9 +113,9 @@
             <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
 
         <span class="c1"># Update the timestamp.</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">earlier</span> <span class="o">=</span> <span class="n">now</span><span class="o">-</span><span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">cooldown</span><span class="p">)</span>
-        <span class="n">sql</span> <span class="o">=</span> <span class="s2">&quot;UPDATE timestamps SET finish=:finish WHERE service=:service AND collection_id IS NULL AND finish&lt;=:earlier;&quot;</span>
+        <span class="n">sql</span> <span class="o">=</span> <span class="s2">&quot;UPDATE timestamps SET finish=(:finish at time zone &#39;utc&#39;) WHERE service=:service AND collection_id IS NULL AND finish&lt;=(:earlier at time zone &#39;utc&#39;);&quot;</span>
         <span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
             <span class="n">text</span><span class="p">(</span><span class="n">sql</span><span class="p">),</span>
             <span class="nb">dict</span><span class="p">(</span><span class="n">service</span><span class="o">=</span><span class="n">Configuration</span><span class="o">.</span><span class="n">SITE_CONFIGURATION_CHANGED</span><span class="p">,</span>

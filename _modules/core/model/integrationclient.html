@@ -36,14 +36,6 @@
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># IntegrationClient</span>
 
-
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Base</span><span class="p">,</span>
-    <span class="n">get_one</span><span class="p">,</span>
-    <span class="n">get_one_or_create</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
@@ -56,7 +48,14 @@
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">relationship</span><span class="p">,</span>
 <span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">random_string</span>
+<span class="kn">from</span> <span class="nn">..util.datetime_helpers</span> <span class="kn">import</span> <span class="n">utc_now</span>
 
 <div class="viewcode-block" id="IntegrationClient"><a class="viewcode-back" href="../../../core.model.html#core.model.integrationclient.IntegrationClient">[docs]</a><span class="k">class</span> <span class="nc">IntegrationClient</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A client that has authenticated access to this application.</span>
@@ -78,8 +77,8 @@
     <span class="c1"># upgrades to fix a known bug.</span>
     <span class="n">enabled</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="n">created</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">)</span>
-    <span class="n">last_accessed</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">)</span>
+    <span class="n">created</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(</span><span class="n">timezone</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+    <span class="n">last_accessed</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(</span><span class="n">timezone</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
 
     <span class="n">loans</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s1">&#39;Loan&#39;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s1">&#39;integration_client&#39;</span><span class="p">)</span>
     <span class="n">holds</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s1">&#39;Hold&#39;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s1">&#39;integration_client&#39;</span><span class="p">)</span>
@@ -96,7 +95,7 @@
 <span class="sd">            secret will be set.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">url</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">normalize_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">client</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">created</span><span class="o">=</span><span class="n">now</span><span class="p">)</span>
         <span class="p">)</span>
@@ -129,7 +128,7 @@
     <span class="k">def</span> <span class="nf">authenticate</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">shared_secret</span><span class="p">):</span>
         <span class="n">client</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="p">,</span> <span class="n">shared_secret</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">shared_secret</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">client</span><span class="p">:</span>
-            <span class="n">client</span><span class="o">.</span><span class="n">last_accessed</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">last_accessed</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
             <span class="c1"># Committing immediately reduces the risk of contention.</span>
             <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">client</span>

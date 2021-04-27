@@ -37,25 +37,6 @@
 <span class="c1"># Resource, ResourceTransformation, Hyperlink, Representation</span>
 
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Base</span><span class="p">,</span>
-    <span class="n">get_one</span><span class="p">,</span>
-    <span class="n">get_one_or_create</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">..config</span> <span class="kn">import</span> <span class="n">Configuration</span>
-<span class="kn">from</span> <span class="nn">.constants</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">DataSourceConstants</span><span class="p">,</span>
-    <span class="n">IdentifierConstants</span><span class="p">,</span>
-    <span class="n">LinkRelations</span><span class="p">,</span>
-    <span class="n">MediaTypes</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">.edition</span> <span class="kn">import</span> <span class="n">Edition</span>
-<span class="kn">from</span> <span class="nn">.licensing</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">LicensePool</span><span class="p">,</span>
-    <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">..util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
-
 <span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">BytesIO</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">json</span>
@@ -86,6 +67,26 @@
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">traceback</span>
 <span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span><span class="p">,</span> <span class="n">urlsplit</span><span class="p">,</span> <span class="n">quote</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">..config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">.constants</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DataSourceConstants</span><span class="p">,</span>
+    <span class="n">IdentifierConstants</span><span class="p">,</span>
+    <span class="n">LinkRelations</span><span class="p">,</span>
+    <span class="n">MediaTypes</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.edition</span> <span class="kn">import</span> <span class="n">Edition</span>
+<span class="kn">from</span> <span class="nn">.licensing</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">LicensePool</span><span class="p">,</span>
+    <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">..util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
+<span class="kn">from</span> <span class="nn">..util.datetime_helpers</span> <span class="kn">import</span> <span class="n">utc_now</span>
 
 <div class="viewcode-block" id="Resource"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Resource">[docs]</a><span class="k">class</span> <span class="nc">Resource</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;An external resource that may be mirrored locally.</span>
@@ -535,7 +536,7 @@
     <span class="c1">### Records of things we tried to do with this representation.</span>
 
     <span class="c1"># When the representation was last fetched from `url`.</span>
-    <span class="n">fetched_at</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">fetched_at</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(</span><span class="n">timezone</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="c1"># A textual description of the error encountered the last time</span>
     <span class="c1"># we tried to fetch the representation</span>
@@ -546,7 +547,7 @@
     <span class="n">mirror_url</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="c1"># When the representation was last pushed to `mirror_url`.</span>
-    <span class="n">mirrored_at</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">mirrored_at</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(</span><span class="n">timezone</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="c1"># An exception that happened while pushing this representation</span>
     <span class="c1"># to `mirror_url.</span>
@@ -554,7 +555,7 @@
 
     <span class="c1"># If this image is a scaled-down version of some other image,</span>
     <span class="c1"># `scaled_at` is the time it was last generated.</span>
-    <span class="n">scaled_at</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">scaled_at</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(</span><span class="n">timezone</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="c1"># If this image is a scaled-down version of some other image,</span>
     <span class="c1"># this is the exception that happened the last time we tried</span>
@@ -626,7 +627,7 @@
     <span class="k">def</span> <span class="nf">age</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetched_at</span><span class="p">:</span>
             <span class="k">return</span> <span class="mi">1000000</span>
-        <span class="k">return</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetched_at</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">utc_now</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetched_at</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">has_content</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -830,7 +831,7 @@
             <span class="k">if</span> <span class="n">representation</span><span class="o">.</span><span class="n">etag</span><span class="p">:</span>
                 <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;If-None-Match&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">etag</span>
 
-        <span class="n">fetched_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">fetched_at</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">pause_before</span><span class="p">:</span>
             <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">pause_before</span><span class="p">)</span>
         <span class="n">media_type</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1035,7 +1036,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">local_content_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_content_path</span><span class="p">(</span><span class="n">content_path</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="mi">200</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fetched_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fetched_at</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fetch_exception</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update_image_size</span><span class="p">()</span></div>
 
@@ -1046,7 +1047,7 @@
 <span class="sd">        mirror operation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mirror_url</span> <span class="o">=</span> <span class="n">mirror_url</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">mirrored_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mirrored_at</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 <div class="viewcode-block" id="Representation.headers_to_string"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.headers_to_string">[docs]</a>    <span class="nd">@classmethod</span>
@@ -1411,7 +1412,7 @@
         <span class="c1">#</span>
         <span class="c1"># Because the representation of this image is being</span>
         <span class="c1"># changed, it will need to be mirrored later on.</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">thumbnail</span><span class="o">.</span><span class="n">mirrored_at</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">thumbnail</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="kc">None</span>
 

@@ -108,6 +108,7 @@
 <span class="kn">from</span> <span class="nn">.util.personal_names</span> <span class="kn">import</span> <span class="n">display_name_to_sort_name</span>
 <span class="kn">from</span> <span class="nn">.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 <span class="kn">from</span> <span class="nn">.util.stopwords</span> <span class="kn">import</span> <span class="n">ENGLISH_STOPWORDS</span>
+<span class="kn">from</span> <span class="nn">.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">from_timestamp</span>
 
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">logging</span>
@@ -2586,7 +2587,7 @@
             <span class="n">updated_after</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">updated_after</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">updated_after</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">):</span>
                 <span class="n">updated_after</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="n">updated_after</span> <span class="o">-</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="n">updated_after</span> <span class="o">-</span> <span class="n">from_timestamp</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
                 <span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
             <span class="n">last_update_time_query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_match_range</span><span class="p">(</span>
                 <span class="s1">&#39;last_update_time&#39;</span><span class="p">,</span> <span class="s1">&#39;gte&#39;</span><span class="p">,</span> <span class="n">updated_after</span>

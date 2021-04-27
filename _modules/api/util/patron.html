@@ -34,11 +34,13 @@
             
   <h1>Source code for api.util.patron</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">dateutil</span>
 <span class="kn">from</span> <span class="nn">money</span> <span class="kn">import</span> <span class="n">Money</span>
 <span class="kn">from</span> <span class="nn">api.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 <span class="kn">from</span> <span class="nn">api.circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">core.model.patron</span> <span class="kn">import</span> <span class="n">Patron</span>
 <span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">MoneyUtility</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">utc_now</span>
 
 <div class="viewcode-block" id="PatronUtility"><a class="viewcode-back" href="../../../api.util.html#api.util.patron.PatronUtility">[docs]</a><span class="k">class</span> <span class="nc">PatronUtility</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Apply circulation-specific logic to Patron model objects.&quot;&quot;&quot;</span>
@@ -57,7 +59,7 @@
             <span class="c1"># This patron has never been synced.</span>
             <span class="k">return</span> <span class="kc">True</span>
 
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">has_borrowing_privileges</span><span class="p">(</span><span class="n">patron</span><span class="p">):</span>
             <span class="c1"># A patron who has borrowing privileges gets synced every twelve</span>
             <span class="c1"># hours. Their account is unlikely to change rapidly.</span>
@@ -137,10 +139,10 @@
         <span class="c1"># (server) local time here instead of UTC. This is to make it</span>
         <span class="c1"># less likely that a patron&#39;s authorization will expire before</span>
         <span class="c1"># they think it should.</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="n">now_local</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">tz</span><span class="o">=</span><span class="n">dateutil</span><span class="o">.</span><span class="n">tz</span><span class="o">.</span><span class="n">tzlocal</span><span class="p">())</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_expires</span>
             <span class="ow">and</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_to_date</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_expires</span><span class="p">)</span>
-            <span class="o">&lt;</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_to_date</span><span class="p">(</span><span class="n">now</span><span class="p">)):</span>
+            <span class="o">&lt;</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_to_date</span><span class="p">(</span><span class="n">now_local</span><span class="p">)):</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">return</span> <span class="kc">True</span></div>
 

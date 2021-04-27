@@ -20,6 +20,14 @@ core.util.authentication\_for\_opds module
     :undoc-members:
     :show-inheritance:
 
+core.util.datetime\_helpers module
+----------------------------------
+
+.. automodule:: core.util.datetime_helpers
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 core.util.epub module
 ---------------------
 

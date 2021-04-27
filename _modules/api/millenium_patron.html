@@ -33,7 +33,8 @@
           <div class="body" role="main">
             
   <h1>Source code for api.millenium_patron</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span></span><span class="kn">import</span> <span class="nn">dateutil</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
 <span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urljoin</span>
 <span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlencode</span>
@@ -42,6 +43,10 @@
 <span class="kn">from</span> <span class="nn">money</span> <span class="kn">import</span> <span class="n">Money</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">datetime_utc</span><span class="p">,</span>
+    <span class="n">utc_now</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
 <span class="kn">from</span> <span class="nn">.authenticator</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BasicAuthenticationProvider</span><span class="p">,</span>
@@ -390,9 +395,14 @@
                 <span class="n">block_reason</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_patron_block_reason</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block_types</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">EXPIRATION_FIELD</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="n">expires</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
-                        <span class="n">v</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">EXPIRATION_DATE_FORMAT</span><span class="p">)</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
-                    <span class="n">authorization_expires</span> <span class="o">=</span> <span class="n">expires</span>
+                    <span class="c1"># Parse the expiration date according to server local</span>
+                    <span class="c1"># time, not UTC.</span>
+                    <span class="n">expires_local</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
+                        <span class="n">v</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">EXPIRATION_DATE_FORMAT</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+                            <span class="n">tzinfo</span><span class="o">=</span><span class="n">dateutil</span><span class="o">.</span><span class="n">tz</span><span class="o">.</span><span class="n">tzlocal</span><span class="p">()</span>
+                        <span class="p">)</span>
+                    <span class="n">expires_local</span> <span class="o">=</span> <span class="n">expires_local</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
+                    <span class="n">authorization_expires</span> <span class="o">=</span> <span class="n">expires_local</span>
                 <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
                         <span class="s1">&#39;Malformed expiration date for patron: &quot;</span><span class="si">%s</span><span class="s1">&quot;. Treating as unexpirable.&#39;</span><span class="p">,</span>
@@ -499,16 +509,20 @@
 <span class="sd">    is used in the Adobe Vendor ID tests but maybe it shouldn&#39;t.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="c1"># For expiration dates we&#39;re using UTC instead of local time for</span>
+    <span class="c1"># convenience; the difference doesn&#39;t matter because the dates in</span>
+    <span class="c1"># question are at least 10 days away from the current date.</span>
+
     <span class="c1"># This user&#39;s card has expired.</span>
     <span class="n">user1</span> <span class="o">=</span> <span class="n">PatronData</span><span class="p">(</span>
         <span class="n">permanent_id</span><span class="o">=</span><span class="s2">&quot;12345&quot;</span><span class="p">,</span>
         <span class="n">authorization_identifier</span><span class="o">=</span><span class="s2">&quot;0&quot;</span><span class="p">,</span>
         <span class="n">username</span><span class="o">=</span><span class="s2">&quot;alice&quot;</span><span class="p">,</span>
-        <span class="n">authorization_expires</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2015</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">authorization_expires</span> <span class="o">=</span> <span class="n">datetime_utc</span><span class="p">(</span><span class="mi">2015</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
     <span class="p">)</span>
 
     <span class="c1"># This user&#39;s card still has ten days on it.</span>
-    <span class="n">the_future</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="n">the_future</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
     <span class="n">user2</span> <span class="o">=</span> <span class="n">PatronData</span><span class="p">(</span>
         <span class="n">permanent_id</span><span class="o">=</span><span class="s2">&quot;67890&quot;</span><span class="p">,</span>
         <span class="n">authorization_identifier</span><span class="o">=</span><span class="s2">&quot;5&quot;</span><span class="p">,</span>

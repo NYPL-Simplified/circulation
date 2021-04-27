@@ -34,9 +34,10 @@
             
   <h1>Source code for api.nyt</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Interface to the New York Times APIs.&quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">isbnlib</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">import</span> <span class="nn">dateutil</span>
+<span class="kn">import</span> <span class="nn">isbnlib</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
@@ -75,13 +76,38 @@
 
     <span class="n">DATE_FORMAT</span> <span class="o">=</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">&quot;</span>
 
+    <span class="c1"># NYT best-seller lists are associated with dates, but fields like</span>
+    <span class="c1"># CustomEntry.first_appearance are timezone-aware datetimes. We</span>
+    <span class="c1"># will interpret a date as meaning midnight of that day in New</span>
+    <span class="c1"># York.</span>
+    <span class="c1">#</span>
+    <span class="c1"># NOTE: entries fetched before we made the datetimes</span>
+    <span class="c1"># timezone-aware will have their time zones set to UTC, but the</span>
+    <span class="c1"># difference is negligible.</span>
+    <span class="n">TIME_ZONE</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">tz</span><span class="o">.</span><span class="n">gettz</span><span class="p">(</span><span class="s2">&quot;America/New York&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="NYTAPI.parse_datetime"><a class="viewcode-back" href="../../api.html#api.nyt.NYTAPI.parse_datetime">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parse_datetime</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Used to parse the publication date of a NYT best-seller list.</span>
+
+<span class="sd">        We take midnight Eastern time to be the publication time.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DATE_FORMAT</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+            <span class="n">tzinfo</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">TIME_ZONE</span>
+        <span class="p">)</span></div>
+
 <div class="viewcode-block" id="NYTAPI.parse_date"><a class="viewcode-back" href="../../api.html#api.nyt.NYTAPI.parse_date">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">parse_date</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">DATE_FORMAT</span><span class="p">)</span></div>
+    <span class="k">def</span> <span class="nf">parse_date</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Used to parse the publication date of a book.</span>
+
+<span class="sd">        We don&#39;t know the timezone here, so the date will end up being</span>
+<span class="sd">        stored as midnight UTC.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">parse_datetime</span><span class="p">(</span><span class="n">d</span><span class="p">)</span><span class="o">.</span><span class="n">date</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="NYTAPI.date_string"><a class="viewcode-back" href="../../api.html#api.nyt.NYTAPI.date_string">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">date_string</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">d</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">DATE_FORMAT</span><span class="p">)</span></div></div>
+    <span class="k">def</span> <span class="nf">date_string</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">d</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">DATE_FORMAT</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="NYTBestSellerAPI"><a class="viewcode-back" href="../../api.html#api.nyt.NYTBestSellerAPI">[docs]</a><span class="k">class</span> <span class="nc">NYTBestSellerAPI</span><span class="p">(</span><span class="n">NYTAPI</span><span class="p">,</span> <span class="n">HasSelfTests</span><span class="p">):</span>
@@ -223,8 +249,8 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">list_info</span><span class="p">,</span> <span class="n">metadata_client</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">list_info</span><span class="p">[</span><span class="s1">&#39;display_name&#39;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">created</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">list_info</span><span class="p">[</span><span class="s1">&#39;oldest_published_date&#39;</span><span class="p">])</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">updated</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">list_info</span><span class="p">[</span><span class="s1">&#39;newest_published_date&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">created</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_datetime</span><span class="p">(</span><span class="n">list_info</span><span class="p">[</span><span class="s1">&#39;oldest_published_date&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">updated</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_datetime</span><span class="p">(</span><span class="n">list_info</span><span class="p">[</span><span class="s1">&#39;newest_published_date&#39;</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">foreign_identifier</span> <span class="o">=</span> <span class="n">list_info</span><span class="p">[</span><span class="s1">&#39;list_name_encoded&#39;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">list_info</span><span class="p">[</span><span class="s1">&#39;updated&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;WEEKLY&#39;</span><span class="p">:</span>
             <span class="n">frequency</span> <span class="o">=</span> <span class="mi">7</span>
@@ -290,7 +316,7 @@
 
             <span class="c1"># This is the date the *best-seller list* was published,</span>
             <span class="c1"># not the date the book was published.</span>
-            <span class="n">list_date</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">li_data</span><span class="p">[</span><span class="s1">&#39;published_date&#39;</span><span class="p">])</span>
+            <span class="n">list_date</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_datetime</span><span class="p">(</span><span class="n">li_data</span><span class="p">[</span><span class="s1">&#39;published_date&#39;</span><span class="p">])</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">item</span><span class="o">.</span><span class="n">first_appearance</span> <span class="ow">or</span> <span class="n">list_date</span> <span class="o">&lt;</span> <span class="n">item</span><span class="o">.</span><span class="n">first_appearance</span><span class="p">:</span>
                 <span class="n">item</span><span class="o">.</span><span class="n">first_appearance</span> <span class="o">=</span> <span class="n">list_date</span>
             <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">item</span><span class="o">.</span><span class="n">most_recent_appearance</span>
@@ -333,7 +359,9 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">medium</span><span class="p">):</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">bestsellers_date</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;bestsellers_date&#39;</span><span class="p">))</span>
+            <span class="n">bestsellers_date</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_datetime</span><span class="p">(</span>
+                <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;bestsellers_date&#39;</span><span class="p">)</span>
+            <span class="p">)</span>
             <span class="n">first_appearance</span> <span class="o">=</span> <span class="n">bestsellers_date</span>
             <span class="n">most_recent_appearance</span> <span class="o">=</span> <span class="n">bestsellers_date</span>
         <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
@@ -341,6 +369,8 @@
             <span class="n">most_recent_appearance</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># This is the date the _book_ was published, not the date</span>
+            <span class="c1"># the _bestseller list_ was published.</span>
             <span class="n">published_date</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;published_date&#39;</span><span class="p">))</span>
         <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">published_date</span> <span class="o">=</span> <span class="kc">None</span>

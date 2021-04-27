@@ -36,14 +36,7 @@
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># PolicyException LicensePool, LicensePoolDeliveryMechanism, DeliveryMechanism,</span>
 <span class="c1"># RightsStatus</span>
-<span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-
-<span class="kn">from</span> <span class="nn">.circulationevent</span> <span class="kn">import</span> <span class="n">CirculationEvent</span>
-<span class="kn">from</span> <span class="nn">.complaint</span> <span class="kn">import</span> <span class="n">Complaint</span>
-<span class="kn">from</span> <span class="nn">.constants</span> <span class="kn">import</span> <span class="n">DataSourceConstants</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="p">,</span> <span class="n">LinkRelations</span><span class="p">,</span> <span class="n">MediaTypes</span>
-<span class="kn">from</span> <span class="nn">.hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
-<span class="kn">from</span> <span class="nn">.patron</span> <span class="kn">import</span> <span class="n">Hold</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">Patron</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Boolean</span><span class="p">,</span>
     <span class="n">Column</span><span class="p">,</span>
@@ -60,7 +53,13 @@
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
 
+<span class="kn">from</span> <span class="nn">.circulationevent</span> <span class="kn">import</span> <span class="n">CirculationEvent</span>
+<span class="kn">from</span> <span class="nn">.complaint</span> <span class="kn">import</span> <span class="n">Complaint</span>
+<span class="kn">from</span> <span class="nn">.constants</span> <span class="kn">import</span> <span class="n">DataSourceConstants</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="p">,</span> <span class="n">LinkRelations</span><span class="p">,</span> <span class="n">MediaTypes</span>
+<span class="kn">from</span> <span class="nn">.hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">.patron</span> <span class="kn">import</span> <span class="n">Hold</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">Patron</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">Base</span><span class="p">,</span> <span class="n">create</span><span class="p">,</span> <span class="n">flush</span><span class="p">,</span> <span class="n">get_one</span><span class="p">,</span> <span class="n">get_one_or_create</span>
+<span class="kn">from</span> <span class="nn">..util.datetime_helpers</span> <span class="kn">import</span> <span class="n">utc_now</span>
 
 
 <div class="viewcode-block" id="PolicyException"><a class="viewcode-back" href="../../../core.model.html#core.model.licensing.PolicyException">[docs]</a><span class="k">class</span> <span class="nc">PolicyException</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
@@ -81,7 +80,7 @@
     <span class="n">checkout_url</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
     <span class="n">status_url</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
 
-    <span class="n">expires</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">)</span>
+    <span class="n">expires</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(</span><span class="n">timezone</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
     <span class="n">remaining_checkouts</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
     <span class="n">concurrent_checkouts</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
 
@@ -116,7 +115,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">is_expired</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="k">return</span> <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">expires</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">expires</span> <span class="o">&lt;=</span> <span class="n">now</span><span class="p">)</span> <span class="ow">or</span>
                 <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remaining_checkouts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">remaining_checkouts</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">))</span></div>
 
@@ -175,7 +174,7 @@
 
     <span class="c1"># The date this LicensePool was first created in our db</span>
     <span class="c1"># (the date we first discovered that ​we had that book in ​our collection).</span>
-    <span class="n">availability_time</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">availability_time</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(</span><span class="n">timezone</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="c1"># A LicensePool may be superceded by some other LicensePool</span>
     <span class="c1"># associated with the same Work. This may happen if it&#39;s an</span>
@@ -192,7 +191,7 @@
     <span class="n">license_exception</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="n">open_access</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">last_checked</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">last_checked</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(</span><span class="n">timezone</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">licenses_owned</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">licenses_available</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span><span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">licenses_reserved</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span><span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
@@ -301,7 +300,7 @@
             <span class="n">was_new</span> <span class="o">=</span> <span class="kc">False</span>
 
         <span class="k">if</span> <span class="n">was_new</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">availability_time</span><span class="p">:</span>
-            <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
             <span class="n">license_pool</span><span class="o">.</span><span class="n">availability_time</span> <span class="o">=</span> <span class="n">now</span>
 
         <span class="k">if</span> <span class="n">was_new</span><span class="p">:</span>
@@ -559,7 +558,7 @@
 
 <div class="viewcode-block" id="LicensePool.needs_update"><a class="viewcode-back" href="../../../core.model.html#core.model.licensing.LicensePool.needs_update">[docs]</a>    <span class="k">def</span> <span class="nf">needs_update</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Is it time to update the circulation info for this license pool?&quot;&quot;&quot;</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_checked</span><span class="p">:</span>
             <span class="c1"># This pool has never had its circulation info checked.</span>
             <span class="k">return</span> <span class="kc">True</span>
@@ -581,7 +580,7 @@
         <span class="n">changes_made</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">as_of</span><span class="p">:</span>
-            <span class="n">as_of</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="n">as_of</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="k">elif</span> <span class="n">as_of</span> <span class="o">==</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">NO_DATE</span><span class="p">:</span>
             <span class="c1"># The caller explicitly does not want</span>
             <span class="c1"># LicensePool.last_checked to be updated.</span>
@@ -839,7 +838,7 @@
 
 <div class="viewcode-block" id="LicensePool.loan_to"><a class="viewcode-back" href="../../../core.model.html#core.model.licensing.LicensePool.loan_to">[docs]</a>    <span class="k">def</span> <span class="nf">loan_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron_or_client</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fulfillment</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">external_identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">patron_or_client</span><span class="p">)</span>
-        <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="n">start</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">(),</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="n">start</span> <span class="ow">or</span> <span class="n">utc_now</span><span class="p">(),</span>
                       <span class="n">end</span><span class="o">=</span><span class="n">end</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron_or_client</span><span class="p">,</span> <span class="n">Patron</span><span class="p">):</span>
             <span class="n">loan</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
@@ -868,7 +867,7 @@
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">patron_or_client</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron_or_client</span><span class="p">,</span> <span class="n">Patron</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">patron_or_client</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">allow_holds</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PolicyException</span><span class="p">(</span><span class="s2">&quot;Holds are disabled for this library.&quot;</span><span class="p">)</span>
-        <span class="n">start</span> <span class="o">=</span> <span class="n">start</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">start</span> <span class="ow">or</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron_or_client</span><span class="p">,</span> <span class="n">Patron</span><span class="p">):</span>
             <span class="n">hold</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
                 <span class="n">_db</span><span class="p">,</span> <span class="n">Hold</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron_or_client</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="bp">self</span>
@@ -906,7 +905,7 @@
 <span class="sd">        offer that model.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">best</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
 
         <span class="k">for</span> <span class="n">license</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">licenses</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">license</span><span class="o">.</span><span class="n">is_expired</span><span class="p">:</span>

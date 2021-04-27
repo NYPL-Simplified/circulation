@@ -34,16 +34,15 @@
             
   <h1>Source code for core.marc</h1><div class="highlight"><pre>
 <span></span>
-<span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">BytesIO</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">import</span> <span class="nn">re</span>
-
 <span class="kn">from</span> <span class="nn">pymarc</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Field</span><span class="p">,</span>
     <span class="n">Record</span><span class="p">,</span>
     <span class="n">MARCWriter</span>
 <span class="p">)</span>
+
 <span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
@@ -72,6 +71,7 @@
 <span class="kn">from</span> <span class="nn">.s3</span> <span class="kn">import</span> <span class="n">S3Uploader</span>
 <span class="kn">from</span> <span class="nn">.lane</span> <span class="kn">import</span> <span class="n">Lane</span>
 <span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">utc_now</span>
 
 <div class="viewcode-block" id="Annotator"><a class="viewcode-back" href="../../core.html#core.marc.Annotator">[docs]</a><span class="k">class</span> <span class="nc">Annotator</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;The Annotator knows how to add information about a Work to</span>
@@ -141,7 +141,7 @@
         <span class="c1"># Field 003 (MARC organization code) is library-specific, so it&#39;s added separately.</span>
 
         <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
-            <span class="n">Field</span><span class="p">(</span><span class="n">tag</span><span class="o">=</span><span class="s2">&quot;005&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">%H%M%S.0&quot;</span><span class="p">)))</span>
+            <span class="n">Field</span><span class="p">(</span><span class="n">tag</span><span class="o">=</span><span class="s2">&quot;005&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">utc_now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">%H%M%S.0&quot;</span><span class="p">)))</span>
 
         <span class="c1"># Field 006: m = computer file, d = the file is a document</span>
         <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
@@ -159,7 +159,7 @@
             <span class="n">Field</span><span class="p">(</span><span class="n">tag</span><span class="o">=</span><span class="s2">&quot;007&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="s2">&quot;cr cn ---&quot;</span> <span class="o">+</span> <span class="n">file_formats_code</span> <span class="o">+</span> <span class="s2">&quot;nuuu&quot;</span><span class="p">))</span>
 
         <span class="c1"># Field 008 (fixed-length data elements):</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">publication_date</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">issued</span> <span class="ow">or</span> <span class="n">edition</span><span class="o">.</span><span class="n">published</span>
         <span class="k">if</span> <span class="n">publication_date</span><span class="p">:</span>
             <span class="n">date_type</span> <span class="o">=</span> <span class="s2">&quot;s&quot;</span> <span class="c1"># single known date</span>
@@ -687,7 +687,7 @@
         <span class="c1"># End time is before we start the query, because if any records are changed</span>
         <span class="c1"># during the processing we may not catch them, and they should be handled</span>
         <span class="c1"># again on the next run.</span>
-        <span class="n">end_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">end_time</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
 
         <span class="n">facets</span> <span class="o">=</span> <span class="n">MARCExporterFacets</span><span class="p">(</span><span class="n">start_time</span><span class="o">=</span><span class="n">start_time</span><span class="p">)</span>
         <span class="n">pagination</span> <span class="o">=</span> <span class="n">SortKeyPagination</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">query_batch_size</span><span class="p">)</span>

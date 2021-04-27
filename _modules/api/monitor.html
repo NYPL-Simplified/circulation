@@ -33,8 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for api.monitor</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">import</span> <span class="nn">logging</span>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 
@@ -58,7 +57,7 @@
     <span class="n">LicensePool</span><span class="p">,</span>
     <span class="n">Loan</span><span class="p">,</span>
 <span class="p">)</span>
-
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">utc_now</span>
 <span class="kn">from</span> <span class="nn">.odl</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ODLAPI</span><span class="p">,</span>
     <span class="n">SharedODLAPI</span><span class="p">,</span>
@@ -117,7 +116,7 @@
         <span class="n">start_field</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MODEL_CLASS</span><span class="o">.</span><span class="n">start</span>
         <span class="n">end_field</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MODEL_CLASS</span><span class="o">.</span><span class="n">end</span>
         <span class="n">superclause</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">LoanReaper</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">where_clause</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">expired</span> <span class="o">=</span> <span class="n">end_field</span> <span class="o">&lt;</span> <span class="n">now</span>
         <span class="n">very_old_with_no_clear_end_date</span> <span class="o">=</span> <span class="n">and_</span><span class="p">(</span>
             <span class="n">start_field</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutoff</span><span class="p">,</span>
@@ -143,7 +142,7 @@
         <span class="n">start_field</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MODEL_CLASS</span><span class="o">.</span><span class="n">start</span>
         <span class="n">end_field</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MODEL_CLASS</span><span class="o">.</span><span class="n">end</span>
         <span class="n">superclause</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">HoldReaper</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">where_clause</span>
-        <span class="n">end_date_in_past</span> <span class="o">=</span> <span class="n">end_field</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">end_date_in_past</span> <span class="o">=</span> <span class="n">end_field</span> <span class="o">&lt;</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">probably_abandoned</span> <span class="o">=</span> <span class="n">and_</span><span class="p">(</span>
             <span class="n">start_field</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutoff</span><span class="p">,</span>
             <span class="n">or_</span><span class="p">(</span><span class="n">end_field</span> <span class="o">==</span> <span class="kc">None</span><span class="p">,</span> <span class="n">end_date_in_past</span><span class="p">)</span>

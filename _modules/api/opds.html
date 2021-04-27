@@ -33,8 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for api.opds</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">import</span> <span class="nn">urllib.request</span><span class="o">,</span> <span class="nn">urllib.parse</span><span class="o">,</span> <span class="nn">urllib.error</span>
+<span></span><span class="kn">import</span> <span class="nn">urllib.request</span><span class="o">,</span> <span class="nn">urllib.parse</span><span class="o">,</span> <span class="nn">urllib.error</span>
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">url_for</span>
@@ -79,6 +78,7 @@
     <span class="n">Lane</span><span class="p">,</span>
     <span class="n">WorkList</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">from_timestamp</span>
 <span class="kn">from</span> <span class="nn">api.lanes</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DynamicLane</span><span class="p">,</span>
     <span class="n">CrawlableCustomListBasedLane</span><span class="p">,</span>
@@ -238,7 +238,7 @@
             <span class="n">last_updates</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">work</span><span class="o">.</span><span class="n">_hit</span><span class="p">,</span> <span class="s1">&#39;last_update&#39;</span><span class="p">,</span> <span class="p">[])</span>
             <span class="k">if</span> <span class="n">last_updates</span><span class="p">:</span>
                 <span class="c1"># last_update is seconds-since epoch; convert to UTC datetime.</span>
-                <span class="n">updated</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">last_updates</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">updated</span> <span class="o">=</span> <span class="n">from_timestamp</span><span class="p">(</span><span class="n">last_updates</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
 
                 <span class="c1"># There&#39;s a chance that work.last_updated has been</span>
                 <span class="c1"># modified but the change hasn&#39;t made it to the search</span>

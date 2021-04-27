@@ -34,7 +34,6 @@
             
   <h1>Source code for core.scripts</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">argparse</span>
-<span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">random</span>
@@ -44,6 +43,7 @@
 <span class="kn">import</span> <span class="nn">traceback</span>
 <span class="kn">import</span> <span class="nn">unicodedata</span>
 <span class="kn">import</span> <span class="nn">uuid</span>
+<span class="kn">from</span> <span class="nn">pdb</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
@@ -58,7 +58,6 @@
     <span class="n">MultipleResultsFound</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="c1"># from axis import Axis360BibliographicCoverageProvider</span>
 <span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="n">Configuration</span><span class="p">,</span> <span class="n">CannotLoadConfiguration</span>
 <span class="kn">from</span> <span class="nn">.coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CollectionCoverageProviderJob</span><span class="p">,</span>
@@ -116,9 +115,6 @@
     <span class="n">OPDSImportMonitor</span><span class="p">,</span>
     <span class="n">OPDSImporter</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="c1"># from oneclick import (</span>
-<span class="c1">#     OneClickBibliographicCoverageProvider,</span>
-<span class="c1"># )</span>
 <span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="n">fast_query_count</span>
 <span class="kn">from</span> <span class="nn">.util.personal_names</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">contributor_name_match_ratio</span><span class="p">,</span>
@@ -127,6 +123,7 @@
 <span class="kn">from</span> <span class="nn">.util.worker_pools</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DatabasePool</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">strptime_utc</span><span class="p">,</span> <span class="n">to_utc</span><span class="p">,</span> <span class="n">utc_now</span>
 
 
 <div class="viewcode-block" id="Script"><a class="viewcode-back" href="../../core.html#core.scripts.Script">[docs]</a><span class="k">class</span> <span class="nc">Script</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -174,9 +171,7 @@
             <span class="k">for</span> <span class="n">hours</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="s1">&#39; %H:%M:%S&#39;</span><span class="p">):</span>
                 <span class="n">full_format</span> <span class="o">=</span> <span class="nb">format</span> <span class="o">+</span> <span class="n">hours</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="n">parsed</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
-                        <span class="n">time_string</span><span class="p">,</span> <span class="n">full_format</span>
-                    <span class="p">)</span>
+                    <span class="n">parsed</span> <span class="o">=</span> <span class="n">strptime_utc</span><span class="p">(</span><span class="n">time_string</span><span class="p">,</span> <span class="n">full_format</span><span class="p">)</span>
                     <span class="k">return</span> <span class="n">parsed</span>
                 <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="k">continue</span>
@@ -194,7 +189,7 @@
 <div class="viewcode-block" id="Script.run"><a class="viewcode-back" href="../../core.html#core.scripts.Script.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">load_configuration</span><span class="p">()</span>
         <span class="n">DataSource</span><span class="o">.</span><span class="n">well_known_sources</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
-        <span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">timestamp_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">do_run</span><span class="p">()</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">timestamp_data</span><span class="p">,</span> <span class="n">TimestampData</span><span class="p">):</span>
@@ -443,7 +438,7 @@
                 <span class="c1"># jobs could share a single &#39;progress&#39; object.</span>
                 <span class="k">while</span> <span class="n">offset</span> <span class="o">&lt;</span> <span class="n">query_size</span><span class="p">:</span>
                     <span class="n">progress</span> <span class="o">=</span> <span class="n">CoverageProviderProgress</span><span class="p">(</span>
-                        <span class="n">start</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+                        <span class="n">start</span><span class="o">=</span><span class="n">utc_now</span><span class="p">()</span>
                     <span class="p">)</span>
                     <span class="n">progress</span><span class="o">.</span><span class="n">offset</span> <span class="o">=</span> <span class="n">offset</span>
                     <span class="n">job</span> <span class="o">=</span> <span class="n">CollectionCoverageProviderJob</span><span class="p">(</span>
@@ -2158,6 +2153,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">service</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">finish</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="n">finish</span> <span class="o">=</span> <span class="n">Script</span><span class="o">.</span><span class="n">parse_time</span><span class="p">(</span><span class="n">finish</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">finish</span> <span class="o">=</span> <span class="n">to_utc</span><span class="p">(</span><span class="n">finish</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="n">finish</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">counter</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="n">counter</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">counter</span><span class="p">)</span>
@@ -2170,18 +2167,17 @@
             <span class="sd">&quot;&quot;&quot;Saves a TimestampInfo object to the database.</span>
 <span class="sd">            &quot;&quot;&quot;</span>
             <span class="c1"># Reset values locally.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="n">finish</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="n">to_utc</span><span class="p">(</span><span class="n">finish</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="n">counter</span>
 
             <span class="n">sql</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="s2">&quot;UPDATE timestamps SET start=:finish, finish=:finish, counter=:counter&quot;</span>
+                <span class="s2">&quot;UPDATE timestamps SET start=(:finish at time zone &#39;utc&#39;), finish=(:finish at time zone &#39;utc&#39;), counter=:counter&quot;</span>
                 <span class="s2">&quot; where service=:service&quot;</span>
             <span class="p">)</span>
             <span class="n">values</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
                 <span class="n">finish</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">finish</span><span class="p">,</span> <span class="n">counter</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">counter</span><span class="p">,</span>
                 <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="p">,</span>
             <span class="p">)</span>
-
             <span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">text</span><span class="p">(</span><span class="n">sql</span><span class="p">),</span> <span class="n">values</span><span class="p">)</span>
             <span class="n">_db</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
 
@@ -2221,7 +2217,7 @@
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">sort_migrations</span><span class="p">(</span><span class="n">migratable</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="DatabaseMigrationScript.sort_migrations"><a class="viewcode-back" href="../../core.html#core.scripts.DatabaseMigrationScript.sort_migrations">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">sort_migrations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">migrations</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">sort_migrations</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">migrations</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;All Python migrations sort after all SQL migrations, since a Python</span>
 <span class="sd">        migration requires an up-to-date database schema.</span>
 
@@ -2252,7 +2248,7 @@
 
             <span class="c1"># Both migrations have the same timestamp, so compare using</span>
             <span class="c1"># their counters (default to 0 if no counter is included)</span>
-            <span class="n">first_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MIGRATION_WITH_COUNTER</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
+            <span class="n">first_count</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">MIGRATION_WITH_COUNTER</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">first_count</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">first_count</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">first_count</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
             <span class="k">else</span><span class="p">:</span>
@@ -2575,12 +2571,14 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>
 
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">finish</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">finish_timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">finish</span>
         <span class="c1"># The last script that ran had an earlier timestamp than the current script</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">finish</span> <span class="o">&gt;</span> <span class="n">last_run_date</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">finish_timestamp</span> <span class="o">&gt;</span> <span class="n">last_run_date</span><span class="p">:</span>
             <span class="k">return</span>
 
         <span class="c1"># The dates of the scrips are the same so compare the counters</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">finish</span><span class="o">==</span><span class="n">last_run_date</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">finish_timestamp</span><span class="o">==</span><span class="n">last_run_date</span><span class="p">:</span>
             <span class="c1"># The current script has no counter, so it&#39;s the same script that ran</span>
             <span class="c1"># or an earlier script that ran</span>
             <span class="k">if</span> <span class="n">counter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>

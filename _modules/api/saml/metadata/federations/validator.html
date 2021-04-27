@@ -42,6 +42,7 @@
 <span class="kn">from</span> <span class="nn">onelogin.saml2.utils</span> <span class="kn">import</span> <span class="n">OneLogin_Saml2_Utils</span>
 
 <span class="kn">from</span> <span class="nn">core.exceptions</span> <span class="kn">import</span> <span class="n">BaseError</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">from_timestamp</span><span class="p">,</span> <span class="n">utc_now</span>
 
 
 <div class="viewcode-block" id="SAMLFederatedMetadataValidationError"><a class="viewcode-back" href="../../../../../api.saml.metadata.federations.html#api.saml.metadata.federations.validator.SAMLFederatedMetadataValidationError">[docs]</a><span class="k">class</span> <span class="nc">SAMLFederatedMetadataValidationError</span><span class="p">(</span><span class="n">BaseError</span><span class="p">):</span>
@@ -122,7 +123,7 @@
 <span class="sd">        :type saml_date_time: str</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">unix_timestamp</span> <span class="o">=</span> <span class="n">OneLogin_Saml2_Utils</span><span class="o">.</span><span class="n">parse_SAML_to_time</span><span class="p">(</span><span class="n">saml_date_time</span><span class="p">)</span>
-        <span class="n">parsed_date_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">unix_timestamp</span><span class="p">)</span>
+        <span class="n">parsed_date_time</span> <span class="o">=</span> <span class="n">from_timestamp</span><span class="p">(</span><span class="n">unix_timestamp</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">parsed_date_time</span>
 
@@ -162,7 +163,7 @@
             <span class="p">)</span>
 
         <span class="n">valid_until</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_saml_date_time</span><span class="p">(</span><span class="n">valid_until</span><span class="p">)</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">valid_until</span> <span class="o">&lt;</span> <span class="n">now</span> <span class="ow">and</span> <span class="p">(</span><span class="n">now</span> <span class="o">-</span> <span class="n">valid_until</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_CLOCK_SKEW</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">SAMLFederatedMetadataValidationError</span><span class="p">(</span>

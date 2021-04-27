@@ -38,6 +38,7 @@
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pytz</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">urllib.parse</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
@@ -140,6 +141,10 @@
 <span class="kn">from</span> <span class="nn">core.opensearch</span> <span class="kn">import</span> <span class="n">OpenSearchDocument</span>
 <span class="kn">from</span> <span class="nn">core.user_profile</span> <span class="kn">import</span> <span class="n">ProfileController</span> <span class="k">as</span> <span class="n">CoreProfileController</span>
 <span class="kn">from</span> <span class="nn">core.util.authentication_for_opds</span> <span class="kn">import</span> <span class="n">AuthenticationForOPDSDocument</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">from_timestamp</span><span class="p">,</span>
+    <span class="n">utc_now</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HTTP</span><span class="p">,</span>
     <span class="n">RemoteIntegrationException</span><span class="p">,</span>
@@ -698,22 +703,25 @@
         <span class="k">if</span> <span class="n">last_modified</span><span class="o">.</span><span class="n">microsecond</span><span class="p">:</span>
             <span class="n">last_modified</span> <span class="o">=</span> <span class="n">last_modified</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">microsecond</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
-        <span class="c1"># TODO: This can be cleaned up significantly in Python 3.</span>
         <span class="n">if_modified_since</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;If-Modified-Since&#39;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">if_modified_since</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="n">if_modified_since_tuple</span> <span class="o">=</span> <span class="n">email</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">parsedate</span><span class="p">(</span>
-            <span class="n">if_modified_since</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">if_modified_since_tuple</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">parsed_if_modified_since</span> <span class="o">=</span> <span class="n">email</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">parsedate_to_datetime</span><span class="p">(</span>
+                <span class="n">if_modified_since</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="c1"># Parse error.</span>
             <span class="k">return</span> <span class="kc">None</span>
-
-        <span class="n">parsed_if_modified_since</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span>
-            <span class="n">mktime</span><span class="p">(</span><span class="n">if_modified_since_tuple</span><span class="p">)</span>
-        <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">parsed_if_modified_since</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># &quot;[I]f the date is conforming to the RFCs it will represent a</span>
+        <span class="c1"># time in UTC but with no indication of the actual source</span>
+        <span class="c1"># timezone of the message the date comes from.&quot;</span>
+        <span class="k">if</span> <span class="n">parsed_if_modified_since</span><span class="o">.</span><span class="n">tzinfo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">parsed_if_modified_since</span> <span class="o">=</span> <span class="n">parsed_if_modified_since</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">pytz</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">parsed_if_modified_since</span> <span class="o">&gt;=</span> <span class="n">last_modified</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="mi">304</span><span class="p">)</span>
@@ -2244,7 +2252,7 @@
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pools</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">pools</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
-                <span class="n">library</span><span class="p">,</span> <span class="n">pools</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">event_type</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">(),</span>
+                <span class="n">library</span><span class="p">,</span> <span class="n">pools</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">event_type</span><span class="p">,</span> <span class="n">utc_now</span><span class="p">(),</span>
                 <span class="n">neighborhood</span><span class="o">=</span><span class="n">neighborhood</span>
             <span class="p">)</span>
             <span class="k">return</span> <span class="n">Response</span><span class="p">({},</span> <span class="mi">200</span><span class="p">)</span>

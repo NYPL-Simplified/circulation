@@ -36,12 +36,13 @@
 <span></span>
 <span class="kn">import</span> <span class="nn">importlib</span>
 <span class="kn">import</span> <span class="nn">contextlib</span>
-<span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+
 <span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
 <span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">utc_now</span>
 
 <div class="viewcode-block" id="Analytics"><a class="viewcode-back" href="../../core.html#core.analytics.Analytics">[docs]</a><span class="k">class</span> <span class="nc">Analytics</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -88,7 +89,7 @@
 
 <div class="viewcode-block" id="Analytics.collect_event"><a class="viewcode-back" href="../../core.html#core.analytics.Analytics.collect_event">[docs]</a>    <span class="k">def</span> <span class="nf">collect_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">event_type</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">time</span><span class="p">:</span>
-            <span class="n">time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="n">time</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">providers</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sitewide_providers</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">library</span><span class="p">:</span>
             <span class="n">providers</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library_providers</span><span class="p">[</span><span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">])</span>

@@ -108,6 +108,11 @@
 
 <span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="n">DatabaseTest</span>
 
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">from_timestamp</span><span class="p">,</span>
+    <span class="n">strptime_utc</span><span class="p">,</span>
+    <span class="n">utc_now</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HTTP</span><span class="p">,</span>
     <span class="n">BadResponseException</span><span class="p">,</span>
@@ -249,7 +254,7 @@
 
         <span class="k">if</span> <span class="n">published</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">published</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">published</span><span class="p">,</span> <span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">published</span> <span class="o">=</span> <span class="n">strptime_utc</span><span class="p">(</span><span class="n">published</span><span class="p">,</span> <span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="bp">cls</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Cannot parse publication date from: &#39;</span> <span class="o">+</span> <span class="n">published</span> <span class="o">+</span> <span class="s1">&#39;, message: &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
 
@@ -257,7 +262,7 @@
         <span class="n">last_update</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;modificationDate&#39;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">last_update</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">last_update</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">last_update</span><span class="p">,</span> <span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">last_update</span> <span class="o">=</span> <span class="n">strptime_utc</span><span class="p">(</span><span class="n">last_update</span><span class="p">,</span> <span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="bp">cls</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Cannot parse last update date from: &#39;</span> <span class="o">+</span> <span class="n">last_update</span> <span class="o">+</span> <span class="s1">&#39;, message: &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
 
@@ -676,7 +681,7 @@
             <span class="n">d</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># OdiloAPI dates are timestamps in milliseconds</span>
-            <span class="n">d</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">field_name</span><span class="p">])</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">from_timestamp</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">field_name</span><span class="p">])</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">d</span></div>
 
 <div class="viewcode-block" id="OdiloAPI.raise_exception_on_error"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.raise_exception_on_error">[docs]</a>    <span class="nd">@classmethod</span>
@@ -863,7 +868,7 @@
             <span class="n">credential</span><span class="o">.</span><span class="n">expires</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">expires_in</span> <span class="o">=</span> <span class="p">(</span><span class="n">odilo_data</span><span class="p">[</span><span class="s1">&#39;expiresIn&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="mf">0.9</span><span class="p">)</span>
-            <span class="n">credential</span><span class="o">.</span><span class="n">expires</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">expires_in</span><span class="p">)</span>
+            <span class="n">credential</span><span class="o">.</span><span class="n">expires</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">expires_in</span><span class="p">)</span>
 
 <div class="viewcode-block" id="OdiloAPI.get_metadata"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.get_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record_id</span><span class="p">):</span>
         <span class="n">identifier</span> <span class="o">=</span> <span class="n">record_id</span>
@@ -940,9 +945,9 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting recently_changed_ids, start: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">start</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;, cutoff: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">cutoff</span><span class="p">))</span>
 
-        <span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">updated</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_ids</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
-        <span class="n">finish_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="n">finish_time</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
 
         <span class="n">time_elapsed</span> <span class="o">=</span> <span class="n">finish_time</span> <span class="o">-</span> <span class="n">start_time</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;recently_changed_ids finished in: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">time_elapsed</span><span class="p">))</span>

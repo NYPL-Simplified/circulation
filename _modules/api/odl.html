@@ -33,9 +33,10 @@
           <div class="body" role="main">
             
   <h1>Source code for api.odl</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">json</span>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">dateutil</span>
+<span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">uuid</span>
-<span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">import</span> <span class="nn">urllib.parse</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
@@ -94,6 +95,10 @@
     <span class="n">HoldInfo</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.analytics</span> <span class="kn">import</span> <span class="n">Analytics</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">utc_now</span><span class="p">,</span>
+    <span class="n">strptime_utc</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HTTP</span><span class="p">,</span>
     <span class="n">BadResponseException</span><span class="p">,</span>
@@ -161,8 +166,6 @@
     <span class="p">]</span>
 
     <span class="n">SET_DELIVERY_MECHANISM_AT</span> <span class="o">=</span> <span class="n">BaseCirculationAPI</span><span class="o">.</span><span class="n">FULFILL_STEP</span>
-
-    <span class="n">TIME_FORMAT</span> <span class="o">=</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">T%H:%M:%SZ&quot;</span>
 
     <span class="c1"># Possible status values in the License Status Document:</span>
 
@@ -261,7 +264,7 @@
                 <span class="n">default_loan_period</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span><span class="o">.</span><span class="n">default_loan_period</span><span class="p">(</span>
                     <span class="n">loan</span><span class="o">.</span><span class="n">integration_client</span>
                  <span class="p">)</span>
-            <span class="n">expires</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span>
+            <span class="n">expires</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span>
                 <span class="n">days</span><span class="o">=</span><span class="n">default_loan_period</span>
             <span class="p">)</span>
             <span class="c1"># The patron UUID is generated randomly on each loan, so the distributor</span>
@@ -392,7 +395,7 @@
         <span class="c1"># with position 0 to check out the book.</span>
         <span class="k">if</span> <span class="p">((</span><span class="ow">not</span> <span class="n">hold</span> <span class="ow">or</span>
              <span class="n">hold</span><span class="o">.</span><span class="n">position</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span>
-             <span class="p">(</span><span class="n">hold</span><span class="o">.</span><span class="n">end</span> <span class="ow">and</span> <span class="n">hold</span><span class="o">.</span><span class="n">end</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()))</span> <span class="ow">and</span>
+             <span class="p">(</span><span class="n">hold</span><span class="o">.</span><span class="n">end</span> <span class="ow">and</span> <span class="n">hold</span><span class="o">.</span><span class="n">end</span> <span class="o">&lt;</span> <span class="n">utc_now</span><span class="p">()))</span> <span class="ow">and</span>
             <span class="n">licensepool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&lt;</span> <span class="mi">1</span>
             <span class="p">):</span>
             <span class="k">raise</span> <span class="n">NoAvailableCopies</span><span class="p">()</span>
@@ -424,10 +427,10 @@
             <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">loan</span><span class="p">)</span>
             <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">()</span>
 
-        <span class="n">start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">expires</span> <span class="o">=</span> <span class="n">doc</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;potential_rights&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;end&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">expires</span><span class="p">:</span>
-            <span class="n">expires</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">expires</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
+            <span class="n">expires</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">expires</span><span class="p">)</span>
 
         <span class="c1"># We need to set the start and end dates on our local loan since</span>
         <span class="c1"># the code that calls this only sets them when a new loan is created.</span>
@@ -477,7 +480,7 @@
             <span class="k">raise</span> <span class="n">CannotFulfill</span><span class="p">()</span>
 
         <span class="n">expires</span> <span class="o">=</span> <span class="n">doc</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;potential_rights&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;end&quot;</span><span class="p">)</span>
-        <span class="n">expires</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">expires</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
+        <span class="n">expires</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">expires</span><span class="p">)</span>
 
         <span class="n">links</span> <span class="o">=</span> <span class="n">doc</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;links&quot;</span><span class="p">,</span> <span class="p">[])</span>
         <span class="n">content_link</span> <span class="o">=</span> <span class="kc">None</span>
@@ -516,7 +519,7 @@
         <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">or_</span><span class="p">(</span>
                 <span class="n">Hold</span><span class="o">.</span><span class="n">end</span><span class="o">==</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">Hold</span><span class="o">.</span><span class="n">end</span><span class="o">&gt;</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">(),</span>
+                <span class="n">Hold</span><span class="o">.</span><span class="n">end</span><span class="o">&gt;</span><span class="n">utc_now</span><span class="p">(),</span>
                 <span class="n">Hold</span><span class="o">.</span><span class="n">position</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
@@ -551,7 +554,7 @@
             <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
                 <span class="n">or_</span><span class="p">(</span>
                     <span class="n">Loan</span><span class="o">.</span><span class="n">end</span><span class="o">==</span><span class="kc">None</span><span class="p">,</span>
-                    <span class="n">Loan</span><span class="o">.</span><span class="n">end</span><span class="o">&gt;</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+                    <span class="n">Loan</span><span class="o">.</span><span class="n">end</span><span class="o">&gt;</span><span class="n">utc_now</span><span class="p">()</span>
                 <span class="p">)</span>
             <span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Loan</span><span class="o">.</span><span class="n">start</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
             <span class="n">current_holds</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Hold</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
@@ -559,7 +562,7 @@
             <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
                 <span class="n">or_</span><span class="p">(</span>
                     <span class="n">Hold</span><span class="o">.</span><span class="n">end</span><span class="o">==</span><span class="kc">None</span><span class="p">,</span>
-                    <span class="n">Hold</span><span class="o">.</span><span class="n">end</span><span class="o">&gt;</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">(),</span>
+                    <span class="n">Hold</span><span class="o">.</span><span class="n">end</span><span class="o">&gt;</span><span class="n">utc_now</span><span class="p">(),</span>
                     <span class="n">Hold</span><span class="o">.</span><span class="n">position</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Hold</span><span class="o">.</span><span class="n">start</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
@@ -591,7 +594,7 @@
         <span class="c1"># If the end date isn&#39;t set yet or the position just became 0, the</span>
         <span class="c1"># hold just became available. The patron&#39;s reservation period starts now.</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">hold</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">default_reservation_period</span><span class="p">)</span>
+            <span class="n">hold</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">default_reservation_period</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_update_hold_position</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hold</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">hold</span><span class="p">)</span>
@@ -601,7 +604,7 @@
         <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">or_</span><span class="p">(</span>
                 <span class="n">Loan</span><span class="o">.</span><span class="n">end</span><span class="o">==</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">Loan</span><span class="o">.</span><span class="n">end</span> <span class="o">&gt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+                <span class="n">Loan</span><span class="o">.</span><span class="n">end</span> <span class="o">&gt;</span> <span class="n">utc_now</span><span class="p">()</span>
             <span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
         <span class="n">holds_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_count_holds_before</span><span class="p">(</span><span class="n">hold</span><span class="p">)</span>
@@ -625,7 +628,7 @@
         <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">or_</span><span class="p">(</span>
                 <span class="n">Loan</span><span class="o">.</span><span class="n">end</span><span class="o">==</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">Loan</span><span class="o">.</span><span class="n">end</span><span class="o">&gt;</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+                <span class="n">Loan</span><span class="o">.</span><span class="n">end</span><span class="o">&gt;</span><span class="n">utc_now</span><span class="p">()</span>
             <span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
         <span class="n">remaining_licenses</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">-</span> <span class="n">loans_count</span>
@@ -635,7 +638,7 @@
         <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">or_</span><span class="p">(</span>
                 <span class="n">Hold</span><span class="o">.</span><span class="n">end</span><span class="o">==</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">Hold</span><span class="o">.</span><span class="n">end</span><span class="o">&gt;</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">(),</span>
+                <span class="n">Hold</span><span class="o">.</span><span class="n">end</span><span class="o">&gt;</span><span class="n">utc_now</span><span class="p">(),</span>
                 <span class="n">Hold</span><span class="o">.</span><span class="n">position</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span>
@@ -656,7 +659,7 @@
             <span class="n">new_licenses_reserved</span><span class="p">,</span>
             <span class="n">new_patrons_in_hold_queue</span><span class="p">,</span>
             <span class="n">analytics</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">,</span>
-            <span class="n">as_of</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">(),</span>
+            <span class="n">as_of</span><span class="o">=</span><span class="n">utc_now</span><span class="p">(),</span>
         <span class="p">)</span>
 
         <span class="k">for</span> <span class="n">hold</span> <span class="ow">in</span> <span class="n">holds</span><span class="p">[:</span><span class="n">licensepool</span><span class="o">.</span><span class="n">licenses_reserved</span><span class="p">]:</span>
@@ -730,7 +733,7 @@
         <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">Loan</span><span class="o">.</span><span class="n">patron</span><span class="o">==</span><span class="n">patron</span>
         <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">Loan</span><span class="o">.</span><span class="n">end</span><span class="o">&gt;=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="n">Loan</span><span class="o">.</span><span class="n">end</span><span class="o">&gt;=</span><span class="n">utc_now</span><span class="p">()</span>
         <span class="p">)</span>
 
         <span class="c1"># Get the patron&#39;s holds. If there are any expired holds, delete them.</span>
@@ -742,7 +745,7 @@
         <span class="p">)</span>
         <span class="n">remaining_holds</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">hold</span> <span class="ow">in</span> <span class="n">holds</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">hold</span><span class="o">.</span><span class="n">end</span> <span class="ow">and</span> <span class="n">hold</span><span class="o">.</span><span class="n">end</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">hold</span><span class="o">.</span><span class="n">end</span> <span class="ow">and</span> <span class="n">hold</span><span class="o">.</span><span class="n">end</span> <span class="o">&lt;</span> <span class="n">utc_now</span><span class="p">():</span>
                 <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">hold</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">update_hold_queue</span><span class="p">(</span><span class="n">hold</span><span class="o">.</span><span class="n">license_pool</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
@@ -919,6 +922,8 @@
             <span class="k">if</span> <span class="n">terms</span><span class="p">:</span>
                 <span class="n">concurrent_checkouts</span> <span class="o">=</span> <span class="n">subtag</span><span class="p">(</span><span class="n">terms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;odl:concurrent_checkouts&quot;</span><span class="p">)</span>
                 <span class="n">expires</span> <span class="o">=</span> <span class="n">subtag</span><span class="p">(</span><span class="n">terms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;odl:expires&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">expires</span><span class="p">:</span>
+                    <span class="n">expires</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">expires</span><span class="p">)</span>
 
             <span class="n">licenses_owned</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">concurrent_checkouts</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
             <span class="n">licenses_available</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">available_checkouts</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
@@ -967,7 +972,7 @@
         <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">collection_id</span>
         <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">Hold</span><span class="o">.</span><span class="n">end</span><span class="o">&lt;</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="n">Hold</span><span class="o">.</span><span class="n">end</span><span class="o">&lt;</span><span class="n">utc_now</span><span class="p">()</span>
         <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">Hold</span><span class="o">.</span><span class="n">position</span><span class="o">==</span><span class="mi">0</span>
         <span class="p">)</span>
@@ -1056,8 +1061,6 @@
 
     <span class="n">SUPPORTS_REGISTRATION</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">SUPPORTS_STAGING</span> <span class="o">=</span> <span class="kc">False</span>
-
-    <span class="n">TIME_FORMAT</span> <span class="o">=</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">T%H:%M:%SZ&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span>
@@ -1155,8 +1158,8 @@
             <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">()</span>
         <span class="n">entry</span> <span class="o">=</span> <span class="n">entries</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">availability</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;opds_availability&quot;</span><span class="p">,</span> <span class="p">{})</span>
-        <span class="n">start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;since&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
-        <span class="n">end</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;until&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;since&quot;</span><span class="p">))</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;until&quot;</span><span class="p">))</span>
         <span class="c1"># Get the loan base url from a link.</span>
         <span class="n">info_links</span> <span class="o">=</span> <span class="p">[</span><span class="n">link</span> <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;links&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rel&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;self&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">info_links</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
@@ -1269,7 +1272,7 @@
         <span class="n">availability</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;opds_availability&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;available&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CannotFulfill</span><span class="p">()</span>
-        <span class="n">expires</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;until&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
+        <span class="n">expires</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;until&quot;</span><span class="p">))</span>
 
         <span class="c1"># The entry is parsed with etree to get indirect acquisitions</span>
         <span class="n">parser</span> <span class="o">=</span> <span class="n">SharedODLImporter</span><span class="o">.</span><span class="n">PARSER_CLASS</span><span class="p">()</span>
@@ -1366,8 +1369,8 @@
             <span class="k">if</span> <span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;available&quot;</span><span class="p">:</span>
                 <span class="c1"># This loan might be expired.</span>
                 <span class="k">continue</span>
-            <span class="n">start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;since&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
-            <span class="n">end</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;until&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;since&quot;</span><span class="p">))</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;until&quot;</span><span class="p">))</span>
 
             <span class="n">activity</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                 <span class="n">LoanInfo</span><span class="p">(</span>
@@ -1395,8 +1398,8 @@
             <span class="k">if</span> <span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;ready&quot;</span><span class="p">,</span> <span class="s2">&quot;reserved&quot;</span><span class="p">]:</span>
                 <span class="c1"># This hold might be expired.</span>
                 <span class="k">continue</span>
-            <span class="n">start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;since&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
-            <span class="n">end</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;until&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;since&quot;</span><span class="p">))</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">availability</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;until&quot;</span><span class="p">))</span>
             <span class="n">position</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;opds_holds&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;position&quot;</span><span class="p">)</span>
 
             <span class="n">activity</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>

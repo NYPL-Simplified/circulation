@@ -54,6 +54,10 @@
 <span class="kn">from</span> <span class="nn">api.base_controller</span> <span class="kn">import</span> <span class="n">BaseCirculationManagerController</span>
 <span class="kn">from</span> <span class="nn">.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">datetime_utc</span><span class="p">,</span>
+    <span class="n">utc_now</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 <span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="n">url_for</span>
@@ -815,7 +819,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">patron_identifier</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No patron identifier specified&quot;</span><span class="p">)</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">expires</span> <span class="o">=</span> <span class="n">now</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
         <span class="n">authdata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_encode</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">library_uri</span><span class="p">,</span> <span class="n">patron_identifier</span><span class="p">,</span> <span class="n">now</span><span class="p">,</span> <span class="n">expires</span>
@@ -953,7 +957,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">patron_identifier</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No patron identifier specified&quot;</span><span class="p">)</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">expires</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">numericdate</span><span class="p">(</span><span class="n">now</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">60</span><span class="p">)))</span>
         <span class="n">authdata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_encode_short_client_token</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span> <span class="n">patron_identifier</span><span class="p">,</span> <span class="n">expires</span>
@@ -1033,7 +1037,7 @@
         <span class="n">secret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">secrets_by_library_uri</span><span class="p">[</span><span class="n">library_uri</span><span class="p">]</span>
 
         <span class="c1"># Don&#39;t bother checking an expired token.</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">expiration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">EPOCH</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">expiration</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">expiration</span> <span class="o">&lt;</span> <span class="n">now</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -1053,7 +1057,7 @@
 
         <span class="k">return</span> <span class="n">library_uri</span><span class="p">,</span> <span class="n">patron_identifier</span>
 
-    <span class="n">EPOCH</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">(</span><span class="mi">1970</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">EPOCH</span> <span class="o">=</span> <span class="n">datetime_utc</span><span class="p">(</span><span class="mi">1970</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 
 <div class="viewcode-block" id="AuthdataUtility.numericdate"><a class="viewcode-back" href="../../api.html#api.adobe_vendor_id.AuthdataUtility.numericdate">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">numericdate</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>

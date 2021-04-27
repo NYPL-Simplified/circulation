@@ -112,6 +112,11 @@
 
 <span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="n">DatabaseTest</span>
 <span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">datetime_utc</span><span class="p">,</span>
+    <span class="n">strptime_utc</span><span class="p">,</span>
+    <span class="n">utc_now</span><span class="p">,</span>
+<span class="p">)</span>
 
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BadResponseException</span><span class="p">,</span>
@@ -405,7 +410,7 @@
         <span class="n">patron_rbdigital_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_remote_identifier</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
         <span class="p">(</span><span class="n">item_rbdigital_id</span><span class="p">,</span> <span class="n">item_media</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate_item</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
 
-        <span class="n">today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">today</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
 
         <span class="n">library</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span>
 
@@ -605,14 +610,14 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Patron </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2"> reserved item </span><span class="si">%s</span><span class="s2"> with transaction id </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">,</span>
             <span class="n">patron_rbdigital_id</span><span class="p">,</span> <span class="n">item_rbdigital_id</span><span class="p">,</span> <span class="n">resp_obj</span><span class="p">)</span>
 
-        <span class="n">today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
 
         <span class="n">hold</span> <span class="o">=</span> <span class="n">HoldInfo</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
             <span class="n">DataSource</span><span class="o">.</span><span class="n">RB_DIGITAL</span><span class="p">,</span>
             <span class="n">identifier_type</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
             <span class="n">identifier</span><span class="o">=</span><span class="n">item_rbdigital_id</span><span class="p">,</span>
-            <span class="n">start_date</span><span class="o">=</span><span class="n">today</span><span class="p">,</span>
+            <span class="n">start_date</span><span class="o">=</span><span class="n">now</span><span class="p">,</span>
             <span class="c1"># RBDigital sets hold expirations to 2050-12-31, as a &quot;forever&quot;</span>
             <span class="n">end_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">hold_position</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -817,7 +822,7 @@
         <span class="c1"># Credential.lookup() expects to pass a Credential to this refresh method</span>
         <span class="k">def</span> <span class="nf">refresh_credential</span><span class="p">(</span><span class="n">credential</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">lifetime</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">credential</span><span class="o">.</span><span class="n">expires</span> <span class="o">=</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">lifetime</span><span class="p">))</span>
+                <span class="n">credential</span><span class="o">.</span><span class="n">expires</span> <span class="o">=</span> <span class="p">(</span><span class="n">utc_now</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">lifetime</span><span class="p">))</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">credential</span><span class="o">.</span><span class="n">expires</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -1258,9 +1263,7 @@
         <span class="c1"># of the fulfillment URL.</span>
         <span class="n">expires</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;expiration&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">expires</span><span class="p">:</span>
-            <span class="n">expires</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
-                <span class="n">expires</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">EXPIRATION_DATE_FORMAT</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
+            <span class="n">expires</span> <span class="o">=</span> <span class="n">strptime_utc</span><span class="p">(</span><span class="n">expires</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">EXPIRATION_DATE_FORMAT</span><span class="p">)</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
 
         <span class="n">identifier</span><span class="p">,</span> <span class="n">made_new</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">foreign_identifier_type</span><span class="o">=</span><span class="n">Identifier</span><span class="o">.</span><span class="n">RB_DIGITAL_ID</span><span class="p">,</span>
@@ -1326,7 +1329,9 @@
             <span class="n">authors</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;authors&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="n">expires</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;expiration&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">expires</span><span class="p">:</span>
-                <span class="n">expires</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">expires</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">EXPIRATION_DATE_FORMAT</span><span class="p">)</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
+                <span class="n">expires</span> <span class="o">=</span> <span class="n">strptime_utc</span><span class="p">(</span>
+                    <span class="n">expires</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">EXPIRATION_DATE_FORMAT</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
 
             <span class="n">identifier</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">from_asin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">isbn</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
             <span class="c1"># Note: if RBDigital knows about a patron&#39;s checked-out item that wasn&#39;t</span>
@@ -1791,7 +1796,7 @@
 
 <span class="sd">        :param today: A date to use instead of the current date, for use in tests.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">today</span> <span class="o">=</span> <span class="n">today</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">today</span> <span class="o">=</span> <span class="n">today</span> <span class="ow">or</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="n">time_ago</span> <span class="o">=</span> <span class="n">relativedelta</span><span class="p">(</span><span class="n">months</span><span class="o">=</span><span class="n">months</span><span class="p">)</span>
 
         <span class="n">delta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_delta</span><span class="p">(</span><span class="n">from_date</span><span class="o">=</span><span class="p">(</span><span class="n">today</span> <span class="o">-</span> <span class="n">time_ago</span><span class="p">),</span> <span class="n">to_date</span><span class="o">=</span><span class="n">today</span><span class="p">)</span>
@@ -2027,7 +2032,7 @@
         <span class="c1"># Now that we&#39;ve found the download URL, the client has 15</span>
         <span class="c1"># minutes to use it. Set it to expire in 14 minutes to be</span>
         <span class="c1"># conservative.</span>
-        <span class="n">expires</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+        <span class="n">expires</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">content_link</span><span class="p">,</span> <span class="n">expires</span></div></div>
 
 <div class="viewcode-block" id="MockRBDigitalAPI"><a class="viewcode-back" href="../../api.html#api.rbdigital.MockRBDigitalAPI">[docs]</a><span class="k">class</span> <span class="nc">MockRBDigitalAPI</span><span class="p">(</span><span class="n">RBDigitalAPI</span><span class="p">):</span>
@@ -2190,8 +2195,9 @@
 
             <span class="n">publisher</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;publisher&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="k">if</span> <span class="s1">&#39;publicationDate&#39;</span> <span class="ow">in</span> <span class="n">book</span><span class="p">:</span>
-                <span class="n">published</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
-                    <span class="n">book</span><span class="p">[</span><span class="s1">&#39;publicationDate&#39;</span><span class="p">][:</span><span class="mi">10</span><span class="p">],</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DATE_FORMAT</span><span class="p">)</span>
+                <span class="n">published</span> <span class="o">=</span> <span class="n">strptime_utc</span><span class="p">(</span>
+                    <span class="n">book</span><span class="p">[</span><span class="s1">&#39;publicationDate&#39;</span><span class="p">][:</span><span class="mi">10</span><span class="p">],</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DATE_FORMAT</span>
+                <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">published</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -2494,7 +2500,7 @@
 <span class="sd">    we hear from the metadata wrangler.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;RBDigital CirculationMonitor&quot;</span>
-    <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">(</span><span class="mi">1970</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">datetime_utc</span><span class="p">(</span><span class="mi">1970</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
     <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">50</span>
 
     <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">RB_DIGITAL</span>
@@ -2813,7 +2819,7 @@
 <div class="viewcode-block" id="RBDigitalFulfillmentProxy.proxied_manifest"><a class="viewcode-back" href="../../api.html#api.rbdigital.RBDigitalFulfillmentProxy.proxied_manifest">[docs]</a>    <span class="k">def</span> <span class="nf">proxied_manifest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manifest</span><span class="p">):</span>
         <span class="c1"># Ensure that we have a token with enough time to allow</span>
         <span class="c1"># upcoming proxy requests to be completed.</span>
-        <span class="n">proxy_expires</span> <span class="o">=</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span>
+        <span class="n">proxy_expires</span> <span class="o">=</span> <span class="p">(</span><span class="n">utc_now</span><span class="p">()</span> <span class="o">+</span>
                          <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">PROXY_BEARER_GRACE_PERIOD</span><span class="p">))</span>
         <span class="n">credential</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">_patron_credential</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">BEARER_TOKEN_PROPERTY</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron</span><span class="p">)</span>
         <span class="n">token</span> <span class="o">=</span> <span class="n">credential</span><span class="o">.</span><span class="n">credential</span> <span class="k">if</span> <span class="n">credential</span> <span class="k">else</span> <span class="kc">None</span>
