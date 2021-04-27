@@ -2,8 +2,8 @@ import json
 from collections import defaultdict
 
 from api.admin.template_styles import *
-from admin_authentication_provider import AdminAuthenticationProvider
-from problem_details import GOOGLE_OAUTH_FAILURE, INVALID_ADMIN_CREDENTIALS
+from .admin_authentication_provider import AdminAuthenticationProvider
+from .problem_details import GOOGLE_OAUTH_FAILURE, INVALID_ADMIN_CREDENTIALS
 from oauth2client import client as GoogleClient
 from flask_babel import lazy_gettext as _
 from core.model import (
@@ -114,8 +114,8 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
             redirect_url = request.get("state")
             try:
                 credentials = self.client.step2_exchange(auth_code)
-            except GoogleClient.FlowExchangeError, e:
-                return self.google_error_problem_detail(e.message), None
+            except GoogleClient.FlowExchangeError as e:
+                return self.google_error_problem_detail(str(e)), None
             email = credentials.id_token.get('email')
             if not self.staff_email(_db, email):
                 return INVALID_ADMIN_CREDENTIALS, None
@@ -138,7 +138,7 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
         # components were translated already. Space is a variable so it doesn't
         # end up in the translation template.
         space = " "
-        error_detail = _(unicode(GOOGLE_OAUTH_FAILURE.detail) + space + unicode(error_detail))
+        error_detail = _(str(GOOGLE_OAUTH_FAILURE.detail) + space + str(error_detail))
 
         return GOOGLE_OAUTH_FAILURE.detailed(error_detail)
 
@@ -158,7 +158,7 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
             return True
 
         # Otherwise, their email must match one of the configured domains.
-        staff_domains = self.domains.keys()
+        staff_domains = list(self.domains.keys())
         domain = email[email.index('@')+1:]
         return domain.lower() in [staff_domain.lower() for staff_domain in staff_domains]
 

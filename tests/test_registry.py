@@ -3,7 +3,6 @@ import pytest
 import json
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
-import base64
 import os
 from core.testing import (
     DatabaseTest
@@ -21,7 +20,8 @@ from core.model import (
     ConfigurationSetting,
     ExternalIntegration,
 )
-from core.util.string_helpers import base64
+from pdb import set_trace
+import base64
 from api.adobe_vendor_id import AuthdataUtility
 from api.config import Configuration
 from api.problem_details import *
@@ -257,7 +257,7 @@ class TestRemoteRegistry(DatabaseTest):
         # Our mock of _extract_registration_information was called
         # with the mock response to that request.
         response = registry._extract_registration_information_called_with
-        assert "a registration document" == response.content
+        assert b"a registration document" == response.content
 
         # The return value of _extract_registration_information was
         # propagated as the return value of
@@ -270,7 +270,7 @@ class TestRemoteRegistry(DatabaseTest):
         # registration document.
 
         def data_link(data, type="text/html"):
-            encoded = base64.b64encode(data)
+            encoded = base64.b64encode(data.encode("utf-8")).decode("utf-8")
             return dict(
                 rel="terms-of-service",
                 href="data:%s;base64,%s" % (type, encoded)
@@ -332,7 +332,7 @@ class TestRemoteRegistry(DatabaseTest):
         m = RemoteRegistry._decode_data_url
 
         def data_url(data, type="text/html"):
-            encoded = base64.b64encode(data)
+            encoded = base64.b64encode(data.encode("utf-8")).decode("utf-8")
             return "data:%s;base64,%s" % (type, encoded)
 
         # HTML is okay.
@@ -455,8 +455,7 @@ class TestRegistration(DatabaseTest):
         assert "default" == setting.value
 
     def test_push(self):
-        """Test the other methods orchestrated by the push() method.
-        """
+        # Test the other methods orchestrated by the push() method.
 
         class MockRegistry(RemoteRegistry):
 
@@ -563,7 +562,7 @@ class TestRegistration(DatabaseTest):
         results = registration._process_registration_result_called_with
         message, cipher, actual_stage = results
         assert "you did it!" == message
-        assert cipher._key.exportKey() == private_key
+        assert cipher._key.exportKey().decode("utf-8") == private_key
         assert actual_stage == stage
 
         # If a nonexistent stage is provided a ProblemDetail is the result.
@@ -716,7 +715,7 @@ class TestRegistration(DatabaseTest):
         key2 = RSA.generate(2048)
         encryptor2 = PKCS1_OAEP.new(key2)
 
-        shared_secret = os.urandom(24).encode('hex')
+        shared_secret = os.urandom(24)
         encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
 
         # Success.
@@ -728,7 +727,7 @@ class TestRegistration(DatabaseTest):
         problem = m(encryptor2, encrypted_secret)
         assert isinstance(problem, ProblemDetail)
         assert SHARED_SECRET_DECRYPTION_ERROR.uri == problem.uri
-        assert encrypted_secret in problem.detail
+        assert encrypted_secret.decode("utf-8") in problem.detail
 
     def test__process_registration_result(self):
         reg = self.registration
@@ -808,7 +807,7 @@ class TestLibraryRegistrationScript(DatabaseTest):
         base_url_setting = ConfigurationSetting.sitewide(
             self._db, Configuration.BASE_URL_KEY
         )
-        base_url_setting.value = u'http://test-circulation-manager/'
+        base_url_setting.value = 'http://test-circulation-manager/'
 
         library = self._default_library
         library2 = self._library()
@@ -853,7 +852,7 @@ class TestLibraryRegistrationScript(DatabaseTest):
             # library registry.
             assert (
                 RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL ==
-                x[0].integration.url)
+                i[0].integration.url)
 
     def test_process_library(self):
         """Test the things that might happen when process_library is called."""

@@ -1,6 +1,6 @@
 import datetime
 import feedparser
-from StringIO import StringIO
+from io import BytesIO
 from zipfile import ZipFile
 from lxml import etree
 import os
@@ -66,7 +66,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
 
     ]
 
-    BASE_OPDS_URL = u'http://www.feedbooks.com/books/recent.atom?lang=%(language)s'
+    BASE_OPDS_URL = 'http://www.feedbooks.com/books/recent.atom?lang=%(language)s'
 
     THIRTY_DAYS = datetime.timedelta(days=30)
 
@@ -105,7 +105,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
         metadata, failures = super(FeedbooksOPDSImporter, self).extract_feed_data(
             feed, feed_url
         )
-        for id, m in metadata.items():
+        for id, m in list(metadata.items()):
             self.improve_description(id, m)
         return metadata, failures
 
@@ -262,7 +262,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
             # There is no CSS to replace. Do nothing.
             return
 
-        new_zip_content = StringIO()
+        new_zip_content = BytesIO()
         with EpubAccessor.open_epub(representation.url, content=representation.content) as (zip_file, package_path):
             try:
                 manifest_element = EpubAccessor.get_element_from_package(
@@ -270,7 +270,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
                 )
             except ValueError as e:
                 # Invalid EPUB
-                self.log.warning("%s: %s" % (representation.url, e.message))
+                self.log.warning("%s: %s" % (representation.url, str(e)))
                 return
 
             css_paths = []
@@ -353,7 +353,7 @@ class RehostingPolicy(object):
 
     @classmethod
     def rights_uri(cls, rights, source, publication_year):
-        if publication_year and isinstance(publication_year, basestring):
+        if publication_year and isinstance(publication_year, (bytes, str)):
             publication_year = int(publication_year)
 
         can_rehost = cls.can_rehost_us(rights, source, publication_year)

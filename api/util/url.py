@@ -1,4 +1,4 @@
-from six.moves.urllib.parse import urlparse, ParseResult, urlencode
+from urllib.parse import urlparse, ParseResult, urlencode
 
 
 class URLUtility(object):

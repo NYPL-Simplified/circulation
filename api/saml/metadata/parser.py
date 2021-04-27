@@ -4,7 +4,7 @@ from defusedxml.lxml import fromstring
 from flask_babel import lazy_gettext as _
 from lxml.etree import XMLSyntaxError
 from onelogin.saml2.constants import OneLogin_Saml2_Constants
-from onelogin.saml2.utils import OneLogin_Saml2_Utils
+from onelogin.saml2.utils import OneLogin_Saml2_XML
 
 from api.saml.metadata.model import (
     SAMLAttribute,
@@ -103,7 +103,7 @@ class SAMLMetadataParser(object):
         )
 
         try:
-            metadata_dom = fromstring(bytes(xml_metadata), forbid_dtd=True)
+            metadata_dom = fromstring(xml_metadata.encode("utf-8"), forbid_dtd=True)
         except (
             ValueError,
             XMLSyntaxError,
@@ -140,7 +140,7 @@ class SAMLMetadataParser(object):
         try:
             for certificate_node in certificate_nodes:
                 certificate = "".join(
-                    OneLogin_Saml2_Utils.element_text(certificate_node).split()
+                    OneLogin_Saml2_XML.element_text(certificate_node).split()
                 )
 
                 self._logger.debug(
@@ -218,7 +218,7 @@ class SAMLMetadataParser(object):
 
         :raise: MetadataParsingError
         """
-        localizable_metadata_nodes = OneLogin_Saml2_Utils.query(
+        localizable_metadata_nodes = OneLogin_Saml2_XML.query(
             provider_descriptor_node, xpath
         )
 
@@ -321,12 +321,12 @@ class SAMLMetadataParser(object):
         :rtype: string
         """
         name_id_format = SAMLNameIDFormat.UNSPECIFIED.value
-        name_id_format_nodes = OneLogin_Saml2_Utils.query(
+        name_id_format_nodes = OneLogin_Saml2_XML.query(
             provider_node, "./ md:NameIDFormat"
         )
         if len(name_id_format_nodes) > 0:
             # OneLogin's python-saml supports only one name ID format so we select the first one
-            name_id_format = OneLogin_Saml2_Utils.element_text(name_id_format_nodes[0])
+            name_id_format = OneLogin_Saml2_XML.element_text(name_id_format_nodes[0])
 
         return name_id_format
 
@@ -370,7 +370,7 @@ class SAMLMetadataParser(object):
         name_id_format = self._parse_name_id_format(provider_node)
 
         sso_service = None
-        sso_nodes = OneLogin_Saml2_Utils.query(
+        sso_nodes = OneLogin_Saml2_XML.query(
             provider_node,
             "./md:SingleSignOnService[@Binding='%s']" % required_sso_binding.value,
         )
@@ -388,7 +388,7 @@ class SAMLMetadataParser(object):
             )
 
         slo_service = None
-        slo_nodes = OneLogin_Saml2_Utils.query(
+        slo_nodes = OneLogin_Saml2_XML.query(
             provider_node,
             "./md:SingleLogoutService[@Binding='%s']" % required_slo_binding.value,
         )
@@ -397,13 +397,13 @@ class SAMLMetadataParser(object):
             slo_url = slo_node.get("Location", None)
             slo_service = SAMLService(slo_url, required_slo_binding)
 
-        signing_certificate_nodes = OneLogin_Saml2_Utils.query(
+        signing_certificate_nodes = OneLogin_Saml2_XML.query(
             provider_node,
             './md:KeyDescriptor[not(contains(@use, "encryption"))]/ds:KeyInfo/ds:X509Data/ds:X509Certificate',
         )
         signing_certificates = self._parse_certificates(signing_certificate_nodes)
 
-        encryption_certificate_nodes = OneLogin_Saml2_Utils.query(
+        encryption_certificate_nodes = OneLogin_Saml2_XML.query(
             provider_node,
             './md:KeyDescriptor[not(contains(@use, "signing"))]/ds:KeyInfo/ds:X509Data/ds:X509Certificate',
         )
@@ -460,7 +460,7 @@ class SAMLMetadataParser(object):
         name_id_format = self._parse_name_id_format(provider_node)
 
         acs_service = None
-        acs_service_nodes = OneLogin_Saml2_Utils.query(
+        acs_service_nodes = OneLogin_Saml2_XML.query(
             provider_node,
             "./md:AssertionConsumerService[@Binding='%s']" % required_acs_binding.value,
         )
@@ -479,7 +479,7 @@ class SAMLMetadataParser(object):
                 )
             )
 
-        certificate_nodes = OneLogin_Saml2_Utils.query(
+        certificate_nodes = OneLogin_Saml2_XML.query(
             provider_node,
             "./md:KeyDescriptor/ds:KeyInfo/ds:X509Data/ds:X509Certificate",
         )
@@ -574,12 +574,12 @@ class SAMLMetadataParser(object):
         parsing_results = []
 
         try:
-            entity_descriptor_nodes = OneLogin_Saml2_Utils.query(
+            entity_descriptor_nodes = OneLogin_Saml2_XML.query(
                 metadata_dom, "//md:EntityDescriptor"
             )
 
             for entity_descriptor_node in entity_descriptor_nodes:
-                idp_descriptor_nodes = OneLogin_Saml2_Utils.query(
+                idp_descriptor_nodes = OneLogin_Saml2_XML.query(
                     entity_descriptor_node, "./md:IDPSSODescriptor"
                 )
                 idps = self._parse_providers(
@@ -594,7 +594,7 @@ class SAMLMetadataParser(object):
                     )
                     parsing_results.append(parsing_result)
 
-                sp_descriptor_nodes = OneLogin_Saml2_Utils.query(
+                sp_descriptor_nodes = OneLogin_Saml2_XML.query(
                     entity_descriptor_node, "./md:SPSSODescriptor"
                 )
                 sps = self._parse_providers(
@@ -678,7 +678,7 @@ class SAMLSubjectParser(object):
             attribute.value: attribute for attribute in SAMLAttributeType
         }
 
-        for name, attribute_values in attributes.iteritems():
+        for name, attribute_values in list(attributes.items()):
             if name in attribute_names:
                 name = attribute_names[name].name
 

@@ -15,10 +15,8 @@ class HashingError(BaseError):
     """Raised in the case of errors occurred during hashing"""
 
 
-class Hasher(object):
+class Hasher(object, metaclass=ABCMeta):
     """Base class for all implementations of different hashing algorithms"""
-
-    __metaclass__ = ABCMeta
 
     def __init__(self, hashing_algorithm):
         """Initializes a new instance of Hasher class
@@ -36,9 +34,9 @@ class Hasher(object):
 class UniversalHasher(Hasher):
     def hash(self, value):
         if self._hashing_algorithm in [HashingAlgorithm.SHA256, HashingAlgorithm.SHA256.value]:
-            return hashlib.sha256(value).hexdigest()
+            return hashlib.sha256(value.encode("utf-8")).hexdigest()
         elif self._hashing_algorithm in [HashingAlgorithm.SHA512, HashingAlgorithm.SHA512.value]:
-            return hashlib.sha512(value).hexdigest()
+            return hashlib.sha512(value.encode("utf-8")).hexdigest()
         else:
             raise HashingError('Unknown hashing algorithm {0}'.format(self._hashing_algorithm))
 

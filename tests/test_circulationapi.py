@@ -1,5 +1,5 @@
 """Test the CirculationAPI."""
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import flask
 import pytest
@@ -37,15 +37,16 @@ from core.model import (
 )
 
 from core.testing import DatabaseTest
+from core.util.datetime_helpers import utc_now
 from . import sample_data
 
 
 class TestCirculationAPI(DatabaseTest):
 
-    YESTERDAY = datetime.utcnow() - timedelta(days=1)
-    TODAY = datetime.utcnow()
-    TOMORROW = datetime.utcnow() + timedelta(days=1)
-    IN_TWO_WEEKS = datetime.utcnow() + timedelta(days=14)
+    YESTERDAY = utc_now() - timedelta(days=1)
+    TODAY = utc_now()
+    TOMORROW = utc_now() + timedelta(days=1)
+    IN_TWO_WEEKS = utc_now() + timedelta(days=14)
 
     def setup_method(self):
         super(TestCirculationAPI, self).setup_method()
@@ -91,7 +92,7 @@ class TestCirculationAPI(DatabaseTest):
         assert self.pool.collection.id == info.collection_id
 
     def test_borrow_sends_analytics_event(self):
-        now = datetime.utcnow()
+        now = utc_now()
         loaninfo = LoanInfo(
             self.pool.collection, self.pool.data_source,
             self.pool.identifier.type,
@@ -100,7 +101,7 @@ class TestCirculationAPI(DatabaseTest):
             external_identifier=self._str,
         )
         self.remote.queue_checkout(loaninfo)
-        now = datetime.utcnow()
+        now = utc_now()
 
         loan, hold, is_new = self.borrow()
 
@@ -167,7 +168,7 @@ class TestCirculationAPI(DatabaseTest):
         )
 
         self.remote.queue_checkout(AlreadyCheckedOut())
-        now = datetime.utcnow()
+        now = utc_now()
         loan, hold, is_new = self.borrow()
 
         # There is now a new local loan representing the remote loan.
@@ -196,7 +197,7 @@ class TestCirculationAPI(DatabaseTest):
         )
 
         self.remote.queue_checkout(AlreadyOnHold())
-        now = datetime.utcnow()
+        now = utc_now()
         loan, hold, is_new = self.borrow()
 
         # There is now a new local hold representing the remote hold.
@@ -361,7 +362,7 @@ class TestCirculationAPI(DatabaseTest):
 
     def test_borrow_with_expired_card_fails(self):
         # This checkout would succeed...
-        now = datetime.now()
+        now = utc_now()
         loaninfo = LoanInfo(
             self.pool.collection, self.pool.data_source,
             self.pool.identifier.type,
@@ -380,7 +381,7 @@ class TestCirculationAPI(DatabaseTest):
 
     def test_borrow_with_outstanding_fines(self):
         # This checkout would succeed...
-        now = datetime.now()
+        now = utc_now()
         loaninfo = LoanInfo(
             self.pool.collection, self.pool.data_source,
             self.pool.identifier.type,
@@ -414,7 +415,7 @@ class TestCirculationAPI(DatabaseTest):
 
     def test_borrow_with_block_fails(self):
         # This checkout would succeed...
-        now = datetime.now()
+        now = utc_now()
         loaninfo = LoanInfo(
             self.pool.collection, self.pool.data_source,
             self.pool.identifier.type,
@@ -481,7 +482,7 @@ class TestCirculationAPI(DatabaseTest):
         # The loan limit is a per-library setting.
         setting = self.patron.library.setting(Configuration.LOAN_LIMIT)
 
-        future = datetime.utcnow() + timedelta(hours=1)
+        future = utc_now() + timedelta(hours=1)
 
         # This patron has two loans that count towards the loan limit
         patron = self.patron
@@ -643,7 +644,7 @@ class TestCirculationAPI(DatabaseTest):
             try:
                 circulation.enforce_limits(patron, pool)
                 raise Exception("Expected a %r" % expected_exception)
-            except Exception, e:
+            except Exception as e:
                 assert isinstance(e, expected_exception)
                 # If .limit is set it means we were able to find a
                 # specific limit in the database, which means the
@@ -728,7 +729,7 @@ class TestCirculationAPI(DatabaseTest):
         self.pool.licenses_available = 0
         try:
             self.borrow()
-        except Exception, e:
+        except Exception as e:
             # The result is a PatronHoldLimitReached configured with the
             # library's hold limit.
             assert isinstance(e, PatronHoldLimitReached)
@@ -737,7 +738,7 @@ class TestCirculationAPI(DatabaseTest):
         # If we increase the limit, borrow succeeds.
         self.patron.library.setting(Configuration.HOLD_LIMIT).value = 2
         self.remote.queue_checkout(NoAvailableCopies())
-        now = datetime.now()
+        now = utc_now()
         holdinfo = HoldInfo(
             self.pool.collection, self.pool.data_source,
             self.pool.identifier.type,
@@ -890,7 +891,7 @@ class TestCirculationAPI(DatabaseTest):
         self.pool.open_access = open_access
         self.pool.self_hosted = self_hosted
 
-        self.patron.last_loan_activity_sync = datetime.utcnow()
+        self.patron.last_loan_activity_sync = utc_now()
         self.pool.loan_to(self.patron)
         self.remote.queue_checkin(True)
 
@@ -913,7 +914,7 @@ class TestCirculationAPI(DatabaseTest):
         self.pool.open_access = open_access
         self.pool.self_hosted = self_hosted
 
-        self.patron.last_loan_activity_sync = datetime.utcnow()
+        self.patron.last_loan_activity_sync = utc_now()
         self.pool.on_hold_to(self.patron)
         self.remote.queue_release_hold(True)
 
@@ -1107,7 +1108,7 @@ class TestCirculationAPI(DatabaseTest):
     def test_sync_bookshelf_with_new_local_loan_and_no_remote_loan_keeps_local_loan(self):
         # Local loan that was just created.
         loan, ignore = self.pool.loan_to(self.patron)
-        loan.start = datetime.utcnow()
+        loan.start = utc_now()
 
         # The loan is in the db.
         loans = self._db.query(Loan).all()
@@ -1120,7 +1121,7 @@ class TestCirculationAPI(DatabaseTest):
         assert [loan] == loans
 
     def test_sync_bookshelf_with_incomplete_remotes_keeps_local_loan(self):
-        self.patron.last_loan_activity_sync = datetime.utcnow()
+        self.patron.last_loan_activity_sync = utc_now()
         loan, ignore = self.pool.loan_to(self.patron)
         loan.start = self.YESTERDAY
 
@@ -1163,7 +1164,7 @@ class TestCirculationAPI(DatabaseTest):
 
         # Since we know our picture of the patron's bookshelf is up-to-date,
         # patron.last_loan_activity_sync has been set to the current time.
-        now = datetime.utcnow()
+        now = utc_now()
         assert (now-self.patron.last_loan_activity_sync).total_seconds() < 2
 
     def test_sync_bookshelf_updates_local_loan_and_hold_with_modified_timestamps(self):
@@ -1220,7 +1221,7 @@ class TestCirculationAPI(DatabaseTest):
             pool.collection, pool.data_source.name,
             pool.identifier.type,
             pool.identifier.identifier,
-            datetime.utcnow(),
+            utc_now(),
             None,
             locked_to=mechanism
         )
@@ -1239,7 +1240,7 @@ class TestCirculationAPI(DatabaseTest):
     def test_sync_bookshelf_respects_last_loan_activity_sync(self):
 
         # We believe we have up-to-date loan activity for this patron.
-        now = datetime.utcnow()
+        now = utc_now()
         self.patron.last_loan_activity_sync = now
 
         # Little do we know that they just used a vendor website to
@@ -1259,7 +1260,7 @@ class TestCirculationAPI(DatabaseTest):
         self.patron.last_loan_activity_sync = long_ago
 
         # At that point, sync_bookshelf _will_ go out to the remote.
-        now = datetime.utcnow()
+        now = utc_now()
         self.circulation.sync_bookshelf(self.patron, "1234")
         assert 1 == len(self.patron.loans)
 
@@ -1289,7 +1290,6 @@ class TestCirculationAPI(DatabaseTest):
             ExternalIntegration.BIBLIOTHECA : MockBibliothecaAPI
         })
         mock_bibliotheca = circulation.api_for_collection[self.collection.id]
-
         data = sample_data("checkouts.xml", "bibliotheca")
         mock_bibliotheca.queue_response(200, content=data)
 
@@ -1520,10 +1520,10 @@ class TestConfigurationFailures(DatabaseTest):
             raise CannotLoadConfiguration("doomed!")
 
     def test_configuration_exception_is_stored(self):
-        """If the initialization of an API object raises
-        CannotLoadConfiguration, the exception is stored with the
-        CirculationAPI rather than being propagated.
-        """
+        # If the initialization of an API object raises
+        # CannotLoadConfiguration, the exception is stored with the
+        # CirculationAPI rather than being propagated.
+
         api_map = {self._default_collection.protocol : self.MisconfiguredAPI}
         circulation = CirculationAPI(
             self._db, self._default_library, api_map=api_map
@@ -1537,7 +1537,7 @@ class TestConfigurationFailures(DatabaseTest):
         # constructor has been stored in initialization_exceptions.
         e = circulation.initialization_exceptions[self._default_collection.id]
         assert isinstance(e, CannotLoadConfiguration)
-        assert "doomed!" == e.message
+        assert "doomed!" == str(e)
 
 
 class TestFulfillmentInfo(DatabaseTest):

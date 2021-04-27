@@ -15,7 +15,7 @@ from core.model import (
 )
 from core.model.configuration import ExternalIntegrationLink
 from core.s3 import S3Uploader, S3UploaderConfiguration
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 
 class TestCatalogServicesController(SettingsControllerTest):
@@ -205,7 +205,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose=ExternalIntegrationLink.MARC
         )
 
-        assert service.id == int(response.response[0])
+        assert service.id == int(response.get_data())
         assert ME.NAME == service.protocol
         assert "exporter name" == service.name
         assert [self._default_library] == service.libraries
@@ -251,7 +251,7 @@ class TestCatalogServicesController(SettingsControllerTest):
         integration_link = get_one(
             self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose=ExternalIntegrationLink.MARC
         )
-        assert service.id == int(response.response[0])
+        assert service.id == int(response.get_data())
         assert ME.NAME == service.protocol
         assert "exporter name" == service.name
         assert s3.id == integration_link.other_integration_id

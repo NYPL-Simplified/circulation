@@ -7,6 +7,7 @@ from defusedxml.lxml import fromstring
 from onelogin.saml2.utils import OneLogin_Saml2_Utils
 
 from core.exceptions import BaseError
+from core.util.datetime_helpers import from_timestamp, utc_now
 
 
 class SAMLFederatedMetadataValidationError(BaseError):
@@ -87,7 +88,7 @@ class SAMLFederatedMetadataExpirationValidator(SAMLFederatedMetadataValidator):
         :type saml_date_time: str
         """
         unix_timestamp = OneLogin_Saml2_Utils.parse_SAML_to_time(saml_date_time)
-        parsed_date_time = datetime.datetime.utcfromtimestamp(unix_timestamp)
+        parsed_date_time = from_timestamp(unix_timestamp)
 
         return parsed_date_time
 
@@ -109,10 +110,10 @@ class SAMLFederatedMetadataExpirationValidator(SAMLFederatedMetadataValidator):
         )
 
         try:
-            root = fromstring(metadata)
+            root = fromstring(metadata.encode("utf-8"))
         except Exception as exception:
             raise SAMLFederatedMetadataValidationError(
-                "Metadata's XML is not valid", exception
+                "Metadata's XML is not valid", str(exception)
             )
 
         if "EntitiesDescriptor" not in root.tag:
@@ -127,7 +128,7 @@ class SAMLFederatedMetadataExpirationValidator(SAMLFederatedMetadataValidator):
             )
 
         valid_until = self._parse_saml_date_time(valid_until)
-        now = datetime.datetime.utcnow()
+        now = utc_now()
 
         if valid_until < now and (now - valid_until) > self.MAX_CLOCK_SKEW:
             raise SAMLFederatedMetadataValidationError(

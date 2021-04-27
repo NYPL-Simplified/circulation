@@ -17,7 +17,7 @@ from api.routes import (
     h as error_handler_object,
 )
 
-from test_controller import ControllerTest
+from .test_controller import ControllerTest
 
 class MockApp(object):
     """Pretends to be a Flask application with a configured
@@ -190,7 +190,7 @@ class RouteTestFixtures(object):
         if authentication_required:
             assert 401 == response.status_code
             assert ("authenticated_patron_from_request called without authorizing" ==
-                response.data)
+                response.get_data(as_text=True))
         else:
             assert 200 == response.status_code
 
@@ -765,7 +765,7 @@ class TestHealthCheck(RouteTest):
         # This is how we know we actually called health_check() and
         # not a mock method -- the Response returned by the mock
         # system would have an explanatory message in its .data.
-        assert "" == response.data
+        assert "" == response.get_data(as_text=True)
 
 
 class TestExceptionHandler(RouteTest):
@@ -793,7 +793,7 @@ class TestExceptionHandler(RouteTest):
             assert value_error == routes.h.handled
 
             # The Response is created was passed along.
-            assert "handled it" == result.data
+            assert "handled it" == result.get_data(as_text=True)
             assert 500 == result.status_code
 
         # werkzeug HTTPExceptions are _not_ run through

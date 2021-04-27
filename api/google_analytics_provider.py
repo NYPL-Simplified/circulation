@@ -1,7 +1,7 @@
-from config import CannotLoadConfiguration
+from .config import CannotLoadConfiguration
 import uuid
 import unicodedata
-import urllib
+import urllib.parse
 import re
 from flask_babel import lazy_gettext as _
 from core.util.http import HTTP
@@ -120,9 +120,9 @@ class GoogleAnalyticsProvider(object):
             fields.update({'cd15' : library.short_name})
 
         # urlencode doesn't like unicode strings so we convert them to utf8
-        fields = {k: unicodedata.normalize("NFKD", unicode(v)).encode("utf8") for k, v in fields.iteritems()}
+        fields = {k: unicodedata.normalize("NFKD", str(v)).encode("utf8") for k, v in list(fields.items())}
 
-        params = re.sub(r"=None(&?)", r"=\1", urllib.urlencode(fields))
+        params = re.sub(r"=None(&?)", r"=\1", urllib.parse.urlencode(fields))
         self.post(self.url, params)
 
     def post(self, url, params):

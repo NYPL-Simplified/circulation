@@ -1,15 +1,14 @@
-import argparse
-import base64
-from cStringIO import StringIO
+import json
+from io import StringIO
+import itertools
 from datetime import datetime, timedelta
 import hashlib
 import hmac
 import itertools
-import json
 import logging
 import os
 import re
-import urlparse
+import urllib.parse
 import time
 
 import dateutil.parser
@@ -18,14 +17,20 @@ from lxml import etree
 from sqlalchemy import or_
 from sqlalchemy.orm.session import Session
 
-from circulation import (
+from .web_publication_manifest import (
+    FindawayManifest,
+    SpineItem,
+)
+from .circulation import (
     FulfillmentInfo,
     HoldInfo,
     LoanInfo,
     BaseCirculationAPI,
 )
-from circulation_exceptions import *
-from core.analytics import Analytics
+from .selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
 from core.config import (
     Configuration,
     CannotLoadConfiguration,
@@ -81,15 +86,28 @@ from core.util.http import (
     BadResponseException,
     HTTP
 )
-from selftest import (
-    HasSelfTests,
-    SelfTestResult,
-)
-from web_publication_manifest import (
-    FindawayManifest,
-    SpineItem,
-)
 
+from .circulation_exceptions import *
+from core.analytics import Analytics
+
+from core.metadata_layer import (
+    ContributorData,
+    CirculationData,
+    Metadata,
+    LinkData,
+    IdentifierData,
+    FormatData,
+    MeasurementData,
+    ReplacementPolicy,
+    SubjectData,
+)
+from core.util.datetime_helpers import (
+    strptime_utc,
+    to_utc,
+    utc_now,
+)
+from core.util.string_helpers import base64
+from core.testing import DatabaseTest
 
 class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
 
@@ -133,7 +151,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         (None, findaway_drm) : 'MP3'
     }
     internal_format_to_delivery_mechanism = dict(
-        [v,k] for k, v in delivery_mechanism_to_internal_format.items()
+        [v,k] for k, v in list(delivery_mechanism_to_internal_format.items())
     )
 
     def __init__(self, _db, collection):
@@ -157,12 +175,6 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             raise CannotLoadConfiguration(
                 "Bibliotheca configuration is incomplete."
             )
-
-        # Use utf8 instead of unicode encoding
-        settings = [self.account_id, self.account_key, self.library_id]
-        self.account_id, self.account_key, self.library_id = (
-            setting.encode('utf8') for setting in settings
-        )
 
         self.item_list_parser = ItemListParser()
         self.collection_id = collection.id
@@ -195,7 +207,9 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         now = self.now()
         signature_components = [now, method, path]
         signature_string = "\n".join(signature_components)
-        digest = hmac.new(self.account_key, msg=signature_string,
+        digest = hmac.new(
+                    self.account_key.encode("utf-8"),
+                    msg=signature_string.encode("utf-8"),
                     digestmod=hashlib.sha256).digest()
         signature = base64.standard_b64encode(digest)
         return signature, now
@@ -203,7 +217,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
     def full_url(self, path):
         if not path.startswith("/cirrus"):
             path = self.full_path(path)
-        return urlparse.urljoin(self.base_url, path)
+        return urllib.parse.urljoin(self.base_url, path)
 
     def full_path(self, path):
         if not path.startswith("/"):
@@ -272,7 +286,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         :param identifiers: A list containing either Identifier
             objects or Bibliotheca identifier strings.
         """
-        if any(isinstance(identifiers, x) for x in (Identifier, basestring)):
+        if any(isinstance(identifiers, x) for x in (Identifier, str)):
             identifiers = [identifiers]
         identifier_strings = []
         for i in identifiers:
@@ -296,7 +310,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
 
     def _run_self_tests(self, _db):
         def _count_events():
-            now = datetime.utcnow()
+            now = utc_now()
             five_minutes_ago = now - timedelta(minutes=5)
             count = len(list(self.get_events_between(five_minutes_ago, now)))
             return "Found %d event(s)" % count
@@ -333,7 +347,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             self._db.commit()
         try:
             events = EventParser().process_all(response.content, no_events_error)
-        except Exception, e:
+        except Exception as e:
             self.log.error(
                 "Error parsing Bibliotheca response content: %s", response.content,
                 exc_info=e
@@ -385,7 +399,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request('checkout', body, method="PUT")
         if response.status_code == 201:
             # New loan
-            start_date = datetime.utcnow()
+            start_date = utc_now()
         elif response.status_code == 200:
             # Old loan -- we don't know the start date
             start_date = None
@@ -436,7 +450,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 content_type, content = (
                     content_transformation(pool, content)
                 )
-            except Exception, e:
+            except Exception as e:
                 self.log.error(
                     "Error transforming fulfillment document: %s",
                     response.content, exc_info=e
@@ -483,9 +497,14 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                    item_id=item_id, patron_id=patron_id)
         body = self.TEMPLATE % args
         response = self.request('placehold', body, method="PUT")
+        # The response comes in as a byte string that we must
+        # convert into a string.
+        response_content = None
+        if response.content:
+            response_content = response.content.decode("utf-8")
         if response.status_code in (200, 201):
-            start_date = datetime.utcnow()
-            end_date = HoldResponseParser().process_all(response.content)
+            start_date = utc_now()
+            end_date = HoldResponseParser().process_all(response_content)
             return HoldInfo(
                 licensepool.collection, DataSource.BIBLIOTHECA,
                 licensepool.identifier.type,
@@ -495,9 +514,9 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 hold_position=None
             )
         else:
-            if not response.content:
+            if not response_content:
                 raise CannotHold()
-            error = ErrorParser().process_all(response.content)
+            error = ErrorParser().process_all(response_content)
             if isinstance(error, Exception):
                 raise error
             else:
@@ -529,7 +548,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             license document via Bibliotheca, or a dictionary
             representing such a document loaded into JSON form.
         """
-        if isinstance(findaway_license, basestring):
+        if isinstance(findaway_license, (bytes, str)):
             findaway_license = json.loads(findaway_license)
 
         kwargs = {}
@@ -574,7 +593,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             license_pool=license_pool, spine_items=spine_items, **kwargs
         )
 
-        return DeliveryMechanism.FINDAWAY_DRM, unicode(manifest)
+        return DeliveryMechanism.FINDAWAY_DRM, str(manifest)
 
 
 class DummyBibliothecaAPIResponse(object):
@@ -593,14 +612,14 @@ class MockBibliothecaAPI(BibliothecaAPI):
         collection, ignore = get_one_or_create(
             _db, Collection,
             name=name, create_method_kwargs=dict(
-                external_account_id=u'c',
+                external_account_id='c',
             )
         )
         integration = collection.create_external_integration(
             protocol=ExternalIntegration.BIBLIOTHECA
         )
-        integration.username = u'a'
-        integration.password = u'b'
+        integration.username = 'a'
+        integration.password = 'b'
         integration.url = "http://bibliotheca.test"
         library.collections.append(collection)
         return collection
@@ -744,8 +763,8 @@ class ItemListParser(XMLParser):
 
         for format in formats:
             try:
-                published_date = datetime.strptime(published, format)
-            except ValueError, e:
+                published_date = strptime_utc(published, format)
+            except ValueError as e:
                 pass
 
         links = []
@@ -886,16 +905,14 @@ class BibliothecaParser(XMLParser):
             value = None
         else:
             try:
-                value = datetime.strptime(
-                    value, self.INPUT_TIME_FORMAT
-                )
-            except ValueError, e:
+                value = strptime_utc(value, self.INPUT_TIME_FORMAT)
+            except ValueError as e:
                 logging.error(
                     'Unable to parse Bibliotheca date: "%s"', value,
                     exc_info=e
                 )
                 value = None
-        return value
+        return to_utc(value)
 
     def date_from_subtag(self, tag, key, required=True):
         if required:
@@ -942,7 +959,7 @@ class ErrorParser(BibliothecaParser):
             for i in super(ErrorParser, self).process_all(
                     string, "//Error"):
                 return i
-        except Exception, e:
+        except Exception as e:
             # The server sent us an error with an incorrect or
             # nonstandard syntax.
             return RemoteInitiatedServerError(
@@ -1032,6 +1049,10 @@ class PatronCirculationParser(BibliothecaParser):
 
     def process_all(self, string):
         parser = etree.XMLParser()
+        # If the data is an HTTP response, it is a bytestring and
+        # must be converted before it is parsed.
+        if isinstance(string, bytes):
+            string = string.decode("utf-8")
         root = etree.parse(StringIO(string), parser)
         sup = super(PatronCirculationParser, self)
         loans = sup.process_all(
@@ -1063,8 +1084,9 @@ class PatronCirculationParser(BibliothecaParser):
 
         def datevalue(key):
             value = self.text_of_subtag(tag, key)
-            return datetime.strptime(
-                value, BibliothecaAPI.ARGUMENT_TIME_FORMAT)
+            return strptime_utc(
+                value, BibliothecaAPI.ARGUMENT_TIME_FORMAT
+            )
 
         identifier = self.text_of_subtag(tag, "ItemId")
         start_date = datevalue("EventStartDateInUTC")
@@ -1093,8 +1115,7 @@ class DateResponseParser(BibliothecaParser):
         due_date = m[0].text
         if not due_date:
             return None
-        return datetime.strptime(
-                due_date, EventParser.INPUT_TIME_FORMAT)
+        return strptime_utc(due_date, EventParser.INPUT_TIME_FORMAT)
 
 
 class CheckoutResponseParser(DateResponseParser):
@@ -1208,7 +1229,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
             identifiers_by_bibliotheca_id[identifier.identifier] = identifier
 
         identifiers_not_mentioned_by_bibliotheca = set(identifiers)
-        now = datetime.utcnow()
+        now = utc_now()
         for metadata in self.api.bibliographic_lookup(bibliotheca_ids):
             self._process_metadata(
                 metadata, identifiers_by_bibliotheca_id,
@@ -1257,7 +1278,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
             for library in self.collection.libraries:
                 self.analytics.collect_event(
                     library, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD,
-                    datetime.utcnow()
+                    utc_now()
                 )
         edition, ignore = metadata.apply(edition, collection=self.collection,
                                          replace=self.replacement_policy)
@@ -1344,9 +1365,9 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         :rtype: Optional[datetime]
         """
         if date is None or isinstance(date, datetime):
-            return date
+            return to_utc(date)
         try:
-            dt_date = dateutil.parser.isoparse(date)
+            dt_date = to_utc(dateutil.parser.isoparse(date))
         except ValueError as e:
             self.log.warn(
                 '%r. Date argument "%s" was not in a valid format. Use an ISO 8601 string or a datetime.',
@@ -1371,7 +1392,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         # We don't use Monitor.timestamp() because that will create
         # the timestamp if it doesn't exist -- we want to see whether
         # or not it exists.
-        default_start_time = datetime.utcnow() - self.DEFAULT_START_TIME
+        default_start_time = utc_now() - self.DEFAULT_START_TIME
         initialized = get_one(
             _db, Timestamp, service=self.service_name,
             service_type=Timestamp.MONITOR_TYPE, collection=self.collection

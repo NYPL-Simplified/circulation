@@ -1,4 +1,5 @@
 import cgi
+import html
 import json
 from threading import Lock
 
@@ -21,7 +22,7 @@ from core.model.configuration import (
     ConfigurationMetadata,
     ConfigurationOption,
 )
-
+cgi.escape = html.escape
 
 class SAMLConfigurationError(BaseError):
     """Raised in the case of any configuration errors."""

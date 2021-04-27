@@ -6,7 +6,7 @@ from core.selftest import (
     SelfTestResult,
 )
 from api.simple_authentication import SimpleAuthenticationProvider
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 from core.model import (
     create,
     ExternalIntegration,
@@ -80,7 +80,7 @@ class TestPatronAuthSelfTests(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             response = self.manager.admin_patron_auth_service_self_tests_controller.process_patron_auth_service_self_tests(auth_service.id)
             assert response._status == "200 OK"
-            assert "Successfully ran new self tests" == response.data
+            assert "Successfully ran new self tests" == response.get_data(as_text=True)
 
         # run_self_tests was called with the database twice (the
         # second time to be used in the ExternalSearchIntegration

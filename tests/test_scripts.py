@@ -3,7 +3,7 @@ import contextlib
 import datetime
 import flask
 import json
-from StringIO import StringIO
+from io import StringIO
 
 from api.adobe_vendor_id import (
     AdobeVendorIDModel,
@@ -98,6 +98,7 @@ from scripts import (
     NovelistSnapshotScript,
     LocalAnalyticsExportScript,
 )
+from core.util.datetime_helpers import utc_now
 
 class TestAdobeAccountIDResetScript(DatabaseTest):
 
@@ -153,7 +154,7 @@ class TestLaneScript(DatabaseTest):
         super(TestLaneScript, self).setup_method()
         base_url_setting = ConfigurationSetting.sitewide(
             self._db, Configuration.BASE_URL_KEY)
-        base_url_setting.value = u'http://test-circulation-manager/'
+        base_url_setting.value = 'http://test-circulation-manager/'
         for k, v in [
                 (Configuration.LARGE_COLLECTION_LANGUAGES, []),
                 (Configuration.SMALL_COLLECTION_LANGUAGES, []),
@@ -402,7 +403,7 @@ class TestCacheFacetListsPerLane(TestLaneScript):
             response = script.do_generate(lane, facets, pagination)
             assert isinstance(response, OPDSFeedResponse)
             assert AcquisitionFeed.ACQUISITION_FEED_TYPE == response.content_type
-            assert response.data.startswith('<feed')
+            assert response.get_data(as_text=True).startswith('<feed')
 
 
 class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
@@ -469,7 +470,7 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
             # we get a Flask response.
             response = script.do_generate(lane, facets, pagination)
             assert AcquisitionFeed.ACQUISITION_FEED_TYPE == response.content_type
-            assert response.data.startswith('<feed')
+            assert response.get_data(as_text=True).startswith('<feed')
 
     def test_facets(self):
         # Normally we yield one FeaturedFacets object for each of the
@@ -623,7 +624,7 @@ class TestCacheMARCFiles(TestLaneScript):
         # run the exporter twice, first to update that file and second to create
         # a file with changes since that first file was originally created.
         exporter.called_with = []
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         yesterday = now - datetime.timedelta(days=1)
         last_week = now - datetime.timedelta(days=7)
         ConfigurationSetting.for_library_and_externalintegration(
@@ -728,7 +729,7 @@ class TestInstanceInitializationScript(DatabaseTest):
         # not yet meen initialized. But we can test it by calling it
         # directly.
         timestamp = get_one(
-            self._db, Timestamp, service=u"Database Migration",
+            self._db, Timestamp, service="Database Migration",
             service_type=Timestamp.SCRIPT_TYPE
         )
         assert None == timestamp
@@ -744,7 +745,7 @@ class TestInstanceInitializationScript(DatabaseTest):
 
         # It initializes the database.
         timestamp = get_one(
-            self._db, Timestamp, service=u"Database Migration",
+            self._db, Timestamp, service="Database Migration",
             service_type=Timestamp.SCRIPT_TYPE
         )
         assert timestamp
@@ -795,7 +796,7 @@ class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
             output
         )
         assert (
-            u'Current Short Client Token configuration for http://foo/:\n Vendor ID: vendorid\n Library name: libraryname\n Shared secret: secret\n' ==
+            'Current Short Client Token configuration for http://foo/:\n Vendor ID: vendorid\n Library name: libraryname\n Shared secret: secret\n' ==
             output.getvalue())
         [integration] = self._default_library.integrations
         assert (
@@ -809,7 +810,7 @@ class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
             self._db, "http://foo/", "newid", "newname", "newsecret",
             output
         )
-        expect = u'Current Short Client Token configuration for http://foo/:\n Vendor ID: newid\n Library name: newname\n Shared secret: newsecret\n'
+        expect = 'Current Short Client Token configuration for http://foo/:\n Vendor ID: newid\n Library name: newname\n Shared secret: newsecret\n'
         assert expect == output.getvalue()
         expect_settings = [
             ('password', 'newsecret'), ('username', 'newname'),
@@ -1054,7 +1055,7 @@ class TestDirectoryImportScript(DatabaseTest):
         metadata = Metadata(
             DataSource.GUTENBERG,
             primary_identifier=identifier,
-            title=u"A book"
+            title="A book"
         )
         metadata.annotated = False
         datasource = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -1077,7 +1078,7 @@ class TestDirectoryImportScript(DatabaseTest):
         assert True == metadata.annotated
 
         # Now let's try it with some files 'on disk'.
-        with open(self.sample_cover_path('test-book-cover.png')) as fh:
+        with open(self.sample_cover_path('test-book-cover.png'), "rb") as fh:
             image = fh.read()
         mock_filesystem = {
             'cover directory' : (
@@ -1102,10 +1103,10 @@ class TestDirectoryImportScript(DatabaseTest):
         assert "A book" == work.title
         assert (
             work.cover_full_url ==
-            u'https://test-cover-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/1003/1003.jpg')
+            'https://test-cover-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/1003/1003.jpg')
         assert (
             work.cover_thumbnail_url ==
-            u'https://test-cover-bucket.s3.amazonaws.com/scaled/300/Gutenberg/Gutenberg%20ID/1003/1003.png')
+            'https://test-cover-bucket.s3.amazonaws.com/scaled/300/Gutenberg/Gutenberg%20ID/1003/1003.png')
         assert 1 == len(work.license_pools)
         assert 1 == len(edition.license_pools)
         assert 1 == len([lp for lp in edition.license_pools if lp.collection == collection])
@@ -1113,7 +1114,7 @@ class TestDirectoryImportScript(DatabaseTest):
         assert licensepool_for_work == pool
         assert (
             pool.open_access_download_url ==
-            u'https://test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/1003/A%20book.epub')
+            'https://test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/1003/A%20book.epub')
         assert (RightsStatus.CC0 ==
             pool.delivery_mechanisms[0].rights_status.uri)
 
@@ -1128,7 +1129,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # The EPUB Representation was cleared out after the upload, to
         # save database space.
-        assert "I'm an EPUB." == mirrors[mirror_type_books].content[0]
+        assert b"I'm an EPUB." == mirrors[mirror_type_books].content[0]
         assert None == epub.content
 
         # Now attempt to get a work for a different collection, but with
@@ -1307,7 +1308,7 @@ class TestDirectoryImportScript(DatabaseTest):
         assert Hyperlink.OPEN_ACCESS_DOWNLOAD == link.rel
         assert (
             link.href ==
-            u'https://test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/2345/Name%20of%20book.epub')
+            'https://test-content-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/2345/Name%20of%20book.epub')
         assert Representation.EPUB_MEDIA_TYPE == link.media_type
         assert "I'm an EPUB." == link.content
 
@@ -1348,7 +1349,7 @@ class TestDirectoryImportScript(DatabaseTest):
         assert Hyperlink.IMAGE == link.rel
         assert (
             link.href ==
-            u'https://test-cover-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/2345/2345.jpg')
+            'https://test-cover-bucket.s3.amazonaws.com/Gutenberg/Gutenberg%20ID/2345/2345.jpg')
         assert Representation.JPEG_MEDIA_TYPE == link.media_type
         assert "I'm an image." == link.content
 

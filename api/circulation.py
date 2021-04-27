@@ -7,8 +7,8 @@ from threading import Thread
 import flask
 from flask_babel import lazy_gettext as _
 
-from circulation_exceptions import *
-from config import Configuration
+from .circulation_exceptions import *
+from .config import Configuration
 from core.cdn import cdnify
 from core.config import CannotLoadConfiguration
 from core.mirror import MirrorUploader
@@ -28,7 +28,8 @@ from core.model import (
     RightsStatus,
     Session,
     ExternalIntegrationLink)
-from util.patron import PatronUtility
+from core.util.datetime_helpers import utc_now
+from .util.patron import PatronUtility
 
 
 class CirculationInfo(object):
@@ -428,14 +429,14 @@ class CirculationAPI(object):
         """When you see a Collection that implements protocol X, instantiate
         API class Y to handle that collection.
         """
-        from overdrive import OverdriveAPI
-        from odilo import OdiloAPI
-        from bibliotheca import BibliothecaAPI
-        from axis import Axis360API
-        from rbdigital import RBDigitalAPI
-        from enki import EnkiAPI
-        from opds_for_distributors import OPDSForDistributorsAPI
-        from odl import ODLAPI, SharedODLAPI
+        from .overdrive import OverdriveAPI
+        from .odilo import OdiloAPI
+        from .bibliotheca import BibliothecaAPI
+        from .axis import Axis360API
+        from .rbdigital import RBDigitalAPI
+        from .enki import EnkiAPI
+        from .opds_for_distributors import OPDSForDistributorsAPI
+        from .odl import ODLAPI, SharedODLAPI
         from api.lcp.collection import LCPAPI
         from api.proquest.importer import ProQuestOPDS2Importer
 
@@ -571,11 +572,10 @@ class CirculationAPI(object):
         # fines, blocks, expired card, etc.
         PatronUtility.assert_borrowing_privileges(patron)
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         if licensepool.open_access or licensepool.self_hosted:
             # We can 'loan' open-access content ourselves just by
             # putting a row in the database.
-            now = datetime.datetime.utcnow()
             __transaction = self._db.begin_nested()
             loan, is_new = licensepool.loan_to(patron, start=now, end=None)
             __transaction.commit()
@@ -742,7 +742,7 @@ class CirculationAPI(object):
                     patron, pin, licensepool,
                     hold_notification_email
                 )
-            except AlreadyOnHold, e:
+            except AlreadyOnHold as e:
                 hold_info = HoldInfo(
                     licensepool.collection, licensepool.data_source,
                     licensepool.identifier.type, licensepool.identifier.identifier,
@@ -1014,7 +1014,7 @@ class CirculationAPI(object):
                 api = self.api_for_license_pool(licensepool)
                 try:
                     api.checkin(patron, pin, licensepool)
-                except NotCheckedOut, e:
+                except NotCheckedOut as e:
                     # The book wasn't checked out in the first
                     # place. Everything's fine.
                     pass
@@ -1046,7 +1046,7 @@ class CirculationAPI(object):
             api = self.api_for_license_pool(licensepool)
             try:
                 api.release_hold(patron, pin, licensepool)
-            except NotOnHold, e:
+            except NotOnHold as e:
                 # The book wasn't on hold in the first place. Everything's
                 # fine.
                 pass
@@ -1092,7 +1092,7 @@ class CirculationAPI(object):
                 try:
                     self.activity = self.api.patron_activity(
                         self.patron, self.pin)
-                except Exception, e:
+                except Exception as e:
                     self.exception = e
                     self.trace = sys.exc_info()
                 after = time.time()
@@ -1103,7 +1103,7 @@ class CirculationAPI(object):
 
         threads = []
         before = time.time()
-        for api in self.api_for_collection.values():
+        for api in list(self.api_for_collection.values()):
             thread = PatronActivityThread(api, patron, pin)
             threads.append(thread)
         for thread in threads:
@@ -1178,7 +1178,7 @@ class CirculationAPI(object):
         # Assuming everything goes well, we will set
         # Patron.last_loan_activity_sync to this value -- the moment
         # just before we started contacting the vendor APIs.
-        last_loan_activity_sync = datetime.datetime.utcnow()
+        last_loan_activity_sync = utc_now()
 
         # Update the external view of the patron's current state.
         remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
@@ -1191,7 +1191,7 @@ class CirculationAPI(object):
             # patron's loans is good enough to cache.
             last_loan_activity_sync = None
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         local_loans_by_identifier = {}
         local_holds_by_identifier = {}
         for l in local_loans:
@@ -1295,9 +1295,9 @@ class CirculationAPI(object):
             # borrowing a book and syncing their bookshelf at the same time,
             # and the local loan was created after we got the remote loans.
             # If the loan's start date is less than a minute ago, we'll keep it.
-            for loan in local_loans_by_identifier.values():
+            for loan in list(local_loans_by_identifier.values()):
                 if loan.license_pool.collection_id in self.collection_ids_for_sync:
-                    one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+                    one_minute_ago = utc_now() - datetime.timedelta(minutes=1)
                     if loan.start < one_minute_ago:
                         logging.info("In sync_bookshelf for patron %s, deleting loan %d (patron %s)" % (patron.authorization_identifier, loan.id, loan.patron.authorization_identifier))
                         self._db.delete(loan)
@@ -1307,7 +1307,7 @@ class CirculationAPI(object):
             # Every hold remaining in holds_by_identifier is a hold that
             # the provider doesn't know about, which means it's expired
             # and we should get rid of it.
-            for hold in local_holds_by_identifier.values():
+            for hold in list(local_holds_by_identifier.values()):
                 if hold.license_pool.collection_id in self.collection_ids_for_sync:
                     self._db.delete(hold)
 
@@ -1422,7 +1422,7 @@ class BaseCirculationAPI(object):
     @classmethod
     def _library_authenticator(self, library):
         """Create a LibraryAuthenticator for the given library."""
-        from authenticator import LibraryAuthenticator
+        from .authenticator import LibraryAuthenticator
         _db = Session.object_session(library)
         return LibraryAuthenticator.from_config(_db, library)
 
@@ -1453,7 +1453,7 @@ class BaseCirculationAPI(object):
         for authenticator in library_authenticator.providers:
             try:
                 patrondata = authenticator.remote_patron_lookup(patron)
-            except NotImplementedError, e:
+            except NotImplementedError as e:
                 continue
             if patrondata and patrondata.email_address:
                 email_address = patrondata.email_address

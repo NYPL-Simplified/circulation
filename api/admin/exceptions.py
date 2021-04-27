@@ -1,4 +1,4 @@
-from problem_details import *
+from .problem_details import *
 
 class AdminNotAuthorized(Exception):
     status_code = 403

@@ -1,9 +1,9 @@
-import datetime
 import re
 
 from onelogin.saml2.utils import OneLogin_Saml2_Utils
 
 from api.saml.metadata.model import SAMLBinding, SAMLNameIDFormat
+from core.util.datetime_helpers import datetime_utc
 
 NAME_ID_FORMAT_1 = "urn:mace:shibboleth:1.0:nameIdentifier"
 NAME_ID_FORMAT_2 = "urn:oasis:names:tc:SAML:2.0:nameid-format:transient"
@@ -889,7 +889,7 @@ FEDERATED_METADATA_WITHOUT_VALID_UNTIL_ATTRIBUTE = """<?xml version="1.0" encodi
 </EntitiesDescriptor>
 """
 
-FEDERATED_METADATA_VALID_UNTIL = datetime.datetime(2020, 1, 1, 0, 0, 0)
+FEDERATED_METADATA_VALID_UNTIL = datetime_utc(2020, 1, 1, 0, 0, 0)
 
 FEDERATED_METADATA_WITH_VALID_UNTIL_ATTRIBUTE = """<?xml version="1.0" encoding="UTF-8"?>
 <!--

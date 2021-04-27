@@ -309,9 +309,9 @@ class TestProQuestAPIClient(DatabaseTest):
 
     def test_get_book_correctly_extracts_open_access_books(self):
         # Arrange
-        book_content = "PDF Book12345"
+        book_content = b"PDF Book12345"
         response_arguments = {"content": book_content}
-        expected_open_access_book = ProQuestBook(content=bytes(book_content))
+        expected_open_access_book = ProQuestBook(content=book_content)
 
         token = "12345"
         document_id = "12345"
@@ -344,7 +344,7 @@ class TestProQuestAPIClient(DatabaseTest):
 """
         download_link = "https://proquest.com/fulfill?documentID=12345"
         expected_acsm_book = ProQuestBook(
-            content=bytes(acsm_file_content), content_type=DeliveryMechanism.ADOBE_DRM
+            content=acsm_file_content.encode("utf-8"), content_type=DeliveryMechanism.ADOBE_DRM
         )
 
         first_response_arguments = {
@@ -353,7 +353,7 @@ class TestProQuestAPIClient(DatabaseTest):
                 ProQuestAPIClient.DOWNLOAD_LINK_FIELD: download_link,
             }
         }
-        second_response_arguments = {"content": acsm_file_content}
+        second_response_arguments = {"content": acsm_file_content.encode("utf-8")}
 
         token = "12345"
         document_id = "12345"

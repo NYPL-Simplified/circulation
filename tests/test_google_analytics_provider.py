@@ -16,9 +16,10 @@ from core.model import (
     LicensePool
 )
 import unicodedata
-import urlparse
+import urllib.parse
 import datetime
 from psycopg2.extras import NumericRange
+from core.util.datetime_helpers import utc_now
 
 class MockGoogleAnalyticsProvider(GoogleAnalyticsProvider):
 
@@ -69,7 +70,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         ga = MockGoogleAnalyticsProvider(integration, self._default_library)
 
         work = self._work(
-            title=u"pi\u00F1ata", authors=u"chlo\u00E9", fiction=True,
+            title="pi\u00F1ata", authors="chlo\u00E9", fiction=True,
             audience="audience", language="lang",
             with_license_pool=True, genre="Folklore",
             with_open_access_download=True
@@ -77,7 +78,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         work.presentation_edition.publisher = "publisher"
         work.target_age = NumericRange(10, 15)
         [lp] = work.license_pools
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         ga.collect_event(
             self._default_library, lp, CirculationEvent.DISTRIBUTOR_CHECKIN, now,
             neighborhood="Neighborhood will not be sent"
@@ -88,7 +89,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         assert 'Neighborhood' not in ga.params
 
         # Let's take a look at what _is_ being sent.
-        params = urlparse.parse_qs(ga.params)
+        params = urllib.parse.parse_qs(ga.params)
 
         assert 1 == ga.count
         assert integration.url == ga.url
@@ -99,10 +100,8 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         assert str(now) == params['cd1'][0]
         assert lp.identifier.identifier == params['cd2'][0]
         assert lp.identifier.type == params['cd3'][0]
-        assert (unicodedata.normalize("NFKD", work.title).encode('utf8') ==
-            params['cd4'][0])
-        assert (unicodedata.normalize("NFKD", work.author).encode('utf8') ==
-            params['cd5'][0])
+        assert unicodedata.normalize("NFKD", work.title) == params['cd4'][0]
+        assert unicodedata.normalize("NFKD", work.author) == params['cd5'][0]
         assert "fiction" == params['cd6'][0]
         assert "audience" == params['cd7'][0]
         assert work.target_age_string == params['cd8'][0]
@@ -134,9 +133,9 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
             collection=self._default_collection
         )
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         ga.collect_event(self._default_library, pool, CirculationEvent.DISTRIBUTOR_CHECKIN, now)
-        params = urlparse.parse_qs(ga.params)
+        params = urllib.parse.parse_qs(ga.params)
 
         assert 1 == ga.count
         assert integration.url == ga.url
@@ -172,9 +171,9 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         ).value = "faketrackingid"
         ga = MockGoogleAnalyticsProvider(integration, self._default_library)
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         ga.collect_event(self._default_library, None, CirculationEvent.NEW_PATRON, now)
-        params = urlparse.parse_qs(ga.params)
+        params = urllib.parse.parse_qs(ga.params)
 
         assert 1 == ga.count
         assert integration.url == ga.url
