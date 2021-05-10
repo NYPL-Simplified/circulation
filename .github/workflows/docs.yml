@@ -27,6 +27,7 @@ jobs:
       # dependencies ourselves.
       - name: Install Dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install --yes libxmlsec1-dev libxml2-dev libxmlsec1-openssl
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
