@@ -197,14 +197,18 @@ class CachedFeed(Base):
             # internal cache.
             response_kwargs['max_age'] = 0
 
-        if library.has_root_lanes:
-            # If this Lane is associated with a library that guides
+        if keys.library and keys.library.has_root_lanes:
+            # If this feed is associated with a Library that guides
             # patrons to different lanes based on their patron type,
-            # all lane feeds need to be treated as private (but
-            # cacheable). Otherwise, a change of credentials on the
-            # client side might cause a cached representation to be
-            # reused when it should have been discarded.
-            response_args['private'] = True
+            # all CachedFeeds need to be treated as private (but
+            # cacheable) on the client side. Otherwise, a change of
+            # client credentials might cause a cached representation
+            # to be reused when it should have been discarded.
+            #
+            # TODO: it might be possible to make this decision in a
+            # more fine-grained way, which would allow intermediaries
+            # to cache these feeds.
+            response_kwargs['private'] = True
 
         return OPDSFeedResponse(
             response=feed_data,

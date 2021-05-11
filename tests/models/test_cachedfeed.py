@@ -389,6 +389,18 @@ class TestCachedFeed(DatabaseTest):
         assert isinstance(r, OPDSFeedResponse)
         assert OPDSFeed.DEFAULT_MAX_AGE == r.max_age
 
+        # If the Library associated with the WorkList used in the feed
+        # has root lanes, `private` is always set to True, even if we
+        # asked for the opposite.
+        from unittest.mock import PropertyMock, patch
+        from ...model import Library
+        Library._has_root_lane_cache[self._default_library.id] = True
+        r = CachedFeed.fetch(
+            self._db, wl, facets, pagination, refresh,
+            private=False
+        )
+        assert isinstance(r, OPDSFeedResponse)
+        assert True == r.private
 
     # Tests of helper methods.
 

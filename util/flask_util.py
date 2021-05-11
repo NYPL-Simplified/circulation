@@ -111,8 +111,8 @@ class Response(FlaskResponse):
             else:
                 # A public resource can be cached by intermediaries
                 # for half as long as the end-user can cache it.
-                s_maxage = ", s-maxage=%d" % self.max_age / 2
-            cache_control = "%s, no-transform, max-age=%d,%s" % (
+                s_maxage = ", s-maxage=%d" % (self.max_age / 2)
+            cache_control = "%s, no-transform, max-age=%d%s" % (
                 private, client_cache, s_maxage
             )
 

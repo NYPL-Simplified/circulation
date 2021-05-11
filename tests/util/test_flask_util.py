@@ -49,7 +49,13 @@ class TestResponse(object):
         headers = Response(max_age=0, private=False).headers
         assert "public, no-cache" == headers['Cache-Control']
 
-        # Test the case where the response _should_ be cached.
+        # Test the case where the response is private but may be
+        # cached privately.
+        headers = Response(max_age=300, private=True).headers
+        assert "private, no-transform, max-age=300" == headers['Cache-Control']
+
+        # Test the case where the response is public and may be cached,
+        # including by intermediaries.
         max_age = 60*60*24*12
         obj = Response(max_age=max_age)
 
