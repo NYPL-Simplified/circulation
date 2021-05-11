@@ -92,18 +92,28 @@ class Response(FlaskResponse):
         # Don't modify the underlying dictionary; it came from somewhere else.
         headers = dict(headers)
 
-        # Set Cache-Control based on max-age.
+        # Set headers based on privacy settings and maximum age.
         if self.private:
             private = "private"
+
+            # A private resource should be re-requested, rather than
+            # retrieved from cache, if the authorization credentials
+            # change from those originally used to retrieve it.
+            headers['Vary'] = 'Authorization'
         else:
             private = "public"
         if self.max_age and isinstance(self.max_age, int):
-            # A CDN should hold on to the cached representation only half
-            # as long as the end-user.
             client_cache = self.max_age
-            cdn_cache = self.max_age / 2
-            cache_control = "%s, no-transform, max-age=%d, s-maxage=%d" % (
-                private, client_cache, cdn_cache
+            if self.private:
+                # A private resource should not be cached by
+                # intermediaries at all.
+                s_maxage = ""
+            else:
+                # A public resource can be cached by intermediaries
+                # for half as long as the end-user can cache it.
+                s_maxage = ", s-maxage=%d" % self.max_age / 2
+            cache_control = "%s, no-transform, max-age=%d,%s" % (
+                private, client_cache, s_maxage
             )
 
             # Explicitly set Expires based on max-age; some clients need this.
