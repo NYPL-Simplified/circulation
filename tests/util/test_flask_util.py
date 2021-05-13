@@ -40,6 +40,7 @@ class TestResponse(object):
         def assert_not_cached(max_age):
             headers = Response(max_age=max_age).headers
             assert "private, no-cache" == headers['Cache-Control']
+            assert 'Authorization' == headers['Vary']
             assert 'Expires' not in headers
         assert_not_cached(max_age=None)
         assert_not_cached(max_age=0)
@@ -48,8 +49,16 @@ class TestResponse(object):
         # Test the case where the response is public but should not be cached.
         headers = Response(max_age=0, private=False).headers
         assert "public, no-cache" == headers['Cache-Control']
+        assert 'Vary' not in headers
 
-        # Test the case where the response _should_ be cached.
+        # Test the case where the response is private but may be
+        # cached privately.
+        headers = Response(max_age=300, private=True).headers
+        assert "private, no-transform, max-age=300" == headers['Cache-Control']
+        assert 'Authorization' == headers['Vary']
+
+        # Test the case where the response is public and may be cached,
+        # including by intermediaries.
         max_age = 60*60*24*12
         obj = Response(max_age=max_age)
 
@@ -78,6 +87,7 @@ class TestResponse(object):
         cache_control = response.headers['Cache-Control']
         assert 'private' in cache_control
         assert 'max-age=30' in cache_control
+        assert 'Authorization' == response.headers['Vary']
 
     def test_unicode(self):
         # You can easily convert a Response object to Unicode
