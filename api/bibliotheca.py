@@ -1614,7 +1614,6 @@ class BibliothecaPurchaseMonitor(BibliothecaTimelineMonitor):
         # other monitor. That's because this is the only monitor that
         # issues TITLE_ADD events. We know approximately when the
         # license was purchased, since `start_time` is provided.
-        import pdb; pdb.set_trace()
         license_pool.collect_analytics_event(
             self.analytics, CirculationEvent.DISTRIBUTOR_TITLE_ADD,
             purchase_time, 0, 1
