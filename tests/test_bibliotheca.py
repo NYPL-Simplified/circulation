@@ -402,6 +402,8 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         assert 5 == circulation_events.count()
 
     def test_marc_request(self):
+        # A request for MARC records between two dates makes an API
+        # call and yields a sequence of pymarc Record objects.
         start = datetime_utc(2012, 1, 2, 3, 4, 5)
         end = datetime_utc(2014, 5, 6, 7, 8, 9)
         self.api.queue_response(
@@ -1131,6 +1133,15 @@ class TestBibliothecaPurchaseMonitor(BibliothecaAPITest):
             False
         ]
 
+        # _checkpoint() is not called after processing this slice,
+        # even though it's supposedly complete, because today isn't
+        # over yet.
+        today_slice = [
+            today - timedelta(days=1),
+            today,
+            True
+        ]
+
         # _checkpoint() is not called after processing this slice
         # because it doesn't end in the past.
         future_slice = [
@@ -1141,7 +1152,7 @@ class TestBibliothecaPurchaseMonitor(BibliothecaAPITest):
 
         default_monitor.slice_timespan = MagicMock(
             return_value = [
-                full_slice, incomplete_slice, future_slice
+                full_slice, incomplete_slice, today_slice, future_slice
             ]
         )
         default_monitor.purchases = MagicMock(return_value=["A record"])
@@ -1162,7 +1173,7 @@ class TestBibliothecaPurchaseMonitor(BibliothecaAPITest):
         # purchases() was called on each slice it returned.
         default_monitor.purchases.assert_has_calls(
             [mock.call(*x[:2]) for x in (
-                full_slice, incomplete_slice, future_slice)
+                full_slice, incomplete_slice, today_slice, future_slice)
             ]
         )
 
@@ -1171,12 +1182,12 @@ class TestBibliothecaPurchaseMonitor(BibliothecaAPITest):
         # current slice.
         default_monitor.process_record.assert_has_calls(
             [mock.call("A record", x[0]) for x in
-             [full_slice, incomplete_slice, future_slice]]
+             [full_slice, incomplete_slice, today_slice, future_slice]]
         )
 
         # TimestampData.achievements was set to the total number of
         # records processed.
-        assert progress.achievements == "MARC records processed: 3"
+        assert progress.achievements == "MARC records processed: 4"
 
         # Only one of our contrived time slices -- the first one --
         # was a full slice that ended before the current

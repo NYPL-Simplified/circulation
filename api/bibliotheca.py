@@ -1483,7 +1483,7 @@ class BibliothecaPurchaseMonitor(BibliothecaTimelineMonitor):
         # Ask the Bibliotheca API for one day of data at a time.  This
         # ensures that TITLE_ADD events are associated with the day
         # the license was purchased.
-        today = datetime.utcnow().date()
+        today = utc_now().date()
         achievement_template = "MARC records processed: %s"
         for slice_start, slice_end, is_full_slice in self.slice_timespan(
             start, cutoff, timedelta(days=1)
