@@ -1228,6 +1228,7 @@ class TestBibliothecaPurchaseMonitor(BibliothecaAPITest):
         # The purchases() method calls marc_request repeatedly, handling
         # pagination.
 
+        # Mock three pages that contain 50, 50, and 49 items.
         default_monitor.api.marc_request = MagicMock(
             side_effect=[[1] * 50, [2] * 50, [3] * 49]
         )
@@ -1235,7 +1236,7 @@ class TestBibliothecaPurchaseMonitor(BibliothecaAPITest):
         end = datetime_utc(2020, 1, 2)
         records = [x for x in default_monitor.purchases(start, end)]
 
-        # marc_request was called repeatedly with varying offsets
+        # marc_request was called repeatedly with increasing offsets
         # until it returned fewer than 50 results.
         default_monitor.api.marc_request.assert_has_calls(
             [mock.call(start, end, offset, 50) for offset in (1, 51, 101)]
@@ -1248,7 +1249,7 @@ class TestBibliothecaPurchaseMonitor(BibliothecaAPITest):
     def test_process_record(self, default_monitor, caplog):
         # process_record may create a LicensePool, trigger the
         # bibliographic coverage provider, and/or issue a "license
-        # added" analytics event based on the identifier found in a
+        # added" analytics event, based on the identifier found in a
         # MARC record.
         purchase_time = utc_now()
         analytics = MockAnalyticsProvider()
@@ -1289,6 +1290,9 @@ class TestBibliothecaPurchaseMonitor(BibliothecaAPITest):
         ensure_coverage.assert_called_once_with(
             pool.identifier, force=True
         )
+
+        # An analytics event is issued to mark the time at which the
+        # book was first purchased.
         assert analytics.count == 1
         assert analytics.event_type == "distributor_title_add"
         assert analytics.time == purchase_time
@@ -1303,7 +1307,7 @@ class TestBibliothecaPurchaseMonitor(BibliothecaAPITest):
         assert pool == pool2
         assert ensure_coverage.call_count == 1 # i.e. was not called again.
 
-        # But an analytics event is issued for the book.
+        # But an analytics event is still issued to mark the purchase.
         assert analytics.count == 2
         assert analytics.event_type == "distributor_title_add"
         assert analytics.time == purchase_time
@@ -1339,6 +1343,8 @@ class TestBibliothecaPurchaseMonitor(BibliothecaAPITest):
         # different book).
         assert work.title == "The Incense Game"
 
+        # Licensing information was also taken from the coverage
+        # provider.
         [lp] = work.license_pools
         assert lp.identifier.identifier == 'ddf4gr9'
         assert default_monitor.collection == lp.collection

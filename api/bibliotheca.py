@@ -1611,9 +1611,12 @@ class BibliothecaPurchaseMonitor(BibliothecaTimelineMonitor):
 
         # Record the addition of this title to the collection. Do this
         # even if we've heard about the book before, through some
-        # other monitor. That's because this is the only monitor that
-        # issues TITLE_ADD events. We know approximately when the
-        # license was purchased, since `start_time` is provided.
+        # other monitor. That's because this is the only Bibliotheca
+        # monitor that issues TITLE_ADD events.
+        #
+        # We know approximately when the license was purchased --
+        # potentially a long time ago -- since `start_time` is
+        # provided.
         license_pool.collect_analytics_event(
             self.analytics, CirculationEvent.DISTRIBUTOR_TITLE_ADD,
             purchase_time, 0, 1
