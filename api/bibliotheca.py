@@ -1326,7 +1326,7 @@ class BibliothecaTimelineMonitor(CollectionMonitor, TimelineMonitor):
         :param collection: Collection for which this monitor operates.
 
         :param api_class: API class or an instance thereof for this monitor.
-        :param api_class: Union[Type[BibliothecaAPI], BibliothecaAPI]
+        :type api_class: Union[Type[BibliothecaAPI], BibliothecaAPI]
 
         :param analytics: An optional Analytics object.
         :type analytics: Optional[Analytics]
@@ -1374,7 +1374,7 @@ class BibliothecaPurchaseMonitor(BibliothecaTimelineMonitor):
         :param collection: Collection for which this monitor operates.
 
         :param api_class: API class or an instance thereof for this monitor.
-        :param api_class: Union[Type[BibliothecaAPI], BibliothecaAPI]
+        :type api_class: Union[Type[BibliothecaAPI], BibliothecaAPI]
 
         :param default_start: A default date/time at which to start
             requesting events. It should be specified as a `datetime` or
