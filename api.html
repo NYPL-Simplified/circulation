@@ -3287,6 +3287,34 @@ which are not relevant to this implementation.</td>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="api.bibliotheca.BibliothecaAPI.marc_request">
+<code class="descname">marc_request</code><span class="sig-paren">(</span><em>start</em>, <em>end</em>, <em>offset=1</em>, <em>limit=50</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaAPI.marc_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaAPI.marc_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make an HTTP request to look up the MARC records for books purchased
+between two given dates.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>start</strong> – A datetime to start looking for purchases.</li>
+<li><strong>end</strong> – A datetime to stop looking for purchases.</li>
+<li><strong>offset</strong> – An offset used to paginate results.</li>
+<li><strong>limit</strong> – A limit used to paginate results.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raise:</th><td class="field-body"><p class="first">An appropriate exception if the request did not return
+MARC records.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Yield:</th><td class="field-body"><p class="first last">A list of MARC records.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
 <dt id="api.bibliotheca.BibliothecaAPI.now">
 <code class="descname">now</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaAPI.now"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaAPI.now" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return the current GMT time in the format 3M expects.</p>
@@ -3446,33 +3474,30 @@ will act like they never heard of it.</p>
 
 <dl class="class">
 <dt id="api.bibliotheca.BibliothecaEventMonitor">
-<em class="property">class </em><code class="descclassname">api.bibliotheca.</code><code class="descname">BibliothecaEventMonitor</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>api_class=&lt;class 'api.bibliotheca.BibliothecaAPI'&gt;</em>, <em>default_start=None</em>, <em>analytics=None</em>, <em>override_timestamp=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaEventMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaEventMonitor" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.monitor.CollectionMonitor" title="core.monitor.CollectionMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.CollectionMonitor</span></code></a>, <a class="reference internal" href="core.html#core.monitor.TimelineMonitor" title="core.monitor.TimelineMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.TimelineMonitor</span></code></a></p>
+<em class="property">class </em><code class="descclassname">api.bibliotheca.</code><code class="descname">BibliothecaEventMonitor</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>api_class=&lt;class 'api.bibliotheca.BibliothecaAPI'&gt;</em>, <em>analytics=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaEventMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaEventMonitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.bibliotheca.BibliothecaTimelineMonitor" title="api.bibliotheca.BibliothecaTimelineMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.bibliotheca.BibliothecaTimelineMonitor</span></code></a></p>
 <p>Register CirculationEvents for Bibliotheca titles.</p>
-<p>Most of the time we will just be finding out that someone checked
-in or checked out a copy of a book we already knew about.</p>
-<p>But when a new book comes on the scene, this is where we first
-find out about it. When this happens, we create a LicensePool and
-immediately ensure that we get coverage from the
-BibliothecaBibliographicCoverageProvider.</p>
-<p>But getting up-to-date circulation data for that new book requires
-either that we process further events, or that we encounter it in
-the BibliothecaCirculationSweep.</p>
-<dl class="attribute">
-<dt id="api.bibliotheca.BibliothecaEventMonitor.DEFAULT_START_TIME">
-<code class="descname">DEFAULT_START_TIME</code><em class="property"> = datetime.timedelta(days=1095)</em><a class="headerlink" href="#api.bibliotheca.BibliothecaEventMonitor.DEFAULT_START_TIME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.bibliotheca.BibliothecaEventMonitor.LOG_DATE_FORMAT">
-<code class="descname">LOG_DATE_FORMAT</code><em class="property"> = '%Y-%m-%dT%H:%M:%S'</em><a class="headerlink" href="#api.bibliotheca.BibliothecaEventMonitor.LOG_DATE_FORMAT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.bibliotheca.BibliothecaEventMonitor.PROTOCOL">
-<code class="descname">PROTOCOL</code><em class="property"> = 'Bibliotheca'</em><a class="headerlink" href="#api.bibliotheca.BibliothecaEventMonitor.PROTOCOL" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
+<p>When run, this monitor will look at recent events as a way of keeping
+the local collection up to date.</p>
+<p>Although useful in everyday situations, the events endpoint will
+not always give you all the events:</p>
+<ul class="simple">
+<li>Any given call to the events endpoint will return at most
+100-150 events. If there is a particularly busy 5-minute
+stretch, events will be lost.</li>
+<li>The Bibliotheca API has, in the past, gone into a state where
+this endpoint returns an empty list of events rather than an
+error message.</li>
+</ul>
+<p>Fortunately, we have the BibliothecaPurchaseMonitor to keep track
+of new license purchases, and the BibliothecaCirculationSweep to
+keep up to date on books we already know about. If the
+BibliothecaEventMonitor stopped working completely, the rest of
+the system would continue to work, but circulation data would
+always be a few hours out of date.</p>
+<p>Thus, running the BibliothecaEventMonitor alongside the other two
+Bibliotheca monitors ensures that circulation data is kept up to date
+in near-real-time with good, but not perfect, consistency.</p>
 <dl class="attribute">
 <dt id="api.bibliotheca.BibliothecaEventMonitor.SERVICE_NAME">
 <code class="descname">SERVICE_NAME</code><em class="property"> = 'Bibliotheca Event Monitor'</em><a class="headerlink" href="#api.bibliotheca.BibliothecaEventMonitor.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
@@ -3508,17 +3533,6 @@ changes will be overwritten by run_once().</li>
 <code class="descname">handle_event</code><span class="sig-paren">(</span><em>bibliotheca_id</em>, <em>isbn</em>, <em>foreign_patron_id</em>, <em>start_time</em>, <em>end_time</em>, <em>internal_event_type</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaEventMonitor.handle_event"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaEventMonitor.handle_event" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="api.bibliotheca.BibliothecaEventMonitor.timestamp">
-<code class="descname">timestamp</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaEventMonitor.timestamp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaEventMonitor.timestamp" title="Permalink to this definition">¶</a></dt>
-<dd><p>Find or create a Timestamp for this Monitor.</p>
-<p>If we are overriding the normal start time with one supplied when
-the this class was instantiated, we do that here. The instance’s
-<cite>default_start_time</cite> will have been set to the specified datetime
-and setting`timestamp.finish` to None will cause the default to
-be used.</p>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="exception">
@@ -3547,6 +3561,120 @@ be used.</p>
 <dd><p>Parse the string Bibliotheca sends as a date.</p>
 <p>Usually this is a string in INPUT_TIME_FORMAT, but it might be None.</p>
 </dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.bibliotheca.BibliothecaPurchaseMonitor">
+<em class="property">class </em><code class="descclassname">api.bibliotheca.</code><code class="descname">BibliothecaPurchaseMonitor</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>api_class=&lt;class 'api.bibliotheca.BibliothecaAPI'&gt;</em>, <em>default_start=None</em>, <em>override_timestamp=False</em>, <em>analytics=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaPurchaseMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaPurchaseMonitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.bibliotheca.BibliothecaTimelineMonitor" title="api.bibliotheca.BibliothecaTimelineMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.bibliotheca.BibliothecaTimelineMonitor</span></code></a></p>
+<p>Track purchases of licenses from Bibliotheca.</p>
+<p>Most TimelineMonitors monitor the timeline starting at whatever
+time they’re first run. But it’s crucial that this monitor start
+at or before the first day on which a book was added to this
+collection, even if that date was years in the past. That’s
+because this monitor may be the only time we hear about a
+particular book.</p>
+<p>Because of this, this monitor has a very old DEFAULT_START_TIME
+and special capabilities for customizing the start_time to go back
+even further.</p>
+<dl class="attribute">
+<dt id="api.bibliotheca.BibliothecaPurchaseMonitor.DEFAULT_START_TIME">
+<code class="descname">DEFAULT_START_TIME</code><em class="property"> = datetime.datetime(2014, 1, 1, 0, 0, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.bibliotheca.BibliothecaPurchaseMonitor.DEFAULT_START_TIME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.bibliotheca.BibliothecaPurchaseMonitor.SERVICE_NAME">
+<code class="descname">SERVICE_NAME</code><em class="property"> = 'Bibliotheca Purchase Monitor'</em><a class="headerlink" href="#api.bibliotheca.BibliothecaPurchaseMonitor.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.bibliotheca.BibliothecaPurchaseMonitor.catch_up_from">
+<code class="descname">catch_up_from</code><span class="sig-paren">(</span><em>start</em>, <em>cutoff</em>, <em>progress</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaPurchaseMonitor.catch_up_from"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaPurchaseMonitor.catch_up_from" title="Permalink to this definition">¶</a></dt>
+<dd><p>Ask the Bibliotheca API about new purchases for every
+day between <cite>start</cite> and <cite>cutoff</cite>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>start</strong> (<em>datetime.datetime</em>) – The first day to ask about.</li>
+<li><strong>cutoff</strong> (<em>datetime.datetime</em>) – The last day to ask about.</li>
+<li><strong>progress</strong> (<a class="reference internal" href="core.html#core.metadata_layer.TimestampData" title="core.metadata_layer.TimestampData"><em>core.metadata_layer.TimestampData</em></a>) – Object used to record progress through the timeline.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.bibliotheca.BibliothecaPurchaseMonitor.process_record">
+<code class="descname">process_record</code><span class="sig-paren">(</span><em>record</em>, <em>purchase_time</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaPurchaseMonitor.process_record"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaPurchaseMonitor.process_record" title="Permalink to this definition">¶</a></dt>
+<dd><p>Record the purchase of a new title.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>record</strong> (<em>pymarc.Record</em>) – Bibliographic information about the new title.</li>
+<li><strong>purchase_time</strong> – Put down this time as the time the 
+purchase happened.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">A LicensePool representing the new title.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">core.model.LicensePool</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.bibliotheca.BibliothecaPurchaseMonitor.purchases">
+<code class="descname">purchases</code><span class="sig-paren">(</span><em>start</em>, <em>end</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaPurchaseMonitor.purchases"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaPurchaseMonitor.purchases" title="Permalink to this definition">¶</a></dt>
+<dd><p>Ask Bibliotheca for a MARC record for each book purchased
+between <cite>start</cite> and <cite>end</cite>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Yield:</th><td class="field-body">A sequence of pymarc Record objects</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.bibliotheca.BibliothecaPurchaseMonitor.timestamp">
+<code class="descname">timestamp</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaPurchaseMonitor.timestamp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaPurchaseMonitor.timestamp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find or create a Timestamp for this Monitor.</p>
+<p>If we are overriding the normal start time with one supplied when
+the this class was instantiated, we do that here. The instance’s
+<cite>default_start_time</cite> will have been set to the specified datetime
+and setting`timestamp.finish` to None will cause the default to
+be used.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.bibliotheca.BibliothecaTimelineMonitor">
+<em class="property">class </em><code class="descclassname">api.bibliotheca.</code><code class="descname">BibliothecaTimelineMonitor</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>api_class=&lt;class 'api.bibliotheca.BibliothecaAPI'&gt;</em>, <em>analytics=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaTimelineMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaTimelineMonitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.monitor.CollectionMonitor" title="core.monitor.CollectionMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.CollectionMonitor</span></code></a>, <a class="reference internal" href="core.html#core.monitor.TimelineMonitor" title="core.monitor.TimelineMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.TimelineMonitor</span></code></a></p>
+<p>Common superclass for our two TimelineMonitors.</p>
+<dl class="attribute">
+<dt id="api.bibliotheca.BibliothecaTimelineMonitor.LOG_DATE_FORMAT">
+<code class="descname">LOG_DATE_FORMAT</code><em class="property"> = '%Y-%m-%dT%H:%M:%S'</em><a class="headerlink" href="#api.bibliotheca.BibliothecaTimelineMonitor.LOG_DATE_FORMAT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.bibliotheca.BibliothecaTimelineMonitor.PROTOCOL">
+<code class="descname">PROTOCOL</code><em class="property"> = 'Bibliotheca'</em><a class="headerlink" href="#api.bibliotheca.BibliothecaTimelineMonitor.PROTOCOL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </dd></dl>
 
@@ -3803,17 +3931,21 @@ LoanInfo and HoldInfo objects.</p>
 </dd></dl>
 
 <dl class="class">
-<dt id="api.bibliotheca.RunBibliothecaMonitorScript">
-<em class="property">class </em><code class="descclassname">api.bibliotheca.</code><code class="descname">RunBibliothecaMonitorScript</code><span class="sig-paren">(</span><em>monitor_class</em>, <em>_db=None</em>, <em>cmd_args=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#RunBibliothecaMonitorScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.RunBibliothecaMonitorScript" title="Permalink to this definition">¶</a></dt>
+<dt id="api.bibliotheca.RunBibliothecaPurchaseMonitorScript">
+<em class="property">class </em><code class="descclassname">api.bibliotheca.</code><code class="descname">RunBibliothecaPurchaseMonitorScript</code><span class="sig-paren">(</span><em>monitor_class</em>, <em>_db=None</em>, <em>cmd_args=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#RunBibliothecaPurchaseMonitorScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.RunBibliothecaPurchaseMonitorScript" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#core.scripts.RunCollectionMonitorScript" title="core.scripts.RunCollectionMonitorScript"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.RunCollectionMonitorScript</span></code></a></p>
+<p>Adds the ability to specify a particular start date for the
+BibliothecaPurchaseMonitor. This is important because for a given
+collection, the start date needs to be before books
+started being licensed into that collection.</p>
 <dl class="classmethod">
-<dt id="api.bibliotheca.RunBibliothecaMonitorScript.arg_parser">
-<em class="property">classmethod </em><code class="descname">arg_parser</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#RunBibliothecaMonitorScript.arg_parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.RunBibliothecaMonitorScript.arg_parser" title="Permalink to this definition">¶</a></dt>
+<dt id="api.bibliotheca.RunBibliothecaPurchaseMonitorScript.arg_parser">
+<em class="property">classmethod </em><code class="descname">arg_parser</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#RunBibliothecaPurchaseMonitorScript.arg_parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.RunBibliothecaPurchaseMonitorScript.arg_parser" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
-<dt id="api.bibliotheca.RunBibliothecaMonitorScript.parse_command_line">
-<em class="property">classmethod </em><code class="descname">parse_command_line</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#RunBibliothecaMonitorScript.parse_command_line"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.RunBibliothecaMonitorScript.parse_command_line" title="Permalink to this definition">¶</a></dt>
+<dt id="api.bibliotheca.RunBibliothecaPurchaseMonitorScript.parse_command_line">
+<em class="property">classmethod </em><code class="descname">parse_command_line</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#RunBibliothecaPurchaseMonitorScript.parse_command_line"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.RunBibliothecaPurchaseMonitorScript.parse_command_line" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -9117,7 +9249,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2021, 5, 20, 15, 6, 47, 809797, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2021, 5, 28, 13, 35, 6, 160061, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -11468,7 +11600,7 @@ routes and arguments for ‘loan info’ and ‘hold info’.</p>
 
 <dl class="attribute">
 <dt id="api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES">
-<code class="descname">SUPPORTED_MEDIA_TYPES</code><em class="property"> = ['application/epub+zip', 'application/pdf', 'application/audiobook+json']</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SUPPORTED_MEDIA_TYPES</code><em class="property"> = ['application/audiobook+json', 'application/epub+zip', 'application/pdf']</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -14398,17 +14530,17 @@ the given dictionary?</p>
 <p>A test that needs to create announcements.</p>
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.a_week_ago">
-<code class="descname">a_week_ago</code><em class="property"> = '2021-05-03'</em><a class="headerlink" href="#api.testing.AnnouncementTest.a_week_ago" title="Permalink to this definition">¶</a></dt>
+<code class="descname">a_week_ago</code><em class="property"> = '2021-05-11'</em><a class="headerlink" href="#api.testing.AnnouncementTest.a_week_ago" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.active">
-<code class="descname">active</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-05-11', 'id': 'active', 'start': '2021-05-10'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.active" title="Permalink to this definition">¶</a></dt>
+<code class="descname">active</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-05-19', 'id': 'active', 'start': '2021-05-18'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.active" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.expired">
-<code class="descname">expired</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-05-09', 'id': 'expired', 'start': '2021-05-03'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.expired" title="Permalink to this definition">¶</a></dt>
+<code class="descname">expired</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-05-17', 'id': 'expired', 'start': '2021-05-11'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.expired" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -14418,27 +14550,27 @@ the given dictionary?</p>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.forthcoming">
-<code class="descname">forthcoming</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-05-17', 'id': 'forthcoming', 'start': '2021-05-11'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.forthcoming" title="Permalink to this definition">¶</a></dt>
+<code class="descname">forthcoming</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-05-25', 'id': 'forthcoming', 'start': '2021-05-19'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.forthcoming" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.in_a_week">
-<code class="descname">in_a_week</code><em class="property"> = '2021-05-17'</em><a class="headerlink" href="#api.testing.AnnouncementTest.in_a_week" title="Permalink to this definition">¶</a></dt>
+<code class="descname">in_a_week</code><em class="property"> = '2021-05-25'</em><a class="headerlink" href="#api.testing.AnnouncementTest.in_a_week" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.today">
-<code class="descname">today</code><em class="property"> = '2021-05-10'</em><a class="headerlink" href="#api.testing.AnnouncementTest.today" title="Permalink to this definition">¶</a></dt>
+<code class="descname">today</code><em class="property"> = '2021-05-18'</em><a class="headerlink" href="#api.testing.AnnouncementTest.today" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.tomorrow">
-<code class="descname">tomorrow</code><em class="property"> = '2021-05-11'</em><a class="headerlink" href="#api.testing.AnnouncementTest.tomorrow" title="Permalink to this definition">¶</a></dt>
+<code class="descname">tomorrow</code><em class="property"> = '2021-05-19'</em><a class="headerlink" href="#api.testing.AnnouncementTest.tomorrow" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.yesterday">
-<code class="descname">yesterday</code><em class="property"> = '2021-05-09'</em><a class="headerlink" href="#api.testing.AnnouncementTest.yesterday" title="Permalink to this definition">¶</a></dt>
+<code class="descname">yesterday</code><em class="property"> = '2021-05-17'</em><a class="headerlink" href="#api.testing.AnnouncementTest.yesterday" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

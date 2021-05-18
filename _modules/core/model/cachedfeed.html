@@ -232,6 +232,19 @@
             <span class="c1"># internal cache.</span>
             <span class="n">response_kwargs</span><span class="p">[</span><span class="s1">&#39;max_age&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
 
+        <span class="k">if</span> <span class="n">keys</span><span class="o">.</span><span class="n">library</span> <span class="ow">and</span> <span class="n">keys</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">has_root_lanes</span><span class="p">:</span>
+            <span class="c1"># If this feed is associated with a Library that guides</span>
+            <span class="c1"># patrons to different lanes based on their patron type,</span>
+            <span class="c1"># all CachedFeeds need to be treated as private (but</span>
+            <span class="c1"># cacheable) on the client side. Otherwise, a change of</span>
+            <span class="c1"># client credentials might cause a cached representation</span>
+            <span class="c1"># to be reused when it should have been discarded.</span>
+            <span class="c1">#</span>
+            <span class="c1"># TODO: it might be possible to make this decision in a</span>
+            <span class="c1"># more fine-grained way, which would allow intermediaries</span>
+            <span class="c1"># to cache these feeds.</span>
+            <span class="n">response_kwargs</span><span class="p">[</span><span class="s1">&#39;private&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
         <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span>
             <span class="n">response</span><span class="o">=</span><span class="n">feed_data</span><span class="p">,</span>
             <span class="o">**</span><span class="n">response_kwargs</span>

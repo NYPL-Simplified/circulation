@@ -1061,7 +1061,7 @@
       <ul>
         <li><a href="api.html#api.adobe_vendor_id.VendorIDLibraryConfigurationScript.arg_parser">(api.adobe_vendor_id.VendorIDLibraryConfigurationScript class method)</a>
 </li>
-        <li><a href="api.html#api.bibliotheca.RunBibliothecaMonitorScript.arg_parser">(api.bibliotheca.RunBibliothecaMonitorScript class method)</a>
+        <li><a href="api.html#api.bibliotheca.RunBibliothecaPurchaseMonitorScript.arg_parser">(api.bibliotheca.RunBibliothecaPurchaseMonitorScript class method)</a>
 </li>
         <li><a href="api.proquest.html#api.proquest.scripts.ProQuestOPDS2ImportScript.arg_parser">(api.proquest.scripts.ProQuestOPDS2ImportScript class method)</a>
 </li>
@@ -1804,13 +1804,17 @@
 </li>
       <li><a href="api.html#api.bibliotheca.BibliothecaCirculationSweep">BibliothecaCirculationSweep (class in api.bibliotheca)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.bibliotheca.BibliothecaEventMonitor">BibliothecaEventMonitor (class in api.bibliotheca)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.bibliotheca.BibliothecaException">BibliothecaException</a>
 </li>
       <li><a href="api.html#api.bibliotheca.BibliothecaParser">BibliothecaParser (class in api.bibliotheca)</a>
+</li>
+      <li><a href="api.html#api.bibliotheca.BibliothecaPurchaseMonitor">BibliothecaPurchaseMonitor (class in api.bibliotheca)</a>
+</li>
+      <li><a href="api.html#api.bibliotheca.BibliothecaTimelineMonitor">BibliothecaTimelineMonitor (class in api.bibliotheca)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.ClassifierConstants.BIC">BIC (core.classifier.ClassifierConstants attribute)</a>
 
@@ -2214,6 +2218,8 @@
 
       <ul>
         <li><a href="api.html#api.bibliotheca.BibliothecaEventMonitor.catch_up_from">(api.bibliotheca.BibliothecaEventMonitor method)</a>
+</li>
+        <li><a href="api.html#api.bibliotheca.BibliothecaPurchaseMonitor.catch_up_from">(api.bibliotheca.BibliothecaPurchaseMonitor method)</a>
 </li>
         <li><a href="api.html#api.enki.EnkiImport.catch_up_from">(api.enki.EnkiImport method)</a>
 </li>
@@ -2798,10 +2804,10 @@
 </li>
       <li><a href="core.html#core.scripts.CheckContributorNamesInDB.COMPLAINT_SOURCE">COMPLAINT_SOURCE (core.scripts.CheckContributorNamesInDB attribute)</a>
 </li>
-      <li><a href="core.html#core.scripts.CheckContributorNamesInDB.COMPLAINT_TYPE">COMPLAINT_TYPE (core.scripts.CheckContributorNamesInDB attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.html#core.scripts.CheckContributorNamesInDB.COMPLAINT_TYPE">COMPLAINT_TYPE (core.scripts.CheckContributorNamesInDB attribute)</a>
+</li>
       <li><a href="core.html#core.app_server.ComplaintController">ComplaintController (class in core.app_server)</a>
 </li>
       <li><a href="core.model.html#core.model.licensing.LicensePool.complaints">complaints (core.model.licensing.LicensePool attribute)</a>
@@ -4163,7 +4169,7 @@
       <li><a href="api.html#api.axis.Axis360CirculationMonitor.DEFAULT_START_TIME">DEFAULT_START_TIME (api.axis.Axis360CirculationMonitor attribute)</a>
 
       <ul>
-        <li><a href="api.html#api.bibliotheca.BibliothecaEventMonitor.DEFAULT_START_TIME">(api.bibliotheca.BibliothecaEventMonitor attribute)</a>
+        <li><a href="api.html#api.bibliotheca.BibliothecaPurchaseMonitor.DEFAULT_START_TIME">(api.bibliotheca.BibliothecaPurchaseMonitor attribute)</a>
 </li>
         <li><a href="api.html#api.enki.EnkiImport.DEFAULT_START_TIME">(api.enki.EnkiImport attribute)</a>
 </li>
@@ -8668,7 +8674,7 @@
       </ul></li>
       <li><a href="core.html#core.config.Configuration.LOG_DATA_FORMAT">LOG_DATA_FORMAT (core.config.Configuration attribute)</a>
 </li>
-      <li><a href="api.html#api.bibliotheca.BibliothecaEventMonitor.LOG_DATE_FORMAT">LOG_DATE_FORMAT (api.bibliotheca.BibliothecaEventMonitor attribute)</a>
+      <li><a href="api.html#api.bibliotheca.BibliothecaTimelineMonitor.LOG_DATE_FORMAT">LOG_DATE_FORMAT (api.bibliotheca.BibliothecaTimelineMonitor attribute)</a>
 </li>
       <li><a href="core.html#core.log.SysLogger.LOG_FORMAT">LOG_FORMAT (core.log.SysLogger attribute)</a>
 </li>
@@ -8968,6 +8974,8 @@
         <li><a href="core.model.html#core.model.work.Work.marc_record">(core.model.work.Work attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.html#api.bibliotheca.BibliothecaAPI.marc_request">marc_request() (api.bibliotheca.BibliothecaAPI method)</a>
+</li>
       <li><a href="core.model.html#core.model.contributor.Contributor.MARC_ROLE_CODES">MARC_ROLE_CODES (core.model.contributor.Contributor attribute)</a>
 </li>
       <li><a href="core.html#core.marc.MARCExporter">MARCExporter (class in core.marc)</a>
@@ -10736,7 +10744,7 @@
 </li>
       <li><a href="api.html#api.axis.Axis360FulfillmentInfoResponseParser.parse_axisnow">parse_axisnow() (api.axis.Axis360FulfillmentInfoResponseParser method)</a>
 </li>
-      <li><a href="api.html#api.bibliotheca.RunBibliothecaMonitorScript.parse_command_line">parse_command_line() (api.bibliotheca.RunBibliothecaMonitorScript class method)</a>
+      <li><a href="api.html#api.bibliotheca.RunBibliothecaPurchaseMonitorScript.parse_command_line">parse_command_line() (api.bibliotheca.RunBibliothecaPurchaseMonitorScript class method)</a>
 
       <ul>
         <li><a href="core.html#core.scripts.CollectionInputScript.parse_command_line">(core.scripts.CollectionInputScript class method)</a>
@@ -11326,14 +11334,14 @@
 </li>
       <li><a href="core.html#core.lane.Lane.priority">priority (core.lane.Lane attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.PRIVACY_POLICY">PRIVACY_POLICY (api.config.Configuration attribute)</a>
 
       <ul>
         <li><a href="api.html#api.opds.LibraryAnnotator.PRIVACY_POLICY">(api.opds.LibraryAnnotator attribute)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.saml.metadata.html#api.saml.metadata.model.SAMLUIInfo.privacy_statement_urls">privacy_statement_urls (api.saml.metadata.model.SAMLUIInfo attribute)</a>
 </li>
       <li><a href="api.saml.configuration.html#api.saml.configuration.model.SAMLOneLoginConfiguration.PRIVATE_KEY">PRIVATE_KEY (api.saml.configuration.model.SAMLOneLoginConfiguration attribute)</a>
@@ -11698,6 +11706,8 @@
         <li><a href="api.admin.controller.html#api.admin.controller.storage_services.StorageServicesController.process_post">(api.admin.controller.storage_services.StorageServicesController method)</a>
 </li>
       </ul></li>
+      <li><a href="api.html#api.bibliotheca.BibliothecaPurchaseMonitor.process_record">process_record() (api.bibliotheca.BibliothecaPurchaseMonitor method)</a>
+</li>
       <li><a href="api.html#api.selftest.RunSelfTestsScript.process_result">process_result() (api.selftest.RunSelfTestsScript method)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.search_service_self_tests.SearchServiceSelfTestsController.process_search_service_self_tests">process_search_service_self_tests() (api.admin.controller.search_service_self_tests.SearchServiceSelfTestsController method)</a>
@@ -11849,7 +11859,7 @@
 </li>
         <li><a href="api.html#api.bibliotheca.BibliothecaCirculationSweep.PROTOCOL">(api.bibliotheca.BibliothecaCirculationSweep attribute)</a>
 </li>
-        <li><a href="api.html#api.bibliotheca.BibliothecaEventMonitor.PROTOCOL">(api.bibliotheca.BibliothecaEventMonitor attribute)</a>
+        <li><a href="api.html#api.bibliotheca.BibliothecaTimelineMonitor.PROTOCOL">(api.bibliotheca.BibliothecaTimelineMonitor attribute)</a>
 </li>
         <li><a href="api.html#api.custom_index.COPPAGate.PROTOCOL">(api.custom_index.COPPAGate attribute)</a>
 </li>
@@ -11990,6 +12000,8 @@
         <li><a href="core.model.html#core.model.work.Work.publisher">(core.model.work.Work attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.html#api.bibliotheca.BibliothecaPurchaseMonitor.purchases">purchases() (api.bibliotheca.BibliothecaPurchaseMonitor method)</a>
+</li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegrationLink.purpose">purpose (core.model.configuration.ExternalIntegrationLink attribute)</a>
 </li>
       <li><a href="api.html#api.registry.Registration.push">push() (api.registry.Registration method)</a>
@@ -13082,7 +13094,7 @@
       </ul></li>
       <li><a href="scripts.html#scripts.DirectoryImportScript.run_with_arguments">run_with_arguments() (scripts.DirectoryImportScript method)</a>
 </li>
-      <li><a href="api.html#api.bibliotheca.RunBibliothecaMonitorScript">RunBibliothecaMonitorScript (class in api.bibliotheca)</a>
+      <li><a href="api.html#api.bibliotheca.RunBibliothecaPurchaseMonitorScript">RunBibliothecaPurchaseMonitorScript (class in api.bibliotheca)</a>
 </li>
       <li><a href="core.html#core.scripts.RunCollectionCoverageProviderScript">RunCollectionCoverageProviderScript (class in core.scripts)</a>
 </li>
@@ -13546,6 +13558,8 @@
         <li><a href="api.html#api.bibliotheca.BibliothecaCirculationSweep.SERVICE_NAME">(api.bibliotheca.BibliothecaCirculationSweep attribute)</a>
 </li>
         <li><a href="api.html#api.bibliotheca.BibliothecaEventMonitor.SERVICE_NAME">(api.bibliotheca.BibliothecaEventMonitor attribute)</a>
+</li>
+        <li><a href="api.html#api.bibliotheca.BibliothecaPurchaseMonitor.SERVICE_NAME">(api.bibliotheca.BibliothecaPurchaseMonitor attribute)</a>
 </li>
         <li><a href="api.html#api.coverage.MockOPDSImportCoverageProvider.SERVICE_NAME">(api.coverage.MockOPDSImportCoverageProvider attribute)</a>
 </li>
@@ -14950,7 +14964,7 @@
         <li><a href="core.model.html#core.model.patron.Annotation.timestamp">(core.model.patron.Annotation attribute)</a>
 </li>
       </ul></li>
-      <li><a href="api.html#api.bibliotheca.BibliothecaEventMonitor.timestamp">timestamp() (api.bibliotheca.BibliothecaEventMonitor method)</a>
+      <li><a href="api.html#api.bibliotheca.BibliothecaPurchaseMonitor.timestamp">timestamp() (api.bibliotheca.BibliothecaPurchaseMonitor method)</a>
 
       <ul>
         <li><a href="core.html#core.monitor.Monitor.timestamp">(core.monitor.Monitor method)</a>

@@ -34,7 +34,10 @@
             
   <h1>Source code for api.bibliotheca</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BytesIO</span><span class="p">,</span>
+    <span class="n">StringIO</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">import</span> <span class="nn">hashlib</span>
@@ -49,6 +52,7 @@
 <span class="kn">import</span> <span class="nn">dateutil.parser</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">pymarc</span> <span class="kn">import</span> <span class="n">parse_xml_to_array</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">or_</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
@@ -137,6 +141,7 @@
     <span class="n">SubjectData</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">datetime_utc</span><span class="p">,</span>
     <span class="n">strptime_utc</span><span class="p">,</span>
     <span class="n">to_utc</span><span class="p">,</span>
     <span class="n">utc_now</span><span class="p">,</span>
@@ -301,6 +306,29 @@
             <span class="k">if</span> <span class="n">metadata</span><span class="p">:</span>
                 <span class="n">results</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">edition</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">results</span></div>
+
+<div class="viewcode-block" id="BibliothecaAPI.marc_request"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaAPI.marc_request">[docs]</a>    <span class="k">def</span> <span class="nf">marc_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make an HTTP request to look up the MARC records for books purchased</span>
+<span class="sd">        between two given dates.</span>
+
+<span class="sd">        :param start: A datetime to start looking for purchases.</span>
+<span class="sd">        :param end: A datetime to stop looking for purchases.</span>
+<span class="sd">        :param offset: An offset used to paginate results.</span>
+<span class="sd">        :param limit: A limit used to paginate results.</span>
+<span class="sd">        :raise: An appropriate exception if the request did not return</span>
+<span class="sd">          MARC records.</span>
+<span class="sd">        :yield: A list of MARC records.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ARGUMENT_TIME_FORMAT</span><span class="p">)</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">end</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ARGUMENT_TIME_FORMAT</span><span class="p">)</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;data/marc?startdate=</span><span class="si">%s</span><span class="s2">&amp;enddate=</span><span class="si">%s</span><span class="s2">&amp;offset=</span><span class="si">%d</span><span class="s2">&amp;limit=</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">limit</span>
+        <span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ErrorParser</span><span class="p">()</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">parse_xml_to_array</span><span class="p">(</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)):</span>
+            <span class="k">yield</span> <span class="n">record</span></div>
 
 <div class="viewcode-block" id="BibliothecaAPI.bibliographic_lookup_request"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaAPI.bibliographic_lookup_request">[docs]</a>    <span class="k">def</span> <span class="nf">bibliographic_lookup_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Make an HTTP request to look up current bibliographic and</span>
@@ -1318,32 +1346,14 @@
         <span class="n">edition</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">edition</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
                                          <span class="n">replace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">replacement_policy</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="BibliothecaEventMonitor"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaEventMonitor">[docs]</a><span class="k">class</span> <span class="nc">BibliothecaEventMonitor</span><span class="p">(</span><span class="n">CollectionMonitor</span><span class="p">,</span> <span class="n">TimelineMonitor</span><span class="p">):</span>
 
-    <span class="sd">&quot;&quot;&quot;Register CirculationEvents for Bibliotheca titles.</span>
-
-<span class="sd">    Most of the time we will just be finding out that someone checked</span>
-<span class="sd">    in or checked out a copy of a book we already knew about.</span>
-
-<span class="sd">    But when a new book comes on the scene, this is where we first</span>
-<span class="sd">    find out about it. When this happens, we create a LicensePool and</span>
-<span class="sd">    immediately ensure that we get coverage from the</span>
-<span class="sd">    BibliothecaBibliographicCoverageProvider.</span>
-
-<span class="sd">    But getting up-to-date circulation data for that new book requires</span>
-<span class="sd">    either that we process further events, or that we encounter it in</span>
-<span class="sd">    the BibliothecaCirculationSweep.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Bibliotheca Event Monitor&quot;</span>
-    <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">365</span><span class="o">*</span><span class="mi">3</span><span class="p">)</span>
+<div class="viewcode-block" id="BibliothecaTimelineMonitor"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaTimelineMonitor">[docs]</a><span class="k">class</span> <span class="nc">BibliothecaTimelineMonitor</span><span class="p">(</span><span class="n">CollectionMonitor</span><span class="p">,</span> <span class="n">TimelineMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Common superclass for our two TimelineMonitors.&quot;&quot;&quot;</span>
     <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">BIBLIOTHECA</span>
     <span class="n">LOG_DATE_FORMAT</span> <span class="o">=</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1">T%H:%M:%S&#39;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">BibliothecaAPI</span><span class="p">,</span>
-                 <span class="n">default_start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                 <span class="n">override_timestamp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                 <span class="p">):</span>
+                 <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initializer.</span>
 
 <span class="sd">        :param _db: Database session object.</span>
@@ -1351,7 +1361,55 @@
 <span class="sd">        :param collection: Collection for which this monitor operates.</span>
 
 <span class="sd">        :param api_class: API class or an instance thereof for this monitor.</span>
-<span class="sd">        :param api_class: Union[Type[BibliothecaAPI], BibliothecaAPI]</span>
+<span class="sd">        :type api_class: Union[Type[BibliothecaAPI], BibliothecaAPI]</span>
+
+<span class="sd">        :param analytics: An optional Analytics object.</span>
+<span class="sd">        :type analytics: Optional[Analytics]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span> <span class="o">=</span> <span class="n">analytics</span> <span class="ow">or</span> <span class="n">Analytics</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">BibliothecaTimelineMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">api_class</span><span class="p">,</span> <span class="n">BibliothecaAPI</span><span class="p">):</span>
+            <span class="c1"># We were given an actual API object. Just use it.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api_class</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api_class</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">replacement_policy</span> <span class="o">=</span> <span class="n">BibliothecaAPI</span><span class="o">.</span><span class="n">replacement_policy</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bibliographic_coverage_provider</span> <span class="o">=</span> <span class="n">BibliothecaBibliographicCoverageProvider</span><span class="p">(</span>
+            <span class="n">collection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">,</span> <span class="n">replacement_policy</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">replacement_policy</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BibliothecaPurchaseMonitor"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaPurchaseMonitor">[docs]</a><span class="k">class</span> <span class="nc">BibliothecaPurchaseMonitor</span><span class="p">(</span><span class="n">BibliothecaTimelineMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Track purchases of licenses from Bibliotheca.</span>
+
+<span class="sd">    Most TimelineMonitors monitor the timeline starting at whatever</span>
+<span class="sd">    time they&#39;re first run. But it&#39;s crucial that this monitor start</span>
+<span class="sd">    at or before the first day on which a book was added to this</span>
+<span class="sd">    collection, even if that date was years in the past. That&#39;s</span>
+<span class="sd">    because this monitor may be the only time we hear about a</span>
+<span class="sd">    particular book.</span>
+
+<span class="sd">    Because of this, this monitor has a very old DEFAULT_START_TIME</span>
+<span class="sd">    and special capabilities for customizing the start_time to go back</span>
+<span class="sd">    even further.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Bibliotheca Purchase Monitor&quot;</span>
+    <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">datetime_utc</span><span class="p">(</span><span class="mi">2014</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">BibliothecaAPI</span><span class="p">,</span>
+                 <span class="n">default_start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">override_timestamp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializer.</span>
+
+<span class="sd">        :param _db: Database session object.</span>
+
+<span class="sd">        :param collection: Collection for which this monitor operates.</span>
+
+<span class="sd">        :param api_class: API class or an instance thereof for this monitor.</span>
+<span class="sd">        :type api_class: Union[Type[BibliothecaAPI], BibliothecaAPI]</span>
 
 <span class="sd">        :param default_start: A default date/time at which to start</span>
 <span class="sd">            requesting events. It should be specified as a `datetime` or</span>
@@ -1367,18 +1425,9 @@
 <span class="sd">            for an already initialized monitor.</span>
 <span class="sd">        :type override_timestamp: bool</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span> <span class="o">=</span> <span class="n">analytics</span> <span class="ow">or</span> <span class="n">Analytics</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">BibliothecaEventMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">api_class</span><span class="p">,</span> <span class="n">BibliothecaAPI</span><span class="p">):</span>
-            <span class="c1"># We were given an actual API object. Just use it.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api_class</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api_class</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">replacement_policy</span> <span class="o">=</span> <span class="n">BibliothecaAPI</span><span class="o">.</span><span class="n">replacement_policy</span><span class="p">(</span>
-            <span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bibliographic_coverage_provider</span> <span class="o">=</span> <span class="n">BibliothecaBibliographicCoverageProvider</span><span class="p">(</span>
-            <span class="n">collection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">,</span> <span class="n">replacement_policy</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">replacement_policy</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">BibliothecaPurchaseMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">api_class</span><span class="p">,</span>
+            <span class="n">analytics</span><span class="o">=</span><span class="n">analytics</span>
         <span class="p">)</span>
 
         <span class="c1"># We should only force the use of `default_start` as the actual</span>
@@ -1416,8 +1465,7 @@
 
 <span class="sd">        The intrinsic start time is the time at which this monitor would</span>
 <span class="sd">        start if it were uninitialized (no timestamp) and no `default_start`</span>
-<span class="sd">        parameter were supplied. It is a datetime `self.DEFAULT_START_TIME`</span>
-<span class="sd">        in the past.</span>
+<span class="sd">        parameter were supplied. It is `self.DEFAULT_START_TIME`.</span>
 
 <span class="sd">        :param _db: Database session object.</span>
 
@@ -1427,7 +1475,7 @@
         <span class="c1"># We don&#39;t use Monitor.timestamp() because that will create</span>
         <span class="c1"># the timestamp if it doesn&#39;t exist -- we want to see whether</span>
         <span class="c1"># or not it exists.</span>
-        <span class="n">default_start_time</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_START_TIME</span>
+        <span class="n">default_start_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_START_TIME</span>
         <span class="n">initialized</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">Timestamp</span><span class="p">,</span> <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span>
             <span class="n">service_type</span><span class="o">=</span><span class="n">Timestamp</span><span class="o">.</span><span class="n">MONITOR_TYPE</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span>
@@ -1439,7 +1487,7 @@
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">default_start_time</span>
 
-<div class="viewcode-block" id="BibliothecaEventMonitor.timestamp"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaEventMonitor.timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="BibliothecaPurchaseMonitor.timestamp"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaPurchaseMonitor.timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find or create a Timestamp for this Monitor.</span>
 
 <span class="sd">        If we are overriding the normal start time with one supplied when</span>
@@ -1448,96 +1496,221 @@
 <span class="sd">        and setting`timestamp.finish` to None will cause the default to</span>
 <span class="sd">        be used.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">timestamp</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">BibliothecaEventMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">BibliothecaPurchaseMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">override_timestamp</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Overriding timestamp and starting at </span><span class="si">%s</span><span class="s1">.&#39;</span><span class="p">,</span>
                           <span class="n">datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_start_time</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">LOG_DATE_FORMAT</span><span class="p">))</span>
             <span class="n">timestamp</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="n">timestamp</span></div>
 
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_impose_bibliotheca_timespan_constraint</span><span class="p">(</span><span class="n">timespan</span><span class="p">):</span>
-        <span class="c1"># Due to the workings of the Bibliotheca API, no mode</span>
-        <span class="c1"># should have a timespan longer than 72 hours.</span>
-        <span class="k">if</span> <span class="n">timespan</span> <span class="o">&lt;=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">72</span><span class="p">):</span>
+<div class="viewcode-block" id="BibliothecaPurchaseMonitor.catch_up_from"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaPurchaseMonitor.catch_up_from">[docs]</a>    <span class="k">def</span> <span class="nf">catch_up_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">progress</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Ask the Bibliotheca API about new purchases for every</span>
+<span class="sd">        day between `start` and `cutoff`.</span>
+
+<span class="sd">        :param start: The first day to ask about.</span>
+<span class="sd">        :type start: datetime.datetime</span>
+<span class="sd">        :param cutoff: The last day to ask about.</span>
+<span class="sd">        :type cutoff: datetime.datetime</span>
+<span class="sd">        :param progress: Object used to record progress through the timeline.</span>
+<span class="sd">        :type progress: core.metadata_layer.TimestampData</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">num_records</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c1"># Ask the Bibliotheca API for one day of data at a time.  This</span>
+        <span class="c1"># ensures that TITLE_ADD events are associated with the day</span>
+        <span class="c1"># the license was purchased.</span>
+        <span class="n">today</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
+        <span class="n">achievement_template</span> <span class="o">=</span> <span class="s2">&quot;MARC records processed: </span><span class="si">%s</span><span class="s2">&quot;</span>
+        <span class="k">for</span> <span class="n">slice_start</span><span class="p">,</span> <span class="n">slice_end</span><span class="p">,</span> <span class="n">is_full_slice</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">slice_timespan</span><span class="p">(</span>
+            <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">purchases</span><span class="p">(</span><span class="n">slice_start</span><span class="p">,</span> <span class="n">slice_end</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">process_record</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">slice_start</span><span class="p">)</span>
+                <span class="n">num_records</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slice_end</span><span class="p">,</span> <span class="n">datetime</span><span class="p">):</span>
+                <span class="n">slice_end_as_date</span> <span class="o">=</span> <span class="n">slice_end</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">slice_end_as_date</span> <span class="o">=</span> <span class="n">slice_end</span>
+            <span class="k">if</span> <span class="n">is_full_slice</span> <span class="ow">and</span> <span class="n">slice_end_as_date</span> <span class="o">&lt;</span> <span class="n">today</span><span class="p">:</span>
+                <span class="c1"># We have finished processing a date in the past.</span>
+                <span class="c1"># There can never be more licenses purchased for that</span>
+                <span class="c1"># day. Treat this as a checkpoint.</span>
+                <span class="c1">#</span>
+                <span class="c1"># We&#39;re playing it safe by using slice_start instead</span>
+                <span class="c1"># of slice_end here -- slice_end should be fine.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint</span><span class="p">(</span>
+                    <span class="n">progress</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">slice_start</span><span class="p">,</span>
+                    <span class="n">achievement_template</span> <span class="o">%</span> <span class="n">num_records</span>
+                <span class="p">)</span>
+            <span class="c1"># We&#39;re all caught up. The superclass will take care of</span>
+            <span class="c1"># finalizing the dates, so there&#39;s no need to explicitly</span>
+            <span class="c1"># set a checkpoint.</span>
+            <span class="n">progress</span><span class="o">.</span><span class="n">achievements</span> <span class="o">=</span> <span class="n">achievement_template</span> <span class="o">%</span> <span class="n">num_records</span></div>
+
+    <span class="k">def</span> <span class="nf">_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">progress</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">finish</span><span class="p">,</span> <span class="n">achievements</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the monitor&#39;s progress so that if it crashes later on it will</span>
+<span class="sd">        start from this point, reducing duplicate work.</span>
+
+<span class="sd">        This is especially important for this monitor, which usually</span>
+<span class="sd">        starts several years in the past. TODO: However it might be</span>
+<span class="sd">        useful to make this a general feature of TimelineMonitor.</span>
+
+<span class="sd">        :param progress: Object used to record progress through the timeline.</span>
+<span class="sd">        :type progress: core.metadata_layer.TimestampData</span>
+
+<span class="sd">        :param start: New value for `progress.start`</span>
+<span class="sd">        :type start: datetime.datetime</span>
+
+<span class="sd">        :param finish: New value for `progress.finish`</span>
+<span class="sd">        :type finish: datetime.datetime</span>
+
+<span class="sd">        :param achievements: The monitor&#39;s achievements thus far.</span>
+<span class="sd">        :type achievements: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">start</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="n">finish</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">achievements</span> <span class="o">=</span> <span class="n">achievements</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span>
+            <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span>
+            <span class="n">service_type</span><span class="o">=</span><span class="n">Timestamp</span><span class="o">.</span><span class="n">MONITOR_TYPE</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+<div class="viewcode-block" id="BibliothecaPurchaseMonitor.purchases"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaPurchaseMonitor.purchases">[docs]</a>    <span class="k">def</span> <span class="nf">purchases</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Ask Bibliotheca for a MARC record for each book purchased</span>
+<span class="sd">        between `start` and `end`.</span>
+
+<span class="sd">        :yield: A sequence of pymarc Record objects</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="mi">1</span>     <span class="c1"># Smallest allowed offset</span>
+        <span class="n">page_size</span> <span class="o">=</span> <span class="mi">50</span> <span class="c1"># Maximum supported size.</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">while</span> <span class="n">records</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">records</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">page_size</span><span class="p">:</span>
+            <span class="n">records</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">marc_request</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">page_size</span><span class="p">)</span>
+            <span class="p">]</span>
+            <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">record</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="n">page_size</span></div>
+
+<div class="viewcode-block" id="BibliothecaPurchaseMonitor.process_record"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaPurchaseMonitor.process_record">[docs]</a>    <span class="k">def</span> <span class="nf">process_record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">purchase_time</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Record the purchase of a new title.</span>
+
+<span class="sd">        :param record: Bibliographic information about the new title.</span>
+<span class="sd">        :type record: pymarc.Record</span>
+
+<span class="sd">        :param purchase_time: Put down this time as the time the </span>
+<span class="sd">           purchase happened.</span>
+<span class="sd">        :type start_time: datetime.datetime</span>
+
+<span class="sd">        :return: A LicensePool representing the new title.</span>
+<span class="sd">        :rtype: core.model.LicensePool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># The control number associated with the MARC record is what</span>
+        <span class="c1"># we call the Bibliotheca ID.</span>
+        <span class="n">control_numbers</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">record</span><span class="o">.</span><span class="n">fields</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">tag</span> <span class="o">==</span> <span class="s1">&#39;001&#39;</span><span class="p">]</span>
+        <span class="c1"># These errors should not happen in real usage.</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">control_numbers</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="s2">&quot;Ignoring MARC record with no Bibliotheca control number.&quot;</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">control_numbers</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="s2">&quot;Ignoring MARC record with multiple Bibliotheca control numbers.&quot;</span>
+        <span class="k">if</span> <span class="n">error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">error</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">record</span><span class="o">.</span><span class="n">as_json</span><span class="p">())</span>
             <span class="k">return</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;A timespan greater than 72 hours can result in spurious&#39;</span>
-                         <span class="s1">&#39; results from the Bibliotheca events API.&#39;</span><span class="p">)</span>
+
+        <span class="c1"># At this point we know there is one and only one control</span>
+        <span class="c1"># number.</span>
+        <span class="n">bibliotheca_id</span> <span class="o">=</span> <span class="n">control_numbers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+
+        <span class="c1"># Find or lookup a LicensePool from the control number.</span>
+        <span class="n">license_pool</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">BIBLIOTHECA_ID</span><span class="p">,</span>
+            <span class="n">bibliotheca_id</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
+            <span class="c1"># We&#39;ve never seen this book before. Immediately acquire</span>
+            <span class="c1"># bibliographic coverage for it. This will set the</span>
+            <span class="c1"># DistributionMechanisms and make the book</span>
+            <span class="c1"># presentation-ready.</span>
+            <span class="c1">#</span>
+            <span class="c1"># We have most of the bibliographic information in the</span>
+            <span class="c1"># MARC record itself, but using the</span>
+            <span class="c1"># BibliographicCoverageProvider saves code and also gives</span>
+            <span class="c1"># us up-to-date circulation information.</span>
+            <span class="n">coverage_record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bibliographic_coverage_provider</span><span class="o">.</span><span class="n">ensure_coverage</span><span class="p">(</span>
+                <span class="n">license_pool</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Record the addition of this title to the collection. Do this</span>
+        <span class="c1"># even if we&#39;ve heard about the book before, through some</span>
+        <span class="c1"># other monitor. That&#39;s because this is the only Bibliotheca</span>
+        <span class="c1"># monitor that issues TITLE_ADD events.</span>
+        <span class="c1">#</span>
+        <span class="c1"># We know approximately when the license was purchased --</span>
+        <span class="c1"># potentially a long time ago -- since `start_time` is</span>
+        <span class="c1"># provided.</span>
+        <span class="n">license_pool</span><span class="o">.</span><span class="n">collect_analytics_event</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">,</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">DISTRIBUTOR_TITLE_ADD</span><span class="p">,</span>
+            <span class="n">purchase_time</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">license_pool</span></div></div>
+
+
+<div class="viewcode-block" id="BibliothecaEventMonitor"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaEventMonitor">[docs]</a><span class="k">class</span> <span class="nc">BibliothecaEventMonitor</span><span class="p">(</span><span class="n">BibliothecaTimelineMonitor</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Register CirculationEvents for Bibliotheca titles.</span>
+
+<span class="sd">    When run, this monitor will look at recent events as a way of keeping</span>
+<span class="sd">    the local collection up to date.</span>
+
+<span class="sd">    Although useful in everyday situations, the events endpoint will</span>
+<span class="sd">    not always give you all the events:</span>
+
+<span class="sd">    * Any given call to the events endpoint will return at most</span>
+<span class="sd">      100-150 events. If there is a particularly busy 5-minute</span>
+<span class="sd">      stretch, events will be lost.</span>
+
+<span class="sd">    * The Bibliotheca API has, in the past, gone into a state where</span>
+<span class="sd">      this endpoint returns an empty list of events rather than an</span>
+<span class="sd">      error message.</span>
+
+<span class="sd">    Fortunately, we have the BibliothecaPurchaseMonitor to keep track</span>
+<span class="sd">    of new license purchases, and the BibliothecaCirculationSweep to</span>
+<span class="sd">    keep up to date on books we already know about. If the</span>
+<span class="sd">    BibliothecaEventMonitor stopped working completely, the rest of</span>
+<span class="sd">    the system would continue to work, but circulation data would</span>
+<span class="sd">    always be a few hours out of date.</span>
+
+<span class="sd">    Thus, running the BibliothecaEventMonitor alongside the other two</span>
+<span class="sd">    Bibliotheca monitors ensures that circulation data is kept up to date</span>
+<span class="sd">    in near-real-time with good, but not perfect, consistency.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Bibliotheca Event Monitor&quot;</span>
 
 <div class="viewcode-block" id="BibliothecaEventMonitor.catch_up_from"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaEventMonitor.catch_up_from">[docs]</a>    <span class="k">def</span> <span class="nf">catch_up_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">progress</span><span class="p">):</span>
-        <span class="c1"># This method operates in three modes: Uninitialized, Backlog,</span>
-        <span class="c1"># and Recent. Uninitialized Mode happens when the monitor&#39;s</span>
-        <span class="c1"># `progress.counter` is null, but is functionally identical</span>
-        <span class="c1"># to Backlog Mode (0, backlog_mode_counter_value).</span>
-        <span class="c1"># In both of these modes, the timespan for which we fetch</span>
-        <span class="c1"># events is `backlog_mode_timespan` and it is NOT considered</span>
-        <span class="c1"># an error when the response contains no events.</span>
-        <span class="c1"># In Recent Mode, the timespan (`backlog_mode_timespan`) is</span>
-        <span class="c1"># longer and a response contains no events DOES raise an error.</span>
-        <span class="n">recent_mode_counter_value</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="n">backlog_mode_counter_value</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="c1"># Due to the workings of the Bibliotheca API, no mode</span>
-        <span class="c1"># should have a timespan longer than 72 hours.</span>
-        <span class="n">recent_mode_timespan</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">70</span><span class="p">)</span>
-        <span class="n">backlog_mode_timespan</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
-        <span class="c1"># The CloudEvents API might not return all events. If we</span>
-        <span class="c1"># get 100 or more events, then we may have lost some.</span>
-        <span class="n">reliable_max_cloudevents_count</span> <span class="o">=</span> <span class="mi">100</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_impose_bibliotheca_timespan_constraint</span><span class="p">(</span><span class="n">recent_mode_timespan</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_impose_bibliotheca_timespan_constraint</span><span class="p">(</span><span class="n">backlog_mode_timespan</span><span class="p">)</span>
-
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Requesting events between </span><span class="si">%s</span><span class="s2"> and </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">start</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LOG_DATE_FORMAT</span><span class="p">),</span>
+            <span class="n">cutoff</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LOG_DATE_FORMAT</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="n">events_handled</span> <span class="o">=</span> <span class="mi">0</span>
 
-        <span class="c1"># Setup for Uninitialized or Backlog Mode</span>
-        <span class="n">timespan_to_check</span> <span class="o">=</span> <span class="n">backlog_mode_timespan</span>
-        <span class="n">raise_on_no_events</span> <span class="o">=</span> <span class="kc">False</span>
-
-        <span class="c1"># Unless we are already in Recent Mode.</span>
-        <span class="c1"># NB: If the timespan is too long, we might yet end up in Backlog Mode.</span>
-        <span class="k">if</span> <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">==</span> <span class="n">recent_mode_counter_value</span><span class="p">:</span>
-            <span class="n">raise_on_no_events</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="n">timespan_to_check</span> <span class="o">=</span> <span class="n">recent_mode_timespan</span>
-
-            <span class="k">if</span> <span class="p">(</span><span class="n">cutoff</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">timespan_to_check</span><span class="p">:</span>
-                <span class="n">raise_on_no_events</span> <span class="o">=</span> <span class="kc">False</span>
-                <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="n">backlog_mode_counter_value</span>
-                <span class="n">timespan_to_check</span> <span class="o">=</span> <span class="n">backlog_mode_timespan</span>
-
+        <span class="c1"># Since we&#39;ll never get more than about 100 events from a</span>
+        <span class="c1"># single API call, slice the timespan into relatively small</span>
+        <span class="c1"># chunks.</span>
         <span class="k">for</span> <span class="n">slice_start</span><span class="p">,</span> <span class="n">slice_cutoff</span><span class="p">,</span> <span class="n">full_slice</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">slice_timespan</span><span class="p">(</span>
-            <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">timespan_to_check</span>
+            <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
         <span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="s2">&quot;Requesting events between </span><span class="si">%s</span><span class="s2"> and </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
-                <span class="n">slice_start</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LOG_DATE_FORMAT</span><span class="p">),</span>
-                <span class="n">slice_cutoff</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LOG_DATE_FORMAT</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="n">_events_pre_request</span> <span class="o">=</span> <span class="n">events_handled</span>
-            <span class="n">events</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_events_between</span><span class="p">(</span>
-                <span class="n">slice_start</span><span class="p">,</span> <span class="n">slice_cutoff</span><span class="p">,</span> <span class="n">full_slice</span><span class="p">,</span> <span class="n">raise_on_no_events</span>
-            <span class="p">)</span>
+            <span class="n">events</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_events_between</span><span class="p">(</span><span class="n">slice_start</span><span class="p">,</span> <span class="n">slice_cutoff</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">events</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">handle_event</span><span class="p">(</span><span class="o">*</span><span class="n">event</span><span class="p">)</span>
                 <span class="n">events_handled</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">events_handled</span> <span class="o">%</span> <span class="mi">1000</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
-            <span class="n">_events_this_request</span> <span class="o">=</span> <span class="n">events_handled</span> <span class="o">-</span> <span class="n">_events_pre_request</span>
-            <span class="k">if</span> <span class="n">_events_this_request</span> <span class="o">&gt;=</span> <span class="n">reliable_max_cloudevents_count</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s1">&#39;Response contained </span><span class="si">%d</span><span class="s1"> events, which equals or exceeds the number &#39;</span>
-                    <span class="s1">&#39;reliably returned by this API (</span><span class="si">%d</span><span class="s1">). Some events may have been lost.&#39;</span><span class="p">,</span>
-                    <span class="n">_events_this_request</span><span class="p">,</span> <span class="n">reliable_max_cloudevents_count</span><span class="p">)</span>
-        <span class="n">progress</span><span class="o">.</span><span class="n">achievements</span> <span class="o">=</span> <span class="s2">&quot;Events handled: </span><span class="si">%d</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">events_handled</span>
-        <span class="c1"># We have not encountered an exception, which means that we have</span>
-        <span class="c1"># completed processing either:</span>
-        <span class="c1"># - a Recent Mode update that contained at least one event, so we</span>
-        <span class="c1">#   can process next run in more granular Backlog Mode.</span>
-        <span class="c1"># - a backlog (Uninitialized or Backlog Mode), so we have caught</span>
-        <span class="c1">#   up, so can resume checking in Recent Mode&#39;s longer timespan.</span>
-        <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="p">(</span><span class="n">recent_mode_counter_value</span>
-                            <span class="k">if</span> <span class="n">progress</span><span class="o">.</span><span class="n">counter</span> <span class="o">!=</span> <span class="n">recent_mode_counter_value</span>
-                            <span class="k">else</span> <span class="n">backlog_mode_counter_value</span><span class="p">)</span></div>
+        <span class="n">progress</span><span class="o">.</span><span class="n">achievements</span> <span class="o">=</span> <span class="s2">&quot;Events handled: </span><span class="si">%d</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">events_handled</span></div>
 
 <div class="viewcode-block" id="BibliothecaEventMonitor.handle_event"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaEventMonitor.handle_event">[docs]</a>    <span class="k">def</span> <span class="nf">handle_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bibliotheca_id</span><span class="p">,</span> <span class="n">isbn</span><span class="p">,</span> <span class="n">foreign_patron_id</span><span class="p">,</span>
                      <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">internal_event_type</span><span class="p">):</span>
@@ -1554,6 +1727,9 @@
             <span class="c1"># presentation-ready. However, its circulation information</span>
             <span class="c1"># might not be up to date until we process some more</span>
             <span class="c1"># events.</span>
+            <span class="c1">#</span>
+            <span class="c1"># Note that we do not record a TITLE_ADD event for this</span>
+            <span class="c1"># book; that&#39;s the job of the BibliothecaPurchaseMonitor.</span>
             <span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bibliographic_coverage_provider</span><span class="o">.</span><span class="n">ensure_coverage</span><span class="p">(</span>
                 <span class="n">license_pool</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span>
             <span class="p">)</span>
@@ -1580,25 +1756,22 @@
             <span class="n">internal_event_type</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span>
         <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
-            <span class="c1"># This is our first time seeing this LicensePool. Log its</span>
-            <span class="c1"># occurance as a separate event.</span>
-            <span class="n">license_pool</span><span class="o">.</span><span class="n">collect_analytics_event</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">,</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">DISTRIBUTOR_TITLE_ADD</span><span class="p">,</span>
-                <span class="n">license_pool</span><span class="o">.</span><span class="n">last_checked</span> <span class="ow">or</span> <span class="n">start_time</span><span class="p">,</span>
-                <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span>
-            <span class="p">)</span>
         <span class="n">title</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">title</span> <span class="ow">or</span> <span class="s2">&quot;[no title]&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LOG_DATE_FORMAT</span><span class="p">),</span>
                       <span class="n">title</span><span class="p">,</span> <span class="n">internal_event_type</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">start_time</span></div></div>
 
 
-<div class="viewcode-block" id="RunBibliothecaMonitorScript"><a class="viewcode-back" href="../../api.html#api.bibliotheca.RunBibliothecaMonitorScript">[docs]</a><span class="k">class</span> <span class="nc">RunBibliothecaMonitorScript</span><span class="p">(</span><span class="n">RunCollectionMonitorScript</span><span class="p">):</span>
+<div class="viewcode-block" id="RunBibliothecaPurchaseMonitorScript"><a class="viewcode-back" href="../../api.html#api.bibliotheca.RunBibliothecaPurchaseMonitorScript">[docs]</a><span class="k">class</span> <span class="nc">RunBibliothecaPurchaseMonitorScript</span><span class="p">(</span><span class="n">RunCollectionMonitorScript</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Adds the ability to specify a particular start date for the</span>
+<span class="sd">    BibliothecaPurchaseMonitor. This is important because for a given</span>
+<span class="sd">    collection, the start date needs to be before books</span>
+<span class="sd">    started being licensed into that collection.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="RunBibliothecaMonitorScript.arg_parser"><a class="viewcode-back" href="../../api.html#api.bibliotheca.RunBibliothecaMonitorScript.arg_parser">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="RunBibliothecaPurchaseMonitorScript.arg_parser"><a class="viewcode-back" href="../../api.html#api.bibliotheca.RunBibliothecaPurchaseMonitorScript.arg_parser">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">arg_parser</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
-        <span class="n">parser</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">RunBibliothecaMonitorScript</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">arg_parser</span><span class="p">()</span>
+        <span class="n">parser</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">RunBibliothecaPurchaseMonitorScript</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">arg_parser</span><span class="p">()</span>
         <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--default-start&#39;</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s1">&#39;DATETIME&#39;</span><span class="p">,</span>
                             <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">isoparse</span><span class="p">,</span>
                             <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Default start date/time to be used for uninitialized (no timestamp) monitors.&#39;</span>
@@ -1610,9 +1783,9 @@
                                  <span class="s1">&#39; start date, even if a monitor is already initialized.&#39;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">parser</span></div>
 
-<div class="viewcode-block" id="RunBibliothecaMonitorScript.parse_command_line"><a class="viewcode-back" href="../../api.html#api.bibliotheca.RunBibliothecaMonitorScript.parse_command_line">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="RunBibliothecaPurchaseMonitorScript.parse_command_line"><a class="viewcode-back" href="../../api.html#api.bibliotheca.RunBibliothecaPurchaseMonitorScript.parse_command_line">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">parse_command_line</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="n">parsed</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">RunBibliothecaMonitorScript</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span>
+        <span class="n">parsed</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">RunBibliothecaPurchaseMonitorScript</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span>
             <span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="n">cmd_args</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">parsed</span><span class="o">.</span><span class="n">override_timestamp</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">parsed</span><span class="o">.</span><span class="n">default_start</span><span class="p">:</span>
@@ -1623,6 +1796,7 @@
 
 
 <div class="viewcode-block" id="BibliothecaBibliographicCoverageProvider"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaBibliographicCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">BibliothecaBibliographicCoverageProvider</span><span class="p">(</span><span class="n">BibliographicCoverageProvider</span><span class="p">):</span>
+
     <span class="sd">&quot;&quot;&quot;Fill in bibliographic metadata for Bibliotheca records.</span>
 
 <span class="sd">    This will occasionally fill in some availability information for a</span>
