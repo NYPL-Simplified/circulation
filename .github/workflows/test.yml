@@ -5,6 +5,7 @@ jobs:
   test-circulation:
     name: Run Circulation Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
