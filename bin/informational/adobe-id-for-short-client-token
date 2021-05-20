@@ -1,61 +1,108 @@
-#!/usr/bin/env python
-"""Retrieve an Adobe ID from a Short Client Token."""
-# This script doesn't import any code from circulation or core. It
-# tests an integration based on HTTP.
+#!/usr/bin/env python3
 
-import requests
-import base64
 import re
 import sys
 
-base_url = "https://libraryregistry.librarysimplified.org"
+import click
+import requests
 
-if len(sys.argv) != 2:
-    print "Usage: %s [Short Client Token]" % sys.argv[0]
-    sys.exit()
+DEFAULT_REGISTRY_URL = "https://libraryregistry.librarysimplified.org"
+CLIENT_TOKEN_RE = re.compile(r'''
+                                ^
+                                (?P<library>[^|]+) \|               # Any number of characters up to a pipe
+                                (?P<timestamp>[0-9]+) \|            # Epoch timestamp, any number of digits
+                                (?P<patron_id>[-A-Za-z0-9]{36}) \|  # The patron id is a UUID, 36 characters long
+                                (?P<signature_hash>.*)              # Everything after the third pipe
+                                $
+                             ''', re.IGNORECASE | re.VERBOSE)
+REGISTRY_RESPONSE_RE = re.compile(r'''<user>(?P<user_id>[^<]+?)</user>''', re.IGNORECASE)
 
-client_token = sys.argv[1]
 
-if client_token.count("|") != 3:
-    print "%r doesn't look like a Short Client Token. It should look like this:\n[library code]|[timestamp]|[patron identifier]|[signature]" % client_token
-    sys.exit()
+class InvalidTokenException(Exception):
+    ...
 
-# If the user input the entire <drm:clientToken> tag, strip off the
-# tag and leave the token.
-if client_token.startswith("<drm:clientToken>"):
-    client_token = client_token[len("<drm:clientToken>"):]
-if client_token.endswith("</drm:clientToken>"):
-    client_token = client_token[:-len("</drm:clientToken>")]
-    
-library, timestamp, identifier, signature = client_token.split("|")
-print "This Short Client Token looks good."
-print " Library code: %s" % library
-print " Timestamp: %s" % timestamp
-print " Patron identifier: %s" % identifier
-print " Signature: %s" % signature
-print
 
-username, password = client_token.rsplit("|", 1)
-print "Dividing Short Client Token into two parts to use in the SignIn API."
-print " Username: %s" % username
-print " Password: %s" % password
-print
+def decompose_token(token):
+    if "drm:clientToken" in token:
+        token = token.replace("<drm:clientToken>", "").replace("</drm:clientToken>", "")
 
-print "Using SignIn to log in via username and password."
-login_request = """<signInRequest method="standard" xmlns="http://ns.adobe.com/adept">
-<username>%s</username>
-<password>%s</password>
-</signInRequest>""" % (username, password)
-url = base_url + "/AdobeAuth/SignIn"
-response = requests.post(url, data=login_request)
-print url
-print login_request
-print "=>"
-print response.content
-print
+    m = CLIENT_TOKEN_RE.match(token)
 
-m = re.compile("<user>([^<]+)</user>").search(response.content)
-if m:
-    print "Adobe ID for this patron is %s" % m.groups()[0]
-else:
-    print "Sorry, I couldn't turn this Short Client Token into an Adobe ID."
+    if not m:
+        raise InvalidTokenException(f"Invalid token: {token}")
+    else:
+        return m.groups()   # Tuple of library, timestamp, patron_id, signature_hash
+
+
+@click.command()
+@click.argument('token')
+@click.option('--registry-url', default=DEFAULT_REGISTRY_URL, metavar='<URL>',
+              help="URL of the library registry you're testing against")
+def main(token, registry_url):
+    """
+    Retrieve an Adobe ID from a Short Client Token.
+
+    This script doesn't import any code from circulation or core. It
+    tests an integration based on HTTP via the requests package.
+
+    A short token is a four part, pipe-separated string which follows this pattern:
+
+      \b
+      <library-code>|<epoch-timestamp>|<patron-id>|<signature-hash>
+
+    Example:
+
+      \b
+      NYNYPL|1621462513|3e0d6602-2446-4f1a-bcad-4e68bcffdfc1|xzu4JDv93sjAEzx1sSIxyWrXn;zXD62;vsR:LT1y8M0@
+    """
+    try:
+        (library, timestamp, patron_id, signature_hash) = decompose_token(token)
+    except InvalidTokenException as exc:
+        click.echo(str(exc))
+        sys.exit(1)
+
+    click.echo("\nThe supplied Short Client Token was well formed, and decomposes to:\n")
+    click.echo(f"  Library code:      {library}")
+    click.echo(f"  Timestamp:         {timestamp}")
+    click.echo(f"  Patron identifier: {patron_id}")
+    click.echo(f"  Signature:         {signature_hash}\n")
+
+    if registry_url.endswith("/"):
+        registry_url = registry_url[:-1]
+
+    signin_url = registry_url + "/AdobeAuth/SignIn"
+
+    username = "|".join([library, timestamp, patron_id])
+
+    signin_payload_lines = [
+        '<signInRequest method="standard" xmlns="http://ns.adobe.com/adept">',
+        f"    <username>{username}</username>",
+        f"    <password>{signature_hash}</password>",
+        "</signInRequest>",
+    ]
+
+    click.echo(f"\nRequesting {signin_url} with payload:\n")
+
+    for line in signin_payload_lines:
+        click.echo(f"    {line}")
+
+    response = requests.post(signin_url, data="".join(signin_payload_lines))
+
+    click.echo("\nRegistry server responded with:\n")
+    for line in response.content.decode('utf8').split("\n"):
+        click.echo(f"    {line}")
+    click.echo()
+
+    user_id_match = REGISTRY_RESPONSE_RE.search(response.content.decode('utf8'))
+    if user_id_match:
+        click.echo(click.style("SUCCESS ", fg="green", bold=True), nl=False)
+        click.echo(f"Adobe ID for this patron is {user_id_match.group('user_id')}", nl=False)
+        click.echo(click.style(" SUCCESS", fg="green", bold=True))
+    else:
+        click.echo(click.style("ERROR ", fg="red", bold=True), nl=False)
+        click.echo("Supplied token could not be turned into an Adobe ID", nl=False)
+        click.echo(click.style(" ERROR", fg="red", bold=True))
+
+
+if __name__ == '__main__':
+    main()
