@@ -1,6 +1,5 @@
-#!/usr/bin/env python
-"""Find information about a particular patron based on barcode and pin.
-"""
+#!/usr/bin/env python3
+"""Find information about a particular patron based on barcode and pin."""
 
 import os
 import sys
@@ -9,9 +8,9 @@ bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from core.scripts import LibraryInputScript
-from core.model import Library
-from api.authenticator import LibraryAuthenticator, PatronData
+from api.authenticator import LibraryAuthenticator, PatronData  # noqa: E402
+from core.scripts import LibraryInputScript                     # noqa: E402
+
 
 class PatronInformationScript(LibraryInputScript):
     @classmethod
@@ -58,5 +57,6 @@ class PatronInformationScript(LibraryInputScript):
             return "- None -"
         else:
             return data
+
 
 PatronInformationScript().run()
