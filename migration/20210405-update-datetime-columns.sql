@@ -1,73 +1,32 @@
 -- Change all the datetime data columns to use data type `timestamptz`. Dates
 -- are already stored in UTC internally by postgres but are not returned
 -- as timezone aware datetime objects.
+--
+-- Note that the column alteration is sufficient to set the column values to
+-- the equivalent of `some_datetime_column at time zone 'utc'`, because
+-- the cast adds `+00` to the value (which is the utc offset). So no additional
+-- UPDATE is necessary to set the column values.
+--
+-- Force the core migration script to run each command in this file as an individual transaction:
+--   SIMPLYE_MIGRATION_TRANSACTION_PER_STATEMENT
 
 ALTER TABLE cachedfeeds ALTER COLUMN "timestamp" SET DATA TYPE timestamptz;
-ALTER TABLE cachedmarcfiles ALTER COLUMN start_time SET DATA TYPE timestamptz;
-ALTER TABLE cachedmarcfiles ALTER COLUMN end_time SET DATA TYPE timestamptz;
-ALTER TABLE circulationevents ALTER COLUMN "start" SET DATA TYPE timestamptz;
-ALTER TABLE circulationevents ALTER COLUMN "end" SET DATA TYPE timestamptz;
-ALTER TABLE complaints ALTER COLUMN "timestamp" SET DATA TYPE timestamptz;
-ALTER TABLE complaints ALTER COLUMN resolved SET DATA TYPE timestamptz;
-ALTER TABLE timestamps ALTER COLUMN "start" SET DATA TYPE timestamptz;
-ALTER TABLE timestamps ALTER COLUMN finish SET DATA TYPE timestamptz;
+ALTER TABLE cachedmarcfiles ALTER COLUMN start_time SET DATA TYPE timestamptz, ALTER COLUMN end_time SET DATA TYPE timestamptz;
+ALTER TABLE circulationevents ALTER COLUMN "start" SET DATA TYPE timestamptz, ALTER COLUMN "end" SET DATA TYPE timestamptz;
+ALTER TABLE complaints ALTER COLUMN "timestamp" SET DATA TYPE timestamptz, ALTER COLUMN resolved SET DATA TYPE timestamptz;
+ALTER TABLE timestamps ALTER COLUMN "start" SET DATA TYPE timestamptz, ALTER COLUMN finish SET DATA TYPE timestamptz;
 ALTER TABLE coveragerecords ALTER COLUMN "timestamp" SET DATA TYPE timestamptz;
 ALTER TABLE workcoveragerecords ALTER COLUMN "timestamp" SET DATA TYPE timestamptz;
 ALTER TABLE credentials ALTER COLUMN expires SET DATA TYPE timestamptz;
-ALTER TABLE customlists ALTER COLUMN created SET DATA TYPE timestamptz;
-ALTER TABLE customlists ALTER COLUMN updated SET DATA TYPE timestamptz;
-ALTER TABLE customlistentries ALTER COLUMN first_appearance SET DATA TYPE timestamptz;
-ALTER TABLE customlistentries ALTER COLUMN most_recent_appearance SET DATA TYPE timestamptz;
-ALTER TABLE integrationclients ALTER COLUMN created SET DATA TYPE timestamptz;
-ALTER TABLE integrationclients ALTER COLUMN last_accessed SET DATA TYPE timestamptz;
+ALTER TABLE customlists ALTER COLUMN created SET DATA TYPE timestamptz, ALTER COLUMN updated SET DATA TYPE timestamptz;
+ALTER TABLE customlistentries ALTER COLUMN first_appearance SET DATA TYPE timestamptz, ALTER COLUMN most_recent_appearance SET DATA TYPE timestamptz;
+ALTER TABLE integrationclients ALTER COLUMN created SET DATA TYPE timestamptz, ALTER COLUMN last_accessed SET DATA TYPE timestamptz;
 ALTER TABLE licenses ALTER COLUMN expires SET DATA TYPE timestamptz;
-ALTER TABLE licensepools ALTER COLUMN availability_time SET DATA TYPE timestamptz;
-ALTER TABLE licensepools ALTER COLUMN last_checked SET DATA TYPE timestamptz;
+ALTER TABLE licensepools ALTER COLUMN availability_time SET DATA TYPE timestamptz, ALTER COLUMN last_checked SET DATA TYPE timestamptz;
 ALTER TABLE measurements ALTER COLUMN taken_at SET DATA TYPE timestamptz;
-ALTER TABLE patrons ALTER COLUMN last_external_sync SET DATA TYPE timestamptz;
-ALTER TABLE patrons ALTER COLUMN last_loan_activity_sync SET DATA TYPE timestamptz;
-ALTER TABLE loans ALTER COLUMN "start" SET DATA TYPE timestamptz;
-ALTER TABLE loans ALTER COLUMN "end" SET DATA TYPE timestamptz;
-ALTER TABLE holds ALTER COLUMN "start" SET DATA TYPE timestamptz;
-ALTER TABLE holds ALTER COLUMN "end" SET DATA TYPE timestamptz;
+ALTER TABLE patrons ALTER COLUMN last_external_sync SET DATA TYPE timestamptz, ALTER COLUMN last_loan_activity_sync SET DATA TYPE timestamptz;
+ALTER TABLE loans ALTER COLUMN "start" SET DATA TYPE timestamptz, ALTER COLUMN "end" SET DATA TYPE timestamptz;
+ALTER TABLE holds ALTER COLUMN "start" SET DATA TYPE timestamptz, ALTER COLUMN "end" SET DATA TYPE timestamptz;
 ALTER TABLE annotations ALTER COLUMN "timestamp" SET DATA TYPE timestamptz;
-ALTER TABLE representations ALTER COLUMN fetched_at SET DATA TYPE timestamptz;
-ALTER TABLE representations ALTER COLUMN mirrored_at SET DATA TYPE timestamptz;
-ALTER TABLE representations ALTER COLUMN scaled_at SET DATA TYPE timestamptz;
-ALTER TABLE works ALTER COLUMN last_update_time SET DATA TYPE timestamptz;
-ALTER TABLE works ALTER COLUMN presentation_ready_attempt SET DATA TYPE timestamptz;
-
-update cachedfeeds set timestamp = (timestamp at time zone 'utc');
-update cachedmarcfiles set start_time = (start_time at time zone 'utc');
-update cachedmarcfiles set end_time = (end_time at time zone 'utc');
-update circulationevents set "start" = ("start" at time zone 'utc');
-update circulationevents set "end" = ("end" at time zone 'utc');
-update complaints set "timestamp" = ("timestamp" at time zone 'utc');
-update complaints set resolved = (resolved at time zone 'utc');
-update timestamps set "start" = ("start" at time zone 'utc');
-update timestamps set finish = (finish at time zone 'utc');
-update coveragerecords set "timestamp" = ("timestamp" at time zone 'utc');
-update workcoveragerecords set "timestamp" = ("timestamp" at time zone 'utc');
-update credentials set expires = (expires at time zone 'utc');
-update customlists set created = (created at time zone 'utc');
-update customlists set updated = (updated at time zone 'utc');
-update customlistentries set first_appearance = (first_appearance at time zone 'utc');
-update customlistentries set most_recent_appearance = (most_recent_appearance at time zone 'utc');
-update integrationclients set created = (created at time zone 'utc');
-update integrationclients set last_accessed = (last_accessed at time zone 'utc');
-update licenses set expires = (expires at time zone 'utc');
-update licensepools set availability_time = (availability_time at time zone 'utc');
-update licensepools set last_checked = (last_checked at time zone 'utc');
-update measurements set taken_at = (taken_at at time zone 'utc');
-update patrons set last_external_sync = (last_external_sync at time zone 'utc');
-update patrons set last_loan_activity_sync = (last_loan_activity_sync at time zone 'utc');
-update loans set "start" = ("start" at time zone 'utc');
-update loans set "end" = ("end" at time zone 'utc');
-update holds set "start" = ("start" at time zone 'utc');
-update holds set "end" = ("end" at time zone 'utc');
-update annotations set "timestamp" = ("timestamp" at time zone 'utc');
-update representations set fetched_at = (fetched_at at time zone 'utc');
-update representations set mirrored_at = (mirrored_at at time zone 'utc');
-update representations set scaled_at = (scaled_at at time zone 'utc');
-update works set last_update_time = (last_update_time at time zone 'utc');
-update works set presentation_ready_attempt = (presentation_ready_attempt at time zone 'utc');
+ALTER TABLE representations ALTER COLUMN fetched_at SET DATA TYPE timestamptz, ALTER COLUMN mirrored_at SET DATA TYPE timestamptz, ALTER COLUMN scaled_at SET DATA TYPE timestamptz;
+ALTER TABLE works ALTER COLUMN last_update_time SET DATA TYPE timestamptz, ALTER COLUMN presentation_ready_attempt SET DATA TYPE timestamptz;
