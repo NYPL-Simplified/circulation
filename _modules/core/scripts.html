@@ -2087,6 +2087,8 @@
     <span class="c1"># There are some SQL commands that can&#39;t be run inside a transaction.</span>
     <span class="n">TRANSACTIONLESS_COMMANDS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;alter type&#39;</span><span class="p">]</span>
 
+    <span class="n">TRANSACTION_PER_STATEMENT</span> <span class="o">=</span> <span class="s1">&#39;SIMPLYE_MIGRATION_TRANSACTION_PER_STATEMENT&#39;</span>
+
 <div class="viewcode-block" id="DatabaseMigrationScript.TimestampInfo"><a class="viewcode-back" href="../../core.html#core.scripts.DatabaseMigrationScript.TimestampInfo">[docs]</a>    <span class="k">class</span> <span class="nc">TimestampInfo</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Act like a ORM Timestamp object, but with no database connection.&quot;&quot;&quot;</span>
 
@@ -2502,8 +2504,14 @@
                 <span class="n">sql</span> <span class="o">=</span> <span class="n">clause</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
 
                 <span class="n">transactionless</span> <span class="o">=</span> <span class="nb">any</span><span class="p">([</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">TRANSACTIONLESS_COMMANDS</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">sql</span><span class="o">.</span><span class="n">lower</span><span class="p">()])</span>
+                <span class="n">one_tx_per_statement</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">TRANSACTION_PER_STATEMENT</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">sql</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
+
                 <span class="k">if</span> <span class="n">transactionless</span><span class="p">:</span>
                     <span class="n">new_session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_migration_without_transaction</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">one_tx_per_statement</span><span class="p">:</span>
+                    <span class="n">commands</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_statements_from_sql_file</span><span class="p">(</span><span class="n">migration_path</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">commands</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;BEGIN;</span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s2">COMMIT;&quot;</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="c1"># By wrapping the action in a transation, we can avoid</span>
                     <span class="c1"># rolling over errors and losing data in files</span>
@@ -2517,6 +2525,34 @@
 
         <span class="c1"># Update timestamp for the migration.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update_timestamps</span><span class="p">(</span><span class="n">migration_filename</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_extract_statements_from_sql_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        From an SQL file, return a python list of the individual statements.</span>
+
+<span class="sd">        Removes comment lines and extraneous whitespace at the start / end of</span>
+<span class="sd">        statements, but that&#39;s about it. Use carefully.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">sql_file_lines</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+
+        <span class="n">sql_commands</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">current_command</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">sql_file_lines</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;--&#39;</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">current_command</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
+                    <span class="n">current_command</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">current_command</span> <span class="o">=</span> <span class="n">current_command</span> <span class="o">+</span> <span class="s1">&#39; &#39;</span> <span class="o">+</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="n">current_command</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">):</span>
+                <span class="n">sql_commands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">current_command</span><span class="p">)</span>
+                <span class="n">current_command</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+        <span class="k">return</span> <span class="n">sql_commands</span>
 
     <span class="k">def</span> <span class="nf">_run_migration_without_transaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sql_statement</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Runs a single SQL statement outside of a transaction.&quot;&quot;&quot;</span>
