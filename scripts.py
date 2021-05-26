@@ -2491,7 +2491,7 @@ class DatabaseMigrationScript(Script):
         # Update timestamp for the migration.
         self.update_timestamps(migration_filename)
 
-    def _extract_statements_from_sql_file(filepath):
+    def _extract_statements_from_sql_file(self, filepath):
         """
         From an SQL file, return a python list of the individual statements.
 
