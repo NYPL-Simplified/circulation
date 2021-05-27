@@ -17,7 +17,7 @@ from . import sample_data
 class TestONIXExtractor(object):
 
     def sample_data(self, filename):
-        return sample_data(filename, "onix").encode("utf-8")
+        return sample_data(filename, "onix")
 
     def test_parser(self):
         """Parse an ONIX file into Metadata objects."""
