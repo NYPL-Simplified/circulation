@@ -344,12 +344,15 @@ class OverdriveAPI(object):
         else:
             return status_code, headers, content
 
+    @property
+    def token_authorization_header(self):
+        s = b"%s:%s" % (self.client_key, self.client_secret)
+        return base64.standard_b64encode(s).strip()
+
     def token_post(self, url, payload, headers={}, **kwargs):
         """Make an HTTP POST request for purposes of getting an OAuth token."""
-        s = b"%s:%s" % (self.client_key, self.client_secret)
-        auth = base64.standard_b64encode(s).strip()
         headers = dict(headers)
-        headers['Authorization'] = "Basic %s" % auth
+        headers['Authorization'] = self.token_authorization_header
         return self._do_post(url, payload, headers, **kwargs)
 
     def _update_credential(self, credential, overdrive_data):

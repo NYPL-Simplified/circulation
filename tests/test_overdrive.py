@@ -41,6 +41,7 @@ from ..util.http import (
     BadResponseException,
     HTTP,
 )
+from ..util.string_helpers import base64
 
 from ..testing import DatabaseTest
 
@@ -171,6 +172,14 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         # appear to contain extra formatting characters.
         assert (result + "%3A" ==
             self.api.endpoint(result +"%3A", extra="something else"))
+
+    def test_token_authorization_header(self):
+        # Verify that the Authorization header needed to get an access
+        # token for a given collection is encoded properly.
+        assert self.api.token_authorization_header == "YTpi"
+        assert self.api.token_authorization_header == base64.standard_b64encode(
+            b"%s:%s" % (self.api.client_key, self.api.client_secret)
+        )
 
     def test_token_post_success(self):
         self.api.queue_response(200, content="some content")
