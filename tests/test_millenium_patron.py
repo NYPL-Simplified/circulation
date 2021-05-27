@@ -30,7 +30,7 @@ class MockAPI(MilleniumPatronAPI):
         self.requests_made = []
 
     def sample_data(self, filename):
-        return sample_data(filename, 'millenium_patron')
+        return sample_data(filename, 'millenium_patron').encode("utf8")
 
     def enqueue(self, filename):
         data = self.sample_data(filename)
