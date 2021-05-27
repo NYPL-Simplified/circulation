@@ -346,7 +346,7 @@ class OverdriveAPI(object):
     @property
     def token_authorization_header(self):
         s = b"%s:%s" % (self.client_key, self.client_secret)
-        return base64.standard_b64encode(s).strip()
+        return "Basic " + base64.standard_b64encode(s).strip()
 
     def token_post(self, url, payload, headers={}, **kwargs):
         """Make an HTTP POST request for purposes of getting an OAuth token."""

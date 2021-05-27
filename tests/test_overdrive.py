@@ -176,8 +176,8 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
     def test_token_authorization_header(self):
         # Verify that the Authorization header needed to get an access
         # token for a given collection is encoded properly.
-        assert self.api.token_authorization_header == "YTpi"
-        assert self.api.token_authorization_header == base64.standard_b64encode(
+        assert self.api.token_authorization_header == "Basic YTpi"
+        assert self.api.token_authorization_header == "Basic " + base64.standard_b64encode(
             b"%s:%s" % (self.api.client_key, self.api.client_secret)
         )
 
