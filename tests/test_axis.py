@@ -336,7 +336,7 @@ class TestAxis360API(Axis360Test):
         # Modify the data so that it appears to be talking about the
         # book we just created.
         new_identifier = pool.identifier.identifier
-        data = data.replace("0012533119", new_identifier)
+        data = data.replace(b"0012533119", new_identifier.encode("utf8"))
 
         self.api.queue_response(200, content=data)
 
@@ -408,7 +408,7 @@ class TestAxis360API(Axis360Test):
         # If we ask for AxisNow format, we get an Axis360FulfillmentInfo
         # containing an AxisNow manifest document.
         data = self.sample_data("availability_with_axisnow_fulfillment.xml")
-        data = data.replace("0016820953", pool.identifier.identifier)
+        data = data.replace(b"0016820953", pool.identifier.identifier.encode("utf8"))
         self.api.queue_response(200, content=data)
         fulfillment = fulfill("AxisNow")
         assert isinstance(fulfillment, Axis360FulfillmentInfo)
@@ -523,7 +523,7 @@ class TestAxis360API(Axis360Test):
         data = self.sample_data("availability_with_loans.xml")
         # Modify the sample data so that it appears to be talking
         # about one of the books we're going to request.
-        data = data.replace("0012533119", id1.identifier)
+        data = data.replace(b"0012533119", id1.identifier.encode("utf8"))
         self.api.queue_response(200, {}, data)
         results = [x for x in self.api._fetch_remote_availability([id1, id2])]
 
@@ -992,13 +992,13 @@ class TestParsers(Axis360Test):
         # Although the audiobook is also available in the "AxisNow"
         # format, no second delivery mechanism was created for it, the
         # way it would have been for an ebook.
-        assert '<formatName>AxisNow</formatName>' in data
+        assert b'<formatName>AxisNow</formatName>' in data
 
     def test_bibliographic_parser_blio_format(self):
         # This book is available as 'Blio' but not 'AxisNow'.
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
-        data = data.replace('Acoustik', 'Blio')
-        data = data.replace('AxisNow', 'No Such Format')
+        data = data.replace(b'Acoustik', b'Blio')
+        data = data.replace(b'AxisNow', b'No Such Format')
 
         [[bib, av]] = BibliographicParser(False, True).process_all(data)
 
@@ -1011,7 +1011,7 @@ class TestParsers(Axis360Test):
     def test_bibliographic_parser_blio_and_axisnow_format(self):
         # This book is available as both 'Blio' and 'AxisNow'.
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
-        data = data.replace('Acoustik', 'Blio')
+        data = data.replace(b'Acoustik', b'Blio')
 
         [[bib, av]] = BibliographicParser(False, True).process_all(data)
 
@@ -1023,8 +1023,8 @@ class TestParsers(Axis360Test):
 
     def test_bibliographic_parser_unsupported_format(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
-        data = data.replace('Acoustik', 'No Such Format 1')
-        data = data.replace('AxisNow', 'No Such Format 2')
+        data = data.replace(b'Acoustik', b'No Such Format 1')
+        data = data.replace(b'AxisNow', b'No Such Format 2')
 
         [[bib, av]] = BibliographicParser(False, True).process_all(data)
 
