@@ -33,8 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for core.overdrive</h1><div class="highlight"><pre>
-<span></span>
-<span class="kn">import</span> <span class="nn">datetime</span>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">isbnlib</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">json</span>
@@ -379,12 +378,15 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span></div>
 
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">token_authorization_header</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">client_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_secret</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;Basic &quot;</span> <span class="o">+</span> <span class="n">base64</span><span class="o">.</span><span class="n">standard_b64encode</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
 <div class="viewcode-block" id="OverdriveAPI.token_post"><a class="viewcode-back" href="../../core.html#core.overdrive.OverdriveAPI.token_post">[docs]</a>    <span class="k">def</span> <span class="nf">token_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{},</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Make an HTTP POST request for purposes of getting an OAuth token.&quot;&quot;&quot;</span>
-        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">client_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_secret</span><span class="p">)</span>
-        <span class="n">auth</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">standard_b64encode</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
         <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>
-        <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Authorization&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Basic </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">auth</span>
+        <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Authorization&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">token_authorization_header</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_update_credential</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">overdrive_data</span><span class="p">):</span>
@@ -471,7 +473,8 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_link_safe</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_get_book_list_page</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">link</span><span class="p">,</span> <span class="n">rel_to_follow</span><span class="o">=</span><span class="s1">&#39;next&#39;</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_get_book_list_page</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">link</span><span class="p">,</span> <span class="n">rel_to_follow</span><span class="o">=</span><span class="s1">&#39;next&#39;</span><span class="p">,</span>
+                            <span class="n">extractor_class</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Process a page of inventory whose circulation we need to check.</span>
 
 <span class="sd">        Returns a 2-tuple: (availability_info, next_link).</span>
@@ -480,23 +483,19 @@
 <span class="sd">           one book.</span>
 <span class="sd">        `next_link` is a link to the next page of results.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">extractor_class</span> <span class="o">=</span> <span class="n">extractor_class</span> <span class="ow">or</span> <span class="n">OverdriveRepresentationExtractor</span>
         <span class="c1"># We don&#39;t cache this because it changes constantly.</span>
         <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">link</span><span class="p">,</span> <span class="p">{})</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
 
         <span class="c1"># Find the link to the next page of results, if any.</span>
-        <span class="n">next_link</span> <span class="o">=</span> <span class="n">OverdriveRepresentationExtractor</span><span class="o">.</span><span class="n">link</span><span class="p">(</span>
-            <span class="n">content</span><span class="p">,</span> <span class="n">rel_to_follow</span>
-        <span class="p">)</span>
+        <span class="n">next_link</span> <span class="o">=</span> <span class="n">extractor_class</span><span class="o">.</span><span class="n">link</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">rel_to_follow</span><span class="p">)</span>
 
         <span class="c1"># Prepare to get availability information for all the books on</span>
         <span class="c1"># this page.</span>
-        <span class="n">availability_queue</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">OverdriveRepresentationExtractor</span><span class="o">.</span><span class="n">availability_link_list</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
-        <span class="p">)</span>
+        <span class="n">availability_queue</span> <span class="o">=</span> <span class="p">(</span><span class="n">extractor_class</span><span class="o">.</span><span class="n">availability_link_list</span><span class="p">(</span><span class="n">content</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">availability_queue</span><span class="p">,</span> <span class="n">next_link</span>
-
 
 <div class="viewcode-block" id="OverdriveAPI.recently_changed_ids"><a class="viewcode-back" href="../../core.html#core.overdrive.OverdriveAPI.recently_changed_ids">[docs]</a>    <span class="k">def</span> <span class="nf">recently_changed_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get IDs of books whose status has changed between the start time</span>
