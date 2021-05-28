@@ -433,6 +433,8 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
 
     def _extract_text_nodes(self, content):
         """Parse the HTML representations sent by the Millenium Patron API."""
+        if isinstance(content, bytes):
+            content = content.decode("utf8")
         for line in content.split("\n"):
             if line.startswith('<HTML><BODY>'):
                 line = line[12:]
