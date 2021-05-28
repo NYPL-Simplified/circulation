@@ -1,4 +1,3 @@
-
 import datetime
 import isbnlib
 import os
@@ -344,12 +343,15 @@ class OverdriveAPI(object):
         else:
             return status_code, headers, content
 
+    @property
+    def token_authorization_header(self):
+        s = b"%s:%s" % (self.client_key, self.client_secret)
+        return "Basic " + base64.standard_b64encode(s).strip()
+
     def token_post(self, url, payload, headers={}, **kwargs):
         """Make an HTTP POST request for purposes of getting an OAuth token."""
-        s = "%s:%s" % (self.client_key, self.client_secret)
-        auth = base64.standard_b64encode(s).strip()
         headers = dict(headers)
-        headers['Authorization'] = "Basic %s" % auth
+        headers['Authorization'] = self.token_authorization_header
         return self._do_post(url, payload, headers, **kwargs)
 
     def _update_credential(self, credential, overdrive_data):
@@ -436,7 +438,8 @@ class OverdriveAPI(object):
         )
         return self.make_link_safe(url)
 
-    def _get_book_list_page(self, link, rel_to_follow='next'):
+    def _get_book_list_page(self, link, rel_to_follow='next',
+                            extractor_class=None):
         """Process a page of inventory whose circulation we need to check.
 
         Returns a 2-tuple: (availability_info, next_link).
@@ -445,23 +448,19 @@ class OverdriveAPI(object):
            one book.
         `next_link` is a link to the next page of results.
         """
+        extractor_class = extractor_class or OverdriveRepresentationExtractor
         # We don't cache this because it changes constantly.
         status_code, headers, content = self.get(link, {})
-        if isinstance(content, str):
+        if isinstance(content, (bytes, str)):
             content = json.loads(content)
 
         # Find the link to the next page of results, if any.
-        next_link = OverdriveRepresentationExtractor.link(
-            content, rel_to_follow
-        )
+        next_link = extractor_class.link(content, rel_to_follow)
 
         # Prepare to get availability information for all the books on
         # this page.
-        availability_queue = (
-            OverdriveRepresentationExtractor.availability_link_list(content)
-        )
+        availability_queue = (extractor_class.availability_link_list(content))
         return availability_queue, next_link
-
 
     def recently_changed_ids(self, start, cutoff):
         """Get IDs of books whose status has changed between the start time

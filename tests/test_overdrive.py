@@ -41,6 +41,7 @@ from ..util.http import (
     BadResponseException,
     HTTP,
 )
+from ..util.string_helpers import base64
 
 from ..testing import DatabaseTest
 
@@ -171,6 +172,14 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         # appear to contain extra formatting characters.
         assert (result + "%3A" ==
             self.api.endpoint(result +"%3A", extra="something else"))
+
+    def test_token_authorization_header(self):
+        # Verify that the Authorization header needed to get an access
+        # token for a given collection is encoded properly.
+        assert self.api.token_authorization_header == "Basic YTpi"
+        assert self.api.token_authorization_header == "Basic " + base64.standard_b64encode(
+            b"%s:%s" % (self.api.client_key, self.api.client_secret)
+        )
 
     def test_token_post_success(self):
         self.api.queue_response(200, content="some content")
@@ -328,6 +337,50 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         # numeric value of its external_account_id.
         assert "2" == overdrive_child.library_id
         assert 2 == overdrive_child.advantage_library_id
+
+    def test__get_book_list_page(self):
+        # Test the internal method that retrieves a list of books and
+        # preprocesses it.
+
+        class MockExtractor(object):
+            def link(self, content, rel_to_follow):
+                self.link_called_with = (content, rel_to_follow)
+                return "http://next-page/"
+
+            def availability_link_list(self, content):
+                self.availability_link_list_called_with = content
+                return ["an availability queue"]
+
+        original_data = {"key": "value"}
+        for content in (original_data,
+                        json.dumps(original_data),
+                        json.dumps(original_data).encode("utf8")):
+            extractor = MockExtractor()
+            self.api.queue_response(200, content=content)
+            result = self.api._get_book_list_page(
+                "http://first-page/", "some-rel", extractor
+            )
+
+            # A single request was made to the requested page.
+            (url, headers, body) = self.api.requests.pop()
+            assert len(self.api.requests) == 0
+            assert url == "http://first-page/"
+
+            # The extractor was used to extract a link to the page
+            # with rel="some-rel".
+            #
+            # Note that the Python data structure (`original_data`) is passed in,
+            # regardless of whether the mock response body is a Python
+            # data structure, a bytestring, or a Unicode string.
+            assert extractor.link_called_with == (original_data, "some-rel")
+
+            # The data structure was also passed into the extractor's
+            # availability_link_list() method.
+            assert extractor.availability_link_list_called_with == original_data
+
+            # The final result is a queue of availability data (from
+            # this page) and a link to the next page.
+            assert result == (["an availability queue"], "http://next-page/")
 
 
 class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
