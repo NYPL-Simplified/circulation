@@ -733,7 +733,9 @@ class ConfigurationSetting(Base, HasFullTableCache):
 
     @value.setter
     def value(self, new_value):
-        if new_value is not None:
+        if isinstance(new_value, bytes):
+            new_value = new_value.decode("utf8")
+        elif new_value is not None:
             new_value = str(new_value)
         self._value = new_value
 
