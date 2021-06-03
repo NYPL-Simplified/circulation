@@ -513,8 +513,8 @@
 <span class="sd">        </span>
 <span class="sd">        :param shared_secret: A byte string.</span>
 
-<span class="sd">        :return: The decrypted shared secret, or a ProblemDetail if</span>
-<span class="sd">        it could not be decrypted.</span>
+<span class="sd">        :return: The decrypted shared secret, as a bytestring, or</span>
+<span class="sd">        a ProblemDetail if it could not be decrypted.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">shared_secret</span> <span class="o">=</span> <span class="n">cipher</span><span class="o">.</span><span class="n">decrypt</span><span class="p">(</span><span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">shared_secret</span><span class="p">))</span>
@@ -564,7 +564,13 @@
                 <span class="k">return</span> <span class="n">shared_secret</span>
 
             <span class="n">setting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">)</span>
-            <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">shared_secret</span>
+
+            <span class="c1"># NOTE: we can only store Unicode data in the</span>
+            <span class="c1"># ConfigurationSetting.value, so this requires that the</span>
+            <span class="c1"># shared secret encoded as UTF-8. This works for the</span>
+            <span class="c1"># library registry product, which uses a long string of</span>
+            <span class="c1"># hex digits as its shared secret.</span>
+            <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">shared_secret</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
 
         <span class="c1"># We have successfully completed the registration.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">status_field</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SUCCESS_STATUS</span>
