@@ -478,8 +478,8 @@ class Registration(object):
         
         :param shared_secret: A byte string.
 
-        :return: The decrypted shared secret, or a ProblemDetail if
-        it could not be decrypted.
+        :return: The decrypted shared secret, as a bytestring, or
+        a ProblemDetail if it could not be decrypted.
         """
         try:
             shared_secret = cipher.decrypt(base64.b64decode(shared_secret))
@@ -529,7 +529,13 @@ class Registration(object):
                 return shared_secret
 
             setting = self.setting(ExternalIntegration.PASSWORD)
-            setting.value = shared_secret
+
+            # NOTE: we can only store Unicode data in the
+            # ConfigurationSetting.value, so this requires that the
+            # shared secret encoded as UTF-8. This works for the
+            # library registry product, which uses a long string of
+            # hex digits as its shared secret.
+            setting.value = shared_secret.decode("utf8")
 
         # We have successfully completed the registration.
         self.status_field.value = self.SUCCESS_STATUS

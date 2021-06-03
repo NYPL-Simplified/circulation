@@ -19,7 +19,7 @@ COPY --from=builder /go/bin/lcpencrypt /go/bin/lcpencrypt
 ARG version
 ARG repo="NYPL-Simplified/circulation"
 
-ENV SIMPLIFIED_DB_TASK "auto"
+ENV SIMPLIFIED_DB_TASK "ignore"
 ENV SIMPLIFIED_SCRIPT_NAME ""
 
 # Copy over all Library Simplified build files for this image

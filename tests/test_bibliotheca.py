@@ -353,7 +353,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         data = self.sample_data("item_metadata_single.xml")
         # Change the ID in the test data so it looks like it's talking
         # about the LicensePool we just created.
-        data = data.replace("ddf4gr9", pool.identifier.identifier)
+        data = data.replace(b"ddf4gr9", pool.identifier.identifier.encode("utf8"))
 
         # Update availability using that data.
         self.api.queue_response(200, content=data)
@@ -1276,7 +1276,7 @@ class TestBibliothecaPurchaseMonitor(BibliothecaAPITest):
 
         # Now, try the two real cases.
         [ehasb89, oock89] = parse_xml_to_array(
-            StringIO(self.sample_data("marc_records_two.xml"))
+            StringIO(self.sample_data("marc_records_two.xml").decode("utf8"))
         )
 
         # If the book is new to this collection, it's run through
