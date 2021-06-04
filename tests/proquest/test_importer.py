@@ -412,7 +412,6 @@ class TestProQuestOPDS2Importer(DatabaseTest):
     def test_checkout_raises_cannot_loan_error_if_it_cannot_get_affiliation_id(self):
         # We want to test that checkout operation returns api.proquest.importer.MISSING_AFFILIATION_ID
         # when it cannot get the patron's affiliation ID.
-
         # Arrange
         credential_manager_mock = create_autospec(spec=ProQuestCredentialManager)
         credential_manager_mock.lookup_proquest_token = MagicMock(return_value=None)
@@ -713,7 +712,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
         affiliation_id = "12345"
         proquest_token = "1234567890"
         proquest_credential = Credential(credential=proquest_token)
-        book = ProQuestBook(content=bytes("Book"))
+        book = ProQuestBook(content=b"Book")
 
         api_client_mock = create_autospec(spec=ProQuestAPIClient)
         api_client_mock.create_token = MagicMock(return_value=proquest_token)
@@ -757,7 +756,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
                 fulfilment_info.identifier_type)
             assert None == fulfilment_info.content_link
             assert (
-                self._proquest_delivery_mechanism.delivery_mechanism.media_type ==
+                self._proquest_delivery_mechanism.delivery_mechanism.content_type ==
                 fulfilment_info.content_type)
             assert book.content == fulfilment_info.content
             assert None == fulfilment_info.content_expires
@@ -933,7 +932,7 @@ class TestProQuestOPDS2Importer(DatabaseTest):
             credential=new_proquest_token, expires=new_proquest_token_expires_in
         )
         adobe_drm_protected_book = ProQuestBook(
-            content=bytes("ACSM file"), content_type=DeliveryMechanism.ADOBE_DRM
+            content=b"ACSM file", content_type=DeliveryMechanism.ADOBE_DRM
         )
 
         api_client_mock = create_autospec(spec=ProQuestAPIClient)
@@ -1126,7 +1125,7 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
         monitor = ProQuestOPDS2ImportMonitor(
             client_factory, self._db, self._proquest_collection, ProQuestOPDS2Importer
         )
-        monitor._get_feeds = MagicMock(return_value=zip([None] * len(feeds), feeds))
+        monitor._get_feeds = MagicMock(return_value=list(zip([None] * len(feeds), feeds)))
         monitor.import_one_feed = MagicMock(return_value=([], []))
 
         # Act
@@ -1164,7 +1163,7 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
         # Arrange
         client = create_autospec(spec=ProQuestAPIClient)
         client.download_all_feed_pages = MagicMock(
-            return_value=map(fixtures.serialize, feed_pages)
+            return_value=list(map(fixtures.serialize, feed_pages))
         )
 
         client_factory = create_autospec(spec=ProQuestAPIClientFactory)
@@ -1237,7 +1236,7 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
 
         client = create_autospec(spec=ProQuestAPIClient)
         client.download_all_feed_pages = MagicMock(
-            return_value=map(fixtures.serialize, feed_pages)
+            return_value=list(map(fixtures.serialize, feed_pages))
         )
 
         client_factory = create_autospec(spec=ProQuestAPIClientFactory)
@@ -1371,7 +1370,7 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
         monitor = ProQuestOPDS2ImportMonitor(
             client_factory, self._db, self._proquest_collection, ProQuestOPDS2Importer
         )
-        monitor._get_feeds = MagicMock(return_value=zip([None] * len(feeds), feeds))
+        monitor._get_feeds = MagicMock(return_value=list(zip([None] * len(feeds), feeds)))
         monitor.import_one_feed = MagicMock(return_value=([], []))
 
         # Act

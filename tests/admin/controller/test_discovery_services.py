@@ -10,7 +10,7 @@ from core.model import (
     ExternalIntegration,
     get_one,
 )
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestDiscoveryServices(SettingsControllerTest):
 

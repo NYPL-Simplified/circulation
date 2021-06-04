@@ -2,6 +2,7 @@ import datetime
 import json
 import uuid
 
+import dateutil
 from flask_babel import lazy_gettext as _
 
 from api.admin.validator import Validator
@@ -28,7 +29,7 @@ class AnnouncementListValidator(Validator):
             _("Invalid announcement list format: %(announcements)r",
               announcements=announcements)
         )
-        if isinstance(announcements, basestring):
+        if isinstance(announcements, (bytes, str)):
             try:
                 announcements = json.loads(announcements)
             except ValueError:
@@ -60,7 +61,7 @@ class AnnouncementListValidator(Validator):
                 _("Invalid announcement format: %(announcement)r", announcement=announcement)
             )
 
-        validated['id'] = announcement.get('id', unicode(uuid.uuid4()))
+        validated['id'] = announcement.get('id', str(uuid.uuid4()))
 
         for required_field in ('content',):
             if not required_field in announcement:
@@ -78,10 +79,10 @@ class AnnouncementListValidator(Validator):
         validated['content'] = content
 
         # Validate the dates associated with the announcement
-        today = datetime.date.today()
+        today_local = datetime.date.today()
 
         start = self.validate_date(
-            'start', announcement.get('start', today)
+            'start', announcement.get('start', today_local)
         )
         if isinstance(start, ProblemDetail):
             return start
@@ -135,10 +136,14 @@ class AnnouncementListValidator(Validator):
 
         :return: A ProblemDetail if validation fails; otherwise a datetime.date.
         """
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             try:
+                # Unlike most of the dates in this application,
+                # this is a date entered by an admin, so it should be
+                # interpreted as server local time, not UTC.
                 value = datetime.datetime.strptime(value, cls.DATE_FORMAT)
-            except ValueError, e:
+                value = value.replace(tzinfo=dateutil.tz.tzlocal())
+            except ValueError as e:
                 return INVALID_INPUT.detailed(
                     _("Value for %(field)s is not a date: %(date)s", field=field, date=value)
                 )

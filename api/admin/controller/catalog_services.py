@@ -88,9 +88,9 @@ class CatalogServicesController(SettingsController):
             return library_error
 
         if is_new:
-            return Response(unicode(service.id), 201)
+            return Response(str(service.id), 201)
         else:
-            return Response(unicode(service.id), 200)
+            return Response(str(service.id), 200)
     
     def _set_external_integration_link(self, service):
         """Either set or delete the external integration link between the

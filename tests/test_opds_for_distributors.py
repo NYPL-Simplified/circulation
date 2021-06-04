@@ -29,6 +29,7 @@ from core.model import (
     Representation,
     RightsStatus,
 )
+from core.util.datetime_helpers import utc_now
 from core.util.opds_writer import OPDSFeed
 
 
@@ -271,7 +272,7 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         assert pool.identifier.identifier == loan_info.identifier
 
         # The loan's start date has been set to the current time.
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         assert (now - loan_info.start_date).seconds < 2
 
         # The loan is of indefinite duration.
@@ -313,7 +314,7 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         token_response = json.dumps({"access_token": "token", "expires_in": 60})
         self.api.queue_response(200, content=token_response)
 
-        fulfillment_time = datetime.datetime.utcnow()
+        fulfillment_time = utc_now()
         fulfillment_info = self.api.fulfill(patron, "1234", pool, Representation.EPUB_MEDIA_TYPE)
         assert self.collection.id == fulfillment_info.collection_id
         assert data_source.name == fulfillment_info.data_source_name
@@ -416,7 +417,7 @@ class TestOPDSForDistributorsImporter(DatabaseTest, BaseOPDSForDistributorsTest)
         # Each work has a license pool.
         [camelot_pool] = camelot.license_pools
         [southern_pool] = southern.license_pools
-        now = datetime.datetime.utcnow()
+        now = utc_now()
 
         for pool in [camelot_pool, southern_pool]:
             assert False == pool.open_access

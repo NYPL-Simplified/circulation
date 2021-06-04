@@ -1,7 +1,7 @@
 import datetime
 import json
 import os
-import urlparse
+import urllib.parse
 
 import requests_mock
 from mock import create_autospec, MagicMock
@@ -67,7 +67,7 @@ class TestLCPServer(DatabaseTest):
             configuration.encryption_algorithm = LCPServerConfiguration.DEFAULT_ENCRYPTION_ALGORITHM
 
             with requests_mock.Mocker() as request_mock:
-                url = urlparse.urljoin(fixtures.LCPSERVER_URL, '/contents/{0}'.format(fixtures.CONTENT_ID))
+                url = urllib.parse.urljoin(fixtures.LCPSERVER_URL, '/contents/{0}'.format(fixtures.CONTENT_ID))
                 request_mock.put(url)
 
                 # Act
@@ -89,7 +89,7 @@ class TestLCPServer(DatabaseTest):
         ('none_rights', None, None, None, None),
         (
                 'license_start',
-                datetime.datetime(2020, 01, 01, 00, 00, 00),
+                datetime.datetime(2020, 1, 1, 00, 00, 00),
                 None,
                 None,
                 None
@@ -145,14 +145,14 @@ class TestLCPServer(DatabaseTest):
         ),
         (
                 'dates',
-                datetime.datetime(2020, 01, 01, 00, 00, 00),
+                datetime.datetime(2020, 1, 1, 00, 00, 00),
                 datetime.datetime(2020, 12, 31, 23, 59, 59),
                 None,
                 None
         ),
         (
                 'full_rights',
-                datetime.datetime(2020, 01, 01, 00, 00, 00),
+                datetime.datetime(2020, 1, 1, 00, 00, 00),
                 datetime.datetime(2020, 12, 31, 23, 59, 59),
                 10,
                 1024
@@ -182,7 +182,7 @@ class TestLCPServer(DatabaseTest):
             self._credential_factory.get_patron_passphrase = MagicMock(return_value=expected_patron_passphrase)
 
             with requests_mock.Mocker() as request_mock:
-                url = urlparse.urljoin(fixtures.LCPSERVER_URL, '/contents/{0}/license'.format(fixtures.CONTENT_ID))
+                url = urllib.parse.urljoin(fixtures.LCPSERVER_URL, '/contents/{0}/license'.format(fixtures.CONTENT_ID))
                 request_mock.post(url, json=fixtures.LCPSERVER_LICENSE)
 
                 # Act
@@ -209,10 +209,7 @@ class TestLCPServer(DatabaseTest):
                     assert json_request['rights']['copy'] == max_copiable_pages
 
                 all_rights_fields_are_empty = all(
-                    map(
-                        lambda rights_field: rights_field is None or rights_field == '',
-                        [license_start, license_end, max_printable_pages, max_copiable_pages]
-                    )
+                    [rights_field is None or rights_field == '' for rights_field in [license_start, license_end, max_printable_pages, max_copiable_pages]]
                 )
                 if all_rights_fields_are_empty:
                     assert ('rights' in json_request) == False

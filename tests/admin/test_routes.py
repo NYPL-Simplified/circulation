@@ -150,7 +150,7 @@ class AdminRouteTest(ControllerTest, RouteTestFixtures):
         if authentication_required:
             assert 401 == response.status_code
             assert ("authenticated_admin_from_request called without authorizing" ==
-                response.data)
+                response.get_data(as_text=True))
         else:
             assert 200 == response.status_code
 
@@ -194,7 +194,7 @@ class AdminRouteTest(ControllerTest, RouteTestFixtures):
         response = self.request(url, http_method)
 
         assert 302 == response.status_code
-        assert "Redirecting..." in response.data
+        assert "Redirecting..." in response.get_data(as_text=True)
 
         # If there is a csrf token but the Admin is not authenticated,
         # redirect them.
@@ -206,7 +206,7 @@ class AdminRouteTest(ControllerTest, RouteTestFixtures):
         response = self.request(url, http_method)
 
         assert 302 == response.status_code
-        assert "Redirecting..." in response.data
+        assert "Redirecting..." in response.get_data(as_text=True)
 
         # Not being authenticated and not having a csrf token fail
         # redirects the admin to sign in again.
@@ -216,7 +216,7 @@ class AdminRouteTest(ControllerTest, RouteTestFixtures):
 
         # No admin or csrf token so redirect.
         assert 302 == response.status_code
-        assert "Redirecting..." in response.data
+        assert "Redirecting..." in response.get_data(as_text=True)
 
         self.manager.admin_sign_in_controller.authenticated_problem_detail = False
 
@@ -259,7 +259,7 @@ class TestAdminSignIn(AdminRouteTest):
         response = self.request(url)
 
         assert 302 == response.status_code
-        assert "Redirecting..." in response.data
+        assert "Redirecting..." in response.get_data(as_text=True)
 
 class TestAdminWork(AdminRouteTest):
 

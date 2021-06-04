@@ -1,5 +1,5 @@
 import pkgutil
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 import json
 
@@ -12,6 +12,9 @@ from core.model import ConfigurationSetting
 from api.authenticator import PatronData
 from api.millenium_patron import MilleniumPatronAPI
 from core.testing import DatabaseTest
+from core.util.datetime_helpers import (
+    utc_now
+)
 from . import sample_data
 
 class MockResponse(object):
@@ -313,7 +316,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         """This test can be removed -- authenticated_patron is
         tested in test_authenticator.py.
         """
-        now = datetime.utcnow()
+        now = utc_now()
         one_hour_ago = now - timedelta(seconds=3600)
         one_week_ago = now - timedelta(days=7)
 

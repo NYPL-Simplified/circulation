@@ -12,9 +12,8 @@ from api.saml.metadata.federations.validator import SAMLFederatedMetadataValidat
 from api.saml.metadata.parser import SAMLMetadataParser
 from tests.saml import fixtures
 
-
 class TestSAMLMetadataLoader(object):
-    @patch("urllib2.urlopen")
+    @patch("urllib.request.urlopen")
     def test_load_idp_metadata_raises_error_when_xml_is_incorrect(self, urlopen_mock):
         # Arrange
         url = "http://md.incommon.org/InCommon/metadata.xml"
@@ -28,7 +27,7 @@ class TestSAMLMetadataLoader(object):
         with pytest.raises(SAMLMetadataLoadingError):
             metadata_loader.load_idp_metadata(url)
 
-    @patch("urllib2.urlopen")
+    @patch("urllib.request.urlopen")
     def test_load_idp_metadata_correctly_loads_one_descriptor(self, urlopen_mock):
         # Arrange
         url = "http://md.incommon.org/InCommon/metadata.xml"
@@ -45,7 +44,7 @@ class TestSAMLMetadataLoader(object):
         urlopen_mock.assert_called_with(url)
         assert fixtures.CORRECT_XML_WITH_IDP_1 == xml_metadata
 
-    @patch("urllib2.urlopen")
+    @patch("urllib.request.urlopen")
     def test_load_idp_metadata_correctly_loads_multiple_descriptors(self, urlopen_mock):
         # Arrange
         url = "http://md.incommon.org/InCommon/metadata.xml"

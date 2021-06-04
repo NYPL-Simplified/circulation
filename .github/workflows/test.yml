@@ -2,10 +2,20 @@ name: Test Circulation
 on: [push, pull_request]
 
 jobs:
-  test-core:
+  test-circulation:
     name: Run Circulation Tests
     runs-on: ubuntu-latest
-
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [3.6, 3.7, 3.8]
+    # We want to run on external PRs, but not on our own internal PRs as they'll be run
+    # by the push to the branch. This prevents duplicated runs on internal PRs.
+    # Some discussion of this here: 
+    # https://github.community/t/duplicate-checks-on-push-and-pull-request-simultaneous-event/18012
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+  
     steps:
       - uses: actions/checkout@v2
         with:
@@ -14,22 +24,17 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 2.7
+          python-version: ${{ matrix.python-version }}
 
       - name: Install Apt Packages
         run: |
-          sudo apt-get install --yes libxmlsec1-dev libxml2-dev
+          sudo apt-get update
+          sudo apt-get install --yes libxmlsec1-dev libxml2-dev libxmlsec1-openssl
 
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install tox
-
-      - name: Run DB container for Tests
-        run: |
-          docker run -d -p 9005:5432/tcp --name db -e POSTGRES_USER=simplified_test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=simplified_circulation_test postgres:9.6
+          pip install tox tox-gh-actions tox-docker
 
       - name: Run Tests
         run: tox
-        env:
-          SIMPLIFIED_TEST_DATABASE: "postgres://simplified_test:test@localhost:9005/simplified_circulation_test"

@@ -2,7 +2,7 @@
 import pytest
 
 import os
-from StringIO import StringIO
+from io import BytesIO
 from zipfile import ZipFile
 from core.testing import DatabaseTest
 from . import sample_data
@@ -45,12 +45,12 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             FeedbooksOPDSImporter.REALLY_IMPORT_KEY: "true",
             FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY: None,
         }
-        for setting, value in defaults.items():
+        for setting, value in list(defaults.items()):
             if setting not in settings:
                 settings[setting] = value
 
         collection.external_account_id = settings.pop('language', 'de')
-        for setting, value in settings.items():
+        for setting, value in list(settings.items()):
             if value is None:
                 continue
             collection.external_integration.set_setting(setting, value)
@@ -72,8 +72,8 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         # Create a default importer that's good enough for most tests.
         self.collection, self.importer = self._importer()
 
-    def sample_file(self, filename):
-        return sample_data(filename, "feedbooks")
+    def sample_file(self, filename, mode="r"):
+        return sample_data(filename, "feedbooks", mode)
 
     def test_safety_switch(self):
         """The importer won't be instantiated if REALLY_IMPORT_KEY is not
@@ -117,7 +117,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             feed, "http://url/"
         )
         [(key, value)] = metadata.items()
-        assert u'http://www.feedbooks.com/book/677' == key
+        assert 'http://www.feedbooks.com/book/677' == key
         assert "Discourse on the Method" == value.title
 
         # Instead of the short description from feed.atom, we have the
@@ -129,7 +129,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         # Here's a Metadata that has a bad (truncated) description.
         metadata = Metadata(self.data_source)
 
-        bad_description = LinkData(rel=Hyperlink.DESCRIPTION, media_type="text/plain", content=u"The Discourse on the Method is a philosophical and mathematical treatise published by Ren\xe9 Descartes in 1637. Its full name is Discourse on the Method of Rightly Conducting the Reason, and Searching for Truth in the Sciences (French title: Discour...")
+        bad_description = LinkData(rel=Hyperlink.DESCRIPTION, media_type="text/plain", content="The Discourse on the Method is a philosophical and mathematical treatise published by Ren\xe9 Descartes in 1637. Its full name is Discourse on the Method of Rightly Conducting the Reason, and Searching for Truth in the Sciences (French title: Discour...")
 
         irrelevant_description = LinkData(
             rel=Hyperlink.DESCRIPTION, media_type="text/plain",
@@ -203,7 +203,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         feed = self.sample_file("feed_with_open_access_book.atom")
         imports, errors = self.importer.extract_feed_data(feed)
-        [book] = imports.values()
+        [book] = list(imports.values())
         open_access_links = [x for x in book.circulation.links
                              if x.rel==Hyperlink.OPEN_ACCESS_DOWNLOAD]
         links = sorted(x.href for x in open_access_links)
@@ -235,17 +235,17 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         # The replacement CSS is retrieved during the FeedbooksImporter
         # constructor.
-        assert [u'http://css/'] == self.http.requests
+        assert ['http://css/'] == self.http.requests
 
         # OPDSImporter.content_modifier has been set to call replace_css
         # when necessary.
-        assert "Some new CSS" == importer.new_css
+        assert b"Some new CSS" == importer.new_css
         assert importer.replace_css == importer.content_modifier
 
         # The requests to the various copies of the book will succeed,
         # and the books will be mirrored.
         self.http.queue_response(
-            200, content=self.sample_file("677.epub"),
+            200, content=self.sample_file("677.epub", "rb"),
             media_type=Representation.EPUB_MEDIA_TYPE
         )
 
@@ -255,7 +255,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         # mirrored.
         self.http.queue_response(404, media_type="text/plain")
 
-        self.metadata.lookups = { u"René Descartes" : "Descartes, Rene" }
+        self.metadata.lookups = { "René Descartes" : "Descartes, Rene" }
         feed = self.sample_file("feed_with_open_access_book.atom")
         self.http.queue_response(
             200, OPDSFeed.ACQUISITION_FEED_TYPE,
@@ -268,13 +268,13 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         # The work has been created and has metadata.
         assert "Discourse on the Method" == work.title
-        assert u'Ren\xe9 Descartes' == work.author
+        assert 'Ren\xe9 Descartes' == work.author
 
         # Two more mock HTTP requests have now made.
         assert ([
-            u'http://css/',
-            u'http://www.feedbooks.com/book/677.epub',
-            u'http://covers.feedbooks.net/book/677.jpg?size=large&t=1428398185',
+            'http://css/',
+            'http://www.feedbooks.com/book/677.epub',
+            'http://covers.feedbooks.net/book/677.jpg?size=large&t=1428398185',
         ] ==
             self.http.requests)
 
@@ -285,11 +285,11 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         assert (
             mechanism.resource.representation.mirror_url ==
             'https://test-content-bucket.s3.amazonaws.com/FeedBooks/URI/http%3A//www.feedbooks.com/book/677/Discourse%20on%20the%20Method.epub')
-        assert u'application/epub+zip' == mechanism.delivery_mechanism.content_type
+        assert 'application/epub+zip' == mechanism.delivery_mechanism.content_type
 
         # From information contained in the OPDS entry we determined
         # the book's license to be CC-BY-NC.
-        assert (u'https://creativecommons.org/licenses/by-nc/4.0' ==
+        assert ('https://creativecommons.org/licenses/by-nc/4.0' ==
             mechanism.rights_status.uri)
 
         # The pool is marked as open-access, because it has an open-access
@@ -298,7 +298,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         # The mirrored content contains the modified CSS in the books mirror
         # due to the link rel type.
-        content = StringIO(self.mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS].content[0])
+        content = BytesIO(self.mirrors[ExternalIntegrationLink.OPEN_ACCESS_BOOKS].content[0])
         with ZipFile(content) as zip:
             # The zip still contains the original epub's files.
             assert "META-INF/container.xml" in zip.namelist()
@@ -307,15 +307,15 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
             # The content of an old file hasn't changed.
             with zip.open("mimetype") as f:
-                assert "application/epub+zip\r\n" == f.read()
+                assert b"application/epub+zip\r\n" == f.read()
 
             # The content of CSS files has been changed to the new value.
             with zip.open("OPS/css/about.css") as f:
-                assert "Some new CSS" == f.read()
+                assert b"Some new CSS" == f.read()
 
     def test_in_copyright_book_not_mirrored(self):
 
-        self.metadata.lookups = { u"René Descartes" : "Descartes, Rene" }
+        self.metadata.lookups = { "René Descartes" : "Descartes, Rene" }
         feed = self.sample_file("feed_with_in_copyright_book.atom")
         self.http.queue_response(
             200, OPDSFeed.ACQUISITION_FEED_TYPE,
@@ -326,7 +326,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         # The work has been created and has metadata.
         assert "Discourse on the Method" == work.title
-        assert u'Ren\xe9 Descartes' == work.author
+        assert 'Ren\xe9 Descartes' == work.author
 
         # No mock HTTP requests were made.
         assert [] == self.http.requests
@@ -457,5 +457,5 @@ class TestFeedbooksImportMonitor(DatabaseTest):
 
         # The URL is always a feedbooks.com URL based on the collection's
         # language setting.
-        assert (u"http://www.feedbooks.com/books/recent.atom?lang=somelanguage" ==
+        assert ("http://www.feedbooks.com/books/recent.atom?lang=somelanguage" ==
             monitor.opds_url(collection))

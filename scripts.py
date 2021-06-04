@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-from cStringIO import StringIO
+from io import StringIO
 from datetime import (
     datetime,
     timedelta,
@@ -113,6 +113,7 @@ from core.util import LanguageCodes
 from core.util.opds_writer import (
     OPDSFeed,
 )
+from core.util.datetime_helpers import utc_now
 
 
 class Script(CoreScript):
@@ -765,7 +766,7 @@ class CacheMARCFiles(LaneSweeperScript):
 
         if files_q.count() > 0:
             last_update = files_q.first().end_time
-        if not self.force and last_update and (last_update > datetime.utcnow() - timedelta(days=update_frequency)):
+        if not self.force and last_update and (last_update > utc_now() - timedelta(days=update_frequency)):
             self.log.info("Skipping lane %s because last update was less than %d days ago" % (lane.display_name, update_frequency))
             return
 
@@ -904,9 +905,9 @@ class LanguageListScript(LibraryInputScript):
     """
 
     def process_library(self, library):
-        print library.short_name
+        print(library.short_name)
         for item in self.languages(library):
-            print item
+            print(item)
 
     def languages(self, library):
         ":yield: A list of output lines, one per language."
@@ -975,7 +976,7 @@ class InstanceInitializationScript(TimestampScript):
             # Basically, if this succeeds, we can bail out and not run
             # the rest of the script.
             results = list(_db.execute(self.TEST_SQL))
-        except Exception, e:
+        except Exception as e:
             # This did _not_ succeed, so the schema is probably not
             # initialized and we do need to run this script.. This
             # database session is useless now, but we'll create a new
@@ -1026,7 +1027,7 @@ class LoanReaperScript(TimestampScript):
     name = "Remove expired loans and holds from local database"
 
     def do_run(self):
-        now = datetime.utcnow()
+        now = utc_now()
 
         # Reap loans and holds that we know have expired.
         for obj, what in ((Loan, 'loans'), (Hold, 'holds')):
@@ -1059,12 +1060,12 @@ class LoanReaperScript(TimestampScript):
                      deleted.
         """
         counter = 0
-        print "Reaping %d %s." % (qu.count(), what)
+        print("Reaping %d %s." % (qu.count(), what))
         for o in qu:
             self._db.delete(o)
             counter += 1
             if not counter % 100:
-                print counter
+                print(counter)
                 self._db.commit()
         self._db.commit()
 
@@ -1091,7 +1092,7 @@ class DisappearingBookReportScript(Script):
                      "Changes in number of licenses",
                      "Changes in title availability",
         ]
-        print "\t".join(first_row)
+        print("\t".join(first_row))
 
         for pool in qu:
             self.explain(pool)
@@ -1190,7 +1191,7 @@ class DisappearingBookReportScript(Script):
 
         license_removals = []
         for event in license_removal_events:
-            description =u"%s: %s→%s" % (
+            description ="%s: %s→%s" % (
                     event.start.strftime(self.format), event.old_value,
                 event.new_value
             )
@@ -1201,7 +1202,7 @@ class DisappearingBookReportScript(Script):
                           for event in title_removal_events]
         data.append(", ".join(title_removals))
 
-        print "\t".join([unicode(x).encode("utf8") for x in data])
+        print("\t".join([str(x).encode("utf8") for x in data]))
 
 
 class NYTBestSellerListsScript(TimestampScript):
@@ -1263,56 +1264,56 @@ class DirectoryImportScript(TimestampScript):
         parser = argparse.ArgumentParser()
         parser.add_argument(
             '--collection-name',
-            help=u'Titles will be imported into a collection with this name. The collection will be created if it does not already exist.',
+            help='Titles will be imported into a collection with this name. The collection will be created if it does not already exist.',
             required=True
         )
         parser.add_argument(
             '--collection-type',
-            help=u'Collection type. Valid values are: OPEN_ACCESS (default), PROTECTED_ACCESS, LCP.',
+            help='Collection type. Valid values are: OPEN_ACCESS (default), PROTECTED_ACCESS, LCP.',
             type=CollectionType,
             choices=list(CollectionType),
             default=CollectionType.OPEN_ACCESS
         )
         parser.add_argument(
             '--data-source-name',
-            help=u'All data associated with this import activity will be recorded as originating with this data source. The data source will be created if it does not already exist.',
+            help='All data associated with this import activity will be recorded as originating with this data source. The data source will be created if it does not already exist.',
             required=True
         )
         parser.add_argument(
             '--metadata-file',
-            help=u'Path to a file containing MARC or ONIX 3.0 metadata for every title in the collection',
+            help='Path to a file containing MARC or ONIX 3.0 metadata for every title in the collection',
             required=True
         )
         parser.add_argument(
             '--metadata-format',
-            help=u'Format of the metadata file ("marc" or "onix")',
+            help='Format of the metadata file ("marc" or "onix")',
             default='marc',
         )
         parser.add_argument(
             '--cover-directory',
-            help=u'Directory containing a full-size cover image for every title in the collection.',
+            help='Directory containing a full-size cover image for every title in the collection.',
         )
         parser.add_argument(
             '--ebook-directory',
-            help=u'Directory containing an EPUB or PDF file for every title in the collection.',
+            help='Directory containing an EPUB or PDF file for every title in the collection.',
             required=True
         )
         RS = RightsStatus
         rights_uris = ", ".join(RS.OPEN_ACCESS)
         parser.add_argument(
             '--rights-uri',
-            help=u"A URI explaining the rights status of the works being uploaded. Acceptable values: %s" % rights_uris,
+            help="A URI explaining the rights status of the works being uploaded. Acceptable values: %s" % rights_uris,
             required=True
         )
         parser.add_argument(
             '--dry-run',
-            help=u"Show what would be imported, but don't actually do the import.",
+            help="Show what would be imported, but don't actually do the import.",
             action='store_true',
         )
         parser.add_argument(
             '--default-medium-type',
-            help=u'Default medium type used in the case when it\'s not explicitly specified in a metadata file. '
-                 u'Valid values are: {0}.'.format(', '.join(EditionConstants.FULFILLABLE_MEDIA)),
+            help='Default medium type used in the case when it\'s not explicitly specified in a metadata file. '
+                 'Valid values are: {0}.'.format(', '.join(EditionConstants.FULFILLABLE_MEDIA)),
             type=str,
             choices=EditionConstants.FULFILLABLE_MEDIA
         )
@@ -1829,7 +1830,7 @@ class NovelistSnapshotScript(TimestampScript, LibraryInputScript):
             try:
                 api = NoveListAPI.from_config(library)
             except CannotLoadConfiguration as e:
-                self.log.info(e.message)
+                self.log.info(str(e))
                 continue
             if (api):
                 response = api.put_items_novelist(library)

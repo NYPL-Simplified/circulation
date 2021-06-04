@@ -1,18 +1,23 @@
+import dateutil
 import logging
 from lxml import etree
-from urlparse import urljoin
-from urllib import urlencode
+from urllib.parse import urljoin
+from urllib.parse import urlencode
 import datetime
 import requests
 from money import Money
 from flask_babel import lazy_gettext as _
 
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from core.util.xmlparser import XMLParser
-from authenticator import (
+from .authenticator import (
     BasicAuthenticationProvider,
     PatronData,
 )
-from config import (
+from .config import (
     Configuration,
     CannotLoadConfiguration,
 )
@@ -246,7 +251,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         return False
 
     def _remote_patron_lookup(self, patron_or_patrondata_or_identifier):
-        if isinstance(patron_or_patrondata_or_identifier, basestring):
+        if isinstance(patron_or_patrondata_or_identifier, str):
             identifier = patron_or_patrondata_or_identifier
         else:
             identifier = patron_or_patrondata_or_identifier.authorization_identifier
@@ -355,9 +360,14 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                 block_reason = self._patron_block_reason(self.block_types, v)
             elif k == self.EXPIRATION_FIELD:
                 try:
-                    expires = datetime.datetime.strptime(
-                        v, self.EXPIRATION_DATE_FORMAT).date()
-                    authorization_expires = expires
+                    # Parse the expiration date according to server local
+                    # time, not UTC.
+                    expires_local = datetime.datetime.strptime(
+                        v, self.EXPIRATION_DATE_FORMAT).replace(
+                            tzinfo=dateutil.tz.tzlocal()
+                        )
+                    expires_local = expires_local.date()
+                    authorization_expires = expires_local
                 except ValueError:
                     self.log.warn(
                         'Malformed expiration date for patron: "%s". Treating as unexpirable.',
@@ -423,6 +433,8 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
 
     def _extract_text_nodes(self, content):
         """Parse the HTML representations sent by the Millenium Patron API."""
+        if isinstance(content, bytes):
+            content = content.decode("utf8")
         for line in content.split("\n"):
             if line.startswith('<HTML><BODY>'):
                 line = line[12:]
@@ -464,16 +476,20 @@ class MockMilleniumPatronAPI(MilleniumPatronAPI):
     is used in the Adobe Vendor ID tests but maybe it shouldn't.
     """
 
+    # For expiration dates we're using UTC instead of local time for
+    # convenience; the difference doesn't matter because the dates in
+    # question are at least 10 days away from the current date.
+
     # This user's card has expired.
     user1 = PatronData(
         permanent_id="12345",
         authorization_identifier="0",
         username="alice",
-        authorization_expires = datetime.datetime(2015, 4, 1)
+        authorization_expires = datetime_utc(2015, 4, 1)
     )
 
     # This user's card still has ten days on it.
-    the_future = datetime.datetime.utcnow() + datetime.timedelta(days=10)
+    the_future = utc_now() + datetime.timedelta(days=10)
     user2 = PatronData(
         permanent_id="67890",
         authorization_identifier="5",

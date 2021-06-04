@@ -168,9 +168,9 @@ class CollectionSettingsController(SettingsController):
             return libraries_error
 
         if is_new:
-            return Response(unicode(collection.id), 201)
+            return Response(str(collection.id), 201)
         else:
-            return Response(unicode(collection.id), 200)
+            return Response(str(collection.id), 200)
 
     def validate_form_fields(self, is_new, protocols, **fields):
         """Check that 1) the required fields aren't blank, 2) the protocol is on the
@@ -338,4 +338,4 @@ class CollectionSettingsController(SettingsController):
 
         # Flag the collection to be deleted by script in the background.
         collection.marked_for_deletion = True
-        return Response(unicode(_("Deleted")), 200)
+        return Response(str(_("Deleted")), 200)

@@ -4,8 +4,8 @@ import base64
 import datetime
 import flask
 import json
-import urllib
-from StringIO import StringIO
+import urllib.request, urllib.parse, urllib.error
+from io import BytesIO
 from werkzeug.datastructures import ImmutableMultiDict, MultiDict
 from api.admin.exceptions import *
 from api.config import Configuration
@@ -33,7 +33,7 @@ from api.admin.controller.library_settings import LibrarySettingsController
 from api.admin.announcement_list_validator import AnnouncementListValidator
 from api.admin.geographic_validator import GeographicValidator
 from api.testing import AnnouncementTest
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
 
@@ -48,7 +48,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
             Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS: "email@example.com"
         }
         defaults.update(fields)
-        form = MultiDict(defaults.items())
+        form = MultiDict(list(defaults.items()))
         return form
 
     def test_libraries_get_with_no_libraries(self):
@@ -78,8 +78,8 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_library_settings_controller.process_get()
             library_settings = response.get("libraries")[0].get("settings")
-            assert library_settings.get("focus_area") == {u'CA': [{u'N3L': u'Paris, Ontario'}], u'US': [{u'11235': u'Brooklyn, NY'}]}
-            assert library_settings.get("service_area") == {u'CA': [{u'J2S': u'Saint-Hyacinthe Southwest, Quebec'}], u'US': [{u'31415': u'Savannah, GA'}]}
+            assert library_settings.get("focus_area") == {'CA': [{'N3L': 'Paris, Ontario'}], 'US': [{'11235': 'Brooklyn, NY'}]}
+            assert library_settings.get("service_area") == {'CA': [{'J2S': 'Saint-Hyacinthe Southwest, Quebec'}], 'US': [{'31415': 'Savannah, GA'}]}
 
     def test_libraries_get_with_announcements(self):
         # Delete any existing library created by the controller test setup.
@@ -234,9 +234,9 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
             assert response.uri == INVALID_CONFIGURATION_OPTION.uri
 
     def test_libraries_post_create(self):
-        class TestFileUpload(StringIO):
+        class TestFileUpload(BytesIO):
             headers = { "Content-Type": "image/png" }
-        image_data = '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x01\x03\x00\x00\x00%\xdbV\xca\x00\x00\x00\x06PLTE\xffM\x00\x01\x01\x01\x8e\x1e\xe5\x1b\x00\x00\x00\x01tRNS\xcc\xd24V\xfd\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
+        image_data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x01\x03\x00\x00\x00%\xdbV\xca\x00\x00\x00\x06PLTE\xffM\x00\x01\x01\x01\x8e\x1e\xe5\x1b\x00\x00\x00\x01tRNS\xcc\xd24V\xfd\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
 
         original_geographic_validate = GeographicValidator().validate_geographic_areas
         class MockGeographicValidator(GeographicValidator):
@@ -287,7 +287,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
             assert response.status_code == 201
 
         library = get_one(self._db, Library, short_name="nypl")
-        assert library.uuid == response.response[0]
+        assert library.uuid == response.get_data(as_text=True)
         assert library.name == "The New York Public Library"
         assert library.short_name == "nypl"
         assert "5" == ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, library).value
@@ -302,9 +302,9 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
         assert ("data:image/png;base64,%s" % base64.b64encode(image_data) ==
             ConfigurationSetting.for_library(Configuration.LOGO, library).value)
         assert geographic_validator.was_called == True
-        assert ('{"CA": [], "US": ["06759", "everywhere", "MD", "Boston, MA"]}' ==
+        assert ('{"US": ["06759", "everywhere", "MD", "Boston, MA"], "CA": []}' ==
             ConfigurationSetting.for_library(Configuration.LIBRARY_SERVICE_AREA, library).value)
-        assert ('{"CA": ["Manitoba", "Quebec"], "US": ["Broward County, FL"]}' ==
+        assert ('{"US": ["Broward County, FL"], "CA": ["Manitoba", "Quebec"]}' ==
             ConfigurationSetting.for_library(Configuration.LIBRARY_FOCUS_AREA, library).value)
 
         # Announcements were validated.
@@ -367,7 +367,7 @@ class TestLibrarySettings(SettingsControllerTest, AnnouncementTest):
 
         library = get_one(self._db, Library, uuid=library.uuid)
 
-        assert library.uuid == response.response[0]
+        assert library.uuid == response.get_data(as_text=True)
         assert library.name == "The New York Public Library"
         assert library.short_name == "nypl"
 

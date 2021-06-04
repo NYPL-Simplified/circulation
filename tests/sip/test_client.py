@@ -98,7 +98,7 @@ class TestSIPClient(object):
             connection, kwargs = wrap_socket.called_with
             assert isinstance(connection, MockSocket)
             assert set(['keyfile', 'certfile']) == set(kwargs.keys())
-            for tmpfile in kwargs.values():
+            for tmpfile in list(kwargs.values()):
                 tmpfile = os.path.abspath(tmpfile)
                 assert os.path.basename(tmpfile).startswith("tmp")
                 # By the time the SSL socket has been wrapped, the

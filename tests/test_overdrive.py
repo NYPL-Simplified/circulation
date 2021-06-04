@@ -3,7 +3,6 @@ import pytest
 import pkgutil
 import json
 from datetime import (
-    datetime,
     timedelta,
 )
 import random
@@ -29,6 +28,10 @@ from api.circulation_exceptions import *
 from api.config import Configuration
 
 from core.testing import DatabaseTest
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from . import sample_data
 
 from core.metadata_layer import TimestampData
@@ -106,9 +109,9 @@ class TestOverdriveAPI(OverdriveAPITest):
             assert i not in needs_lock_in
 
     def test__run_self_tests(self):
-        """Verify that OverdriveAPI._run_self_tests() calls the right
-        methods.
-        """
+        # Verify that OverdriveAPI._run_self_tests() calls the right
+        # methods.
+
         class Mock(MockOverdriveAPI):
             "Mock every method used by OverdriveAPI._run_self_tests."
 
@@ -183,7 +186,7 @@ class TestOverdriveAPI(OverdriveAPITest):
             no_patron_credential.name)
         assert False == no_patron_credential.success
         assert ("Library has no test patron configured." ==
-            no_patron_credential.exception.message)
+            str(no_patron_credential.exception))
 
         assert (
             "Checking Patron Authentication privileges, using test patron for library %s" % with_default_patron.name ==
@@ -211,7 +214,7 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         # Only one test will be run.
         [check_creds] = self.api._run_self_tests(self._db)
-        assert "Failure!" == check_creds.exception.message
+        assert "Failure!" == str(check_creds.exception)
 
     def test_default_notification_email_address(self):
         """Test the ability of the Overdrive API to detect an email address
@@ -265,7 +268,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # integration and the ILS name associated with the library
         # into the form expected by Overdrive.
         expect = "websiteid:%s authorizationname:%s" % (
-            self.api.website_id, self.api.ils_name(self._default_library)
+            self.api.website_id.decode("utf-8"), self.api.ils_name(self._default_library)
         )
         assert expect == self.api.scope_string(self._default_library)
 
@@ -455,7 +458,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         m = OverdriveAPI.extract_expiration_date
 
         # Success
-        assert datetime(2020, 1, 2, 3, 4, 5) == m(dict(expires="2020-01-02T03:04:05Z"))
+        assert datetime_utc(2020, 1, 2, 3, 4, 5) == m(dict(expires="2020-01-02T03:04:05Z"))
 
         # Various failure cases.
         assert None == m(dict(expiresPresent=False))
@@ -572,7 +575,7 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         def process_error_response(message):
             # Attempt to process a response that resulted in an error.
-            if isinstance(message, basestring):
+            if isinstance(message, (bytes, str)):
                 data = dict(errorCode=message)
             else:
                 data = message
@@ -621,7 +624,7 @@ class TestOverdriveAPI(OverdriveAPITest):
             assert licensepool.data_source.name == x.data_source_name
             assert identifier.identifier == x.identifier
             assert identifier.type == x.identifier_type
-            assert datetime(2015, 3, 26, 11, 30, 29) == x.start_date
+            assert datetime_utc(2015, 3, 26, 11, 30, 29) == x.start_date
             assert None == x.end_date
             assert 1 == x.hold_position
 
@@ -1169,7 +1172,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
         assert dict(id="an-identifier") == book
         assert 200 == status_code
-        assert "foo" == content
+        assert b"foo" == content
 
         request_url, ignore1, ignore2 = self.api.requests.pop()
         expect_url = self.api.endpoint(
@@ -1192,7 +1195,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
         assert previous_result == book
         assert 200 == status_code
-        assert "foo" == content
+        assert b"foo" == content
         request_url, ignore1, ignore2 = self.api.requests.pop()
 
         # The v1 URL was converted to a v2 url.
@@ -1342,7 +1345,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # newly created LicensePool.
         raw['id'] = pool.identifier.identifier
 
-        wr.title = u"The real title."
+        wr.title = "The real title."
         assert 1 == pool.licenses_owned
         assert 1 == pool.licenses_available
         assert 0 == pool.licenses_reserved
@@ -1356,7 +1359,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         assert p2 == pool
         # The title didn't change to that title given in the availability
         # information, because we already set a title for that work.
-        assert u"The real title." == wr.title
+        assert "The real title." == wr.title
         assert raw['copiesOwned'] == pool.licenses_owned
         assert raw['copiesAvailable'] == pool.licenses_available
         assert 0 == pool.licenses_reserved
@@ -1436,7 +1439,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         assert "https://oauth-patron.overdrive.com/patrontoken" == url
         assert "barcode" == payload['username']
         expect_scope = "websiteid:%s authorizationname:%s" % (
-            self.api.website_id, self.api.ils_name(patron.library)
+            self.api.website_id.decode("utf-8"), self.api.ils_name(patron.library)
         )
         assert expect_scope == payload['scope']
         assert "a pin" == payload['password']
@@ -1460,7 +1463,7 @@ class TestOverdriveAPICredentials(OverdriveAPITest):
             return obj.get(key, 'none')
 
         def _make_token(scope, username, password, grant_type='password'):
-            return u'%s|%s|%s|%s' % (grant_type, scope, username, password)
+            return '%s|%s|%s|%s' % (grant_type, scope, username, password)
 
         class MockAPI(MockOverdriveAPI):
 
@@ -1518,13 +1521,13 @@ class TestOverdriveAPICredentials(OverdriveAPITest):
             self._db, library, api_map={ExternalIntegration.OVERDRIVE: MockAPI}
         )
         od_apis = {api.collection.name: api
-                   for api in circulation.api_for_collection.values()}
+                   for api in list(circulation.api_for_collection.values())}
 
         # Ensure that we have the correct number of OverDrive collections.
         assert len(library_collection_properties) == len(od_apis)
 
         # Verify that the expected credentials match what we got.
-        for name in expected_credentials.keys() + list(reversed(expected_credentials.keys())):
+        for name in list(expected_credentials.keys()) + list(reversed(list(expected_credentials.keys()))):
             credential = od_apis[name].get_patron_credential(patron, pin)
             assert expected_credentials[name] == credential.credential
 
@@ -1735,10 +1738,10 @@ class TestSyncBookshelf(OverdriveAPITest):
         # Identifiers.
         identifiers = [loan.license_pool.identifier.identifier
                        for loan in loans]
-        assert (sorted([u'a5a3d737-34d4-4d69-aad8-eba4e46019a3',
-                    u'99409f99-45a5-4238-9e10-98d1435cde04',
-                    u'993e4b33-823c-40af-8f61-cac54e1cba5d',
-                    u'a2ec6f3a-ebfe-4c95-9638-2cb13be8de5a']) ==
+        assert (sorted(['a5a3d737-34d4-4d69-aad8-eba4e46019a3',
+                    '99409f99-45a5-4238-9e10-98d1435cde04',
+                    '993e4b33-823c-40af-8f61-cac54e1cba5d',
+                    'a2ec6f3a-ebfe-4c95-9638-2cb13be8de5a']) ==
             sorted(identifiers))
 
         # We have recorded a new DeliveryMechanism associated with
@@ -1754,10 +1757,10 @@ class TestSyncBookshelf(OverdriveAPITest):
             [
                 (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM),
                 (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
-                (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
                 (Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
+                (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
             ] ==
-            sorted(mechanisms))
+            mechanisms)
 
         # There are no holds.
         assert [] == holds
@@ -1785,7 +1788,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         )
         [pool] = overdrive_edition.license_pools
         overdrive_loan, new = pool.loan_to(patron)
-        yesterday = datetime.utcnow() - timedelta(days=1)
+        yesterday = utc_now()- timedelta(days=1)
         overdrive_loan.start = yesterday
 
         # Sync with Overdrive, and the loan not present in the sample
@@ -1898,7 +1901,7 @@ class TestOverdriveManifestFulfillmentInfo(OverdriveAPITest):
         )
         response = info.as_response
         assert 302 == response.status_code
-        assert "" == response.data
+        assert "" == response.get_data(as_text=True)
         headers = response.headers
         assert "text/plain" == headers['Content-Type']
 
@@ -1927,7 +1930,7 @@ class TestOverdriveCirculationMonitor(OverdriveAPITest):
 
         monitor.run()
         start, cutoff, progress = monitor.catch_up_from_called_with
-        now = datetime.utcnow()
+        now = utc_now()
 
         # The first time this Monitor is called, its 'start time' is
         # the current time, and we ask for an overlap of one minute.
@@ -1945,7 +1948,7 @@ class TestOverdriveCirculationMonitor(OverdriveAPITest):
         # is one minute before the previous cutoff time.
         monitor.run()
         new_start, new_cutoff, new_progress = monitor.catch_up_from_called_with
-        now = datetime.utcnow()
+        now = utc_now()
         assert new_start == cutoff-monitor.OVERLAP
         self.time_eq(new_cutoff, now)
 
@@ -2009,7 +2012,7 @@ class TestOverdriveCirculationMonitor(OverdriveAPITest):
         # but only one of them (the first) represents a change from what
         # we already know.
         lp1 = self._licensepool(None)
-        lp1.last_checked = datetime.utcnow()
+        lp1.last_checked = utc_now()
         lp2 = self._licensepool(None)
         lp3 = self._licensepool(None)
         lp4 = object()
@@ -2098,7 +2101,7 @@ class TestNewTitlesOverdriveCollectionMonitor(OverdriveAPITest):
 
         # If information is missing or invalid, we assume that we
         # should keep going.
-        start = datetime(2018, 1, 1)
+        start = datetime_utc(2018, 1, 1)
         assert False == m(start, {}, object())
         assert False == m(start, {'date_added': None}, object())
         assert False == m(start, {'date_added': "Not a date"}, object())
