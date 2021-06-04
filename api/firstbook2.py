@@ -100,12 +100,13 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
                 str(e),
                 self.NAME
             )
+        content = response.content.decode("utf8")
         if response.status_code != 200:
             msg = "Got unexpected response code %d. Content: %s" % (
-                response.status_code, response.content
+                response.status_code, content
             )
             raise RemoteInitiatedServerError(msg, self.NAME)
-        if self.SUCCESS_MESSAGE in response.content:
+        if self.SUCCESS_MESSAGE in content:
             return True
         return False
 
@@ -133,6 +134,10 @@ class MockFirstBookResponse(object):
 
     def __init__(self, status_code, content):
         self.status_code = status_code
+        # Guarantee that the response content is always a bytestring,
+        # as it would be in real life.
+        if isinstance(content, str):
+            content = content.encode("utf8")
         self.content = content
 
 class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
