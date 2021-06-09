@@ -845,10 +845,10 @@ class MockSIPClient(SIPClient):
     """
 
     def __init__(self, login_user_id=None, login_password=None, separator="|",
-                 target_server=None, target_port=None, location_code=None, institution_id=''):
+                 target_server=None, target_port=None, location_code=None, institution_id='', encoding='cp850'):
         super(MockSIPClient, self).__init__(
             None, None, login_user_id=login_user_id,
-            login_password=login_password, separator=separator, institution_id=institution_id
+            login_password=login_password, separator=separator, institution_id=institution_id, encoding=encoding
         )
 
         self.read_count = 0
@@ -861,7 +861,7 @@ class MockSIPClient(SIPClient):
         if isinstance(response, str):
             # Make sure responses come in as bytestrings, as they would
             # in real life.
-            response = response.encode("utf8")
+            response = response.encode("cp850")
         self.responses.append(response)
 
     def connect(self):

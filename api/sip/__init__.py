@@ -21,6 +21,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     PORT = "port"
     LOCATION_CODE = "location code"
     FIELD_SEPARATOR = "field separator"
+    ENCODING = "encoding"
     USE_SSL = "use_ssl"
     SSL_CERTIFICATE = "ssl_certificate"
     SSL_KEY = "ssl_key"
@@ -33,6 +34,12 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         { "key": ExternalIntegration.USERNAME, "label": _("Login User ID") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Login Password") },
         { "key": LOCATION_CODE, "label": _("Location Code") },
+        {
+            "key": ENCODING,
+            "label": _("Data encoding"),
+            "default": "cp850",
+            "description": _("By default, SIP2 servers encode outgoing data using the Code Page 850 encoding, but some ILSes allow some other encoding to be used, usually UTF-8."),
+        },
         { "key": USE_SSL, "label": _("Connect over SSL?"),
           "description": _("Some SIP2 servers require or allow clients to connect securely over SSL. Other servers don't support SSL, and require clients to use an ordinary socket connection."),
           "type": "select",
@@ -148,18 +155,33 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         else:
             self.fields_that_deny_borrowing = []
 
+    @property
+    def _default_client(self):
+        """Initialize a SIPClient object using the default settings.
+
+        :return: A SIPClient
+        """
+        return SIPClient(
+            target_server=self.server,
+            target_port=self.port,
+            login_user_id=self.login_user_id,
+            login_password=self.login_password,
+            location_code=self.location_code,
+            institution_id=self.institution_id,
+            separator=self.field_separator,
+            use_ssl=self.use_ssl,
+            ssl_cert=self.ssl_cert,
+            ssl_key=self.ssl_key,
+            encoding=self.encoding.lower(),
+            dialect=self.dialect
+        )
+
     def patron_information(self, username, password):
         try:
             if self.client:
                 sip = self.client
             else:
-                sip = SIPClient(
-                    target_server=self.server, target_port=self.port,
-                    login_user_id=self.login_user_id, login_password=self.login_password,
-                    location_code=self.location_code, institution_id=self.institution_id, separator=self.field_separator,
-                    use_ssl=self.use_ssl, ssl_cert=self.ssl_cert, ssl_key=self.ssl_key,
-                    dialect=self.dialect
-                )
+                sip = self._default_client
             sip.connect()
             sip.login()
             info = sip.patron_information(username, password)
@@ -200,13 +222,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         if self.client:
             sip = self.client
         else:
-            sip = SIPClient(
-                target_server=self.server, target_port=self.port,
-                login_user_id=self.login_user_id, login_password=self.login_password,
-                location_code=self.location_code, institution_id=self.institution_id, separator=self.field_separator,
-                use_ssl=self.use_ssl, ssl_cert=self.ssl_cert, ssl_key=self.ssl_key,
-                dialect=self.dialect
-            )
+            sip = self._default_client
 
         connection = self.run_test(
             ("Test Connection"),

@@ -304,6 +304,31 @@ class TestPatronResponse(object):
         # its SIP code.
         assert ["foo"] == response['ZZ']
 
+    def test_variant_encoding(self):
+        response_unicode = "64              000201610210000142637000000000000000000000000AOnypl |AA12345|AELE CARRÉ, JOHN|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|BEfoo@example.com|AY1AZD1B7\r"
+
+        # By default, we expect data from a SIP2 server to be encoded
+        # as CP850.
+        assert "cp850" == self.sip.encoding
+        self.sip.queue_response(response_unicode.encode("cp850"))
+        response = self.sip.patron_information('identifier')
+        assert "LE CARRÉ, JOHN" == response['personal_name']
+
+        # But a SIP2 server may send some other encoding, such as
+        # UTF-8. This can cause odd results if the circulation manager
+        # tries to parse the data as CP850.
+        self.sip.queue_response(response_unicode.encode("utf-8"))
+        response = self.sip.patron_information('identifier')
+        assert "LE CARR├ë, JOHN" == response['personal_name']
+
+        # Giving SIPClient the right encoding means the data is
+        # converted correctly.
+        sip = MockSIPClient(encoding="utf-8")
+        assert "utf-8" == sip.encoding
+        sip.queue_response(response_unicode.encode("utf-8"))
+        response = sip.patron_information('identifier')
+        assert "LE CARRÉ, JOHN" == response['personal_name']
+
     def test_embedded_pipe(self):
         """In most cases we can handle data even if it contains embedded
         instances of the separator character.

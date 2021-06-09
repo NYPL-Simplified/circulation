@@ -17,7 +17,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     # starting point the actual (albeit redacted) SIP2 messages we
     # receive from servers.
 
-    sierra_valid_login = b"64              000201610210000142637000000000000000000000000AOnypl |AA12345|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|BEfoo@example.com|AY1AZD1B7"
+    sierra_valid_login = "64              000201610210000142637000000000000000000000000AOnypl |AA12345|AELE CARRÉ, JOHN|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|BEfoo@example.com|AY1AZD1B7".encode("cp850")
     sierra_excessive_fines = b"64              000201610210000142637000000000000000000000000AOnypl |AA12345|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQY|BV20.00|CC15.00|BEfoo@example.com|AY1AZD1B7"
     sierra_invalid_login = b"64Y  YYYYYYYYYYY000201610210000142725000000000000000000000000AOnypl |AA12345|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQN|BV0|CC15.00|BEfoo@example.com|AFInvalid PIN entered.  Please try again or see a staff member for assistance.|AFThere are unresolved issues with your account.  Please see a staff member for assistance.|AY1AZ91A8"
 
@@ -80,7 +80,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         patrondata = auth.remote_authenticate("user", "pass")
         assert "12345" == patrondata.authorization_identifier
         assert "foo@example.com" == patrondata.email_address
-        assert "SHELDON, ALICE" == patrondata.personal_name
+        assert "LE CARRÉ, JOHN" == patrondata.personal_name
         assert 0 == patrondata.fines
         assert None == patrondata.authorization_expires
         assert None == patrondata.external_type
@@ -298,7 +298,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         assert patron.__class__ == PatronData
         assert "12345" == patron.authorization_identifier
         assert "foo@example.com" == patron.email_address
-        assert "SHELDON, ALICE" == patron.personal_name
+        assert "LE CARRÉ, JOHN" == patron.personal_name
         assert 0 == patron.fines
         assert None == patron.authorization_expires
         assert None == patron.external_type
@@ -323,7 +323,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         assert patron.__class__ == PatronData
         assert "12345" == patron.authorization_identifier
         assert "foo@example.com" == patron.email_address
-        assert "SHELDON, ALICE" == patron.personal_name
+        assert "LE CARRÉ, JOHN" == patron.personal_name
         assert 0 == patron.fines
         assert None == patron.authorization_expires
         assert None == patron.external_type
