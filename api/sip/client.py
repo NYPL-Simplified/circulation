@@ -240,7 +240,7 @@ class SIPClient(Constants):
 
     def __init__(self, target_server, target_port, login_user_id=None,
                  login_password=None, location_code=None, institution_id='', separator=None,
-                 use_ssl=False, ssl_cert=None, ssl_key=None, dialect=GenericILS
+                 use_ssl=False, ssl_cert=None, ssl_key=None, encoding='cp850', dialect=GenericILS
     ):
         """Initialize a client for (but do not connect to) a SIP2 server.
 
@@ -250,6 +250,9 @@ class SIPClient(Constants):
             connecting to the SIP server.
         :param ssl_key: A string containing an SSL certificate to use when
             connecting to the SIP server.
+        :param encoding: The character encoding to use when sending or
+            receiving bytes over the wire. The default, Code Page 850,
+            is per the (ancient) SIP2 spec.
         """
         self.target_server = target_server
         if not target_port:
@@ -263,6 +266,7 @@ class SIPClient(Constants):
         self.use_ssl = use_ssl or ssl_cert or ssl_key
         self.ssl_cert = ssl_cert
         self.ssl_key = ssl_key
+        self.encoding = encoding
 
         # Turn the separator string into a regular expression that splits
         # field name/field value pairs on the separator string.
@@ -622,6 +626,8 @@ class SIPClient(Constants):
 
         :param return: A dictionary containing the parsed-out information.
         """
+        data = data.decode(self.encoding)
+
         parsed = {}
         data = self.consume_status_code(data, str(expect_status_code), parsed)
 
@@ -764,7 +770,7 @@ class SIPClient(Constants):
     def send(self, data):
         """Send a message over the socket and update the sequence index."""
         data = data + '\r'
-        return self.do_send(data)
+        return self.do_send(data.encode(self.encoding))
 
     def do_send(self, data):
         """Actually send data over the socket.
@@ -852,6 +858,10 @@ class MockSIPClient(SIPClient):
         self.status = []
 
     def queue_response(self, response):
+        if isinstance(response, str):
+            # Make sure responses come in as bytestrings, as they would
+            # in real life.
+            response = response.encode("utf8")
         self.responses.append(response)
 
     def connect(self):

@@ -151,11 +151,11 @@ class TestBasicProtocol(object):
         req1, req2 = sip.requests
         # The first request includes a sequence ID field, "AY", with
         # the value "0".
-        assert '9300CNuser_id|COpassword|AY0AZF556\r' == req1
+        assert b'9300CNuser_id|COpassword|AY0AZF556\r' == req1
 
         # The second request does not include a sequence ID field. As
         # a consequence its checksum is different.
-        assert '9300CNuser_id|COpassword|AZF620\r' == req2
+        assert b'9300CNuser_id|COpassword|AZF620\r' == req2
 
         # The login request eventually succeeded.
         assert {'login_ok': '1', '_status': '94'} == response
