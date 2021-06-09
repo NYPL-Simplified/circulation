@@ -884,3 +884,20 @@ class MockSIPClient(SIPClient):
 
     def disconnect(self):
         pass
+
+
+class MockSIPClientFactory(object):
+    """Pass this into SIP2AuthenticationProvider to instantiate a
+    MockSIPClient based on its configuration, _and_ to use that
+    MockSIPClient every single time; normally
+    SIP2AuthenticationProvider will instantiate a different client for
+    every simulated server interaction, making it impossible to queue
+    responses or look at the results.
+    """
+    def __init__(self):
+        self.client = None
+
+    def __call__(self, **kwargs):
+        if self.client is None:
+            self.client = MockSIPClient(**kwargs)
+        return self.client

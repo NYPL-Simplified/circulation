@@ -22,6 +22,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     LOCATION_CODE = "location code"
     FIELD_SEPARATOR = "field separator"
     ENCODING = "encoding"
+    DEFAULT_ENCODING = "cp850"
     USE_SSL = "use_ssl"
     SSL_CERTIFICATE = "ssl_certificate"
     SSL_KEY = "ssl_key"
@@ -37,7 +38,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         {
             "key": ENCODING,
             "label": _("Data encoding"),
-            "default": "cp850",
+            "default": DEFAULT_ENCODING,
             "description": _("By default, SIP2 servers encode outgoing data using the Code Page 850 encoding, but some ILSes allow some other encoding to be used, usually UTF-8."),
         },
         { "key": USE_SSL, "label": _("Connect over SSL?"),
@@ -100,7 +101,8 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         SIPClient.RECALL_OVERDUE : PatronData.RECALL_OVERDUE,
     }
 
-    def __init__(self, library, integration, analytics=None, client=None, connect=True):
+    def __init__(self, library, integration, analytics=None,
+                 client=SIPClient, connect=True):
         """An object capable of communicating with a SIP server.
 
         :param server: Hostname of the SIP server.
@@ -127,12 +129,15 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         "Variable-length fields" in the SIP2 spec). If no value is
         specified, the default (the pipe character) will be used.
 
-        :param client: A drop-in replacement for the SIPClient
-        object. Only intended for use during testing.
+        :param client: A SIPClient, or a class that works like
+        SIPClient. If a class, the class will be initialized with the
+        appropriate configuration whenever necessary. Only intended to be
+        overridden during testing.
 
         :param connect: If this is false, the generated SIPClient will
         not attempt to connect to the server. Only intended for use
         during testing.
+
         """
         super(SIP2AuthenticationProvider, self).__init__(
             library, integration, analytics
@@ -143,6 +148,9 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         self.login_user_id = integration.username
         self.login_password = integration.password
         self.location_code = integration.setting(self.LOCATION_CODE).value
+        self.encoding = integration.setting(self.ENCODING).value_or_default(
+            self.DEFAULT_ENCODING
+        )
         self.field_separator = integration.setting(self.FIELD_SEPARATOR).value or '|'
         self.use_ssl = integration.setting(self.USE_SSL).json_value
         self.ssl_cert = integration.setting(self.SSL_CERTIFICATE).value
@@ -156,12 +164,17 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             self.fields_that_deny_borrowing = []
 
     @property
-    def _default_client(self):
+    def _client(self):
         """Initialize a SIPClient object using the default settings.
 
         :return: A SIPClient
         """
-        return SIPClient(
+        if isinstance(self.client, SIPClient):
+            # A specific SIPClient was provided, hopefully during
+            # a test scenario.
+            return self.client
+
+        return self.client(
             target_server=self.server,
             target_port=self.port,
             login_user_id=self.login_user_id,
@@ -178,10 +191,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
     def patron_information(self, username, password):
         try:
-            if self.client:
-                sip = self.client
-            else:
-                sip = self._default_client
+            sip = self._client
             sip.connect()
             sip.login()
             info = sip.patron_information(username, password)
@@ -219,11 +229,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             sip.connect()
             return sip.connection
 
-        if self.client:
-            sip = self.client
-        else:
-            sip = self._default_client
-
+        sip = self._client
         connection = self.run_test(
             ("Test Connection"),
             makeConnection,

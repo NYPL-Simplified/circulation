@@ -1,7 +1,11 @@
 from datetime import datetime
 
 import pytest
-from api.sip.client import MockSIPClient
+from api.sip.client import (
+    MockSIPClient,
+    MockSIPClientFactory,
+)
+
 from api.sip import SIP2AuthenticationProvider
 from core.util.http import RemoteIntegrationException
 from api.authenticator import PatronData
@@ -17,7 +21,9 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     # starting point the actual (albeit redacted) SIP2 messages we
     # receive from servers.
 
-    sierra_valid_login = "64              000201610210000142637000000000000000000000000AOnypl |AA12345|AELE CARRÉ, JOHN|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|BEfoo@example.com|AY1AZD1B7".encode("cp850")
+    sierra_valid_login_unicode = "64              000201610210000142637000000000000000000000000AOnypl |AA12345|AELE CARRÉ, JOHN|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|BEfoo@example.com|AY1AZD1B7"
+    sierra_valid_login = sierra_valid_login_unicode.encode("cp850")
+    sierra_valid_login_utf8 = sierra_valid_login_unicode.encode("utf-8")
     sierra_excessive_fines = b"64              000201610210000142637000000000000000000000000AOnypl |AA12345|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQY|BV20.00|CC15.00|BEfoo@example.com|AY1AZD1B7"
     sierra_invalid_login = b"64Y  YYYYYYYYYYY000201610210000142725000000000000000000000000AOnypl |AA12345|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQN|BV0|CC15.00|BEfoo@example.com|AFInvalid PIN entered.  Please try again or see a staff member for assistance.|AFThere are unresolved issues with your account.  Please see a staff member for assistance.|AY1AZ91A8"
 
@@ -50,9 +56,11 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         integration.password = "pass1"
         integration.setting(p.FIELD_SEPARATOR).value = "\t"
         integration.setting(p.INSTITUTION_ID).value = "MAIN"
-        provider = p(self._default_library, integration)
-
-        # A SIPClient was initialized based on the integration values.
+        provider = p(self._default_library, integration,
+                     client=MockSIPClientFactory())
+        
+        # A SIP2AuthenticationProvider was initialized based on the
+        # integration values.
         assert "user1" == provider.login_user_id
         assert "pass1" == provider.login_password
         assert "\t" == provider.field_separator
@@ -62,10 +70,21 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         # Default port is 6001.
         assert None == provider.port
 
+        # And it's possible to get a SIP2Client that's configured
+        # based on the same values.
+        client = provider._client
+        assert "user1" == client.login_user_id
+        assert "pass1" == client.login_password
+        assert "\t" == client.field_separator
+        assert "MAIN" == client.institution_id
+        assert "server.com" == client.server        
+
         # Try again, specifying a port.
         integration.setting(p.PORT).value = "1234"
-        provider = p(self._default_library, integration)
+        provider = p(self._default_library, integration,
+                     client=MockSIPClientFactory())
         assert 1234 == provider.port
+        assert 1234 == provider._client.port
 
     def test_remote_authenticate(self):
         integration = self._external_integration(self._str)
@@ -191,11 +210,10 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         integration = self._external_integration(self._str)
         p = SIP2AuthenticationProvider
         integration.setting(p.PASSWORD_KEYBOARD).value = p.NULL_KEYBOARD
-        client = MockSIPClient()
-        auth = SIP2AuthenticationProvider(
-            self._default_library, integration, client=client
+        auth = p(
+            self._default_library, integration, client=MockSIPClientFactory()
         )
-
+        client = auth._client
         # This Evergreen instance doesn't use passwords.
         client.queue_response(self.evergreen_active_user)
         client.queue_response(self.end_session_response)
@@ -215,6 +233,32 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         request = client.requests[-1]
         assert b'user2' in request
         assert b'some password' not in request
+
+    def test_encoding(self):
+        # It's possible to specify an encoding other than CP850
+        # for communication with the SIP2 server.
+        #
+        # Here, we'll try it with UTF-8.
+        p = SIP2AuthenticationProvider
+        integration = self._external_integration(self._str)
+        integration.setting(p.ENCODING).value = "utf-8"
+        auth = p(
+            self._default_library, integration, client=MockSIPClientFactory()
+        )
+
+        # Queue the UTF-8 version of the patron information
+        # as opposed to the CP850 version.
+        client = auth._client
+        client.queue_response(self.sierra_valid_login_utf8)
+        client.queue_response(self.end_session_response)
+        patrondata = auth.remote_authenticate("user", "pass")
+        assert "12345" == patrondata.authorization_identifier
+        assert "foo@example.com" == patrondata.email_address
+        assert "LE CARRÉ, JOHN" == patrondata.personal_name
+        assert 0 == patrondata.fines
+        assert None == patrondata.authorization_expires
+        assert None == patrondata.external_type
+        assert PatronData.NO_VALUE == patrondata.block_reason
 
     def test_ioerror_during_connect_becomes_remoteintegrationexception(self):
         """If the IP of the circulation manager has not been whitelisted,
