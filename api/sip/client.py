@@ -844,12 +844,12 @@ class MockSIPClient(SIPClient):
     connection.
     """
 
-    def __init__(self, login_user_id=None, login_password=None, separator="|",
-                 target_server=None, target_port=None, location_code=None, institution_id='', encoding='cp850'):
-        super(MockSIPClient, self).__init__(
-            None, None, login_user_id=login_user_id,
-            login_password=login_password, separator=separator, institution_id=institution_id, encoding=encoding
-        )
+    def __init__(self, **kwargs):
+        # Override any settings that might cause us to actually
+        # make requests.
+        kwargs['target_server'] = None
+        kwargs['target_port'] = None
+        super(MockSIPClient, self).__init__(**kwargs)
 
         self.read_count = 0
         self.write_count = 0

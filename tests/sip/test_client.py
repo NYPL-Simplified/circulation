@@ -179,25 +179,25 @@ class TestBasicProtocol(object):
 class TestLogin(object):
 
     def test_login_success(self):
-        sip = MockSIPClient('user_id', 'password')
+        sip = MockSIPClient(login_user_id='user_id', login_password='password')
         sip.queue_response('941')
         response = sip.login()
         assert {'login_ok': '1', '_status': '94'} == response
 
     def test_login_password_is_optional(self):
         """You can specify a login_id without specifying a login_password."""
-        sip = MockSIPClient('user_id')
+        sip = MockSIPClient(login_user_id='user_id')
         sip.queue_response('941')
         response = sip.login()
         assert {'login_ok': '1', '_status': '94'} == response
 
     def test_login_failure(self):
-        sip = MockSIPClient('user_id', 'password')
+        sip = MockSIPClient(login_user_id='user_id', login_password='password')
         sip.queue_response('940')
         pytest.raises(IOError, sip.login)
 
     def test_login_happens_when_user_id_and_password_specified(self):
-        sip = MockSIPClient('user_id', 'password')
+        sip = MockSIPClient(login_user_id='user_id', login_password='password')
         # We're not logged in, and we must log in before sending a real
         # message.
         assert True == sip.must_log_in
@@ -235,7 +235,7 @@ class TestLogin(object):
         assert '12345' == response['patron_identifier']
 
     def test_login_failure_interrupts_other_request(self):
-        sip = MockSIPClient('user_id', 'password')
+        sip = MockSIPClient(login_user_id='user_id', login_password='password')
         sip.queue_response('940')
 
         # We don't even get a chance to make the patron information request
