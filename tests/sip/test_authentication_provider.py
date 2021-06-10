@@ -56,8 +56,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         integration.password = "pass1"
         integration.setting(p.FIELD_SEPARATOR).value = "\t"
         integration.setting(p.INSTITUTION_ID).value = "MAIN"
-        provider = p(self._default_library, integration,
-                     client=MockSIPClientFactory())
+        provider = p(self._default_library, integration)
         
         # A SIP2AuthenticationProvider was initialized based on the
         # integration values.
@@ -75,16 +74,16 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         client = provider._client
         assert "user1" == client.login_user_id
         assert "pass1" == client.login_password
-        assert "\t" == client.field_separator
+        assert "\t" == client.separator
         assert "MAIN" == client.institution_id
-        assert "server.com" == client.server        
+        assert "server.com" == client.target_server
+        assert 6001 == client.target_port
 
         # Try again, specifying a port.
         integration.setting(p.PORT).value = "1234"
-        provider = p(self._default_library, integration,
-                     client=MockSIPClientFactory())
+        provider = p(self._default_library, integration)
         assert 1234 == provider.port
-        assert 1234 == provider._client.port
+        assert 1234 == provider._client.target_port
 
     def test_remote_authenticate(self):
         integration = self._external_integration(self._str)
@@ -268,9 +267,10 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
             def connect(self):
                 raise IOError("Doom!")
 
-        client = CannotConnect()
         integration = self._external_integration(self._str)
-        provider = SIP2AuthenticationProvider(self._default_library, integration, client=client)
+        provider = SIP2AuthenticationProvider(
+            self._default_library, integration, client=CannotConnect
+        )
 
         with pytest.raises(RemoteIntegrationException) as excinfo:
             provider.remote_authenticate("username", "password",)
@@ -286,9 +286,8 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
 
         integration = self._external_integration(self._str)
         integration.url = 'server.local'
-        client = CannotSend()
         provider = SIP2AuthenticationProvider(
-            self._default_library, integration, client=client
+            self._default_library, integration, client=CannotSend
         )
         with pytest.raises(RemoteIntegrationException) as excinfo:
             provider.remote_authenticate("username", "password",)
@@ -331,11 +330,11 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     def test_info_to_patrondata_validate_password(self):
         integration = self._external_integration(self._str)
         integration.url = 'server.local'
-        client = MockSIPClient()
         provider = SIP2AuthenticationProvider(
-            self._default_library, integration, client=client
+            self._default_library, integration, client=MockSIPClientFactory()
         )
 
+        client = provider._client
         # Test with valid login, should return PatronData
         info = client.patron_information_parser(TestSIP2AuthenticationProvider.sierra_valid_login)
         patron = provider.info_to_patrondata(info)
@@ -356,10 +355,10 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     def test_info_to_patrondata_no_validate_password(self):
         integration = self._external_integration(self._str)
         integration.url = 'server.local'
-        client = MockSIPClient()
         provider = SIP2AuthenticationProvider(
-            self._default_library, integration, client=client
+            self._default_library, integration, client=MockSIPClientFactory()
         )
+        client = provider._client
 
         # Test with valid login, should return PatronData
         info = client.patron_information_parser(TestSIP2AuthenticationProvider.sierra_valid_login)
@@ -388,10 +387,10 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     def test_patron_block_setting(self):
         integration_block = self._external_integration(self._str, settings={SIP2AuthenticationProvider.PATRON_STATUS_BLOCK: "true"})
         integration_noblock = self._external_integration(self._str, settings={SIP2AuthenticationProvider.PATRON_STATUS_BLOCK: "false"})
-        client = MockSIPClient()
 
         # Test with blocked patron, block should be set
-        p = SIP2AuthenticationProvider(self._default_library, integration_block, client=client)
+        p = SIP2AuthenticationProvider(self._default_library, integration_block, client=MockSIPClientFactory())
+        client = p._client
         info = client.patron_information_parser(TestSIP2AuthenticationProvider.evergreen_expired_card)
         patron = p.info_to_patrondata(info)
         assert patron.__class__ == PatronData
@@ -403,7 +402,11 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         assert PatronData.NO_BORROWING_PRIVILEGES == patron.block_reason
 
         # Test with blocked patron, block should not be set
-        p = SIP2AuthenticationProvider(self._default_library, integration_noblock, client=client)
+        p = SIP2AuthenticationProvider(
+            self._default_library, integration_noblock,
+            client=MockSIPClientFactory()
+        )
+        client = p._client
         info = client.patron_information_parser(TestSIP2AuthenticationProvider.evergreen_expired_card)
         patron = p.info_to_patrondata(info)
         assert patron.__class__ == PatronData
@@ -432,9 +435,8 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
             def patron_information(self, username, password):
                 return self.patron_information_parser(TestSIP2AuthenticationProvider.sierra_valid_login)
 
-        badConnectionClient = MockBadConnection()
         auth = SIP2AuthenticationProvider(
-            self._default_library, integration, client=badConnectionClient
+            self._default_library, integration, client=MockBadConnection
         )
         results = [r for r in auth._run_self_tests(self._db)]
 
@@ -444,9 +446,8 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         assert results[0].success == False
         assert(results[0].exception, IOError("Could not connect"))
 
-        badLoginClient = MockSIPLogin()
         auth = SIP2AuthenticationProvider(
-            self._default_library, integration, client=badLoginClient
+            self._default_library, integration, client=MockSIPLogin
         )
         results = [x for x in auth._run_self_tests(self._db)]
 
