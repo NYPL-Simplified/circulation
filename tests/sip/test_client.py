@@ -14,16 +14,28 @@ from api.sip.dialect import (
 
 class MockSocket(object):
     def __init__(self, *args, **kwargs):
+        self.data = b''
         self.args = args
         self.kwargs = kwargs
         self.timeout = None
         self.connected_to = None
+
+    def queue_data(self, new_data):
+        if isinstance(new_data, str):
+            new_data = new_data.encode("cp850")
+        self.data += new_data
 
     def connect(self, server_and_port):
         self.connected_to = server_and_port
 
     def settimeout(self, value):
         self.timeout = value
+
+    def recv(self, size):
+        block = self.data[:size]
+        self.data = self.data[size:]
+        return block
+
 
 class MockWrapSocket(object):
     def __init__(self):
@@ -110,6 +122,46 @@ class TestSIPClient(object):
             # Un-mock the old functions.
             socket.socket = old_socket
             ssl.wrap_socket = old_wrap_socket
+
+    def test_read_message(self):
+        target_server = object()
+        sip = SIPClient(target_server, 999)
+
+        old_socket = socket.socket
+
+        # Mock the socket.socket function.
+        socket.socket = MockSocket
+
+        try:
+            sip.connect()
+            conn = sip.connection
+
+            # Queue bytestrings and read them.
+            for data in (
+                # Simple message.
+                b"abcd\n",
+
+                # Message that contains non-ASCII characters.
+                "LE CARRÉ, JOHN\r".encode("cp850"),
+
+                # Message that spans multiple blocks.
+                (b"a" * 4097) + b"\n",
+            ):
+                conn.queue_data(data)
+                assert data == sip.read_message()
+
+            # IOError on a message that's too large.
+            conn.queue_data("too big\n")
+            with pytest.raises(IOError, match="SIP2 response too large."):
+                sip.read_message(max_size=2)
+
+            # IOError if transmission stops without ending on a newline.
+            conn.queue_data("no newline")
+            with pytest.raises(IOError, match="No data read from socket."):
+                sip.read_message()
+        finally:
+            # Un-mock the socket.socket function
+            socket.socket = old_socket
 
 class TestBasicProtocol(object):
 

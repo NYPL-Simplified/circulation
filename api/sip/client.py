@@ -785,13 +785,13 @@ class SIPClient(Constants):
         A SIP2 message ends with a \\r character.
         """
         done = False
-        data = ""
+        data = b""
         while not done:
             tmp = self.connection.recv(4096)
             data = data + tmp
             if not tmp:
                 raise IOError("No data read from socket.")
-            if ord(data[-1]) == 13 or ord(data[-1]) == 10:
+            if data[-1] == 13 or data[-1] == 10:
                 done = True
             if len(data) > max_size:
                 raise IOError("SIP2 response too large.")

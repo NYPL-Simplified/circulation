@@ -251,6 +251,10 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         client.queue_response(self.sierra_valid_login_utf8)
         client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", "pass")
+
+        # We're able to parse the message from the server and parse
+        # out patron data, including the É character, with the proper
+        # encoding.
         assert "12345" == patrondata.authorization_identifier
         assert "foo@example.com" == patrondata.email_address
         assert "LE CARRÉ, JOHN" == patrondata.personal_name
