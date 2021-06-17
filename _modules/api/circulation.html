@@ -662,15 +662,30 @@
 
         <span class="n">new_loan</span> <span class="o">=</span> <span class="kc">False</span>
 
+        <span class="c1"># Some exceptions may be raised during the borrow process even</span>
+        <span class="c1"># if the book is not actually available for loan.  In those</span>
+        <span class="c1"># cases, we will store the exception here and try to place the</span>
+        <span class="c1"># book on hold. If the hold placement succeeds, there&#39;s no</span>
+        <span class="c1"># problem. If the hold placement fails because the book is</span>
+        <span class="c1"># actually available, it&#39;s better to raise this exception than</span>
+        <span class="c1"># one that says &quot;you tried to place a currently available book</span>
+        <span class="c1"># on hold&quot; -- that&#39;s probably not what the patron actually</span>
+        <span class="c1"># tried to do.</span>
+        <span class="n">loan_exception</span> <span class="o">=</span> <span class="kc">None</span>
+
         <span class="c1"># Enforce any library-specific limits on loans or holds.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">enforce_limits</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">)</span>
 
-        <span class="c1"># Since that didn&#39;t raise an exception, we know that the</span>
-        <span class="c1"># patron is able to get a loan or a hold. There are race</span>
-        <span class="c1"># conditions that will allow someone to get a hold in excess</span>
-        <span class="c1"># of their hold limit (because we thought they were getting a</span>
-        <span class="c1"># loan but someone else checked out the book right before we</span>
-        <span class="c1"># got to it) but they&#39;re rare and not serious.</span>
+        <span class="c1"># Since that didn&#39;t raise an exception, we don&#39;t know of any</span>
+        <span class="c1"># reason why the patron shouldn&#39;t be able to get a loan or a</span>
+        <span class="c1"># hold. There are race conditions that will allow someone to</span>
+        <span class="c1"># get a hold in excess of their hold limit (because we thought</span>
+        <span class="c1"># they were getting a loan but someone else checked out the</span>
+        <span class="c1"># book right before we got to it) but they&#39;re rare and not</span>
+        <span class="c1"># serious. There are also vendor-side restrictions that may</span>
+        <span class="c1"># impose additional limits on patron activity, but that will</span>
+        <span class="c1"># just result in exceptions being raised later in this method</span>
+        <span class="c1"># rather than in enforce_limits.</span>
 
         <span class="c1"># We try to check out the book even if we believe it&#39;s not</span>
         <span class="c1"># available -- someone else may have checked it in since we</span>
@@ -737,6 +752,14 @@
             <span class="c1"># immediately.</span>
             <span class="n">api</span><span class="o">.</span><span class="n">update_availability</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
             <span class="k">raise</span>
+        <span class="k">except</span> <span class="n">PatronLoanLimitReached</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># The server-side loan limits didn&#39;t apply to this patron,</span>
+            <span class="c1"># but there&#39;s a vendor-side loan limit that does. However,</span>
+            <span class="c1"># we don&#39;t necessarily know whether or not this book is</span>
+            <span class="c1"># available! We&#39;ll try putting the book on hold just in</span>
+            <span class="c1"># case, and raise this exception only if that doesn&#39;t</span>
+            <span class="c1"># work.</span>
+            <span class="n">loan_exception</span> <span class="o">=</span> <span class="n">e</span>
 
         <span class="k">if</span> <span class="n">loan_info</span><span class="p">:</span>
             <span class="c1"># We successfuly secured a loan.  Now create it in our</span>
@@ -783,6 +806,21 @@
                     <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
                     <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
                 <span class="p">)</span>
+            <span class="k">except</span> <span class="n">CurrentlyAvailable</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">loan_exception</span><span class="p">:</span>
+                    <span class="c1"># We tried to take out a loan and got an</span>
+                    <span class="c1"># exception.  But we weren&#39;t sure whether the real</span>
+                    <span class="c1"># problem was the exception we got or the fact</span>
+                    <span class="c1"># that the book wasn&#39;t available. Then we tried to</span>
+                    <span class="c1"># place a hold, which didn&#39;t work because the book</span>
+                    <span class="c1"># is currently available. That answers the</span>
+                    <span class="c1"># question: we should have let the first exception</span>
+                    <span class="c1"># go through.  Raise it now.</span>
+                    <span class="k">raise</span> <span class="n">loan_exception</span>
+
+                <span class="c1"># This shouldn&#39;t normally happen, but if it does,</span>
+                <span class="c1"># treat it as any other exception.</span>
+                <span class="k">raise</span>
 
         <span class="c1"># It&#39;s pretty rare that we&#39;d go from having a loan for a book</span>
         <span class="c1"># to needing to put it on hold, but we do check for that case.</span>
