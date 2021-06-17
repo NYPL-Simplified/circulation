@@ -715,6 +715,8 @@ class TestRegistration(DatabaseTest):
         key2 = RSA.generate(2048)
         encryptor2 = PKCS1_OAEP.new(key2)
 
+        # NOTE: In a real case, shared_secret must be UTF-8 string,
+        # but this particular method will work even if it's not.
         shared_secret = os.urandom(24)
         encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
 
@@ -754,7 +756,7 @@ class TestRegistration(DatabaseTest):
         class Mock(Registration):
             def _decrypt_shared_secret(self, encryptor, shared_secret):
                 self._decrypt_shared_secret_called_with = (encryptor, shared_secret)
-                return "cleartext"
+                return "👉 cleartext 👈".encode("utf8")
 
         reg = Mock(self.registry, self._default_library)
         catalog = dict(
@@ -769,9 +771,9 @@ class TestRegistration(DatabaseTest):
         # Short name is set.
         assert "SHORT" == reg.setting(ExternalIntegration.USERNAME).value
 
-        # Shared secret was decrypted and is set.
+        # Shared secret was decrypted, decoded from UTF-8 and is set.
         assert (encryptor, "ciphertext") == reg._decrypt_shared_secret_called_with
-        assert "cleartext" == reg.setting(ExternalIntegration.PASSWORD).value
+        assert "👉 cleartext 👈" == reg.setting(ExternalIntegration.PASSWORD).value
 
         # Web client URL is set.
         assert "http://web/library" == reg.setting(reg.LIBRARY_REGISTRATION_WEB_CLIENT).value
