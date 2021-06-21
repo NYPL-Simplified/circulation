@@ -391,7 +391,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         )
         return monitor.process_items([licensepool.identifier])
 
-        _activity_request(self, patron):
+    def _patron_activity_request(self, patron):
         patron_id = patron.authorization_identifier
         path = "circulation/patron/%s" % patron_id
         return self.request(path)
