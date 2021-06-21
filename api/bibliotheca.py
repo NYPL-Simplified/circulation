@@ -254,6 +254,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 self._db, url, extra_request_headers=headers,
                 do_get=self._simple_http_get, max_age=max_age,
                 exception_handler=Representation.reraise_exception,
+                timeout=60
             )
             content = representation.content
             return content
@@ -390,7 +391,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         )
         return monitor.process_items([licensepool.identifier])
 
-    def _patron_activity_request(self, patron):
+        _activity_request(self, patron):
         patron_id = patron.authorization_identifier
         path = "circulation/patron/%s" % patron_id
         return self.request(path)
