@@ -3,7 +3,8 @@ import datetime
 from pyld import jsonld
 
 from core.testing import DatabaseTest
-from test_controller import ControllerTest
+from core.util.datetime_helpers import utc_now
+from .test_controller import ControllerTest
 
 from core.model import (
     Annotation,
@@ -90,7 +91,7 @@ class TestAnnotationWriter(AnnotationTest, ControllerTest):
                 identifier=identifier,
                 motivation=Annotation.IDLING,
             )
-            annotation.timestamp = datetime.datetime.now()
+            annotation.timestamp = utc_now()
 
             container, timestamp = AnnotationWriter.annotation_container_for(patron)
 
@@ -155,7 +156,7 @@ class TestAnnotationWriter(AnnotationTest, ControllerTest):
                 identifier=identifier,
                 motivation=Annotation.IDLING,
             )
-            annotation.timestamp = datetime.datetime.now()
+            annotation.timestamp = utc_now()
 
             other_annotation, ignore = create(
                 self._db, Annotation,
@@ -410,15 +411,15 @@ class TestAnnotationParser(AnnotationTest):
             }]
         }]
         data["http://www.w3.org/ns/oa#hasTarget"] = [{
-            "http://www.w3.org/ns/oa#hasSource": [{
-                "@id": self.identifier.urn
-            }],
             "http://www.w3.org/ns/oa#hasSelector": [{
                 "@type": ["http://www.w3.org/ns/oa#FragmentSelector"],
                 "http://www.w3.org/1999/02/22-rdf-syntax-ns#value": [{
                     "@value": "epubcfi(/6/4[chap01ref]!/4[body01]/10[para05]/3:10)"
                 }]
-            }]
+            }],
+            "http://www.w3.org/ns/oa#hasSource": [{
+                "@id": self.identifier.urn
+            }],
         }]
 
         data_json = json.dumps(data)
@@ -544,7 +545,7 @@ class TestAnnotationParser(AnnotationTest):
             motivation=Annotation.IDLING,
         )
         original_annotation.active = False
-        yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+        yesterday = utc_now() - datetime.timedelta(days=1)
         original_annotation.timestamp = yesterday
 
         data = self._sample_jsonld()

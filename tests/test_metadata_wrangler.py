@@ -28,6 +28,10 @@ from core.testing import (
     MockRequestsResponse,
     AlwaysSuccessfulCoverageProvider,
 )
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from core.util.http import BadResponseException
 from core.util.opds_writer import OPDSFeed
 
@@ -61,11 +65,11 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             ExternalIntegration.METADATA_GOAL,
-            username=u'abc', password=u'def', url=self._url
+            username='abc', password='def', url=self._url
         )
 
         self.collection = self._collection(
-            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
+            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id='lib'
         )
 
         self.lookup = MockMetadataWranglerOPDSLookup.from_config(
@@ -95,16 +99,16 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         )
 
         # The 'next' links found in the OPDS feed are returned.
-        assert [u'http://next-link/'] == next_links
+        assert ['http://next-link/'] == next_links
 
         # Insofar as is possible, all <entry> tags are converted into
         # Editions.
-        assert [u'9781594632556'] == [x.primary_identifier.identifier
+        assert ['9781594632556'] == [x.primary_identifier.identifier
                                  for x in editions]
 
         # The earliest time found in the OPDS feed is returned as a
         # candidate for the Monitor's timestamp.
-        assert datetime.datetime(2016, 9, 20, 19, 37, 2) == timestamp
+        assert datetime_utc(2016, 9, 20, 19, 37, 2) == timestamp
 
     def test_empty_feed_stops_import(self):
         # We don't follow the 'next' link of an empty feed.
@@ -122,7 +126,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         # Since there were no <entry> tags, the timestamp's finish
         # date was set to the <updated> date of the feed itself, minus
         # one day (to avoid race conditions).
-        assert (datetime.datetime(2016, 9, 19, 19, 37, 10) ==
+        assert (datetime_utc(2016, 9, 19, 19, 37, 10) ==
             self.monitor.timestamp().finish)
 
     def test_run_once(self):
@@ -132,7 +136,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
             collection=self.collection
         )
         lp.identifier.type = Identifier.BIBLIOTHECA_ID
-        isbn = Identifier.parse_urn(self._db, u'urn:isbn:9781594632556')[0]
+        isbn = Identifier.parse_urn(self._db, 'urn:isbn:9781594632556')[0]
         lp.identifier.equivalent_to(
             DataSource.lookup(self._db, DataSource.BIBLIOTHECA), isbn, 1
         )
@@ -156,7 +160,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         # We have a new value to use for the Monitor's timestamp -- the
         # earliest date seen in the last OPDS feed that contained
         # any entries.
-        assert datetime.datetime(2016, 9, 20, 19, 37, 2) == new_timestamp.finish
+        assert datetime_utc(2016, 9, 20, 19, 37, 2) == new_timestamp.finish
         assert "Editions processed: 1" == new_timestamp.achievements
 
         # Normally run_once() doesn't update the monitor's timestamp,
@@ -185,7 +189,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         # its 'next' link, http://another-next-link/.
 
     def test_no_changes_means_no_timestamp_update(self):
-        before = datetime.datetime.utcnow()
+        before = utc_now()
         self.monitor.timestamp().finish = before
 
         # We're going to ask the metadata wrangler for updates, but
@@ -212,21 +216,20 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         assert Timestamp.CLEAR_VALUE == new_timestamp.finish
 
     def test_no_import_loop(self):
-        """We stop processing a feed's 'next' link if it links to a URL we've
-        already seen.
-        """
+        # We stop processing a feed's 'next' link if it links to a URL we've
+        # already seen.
 
         data = sample_data('metadata_updates_response.opds', 'opds')
         self.lookup.queue_response(
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
-        data = data.replace("http://next-link/", "http://different-link/")
+        data = data.replace(b"http://next-link/", b"http://different-link/")
         self.lookup.queue_response(
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
 
         # This introduces a loop.
-        data = data.replace("http://next-link/", "http://next-link/")
+        data = data.replace(b"http://next-link/", b"http://next-link/")
         self.lookup.queue_response(
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
@@ -237,10 +240,10 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         # seen before; then we stopped.
         first, second, third = self.monitor.imports
         assert (None, None) == first
-        assert (None, u'http://next-link/') == second
-        assert (None, u'http://different-link/') == third
+        assert (None, 'http://next-link/') == second
+        assert (None, 'http://different-link/') == third
 
-        assert datetime.datetime(2016, 9, 20, 19, 37, 2) == new_timestamp.finish
+        assert datetime_utc(2016, 9, 20, 19, 37, 2) == new_timestamp.finish
 
     def test_get_response(self):
 
@@ -293,11 +296,11 @@ class TestMWAuxiliaryMetadataMonitor(MonitorTest):
         self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             ExternalIntegration.METADATA_GOAL,
-            username=u'abc', password=u'def', url=self._url
+            username='abc', password='def', url=self._url
         )
 
         self.collection = self._collection(
-            protocol=ExternalIntegration.OVERDRIVE, external_account_id=u'lib'
+            protocol=ExternalIntegration.OVERDRIVE, external_account_id='lib'
         )
 
         self.lookup = MockMetadataWranglerOPDSLookup.from_config(
@@ -324,20 +327,20 @@ class TestMWAuxiliaryMetadataMonitor(MonitorTest):
         # Create an Overdrive ID to match the one in the feed.
         overdrive = self._identifier(
             identifier_type=Identifier.OVERDRIVE_ID,
-            foreign_id=u'4981c34f-d518-48ff-9659-2601b2b9bdc1'
+            foreign_id='4981c34f-d518-48ff-9659-2601b2b9bdc1'
         )
 
         # Create an ISBN to match the one in the feed.
         isbn = self._identifier(
-            identifier_type=Identifier.ISBN, foreign_id=u'9781602835740'
+            identifier_type=Identifier.ISBN, foreign_id='9781602835740'
         )
 
         # Create a Axis 360 ID equivalent to the other ISBN in the feed.
         axis_360 = self._identifier(
-            identifier_type=Identifier.AXIS_360_ID, foreign_id=u'fake'
+            identifier_type=Identifier.AXIS_360_ID, foreign_id='fake'
         )
         axis_360_isbn = self._identifier(
-            identifier_type=Identifier.ISBN, foreign_id=u'9781569478295'
+            identifier_type=Identifier.ISBN, foreign_id='9781569478295'
         )
         axis_source = DataSource.lookup(self._db, DataSource.AXIS_360)
         axis_360.equivalent_to(axis_source, axis_360_isbn, 1)
@@ -421,11 +424,11 @@ class MetadataWranglerCoverageProviderTest(DatabaseTest):
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,
-            username=u'abc', password=u'def'
+            username='abc', password='def'
         )
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         self.collection = self._collection(
-            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
+            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id='lib'
         )
         self.provider = self.create_provider()
         self.lookup_client = self.provider.lookup_client
@@ -434,13 +437,13 @@ class MetadataWranglerCoverageProviderTest(DatabaseTest):
         """Creates three Identifiers to use for testing with sample OPDS files."""
 
         # An identifier directly represented in the OPDS response.
-        valid_id = self._identifier(foreign_id=u'2020110')
+        valid_id = self._identifier(foreign_id='2020110')
 
         # An identifier mapped to an identifier represented in the OPDS
         # response.
         source = DataSource.lookup(self._db, DataSource.AXIS_360)
         mapped_id = self._identifier(
-            identifier_type=Identifier.AXIS_360_ID, foreign_id=u'0015187876'
+            identifier_type=Identifier.AXIS_360_ID, foreign_id='0015187876'
         )
         equivalent_id = self._identifier(
             identifier_type=Identifier.ISBN, foreign_id='9781936460236'
@@ -508,10 +511,8 @@ class TestBaseMetadataWranglerCoverageProvider(MetadataWranglerCoverageProviderT
         assert threem == mapping[isbn_threem]
 
     def test_coverage_records_for_unhandled_items_include_collection(self):
-        """NOTE: This could be made redundant by adding test coverage to
-        CoverageProvider.process_batch_and_handle_results in core.
-
-        """
+        # NOTE: This could be made redundant by adding test coverage to
+        # CoverageProvider.process_batch_and_handle_results in core.
         data = sample_data('metadata_sync_response.opds', 'opds')
         self.lookup_client.queue_response(
             200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
@@ -568,7 +569,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         # This happens if the 'server' sends data with the wrong media
         # type.
         self.lookup_client.queue_response(
-            200, {'content-type': 'json/application'}, u'{ "title": "It broke." }'
+            200, {'content-type': 'json/application'}, '{ "title": "It broke." }'
         )
 
         id1 = self._identifier()
@@ -724,7 +725,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         # But if we send a cutoff_time that's later than the time
         # associated with the coverage record...
         one_hour_from_now = (
-            datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
+            utc_now() + datetime.timedelta(seconds=3600)
         )
         provider_with_cutoff = self.create_provider(
             cutoff_time=one_hour_from_now
@@ -804,11 +805,11 @@ class MetadataWranglerCollectionManagerTest(DatabaseTest):
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,
-            username=u'abc', password=u'def'
+            username='abc', password='def'
         )
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         self.collection = self._collection(
-            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
+            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id='lib'
         )
         self.lookup = MockMetadataWranglerOPDSLookup.from_config(
             self._db, collection=self.collection
@@ -890,9 +891,8 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCoverageProviderTest)
         assert sorted(results) == sorted([valid_id, mapped_id])
 
     def test_finalize_batch(self):
-        """Metadata Wrangler sync coverage records are deleted from the db
-        when the the batch is finalized if the item has been reaped.
-        """
+        # Metadata Wrangler sync coverage records are deleted from the db
+        # when the the batch is finalized if the item has been reaped.
 
         # Create an identifier that has been imported and one that's
         # been reaped.
@@ -926,7 +926,8 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCoverageProviderTest)
 
         # The syncing record has been deleted from the database
         assert doubly_sync_record not in remaining_records
-        assert sorted([sync_cr, reaped_cr, doubly_reap_record]) == sorted(remaining_records)
+        assert (sorted([sync_cr, reaped_cr, doubly_reap_record], key=lambda x: x.id) ==
+                sorted(remaining_records, key=lambda x: x.id))
 
 
 class TestMetadataUploadCoverageProvider(DatabaseTest):
@@ -942,11 +943,11 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,
-            username=u'abc', password=u'def'
+            username='abc', password='def'
         )
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         self.collection = self._collection(
-            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
+            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id='lib'
         )
         self.provider = self.create_provider()
 
@@ -1011,7 +1012,7 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
 
         # An OPDS feed of metadata was sent to the metadata wrangler.
         assert metadata_client.metadata_feed != None
-        feed = feedparser.parse(unicode(metadata_client.metadata_feed))
+        feed = feedparser.parse(str(metadata_client.metadata_feed))
         urns = [entry.get("id") for entry in feed.get("entries", [])]
         # Only the identifier work a work ends up in the feed.
         assert [pool.identifier.urn] == urns

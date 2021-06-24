@@ -1,4 +1,3 @@
-import datetime
 import logging
 import os
 import sys
@@ -23,8 +22,8 @@ from core.model import (
     LicensePool,
     Loan,
 )
-
-from odl import (
+from core.util.datetime_helpers import utc_now
+from .odl import (
     ODLAPI,
     SharedODLAPI,
 )
@@ -82,7 +81,7 @@ class LoanReaper(LoanlikeReaperMonitor):
         start_field = self.MODEL_CLASS.start
         end_field = self.MODEL_CLASS.end
         superclause = super(LoanReaper, self).where_clause
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         expired = end_field < now
         very_old_with_no_clear_end_date = and_(
             start_field < self.cutoff,
@@ -108,7 +107,7 @@ class HoldReaper(LoanlikeReaperMonitor):
         start_field = self.MODEL_CLASS.start
         end_field = self.MODEL_CLASS.end
         superclause = super(HoldReaper, self).where_clause
-        end_date_in_past = end_field < datetime.datetime.utcnow()
+        end_date_in_past = end_field < utc_now()
         probably_abandoned = and_(
             start_field < self.cutoff,
             or_(end_field == None, end_date_in_past)

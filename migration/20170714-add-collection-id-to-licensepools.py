@@ -39,7 +39,7 @@ try:
     # outdated Bibliotheca DataSource. Find them.
     bibliotheca = DataSource.lookup(_db, DataSource.BIBLIOTHECA)
     old_sources = _db.query(DataSource.id).filter(
-        DataSource.name.in_([u'3M', u'Bibliotecha'])).subquery()
+        DataSource.name.in_(['3M', 'Bibliotecha'])).subquery()
     threem_qu = base_query.filter(LicensePool.data_source_id.in_(old_sources))
 
     # Associate these LicensePools with the Bibliotheca Collection.

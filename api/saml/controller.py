@@ -3,7 +3,7 @@ import logging
 
 from flask import redirect
 from flask_babel import lazy_gettext as _
-from six.moves.urllib.parse import (
+from urllib.parse import (
     SplitResult,
     parse_qs,
     urlencode,

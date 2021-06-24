@@ -8,7 +8,6 @@ from api.saml.metadata.model import (
 )
 from core.exceptions import BaseError
 from core.python_expression_dsl.evaluator import DSLEvaluator
-from core.util.string_helpers import is_string
 
 
 class SAMLSubjectFilterError(BaseError):
@@ -54,7 +53,7 @@ class SAMLSubjectFilter(object):
 
         :raise SAMLSubjectFilterError: in the case of any errors occurred during expression evaluation
         """
-        if not expression or not is_string(expression):
+        if not expression or not isinstance(expression, str):
             raise ValueError("Argument 'expression' must be a non-empty string")
         if not isinstance(subject, SAMLSubject):
             raise ValueError("Argument 'subject' must an instance of Subject class")
@@ -97,7 +96,7 @@ class SAMLSubjectFilter(object):
 
         :raise: SAMLSubjectFilterError
         """
-        if not expression or not is_string(expression):
+        if not expression or not isinstance(expression, str):
             raise ValueError("Argument 'expression' must be a non-empty string")
 
         try:

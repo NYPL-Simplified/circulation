@@ -1,15 +1,14 @@
-import datetime
-from base64 import b64encode
+from core.util.string_helpers import base64
 from copy import copy
 from xml.dom.minidom import Document
 
-from database_test import DatabaseTest
+from .database_test import DatabaseTest
 from defusedxml.lxml import fromstring
 from freezegun import freeze_time
 from mock import MagicMock, PropertyMock, create_autospec, patch
-from onelogin.saml2.utils import OneLogin_Saml2_Utils
+from onelogin.saml2.utils import OneLogin_Saml2_Utils, OneLogin_Saml2_XML
 from parameterized import parameterized
-from six.moves.urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from api.saml.auth import (
     SAML_NO_ACCESS_ERROR,
@@ -35,6 +34,7 @@ from api.saml.metadata.parser import SAMLSubjectParser
 from core.model.configuration import HasExternalIntegration
 from core.python_expression_dsl.evaluator import DSLEvaluationVisitor, DSLEvaluator
 from core.python_expression_dsl.parser import DSLParser
+from core.util.datetime_helpers import datetime_utc
 from tests.saml import fixtures
 from tests.test_controller import ControllerTest
 
@@ -207,10 +207,10 @@ class TestSAMLAuthenticationManager(ControllerTest):
                 saml_request
             )
 
-            validation_result = OneLogin_Saml2_Utils.validate_xml(
+            validation_result = OneLogin_Saml2_XML.validate_xml(
                 decoded_saml_request, "saml-schema-protocol-2.0.xsd", False
             )
-            assert isinstance(validation_result, Document)
+            assert isinstance(validation_result, OneLogin_Saml2_XML._element_class)
 
             saml_request_dom = fromstring(decoded_saml_request)
 
@@ -225,7 +225,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
             sso_url = saml_request_dom.get("Destination")
             assert sso_url == IDENTITY_PROVIDERS[0].sso_service.url
 
-            name_id_policy_nodes = OneLogin_Saml2_Utils.query(
+            name_id_policy_nodes = OneLogin_Saml2_XML.query(
                 saml_request_dom, "./samlp:NameIDPolicy"
             )
 
@@ -242,7 +242,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
             (
                 "with_name_id_and_attributes",
                 SAML_RESPONSE,
-                datetime.datetime(2020, 6, 7, 23, 43, 0),
+                datetime_utc(2020, 6, 7, 23, 43, 0),
                 None,
                 SAMLSubject(
                     SAMLNameID(
@@ -266,14 +266,14 @@ class TestSAMLAuthenticationManager(ControllerTest):
             (
                 "with_name_id_attributes_and_filter_expression_returning_false",
                 SAML_RESPONSE,
-                datetime.datetime(2020, 6, 7, 23, 43, 0),
+                datetime_utc(2020, 6, 7, 23, 43, 0),
                 "subject.attribute_statement.attributes['uid'].values[0] != 'student1'",
                 SAML_NO_ACCESS_ERROR,
             ),
             (
                 "with_name_id_attributes_and_filter_expression_returning_true",
                 SAML_RESPONSE,
-                datetime.datetime(2020, 6, 7, 23, 43, 0),
+                datetime_utc(2020, 6, 7, 23, 43, 0),
                 "subject.attribute_statement.attributes['uid'].values[0] == 'student1'",
                 SAMLSubject(
                     SAMLNameID(
@@ -297,7 +297,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
             (
                 "with_name_id_inside_edu_person_targeted_id_attribute",
                 SAML_COLUMBIA_RESPONSE,
-                datetime.datetime(2020, 6, 7, 23, 43, 0),
+                datetime_utc(2020, 6, 7, 23, 43, 0),
                 None,
                 SAMLSubject(
                     SAMLNameID(
@@ -327,7 +327,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
             (
                 "with_name_id_inside_edu_person_targeted_id_attribute_and_filter_expression_returning_false",
                 SAML_COLUMBIA_RESPONSE,
-                datetime.datetime(2020, 6, 7, 23, 43, 0),
+                datetime_utc(2020, 6, 7, 23, 43, 0),
                 "subject.attribute_statement.attributes['eduPersonScopedAffiliation'].values[0] != 'alum@columbia.edu'",
                 SAML_NO_ACCESS_ERROR,
                 True,
@@ -335,7 +335,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
             (
                 "with_name_id_inside_edu_person_targeted_id_attribute_and_filter_expression_returning_true",
                 SAML_COLUMBIA_RESPONSE,
-                datetime.datetime(2020, 6, 7, 23, 43, 0),
+                datetime_utc(2020, 6, 7, 23, 43, 0),
                 "subject.attribute_statement.attributes['eduPersonScopedAffiliation'].values[0] == 'alum@columbia.edu'",
                 SAMLSubject(
                     SAMLNameID(
@@ -415,7 +415,7 @@ class TestSAMLAuthenticationManager(ControllerTest):
         authentication_manager = SAMLAuthenticationManager(
             onelogin_configuration, subject_parser, subject_filter
         )
-        saml_response = b64encode(saml_response)
+        saml_response = base64.b64encode(saml_response)
 
         # Act
         with freeze_time(current_time):

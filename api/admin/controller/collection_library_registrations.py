@@ -97,7 +97,7 @@ class CollectionLibraryRegistrationsController(SettingsController):
         if isinstance(registered, ProblemDetail):
             return registered
 
-        return Response(unicode(_("Success")), 200)
+        return Response(str(_("Success")), 200)
 
     def look_up_collection(self, collection_id):
         """Find the collection that the user is trying to register the library with,

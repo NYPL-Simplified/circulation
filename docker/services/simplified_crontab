@@ -75,6 +75,7 @@ HOME=/var/www/circulation
 # Bibliotheca
 #
 */15 * * * * root core/bin/run bibliotheca_monitor >> /var/log/cron.log 2>&1
+0 */5 * * * root core/bin/run bibliotheca_purchase_monitor >> /var/log/cron.log 2>&1
 0 5 * * * root core/bin/run bibliotheca_circulation_sweep >> /var/log/cron.log 2>&1
 
 # Overdrive

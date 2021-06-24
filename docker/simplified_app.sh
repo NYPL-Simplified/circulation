@@ -20,9 +20,12 @@ echo "deb-src https://deb.nodesource.com/node_10.x bionic main" >> /etc/apt/sour
 # Add packages we need to build the app and its dependancies
 apt-get update
 $minimal_apt_get_install --no-upgrade \
-  python-dev \
-  python2.7 \
-  python-setuptools \
+  software-properties-common \
+  python3.6 \
+  python3-dev \
+  python3-setuptools \
+  python3-venv \
+  python3-pip \
   gcc \
   git \
   libpcre3 \
@@ -55,10 +58,7 @@ git submodule update --init --recursive
 # supplies an endpoint to check the app's current version.
 printf "$(git describe --tags)" > .version
 
-# Use the latest version of pip to install a virtual environment for the app.
-python /usr/lib/python2.7/dist-packages/easy_install.py "pip<21.0"
-pip install --no-cache-dir virtualenv virtualenvwrapper
-virtualenv -p /usr/bin/python2.7 env
+python3 -m venv env
 
 # Pass runtime environment variables to the app at runtime.
 touch environment.sh
@@ -68,12 +68,17 @@ echo "if [[ -f $SIMPLIFIED_ENVIRONMENT ]]; then \
 
 # Install required python libraries.
 set +x && source env/bin/activate && set -x
-pip install -r requirements.txt
+# Update pip and setuptools.
+python3 -m pip install -U pip setuptools
+# Install the necessary requirements.
+python3 -m pip install -r requirements.txt
 
 # Install NLTK.
-python -m textblob.download_corpora
+python3 -m textblob.download_corpora
 mv /root/nltk_data /usr/lib/
 
+# Go to the directory where the admin front-end application is located
+# and install the necessary app dependencies.
 cd api/admin
 npm install
 cd ../..

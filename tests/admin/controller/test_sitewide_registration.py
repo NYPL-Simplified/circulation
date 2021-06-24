@@ -1,4 +1,4 @@
-
+import binascii
 import base64
 import flask
 import json
@@ -12,7 +12,7 @@ from core.model import (
 )
 from core.testing import MockRequestsResponse
 from core.util.problem_detail import ProblemDetail
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestSitewideRegistration(SettingsControllerTest):
 
@@ -74,7 +74,7 @@ class TestSitewideRegistration(SettingsControllerTest):
             assert response.detail.startswith(
                 "Remote service returned a problem detail document:"
             )
-            assert unicode(MULTIPLE_BASIC_AUTH_SERVICES.detail) in response.detail
+            assert str(MULTIPLE_BASIC_AUTH_SERVICES.detail) in response.detail
 
         # If no registration link is available, a ProblemDetail is returned
         catalog = dict(id=self._url, links=[])
@@ -157,11 +157,11 @@ class TestSitewideRegistration(SettingsControllerTest):
         )
 
         # A registration document with an encrypted secret
-        shared_secret = os.urandom(24).encode('hex')
+        shared_secret = binascii.hexlify(os.urandom(24))
         encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
         registration = dict(
             id = metadata_wrangler_service.url,
-            metadata = dict(shared_secret=encrypted_secret)
+            metadata = dict(shared_secret=encrypted_secret.decode("utf-8"))
         )
         self.responses.insert(0, MockRequestsResponse(200, content=json.dumps(registration)))
 
@@ -190,7 +190,7 @@ class TestSitewideRegistration(SettingsControllerTest):
 
         # The end result is that our ExternalIntegration for the metadata
         # wrangler has been updated with a (decrypted) shared secret.
-        assert shared_secret == metadata_wrangler_service.password
+        assert shared_secret.decode("utf-8") == metadata_wrangler_service.password
 
     def test_sitewide_registration_document(self):
         """Test the document sent along to sitewide registration."""

@@ -14,19 +14,20 @@
 #
 import os
 import sys
+import datetime
 sys.path.insert(0, os.path.abspath('../../'))
 
 
 # -- Project information -----------------------------------------------------
-
-project = u'Library Simplified Circulation Manager'
-copyright = u'2019, The New York Public Library, Astor, Lenox, and Tilden Foundations'
-author = u'Library Simplified'
+year = datetime.datetime.now().year
+project = 'Library Simplified Circulation Manager'
+copyright = '%s, The New York Public Library, Astor, Lenox, and Tilden Foundations' % year
+author = 'Library Simplified'
 
 # The short X.Y version
-version = u''
+version = ''
 # The full version, including alpha/beta/rc tags
-release = u''
+release = ''
 
 
 # -- General configuration ---------------------------------------------------
@@ -132,8 +133,8 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'LibrarySimplifiedCirculationManager.tex',
-     u'Library Simplified Circulation Manager Documentation',
-     u'Library Simplified', 'manual'),
+     'Library Simplified Circulation Manager Documentation',
+     'Library Simplified', 'manual'),
 ]
 
 
@@ -143,7 +144,7 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     (master_doc, 'librarysimplifiedcirculationmanager',
-     u'Library Simplified Circulation Manager Documentation',
+     'Library Simplified Circulation Manager Documentation',
      [author], 1)
 ]
 
@@ -155,7 +156,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'LibrarySimplifiedCirculationManager',
-     u'Library Simplified Circulation Manager Documentation',
+     'Library Simplified Circulation Manager Documentation',
      author, 'LibrarySimplifiedCirculationManager', 'One line description of project.',
      'Miscellaneous'),
 ]

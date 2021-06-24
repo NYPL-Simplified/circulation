@@ -1,10 +1,10 @@
 FROM phusion/baseimage:bionic-1.0.0
-MAINTAINER Library Simplified <info@librarysimplified.org>
+LABEL maintainer="Library Simplified <info@librarysimplified.org>"
 
 ARG version
 ARG repo="NYPL-Simplified/circulation"
 
-ENV SIMPLIFIED_DB_TASK "auto"
+ENV SIMPLIFIED_DB_TASK "ignore"
 
 # Copy over all Library Simplified build files for this image
 COPY . /ls_build
