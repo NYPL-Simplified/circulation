@@ -22,7 +22,18 @@
 -- If you run this migration manually, be sure to update the timestamps
 -- table afterwards:
 --
--- UPDATE timestamps SET start='2021-04-05', finish='2021-04-05' where service='Database Migration';
+--  UPDATE timestamps SET start='2021-04-05', finish='2021-04-05' where service='Database Migration';
+--
+--
+-- The higher your `work_mem` and `temp_buffers`, the faster these
+-- migrations will run. At NYPL we temporarily increased the resources
+-- available to the database specifically for this script, and set
+-- session variables like this before running the ALTER commands:
+--
+--  set work_mem='4096MB'
+--  set temp_buffers='4096MB'
+--
+-- Manually vacuuming the tables beforehand will also help.
 
 -- Group 1A
 ALTER TABLE cachedmarcfiles ALTER COLUMN start_time SET DATA TYPE timestamptz, ALTER COLUMN end_time SET DATA TYPE timestamptz;
