@@ -180,6 +180,12 @@ class Constants(object):
     UNKNOWN_LANGUAGE = "000"
     ENGLISH = "001"
 
+    # By default, SIP2 messages are encoded using Code Page 850.
+    DEFAULT_ENCODING = 'cp850'
+
+    # SIP2 messages are terminated with the \r character.
+    TERMINATOR_CHAR = '\r'
+
 
 class SIPClient(Constants):
 
@@ -240,7 +246,8 @@ class SIPClient(Constants):
 
     def __init__(self, target_server, target_port, login_user_id=None,
                  login_password=None, location_code=None, institution_id='', separator=None,
-                 use_ssl=False, ssl_cert=None, ssl_key=None, encoding='cp850', dialect=GenericILS
+                 use_ssl=False, ssl_cert=None, ssl_key=None,
+                 encoding=Constants.DEFAULT_ENCODING, dialect=GenericILS
     ):
         """Initialize a client for (but do not connect to) a SIP2 server.
 
@@ -769,7 +776,7 @@ class SIPClient(Constants):
 
     def send(self, data):
         """Send a message over the socket and update the sequence index."""
-        data = data + '\r'
+        data = data + self.TERMINATOR_CHAR
         return self.do_send(data.encode(self.encoding))
 
     def do_send(self, data):
@@ -861,7 +868,7 @@ class MockSIPClient(SIPClient):
         if isinstance(response, str):
             # Make sure responses come in as bytestrings, as they would
             # in real life.
-            response = response.encode("cp850")
+            response = response.encode(Constants.DEFAULT_ENCODING)
         self.responses.append(response)
 
     def connect(self):
