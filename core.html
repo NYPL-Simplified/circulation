@@ -2502,7 +2502,7 @@ by a specific field (e.g. author) as described by a Facets object.</p>
 presenting the search results.</p>
 <dl class="attribute">
 <dt id="core.external_search.Filter.AUTHOR_MATCH_ROLES">
-<code class="descname">AUTHOR_MATCH_ROLES</code><em class="property"> = ['Author', 'Primary Author', 'Narrator', 'Editor', 'Director', 'Actor']</em><a class="headerlink" href="#core.external_search.Filter.AUTHOR_MATCH_ROLES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">AUTHOR_MATCH_ROLES</code><em class="property"> = ['Primary Author', 'Author', 'Narrator', 'Editor', 'Director', 'Actor']</em><a class="headerlink" href="#core.external_search.Filter.AUTHOR_MATCH_ROLES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5245,12 +5245,12 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.fqdn">
-<code class="descname">fqdn</code><em class="property"> = 'fv-az199-31.p34kcttjc52uhdeejc3ryfzuef.xx.internal.cloudapp.net'</em><a class="headerlink" href="#core.log.JSONFormatter.fqdn" title="Permalink to this definition">¶</a></dt>
+<code class="descname">fqdn</code><em class="property"> = 'fv-az182-914.xlcsutvm5t3ellfcnbcbis3udb.bx.internal.cloudapp.net'</em><a class="headerlink" href="#core.log.JSONFormatter.fqdn" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'fv-az199-31.p34kcttjc52uhdeejc3ryfzuef.xx.internal.cloudapp.net'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'fv-az182-914.xlcsutvm5t3ellfcnbcbis3udb.bx.internal.cloudapp.net'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -10731,6 +10731,11 @@ with the current ORM version.</p>
 <p>This is not a TimestampScript because it keeps separate Timestamps
 for the Python and the SQL migrations, and because Timestamps
 are ORM objects, which this script can’t touch.</p>
+<dl class="attribute">
+<dt id="core.scripts.DatabaseMigrationScript.DO_NOT_EXECUTE">
+<code class="descname">DO_NOT_EXECUTE</code><em class="property"> = 'SIMPLYE_MIGRATION_DO_NOT_EXECUTE'</em><a class="headerlink" href="#core.scripts.DatabaseMigrationScript.DO_NOT_EXECUTE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="attribute">
 <dt id="core.scripts.DatabaseMigrationScript.MIGRATION_WITH_COUNTER">
 <code class="descname">MIGRATION_WITH_COUNTER</code><em class="property"> = re.compile('\\d{8}-(\\d+)-(.)+\\.(py|sql)')</em><a class="headerlink" href="#core.scripts.DatabaseMigrationScript.MIGRATION_WITH_COUNTER" title="Permalink to this definition">¶</a></dt>

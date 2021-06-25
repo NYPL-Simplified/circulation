@@ -288,7 +288,7 @@
                 <span class="nb">id</span><span class="o">=</span><span class="nb">id</span><span class="p">,</span>
                 <span class="n">checkout_id</span><span class="o">=</span><span class="n">checkout_id</span><span class="p">,</span>
                 <span class="n">patron_id</span><span class="o">=</span><span class="n">patron_id</span><span class="p">,</span>
-                <span class="n">expires</span><span class="o">=</span><span class="p">(</span><span class="n">expires</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span> <span class="o">+</span> <span class="s1">&#39;Z&#39;</span><span class="p">),</span>
+                <span class="n">expires</span><span class="o">=</span><span class="n">expires</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
                 <span class="n">notification_url</span><span class="o">=</span><span class="n">notification_url</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
