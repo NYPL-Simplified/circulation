@@ -213,7 +213,13 @@
 
 <div class="viewcode-block" id="Constants"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.Constants">[docs]</a><span class="k">class</span> <span class="nc">Constants</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="n">UNKNOWN_LANGUAGE</span> <span class="o">=</span> <span class="s2">&quot;000&quot;</span>
-    <span class="n">ENGLISH</span> <span class="o">=</span> <span class="s2">&quot;001&quot;</span></div>
+    <span class="n">ENGLISH</span> <span class="o">=</span> <span class="s2">&quot;001&quot;</span>
+
+    <span class="c1"># By default, SIP2 messages are encoded using Code Page 850.</span>
+    <span class="n">DEFAULT_ENCODING</span> <span class="o">=</span> <span class="s1">&#39;cp850&#39;</span>
+
+    <span class="c1"># SIP2 messages are terminated with the \r character.</span>
+    <span class="n">TERMINATOR_CHAR</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\r</span><span class="s1">&#39;</span></div>
 
 
 <div class="viewcode-block" id="SIPClient"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient">[docs]</a><span class="k">class</span> <span class="nc">SIPClient</span><span class="p">(</span><span class="n">Constants</span><span class="p">):</span>
@@ -275,7 +281,8 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_server</span><span class="p">,</span> <span class="n">target_port</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">login_password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">location_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                 <span class="n">use_ssl</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ssl_cert</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ssl_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="n">GenericILS</span>
+                 <span class="n">use_ssl</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ssl_cert</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ssl_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">encoding</span><span class="o">=</span><span class="n">Constants</span><span class="o">.</span><span class="n">DEFAULT_ENCODING</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="n">GenericILS</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initialize a client for (but do not connect to) a SIP2 server.</span>
 
@@ -285,6 +292,9 @@
 <span class="sd">            connecting to the SIP server.</span>
 <span class="sd">        :param ssl_key: A string containing an SSL certificate to use when</span>
 <span class="sd">            connecting to the SIP server.</span>
+<span class="sd">        :param encoding: The character encoding to use when sending or</span>
+<span class="sd">            receiving bytes over the wire. The default, Code Page 850,</span>
+<span class="sd">            is per the (ancient) SIP2 spec.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">target_server</span> <span class="o">=</span> <span class="n">target_server</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">target_port</span><span class="p">:</span>
@@ -298,6 +308,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">use_ssl</span> <span class="o">=</span> <span class="n">use_ssl</span> <span class="ow">or</span> <span class="n">ssl_cert</span> <span class="ow">or</span> <span class="n">ssl_key</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ssl_cert</span> <span class="o">=</span> <span class="n">ssl_cert</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ssl_key</span> <span class="o">=</span> <span class="n">ssl_key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">encoding</span> <span class="o">=</span> <span class="n">encoding</span>
 
         <span class="c1"># Turn the separator string into a regular expression that splits</span>
         <span class="c1"># field name/field value pairs on the separator string.</span>
@@ -657,6 +668,8 @@
 
 <span class="sd">        :param return: A dictionary containing the parsed-out information.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">encoding</span><span class="p">)</span>
+
         <span class="n">parsed</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">consume_status_code</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">expect_status_code</span><span class="p">),</span> <span class="n">parsed</span><span class="p">)</span>
 
@@ -798,8 +811,8 @@
 
 <div class="viewcode-block" id="SIPClient.send"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.send">[docs]</a>    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Send a message over the socket and update the sequence index.&quot;&quot;&quot;</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\r</span><span class="s1">&#39;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">do_send</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">TERMINATOR_CHAR</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">do_send</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">encoding</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="SIPClient.do_send"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.do_send">[docs]</a>    <span class="k">def</span> <span class="nf">do_send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Actually send data over the socket.</span>
@@ -814,13 +827,13 @@
 <span class="sd">        A SIP2 message ends with a \\r character.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">done</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span>
         <span class="k">while</span> <span class="ow">not</span> <span class="n">done</span><span class="p">:</span>
             <span class="n">tmp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">4096</span><span class="p">)</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">data</span> <span class="o">+</span> <span class="n">tmp</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">tmp</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;No data read from socket.&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">ord</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="mi">13</span> <span class="ow">or</span> <span class="nb">ord</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="mi">10</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">13</span> <span class="ow">or</span> <span class="n">data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">10</span><span class="p">:</span>
                 <span class="n">done</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_size</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;SIP2 response too large.&quot;</span><span class="p">)</span>
@@ -873,12 +886,12 @@
 <span class="sd">    connection.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">login_password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="s2">&quot;|&quot;</span><span class="p">,</span>
-                 <span class="n">target_server</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target_port</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">location_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">MockSIPClient</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="n">login_user_id</span><span class="p">,</span>
-            <span class="n">login_password</span><span class="o">=</span><span class="n">login_password</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="n">separator</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="n">institution_id</span>
-        <span class="p">)</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># Override any settings that might cause us to actually</span>
+        <span class="c1"># make requests.</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;target_server&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;target_port&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MockSIPClient</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">read_count</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">write_count</span> <span class="o">=</span> <span class="mi">0</span>
@@ -887,6 +900,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="p">[]</span>
 
 <div class="viewcode-block" id="MockSIPClient.queue_response"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient.queue_response">[docs]</a>    <span class="k">def</span> <span class="nf">queue_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="c1"># Make sure responses come in as bytestrings, as they would</span>
+            <span class="c1"># in real life.</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">Constants</span><span class="o">.</span><span class="n">DEFAULT_ENCODING</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">response</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="MockSIPClient.connect"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient.connect">[docs]</a>    <span class="k">def</span> <span class="nf">connect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -909,6 +926,23 @@
 
 <div class="viewcode-block" id="MockSIPClient.disconnect"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient.disconnect">[docs]</a>    <span class="k">def</span> <span class="nf">disconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span></div></div>
+
+
+<div class="viewcode-block" id="MockSIPClientFactory"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClientFactory">[docs]</a><span class="k">class</span> <span class="nc">MockSIPClientFactory</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Pass this into SIP2AuthenticationProvider to instantiate a</span>
+<span class="sd">    MockSIPClient based on its configuration, _and_ to use that</span>
+<span class="sd">    MockSIPClient every single time; normally</span>
+<span class="sd">    SIP2AuthenticationProvider will instantiate a different client for</span>
+<span class="sd">    every simulated server interaction, making it impossible to queue</span>
+<span class="sd">    responses or look at the results.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">MockSIPClient</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span></div>
 </pre></div>
 
           </div>

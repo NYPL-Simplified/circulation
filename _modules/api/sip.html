@@ -56,6 +56,8 @@
     <span class="n">PORT</span> <span class="o">=</span> <span class="s2">&quot;port&quot;</span>
     <span class="n">LOCATION_CODE</span> <span class="o">=</span> <span class="s2">&quot;location code&quot;</span>
     <span class="n">FIELD_SEPARATOR</span> <span class="o">=</span> <span class="s2">&quot;field separator&quot;</span>
+    <span class="n">ENCODING</span> <span class="o">=</span> <span class="s2">&quot;encoding&quot;</span>
+    <span class="n">DEFAULT_ENCODING</span> <span class="o">=</span> <span class="n">SIPClient</span><span class="o">.</span><span class="n">DEFAULT_ENCODING</span>
     <span class="n">USE_SSL</span> <span class="o">=</span> <span class="s2">&quot;use_ssl&quot;</span>
     <span class="n">SSL_CERTIFICATE</span> <span class="o">=</span> <span class="s2">&quot;ssl_certificate&quot;</span>
     <span class="n">SSL_KEY</span> <span class="o">=</span> <span class="s2">&quot;ssl_key&quot;</span>
@@ -68,6 +70,12 @@
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Login User ID&quot;</span><span class="p">)</span> <span class="p">},</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Login Password&quot;</span><span class="p">)</span> <span class="p">},</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LOCATION_CODE</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Location Code&quot;</span><span class="p">)</span> <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ENCODING</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Data encoding&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_ENCODING</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;By default, SIP2 servers encode outgoing data using the Code Page 850 encoding, but some ILSes allow some other encoding to be used, usually UTF-8.&quot;</span><span class="p">),</span>
+        <span class="p">},</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">USE_SSL</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Connect over SSL?&quot;</span><span class="p">),</span>
           <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Some SIP2 servers require or allow clients to connect securely over SSL. Other servers don&#39;t support SSL, and require clients to use an ordinary socket connection.&quot;</span><span class="p">),</span>
           <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
@@ -128,7 +136,8 @@
         <span class="n">SIPClient</span><span class="o">.</span><span class="n">RECALL_OVERDUE</span> <span class="p">:</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">RECALL_OVERDUE</span><span class="p">,</span>
     <span class="p">}</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">connect</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">client</span><span class="o">=</span><span class="n">SIPClient</span><span class="p">,</span> <span class="n">connect</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;An object capable of communicating with a SIP server.</span>
 
 <span class="sd">        :param server: Hostname of the SIP server.</span>
@@ -155,12 +164,15 @@
 <span class="sd">        &quot;Variable-length fields&quot; in the SIP2 spec). If no value is</span>
 <span class="sd">        specified, the default (the pipe character) will be used.</span>
 
-<span class="sd">        :param client: A drop-in replacement for the SIPClient</span>
-<span class="sd">        object. Only intended for use during testing.</span>
+<span class="sd">        :param client: A SIPClient, or a class that works like</span>
+<span class="sd">        SIPClient. If a class, the class will be initialized with the</span>
+<span class="sd">        appropriate configuration whenever necessary. Only intended to be</span>
+<span class="sd">        overridden during testing.</span>
 
 <span class="sd">        :param connect: If this is false, the generated SIPClient will</span>
 <span class="sd">        not attempt to connect to the server. Only intended for use</span>
 <span class="sd">        during testing.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">SIP2AuthenticationProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span>
@@ -171,6 +183,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">login_user_id</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">username</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">login_password</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">password</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">location_code</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LOCATION_CODE</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">encoding</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ENCODING</span><span class="p">)</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_ENCODING</span>
+        <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">field_separator</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">FIELD_SEPARATOR</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="ow">or</span> <span class="s1">&#39;|&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">use_ssl</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">USE_SSL</span><span class="p">)</span><span class="o">.</span><span class="n">json_value</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ssl_cert</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">SSL_CERTIFICATE</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
@@ -183,18 +198,35 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fields_that_deny_borrowing</span> <span class="o">=</span> <span class="p">[]</span>
 
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_client</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a SIPClient object using the default settings.</span>
+
+<span class="sd">        :return: A SIPClient</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">,</span> <span class="n">SIPClient</span><span class="p">):</span>
+            <span class="c1"># A specific SIPClient was provided, hopefully during</span>
+            <span class="c1"># a test scenario.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">(</span>
+            <span class="n">target_server</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">server</span><span class="p">,</span>
+            <span class="n">target_port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">,</span>
+            <span class="n">login_user_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login_user_id</span><span class="p">,</span>
+            <span class="n">login_password</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login_password</span><span class="p">,</span>
+            <span class="n">location_code</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">location_code</span><span class="p">,</span>
+            <span class="n">institution_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">institution_id</span><span class="p">,</span>
+            <span class="n">separator</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">field_separator</span><span class="p">,</span>
+            <span class="n">use_ssl</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_ssl</span><span class="p">,</span>
+            <span class="n">ssl_cert</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ssl_cert</span><span class="p">,</span>
+            <span class="n">ssl_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ssl_key</span><span class="p">,</span>
+            <span class="n">encoding</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">encoding</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+            <span class="n">dialect</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dialect</span>
+        <span class="p">)</span>
+
 <div class="viewcode-block" id="SIP2AuthenticationProvider.patron_information"><a class="viewcode-back" href="../../api.sip.html#api.sip.SIP2AuthenticationProvider.patron_information">[docs]</a>    <span class="k">def</span> <span class="nf">patron_information</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">:</span>
-                <span class="n">sip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">sip</span> <span class="o">=</span> <span class="n">SIPClient</span><span class="p">(</span>
-                    <span class="n">target_server</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">server</span><span class="p">,</span> <span class="n">target_port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">,</span>
-                    <span class="n">login_user_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login_user_id</span><span class="p">,</span> <span class="n">login_password</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login_password</span><span class="p">,</span>
-                    <span class="n">location_code</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">location_code</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">institution_id</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">field_separator</span><span class="p">,</span>
-                    <span class="n">use_ssl</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_ssl</span><span class="p">,</span> <span class="n">ssl_cert</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ssl_cert</span><span class="p">,</span> <span class="n">ssl_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ssl_key</span><span class="p">,</span>
-                    <span class="n">dialect</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dialect</span>
-                <span class="p">)</span>
+            <span class="n">sip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span>
             <span class="n">sip</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
             <span class="n">sip</span><span class="o">.</span><span class="n">login</span><span class="p">()</span>
             <span class="n">info</span> <span class="o">=</span> <span class="n">sip</span><span class="o">.</span><span class="n">patron_information</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span>
@@ -232,17 +264,7 @@
             <span class="n">sip</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">sip</span><span class="o">.</span><span class="n">connection</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">:</span>
-            <span class="n">sip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">sip</span> <span class="o">=</span> <span class="n">SIPClient</span><span class="p">(</span>
-                <span class="n">target_server</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">server</span><span class="p">,</span> <span class="n">target_port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">,</span>
-                <span class="n">login_user_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login_user_id</span><span class="p">,</span> <span class="n">login_password</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login_password</span><span class="p">,</span>
-                <span class="n">location_code</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">location_code</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">institution_id</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">field_separator</span><span class="p">,</span>
-                <span class="n">use_ssl</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_ssl</span><span class="p">,</span> <span class="n">ssl_cert</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ssl_cert</span><span class="p">,</span> <span class="n">ssl_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ssl_key</span><span class="p">,</span>
-                <span class="n">dialect</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dialect</span>
-            <span class="p">)</span>
-
+        <span class="n">sip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span>
         <span class="n">connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
             <span class="p">(</span><span class="s2">&quot;Test Connection&quot;</span><span class="p">),</span>
             <span class="n">makeConnection</span><span class="p">,</span>
