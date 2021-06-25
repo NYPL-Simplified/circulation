@@ -22,7 +22,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     LOCATION_CODE = "location code"
     FIELD_SEPARATOR = "field separator"
     ENCODING = "encoding"
-    DEFAULT_ENCODING = "cp850"
+    DEFAULT_ENCODING = SIPClient.DEFAULT_ENCODING
     USE_SSL = "use_ssl"
     SSL_CERTIFICATE = "ssl_certificate"
     SSL_KEY = "ssl_key"
