@@ -63,6 +63,26 @@ and install the dependencies:
 $ pip install -r requirements-dev.txt
 ```
 
+### Python Installation Issues
+
+When running the `pip install ...` command, you may run into installation issues. The [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions) instructions say to install some packages through brew such as `libxmlsec1`. On newer macos machines, you may encounter an error such as:
+
+```sh
+error: command '/usr/bin/clang' failed with exit code 1
+  ----------------------------------------
+  ERROR: Failed building wheel for xmlsec
+Failed to build dm.xmlsec.binding xmlsec
+ERROR: Could not build wheels for xmlsec which use PEP 517 and cannot be installed directly
+```
+
+This typically happens after installing packages through brew and then running the `pip install` command.
+
+This [blog post](https://mbbroberg.fun/clang-error-in-pip/) explains and shows a fix for this issue. If the `xcode-select --install` command does not work, you can try adding the following to your `~/.zshrc` or `~/.bashrc` file depending on what you use:
+
+```sh
+export CPPFLAGS="-DXMLSEC_NO_XKMS=1"
+```
+
 ## Generating Documentation
 
 Code documentation using Sphinx can be found on this repo's [Github Pages](http://nypl-simplified.github.io/circulation/index.html). It currently documents this repo's `api` directory, `scripts` file, and the `core` submodule directory. The configuration for the documentation can be found in `/docs`.
