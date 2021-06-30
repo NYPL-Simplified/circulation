@@ -1,9 +1,11 @@
 # Library Simplified Circulation Manager
 ![Build Status](https://github.com/nypl-simplified/circulation/actions/workflows/test.yml/badge.svg?branch=develop) [![GitHub Release](https://img.shields.io/github/release/nypl-simplified/circulation.svg?style=flat)]()
 
+## Overview
+
 Default Branch: `develop`
 
-This is the Circulation Manager for [Library Simplified](https://www.librarysimplified.org/). The Circulation Manager is the main connection between a library's collection and Library Simplified's various client-side applications. It handles user authentication, combines licensed works with open access content, pulls in updated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
+This is the Circulation Manager for [Library Simplified](https://www.librarysimplified.org/). The Circulation Manager is the main connection between a library's collection and Library Simplified's various client-side applications, including SimplyE. It handles user authentication, combines licensed works with open access content, pulls in updated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
 
 It depends on [Library Simplified Server Core](https://github.com/NYPL-Simplified/server_core) as a git submodule.
 
@@ -36,7 +38,9 @@ There are additional protected branches that are used for *NYPL-specific* deploy
 | bpl-deploy-qa  |
 | bpl-deploy-production  |
 
-### Python setup
+## Set Up
+
+### Python Set Up
 
 If you do not have Python 3 installed, you can use [Homebrew](https://brew.sh/)* to install it by running the command `$ brew install python3`.
 
@@ -53,7 +57,7 @@ While you're at it, go ahead and install the following required dependencies:
 
 Please note: only certain versions of Python 3 will work with this application. One such version is Python 3.6.5. Check to see which version you currently have installed by running `$ python -V`.
 
-If you're using a version of Python that doesn't work, install [pyenv](https://github.com/pyenv/pyenv-installer) using command `$ curl https://pyenv.run | bash`, and then run `$ pyenv global 3.6.5`. Check the current version again with `$ python -V` to make sure it's correct before proceeding.
+If you're using a version of Python that doesn't work, install [pyenv](https://github.com/pyenv/pyenv-installer) using command `$ curl https://pyenv.run | bash`, then install the version of Python you want to work with, ie `$ pyenv install python3.6.5`, and then run `$ pyenv global 3.6.5`. Check the current version again with `$ python -V` to make sure it's correct before proceeding.
 
 You will need to set up a local virtual environment to install packages and run the project. If you haven't done so before, use pip to install virtualenv – `$ pip install virtualenv` – before creating the virtual environment in the root of the circulation repository:
 
@@ -66,7 +70,7 @@ As mentioned above, this application depends on [Library Simplified Server Core]
 * `$ git submodule init`
 * `$ git submodule update`
 
-### Setting up Elasticsearch
+### Elasticsearch Set Up
 
 The circulation manager requires Elasticsearch. If you don't have Elasticsearch, check out instructions in the [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions), or simply read on.
 
@@ -77,7 +81,7 @@ The circulation manager requires Elasticsearch. If you don't have Elasticsearch,
 5. You may be prompted to download [Java SE](https://www.oracle.com/java/technologies/javase-downloads.html). If so, go ahead and do so.
 6. Check `http://localhost:9200` to make sure the Elasticsearch server is running.
 
-### Databases
+### Database Set Up
 
 The databases should be created next. To find instructions for how to do so, check out the [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions), or simply read on.
 
@@ -108,7 +112,7 @@ export SIMPLIFIED_PRODUCTION_DATABASE="postgres://simplified:[password]@localhos
 export SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:[password]@localhost:5432/simplified_circulation_test"
 ```
 
-### Get up and running
+### Running the Application
 
 Activate the virtual environment:
 
