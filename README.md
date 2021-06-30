@@ -1,9 +1,11 @@
 # Library Simplified Circulation Manager
 ![Build Status](https://github.com/nypl-simplified/circulation/actions/workflows/test.yml/badge.svg?branch=develop) [![GitHub Release](https://img.shields.io/github/release/nypl-simplified/circulation.svg?style=flat)]()
 
+## Overview
+
 Default Branch: `develop`
 
-This is the Circulation Manager for [Library Simplified](https://www.librarysimplified.org/). The Circulation Manager is the main connection between a library's collection and Library Simplified's various client-side applications. It handles user authentication, combines licensed works with open access content, pulls in updated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
+This is the Circulation Manager for [Library Simplified](https://www.librarysimplified.org/). The Circulation Manager is the main connection between a library's collection and Library Simplified's various client-side applications, including SimplyE. It handles user authentication, combines licensed works with open access content, pulls in updated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
 
 It depends on [Library Simplified Server Core](https://github.com/NYPL-Simplified/server_core) as a git submodule.
 
@@ -36,20 +38,81 @@ There are additional protected branches that are used for *NYPL-specific* deploy
 | bpl-deploy-qa  |
 | bpl-deploy-production  |
 
-### Python setup
+## Set Up
 
-This project uses python 3 for development. You will need to set up a local virtual environment to install packages and run the project. Start by creating the virtual environment:
+### Python Set Up
+
+If you do not have Python 3 installed, you can use [Homebrew](https://brew.sh/)* to install it by running the command `$ brew install python3`.
+
+*If you do not yet have Homebrew, you can install it by running the following:
+
+```
+$ /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+While you're at it, go ahead and install the following required dependencies:
+
+* `$ brew install pkg-config libffi`
+* `$ brew install libxmlsec1`
+* `$ brew install libjpeg`
+
+Please note: only certain versions of Python 3 will work with this application. One such version is Python 3.6.5. Check to see which version you currently have installed by running `$ python -V`.
+
+If you're using a version of Python that doesn't work, install [pyenv](https://github.com/pyenv/pyenv-installer) using command `$ curl https://pyenv.run | bash`, then install the version of Python you want to work with, ie `$ pyenv install python3.6.5`, and then run `$ pyenv global 3.6.5`. Check the current version again with `$ python -V` to make sure it's correct before proceeding.
+
+You will need to set up a local virtual environment to install packages and run the project. If you haven't done so before, use pip to install virtualenv – `$ pip install virtualenv` – before creating the virtual environment in the root of the circulation repository:
 
 ```sh
-$ python3 -m venv env
+$ python -m venv env
 ```
 
-Then include the database URLS as environment variables at the end in `/env/bin/activate`. These databases should be created before this step and more information can be found in the [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions):
+As mentioned above, this application depends on [Library Simplified Server Core](https://github.com/NYPL-Simplified/server_core) as a git submodule. To set that up, in the repository, run:
+
+* `$ git submodule init`
+* `$ git submodule update`
+
+### Elasticsearch Set Up
+
+The circulation manager requires Elasticsearch. If you don't have Elasticsearch, check out instructions in the [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions), or simply read on.
+
+1. Download it [here](https://www.elastic.co/downloads/past-releases/elasticsearch-6-8-6).
+2. `cd` into the `elasticsearch-[version number]` directory.
+3. Run `$ elasticsearch-plugin install analysis-icu`
+4. Run `$ ./bin/elasticsearch`.
+5. You may be prompted to download [Java SE](https://www.oracle.com/java/technologies/javase-downloads.html). If so, go ahead and do so.
+6. Check `http://localhost:9200` to make sure the Elasticsearch server is running.
+
+### Database Set Up
+
+The databases should be created next. To find instructions for how to do so, check out the [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions), or simply read on.
+
+1. Download and install [Postgres](https://www.postgresql.org/download/) if you don't have it already.
+2. Use the command `$ psql` to access the Postgresql client.
+3. Within the session, run the following commands, adding your own password in lieu of the [password] placeholders:
+```sh
+CREATE DATABASE simplified_circulation_test;
+CREATE DATABASE simplified_circulation_dev;
+
+CREATE USER simplified with password '[password]';
+grant all privileges on database simplified_circulation_dev to simplified;
+
+CREATE USER simplified_test with password '[password]';
+grant all privileges on database simplified_circulation_test to simplified_test;
+
+--Add pgcrypto to any circulation manager databases.
+\c simplified_circulation_dev
+create extension pgcrypto;
+\c simplified_circulation_test
+create extension pgcrypto;
+```
+
+Then, add the following database URLS as environment variables at the end of the `/env/bin/activate` file within the circulation repo, including the password you created earlier:
 
 ```
 export SIMPLIFIED_PRODUCTION_DATABASE="postgres://simplified:[password]@localhost:5432/simplified_circulation_dev"
 export SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:[password]@localhost:5432/simplified_circulation_test"
 ```
+
+### Running the Application
 
 Activate the virtual environment:
 
@@ -57,11 +120,18 @@ Activate the virtual environment:
 $ source env/bin/activate
 ```
 
-and install the dependencies:
+And install the dependencies:
 
 ```sh
 $ pip install -r requirements-dev.txt
 ```
+
+Run the application with:
+
+```sh
+$ python app.py
+```
+And visit `http://localhost:6500/`.
 
 ### Python Installation Issues
 
@@ -77,7 +147,7 @@ ERROR: Could not build wheels for xmlsec which use PEP 517 and cannot be install
 
 This typically happens after installing packages through brew and then running the `pip install` command.
 
-This [blog post](https://mbbroberg.fun/clang-error-in-pip/) explains and shows a fix for this issue. If the `xcode-select --install` command does not work, you can try adding the following to your `~/.zshrc` or `~/.bashrc` file depending on what you use:
+This [blog post](https://mbbroberg.fun/clang-error-in-pip/) explains and shows a fix for this issue. Start by trying the `xcode-select --install` command. If it does not work, you can try adding the following to your `~/.zshrc` or `~/.bashrc` file, depending on what you use:
 
 ```sh
 export CPPFLAGS="-DXMLSEC_NO_XKMS=1"
