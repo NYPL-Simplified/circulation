@@ -96,8 +96,15 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         # Loans expire in 21 days by default.
         now = utc_now()
         after_expiration = now + datetime.timedelta(days=23)
-        expires = urllib.parse.unquote_plus(params.get("expires")[0])
+        expires = urllib.parse.unquote(params.get("expires")[0])
+
+        # The expiration time passed to the server is associated with
+        # the UTC time zone.
+        assert expires.endswith('+00:00')
         expires = dateutil.parser.parse(expires)
+        assert expires.tzinfo == dateutil.tz.tz.tzutc()
+
+        # It's a time in the future, but not _too far_ in the future.
         assert expires > now
         assert expires < after_expiration
 

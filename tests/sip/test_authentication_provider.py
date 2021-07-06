@@ -1,7 +1,11 @@
 from datetime import datetime
 
 import pytest
-from api.sip.client import MockSIPClient
+from api.sip.client import (
+    MockSIPClient,
+    MockSIPClientFactory,
+)
+
 from api.sip import SIP2AuthenticationProvider
 from core.util.http import RemoteIntegrationException
 from api.authenticator import PatronData
@@ -17,30 +21,32 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     # starting point the actual (albeit redacted) SIP2 messages we
     # receive from servers.
 
-    sierra_valid_login = "64              000201610210000142637000000000000000000000000AOnypl |AA12345|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|BEfoo@example.com|AY1AZD1B7"
-    sierra_excessive_fines = "64              000201610210000142637000000000000000000000000AOnypl |AA12345|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQY|BV20.00|CC15.00|BEfoo@example.com|AY1AZD1B7"
-    sierra_invalid_login = "64Y  YYYYYYYYYYY000201610210000142725000000000000000000000000AOnypl |AA12345|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQN|BV0|CC15.00|BEfoo@example.com|AFInvalid PIN entered.  Please try again or see a staff member for assistance.|AFThere are unresolved issues with your account.  Please see a staff member for assistance.|AY1AZ91A8"
+    sierra_valid_login_unicode = "64              000201610210000142637000000000000000000000000AOnypl |AA12345|AELE CARRÉ, JOHN|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|BEfoo@example.com|AY1AZD1B7"
+    sierra_valid_login = sierra_valid_login_unicode.encode("cp850")
+    sierra_valid_login_utf8 = sierra_valid_login_unicode.encode("utf-8")
+    sierra_excessive_fines = b"64              000201610210000142637000000000000000000000000AOnypl |AA12345|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQY|BV20.00|CC15.00|BEfoo@example.com|AY1AZD1B7"
+    sierra_invalid_login = b"64Y  YYYYYYYYYYY000201610210000142725000000000000000000000000AOnypl |AA12345|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQN|BV0|CC15.00|BEfoo@example.com|AFInvalid PIN entered.  Please try again or see a staff member for assistance.|AFThere are unresolved issues with your account.  Please see a staff member for assistance.|AY1AZ91A8"
 
-    evergreen_active_user = "64  Y           00020161021    142851000000000000000000000000AA12345|AEBooth Active Test|BHUSD|BDAdult Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863715|AOBiblioTest|AY2AZ0000"
-    evergreen_expired_card = "64YYYY          00020161021    142937000000000000000000000000AA12345|AEBooth Expired Test|BHUSD|BDAdult Circ Desk #2 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20080907|PCAdult|PIAllowed|XI863716|AFblocked|AOBiblioTest|AY2AZ0000"
-    evergreen_excessive_fines = "64  Y           00020161021    143002000000000000000100000000AA12345|AEBooth Excessive Fines Test|BHUSD|BV100.00|BDChildrens Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863718|AOBiblioTest|AY2AZ0000"
-    evergreen_hold_privileges_denied = "64   Y          00020161021    143002000000000000000100000000AA12345|AEBooth Excessive Fines Test|BHUSD|BV100.00|BDChildrens Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863718|AOBiblioTest|AY2AZ0000"
-    evergreen_card_reported_lost = "64    Y        00020161021    143002000000000000000100000000AA12345|AEBooth Excessive Fines Test|BHUSD|BV100.00|BDChildrens Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863718|AOBiblioTest|AY2AZ0000"
-    evergreen_inactive_account = "64YYYY          00020161021    143028000000000000000000000000AE|AA12345|BLN|AOBiblioTest|AY2AZ0000"
+    evergreen_active_user = b"64  Y           00020161021    142851000000000000000000000000AA12345|AEBooth Active Test|BHUSD|BDAdult Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863715|AOBiblioTest|AY2AZ0000"
+    evergreen_expired_card = b"64YYYY          00020161021    142937000000000000000000000000AA12345|AEBooth Expired Test|BHUSD|BDAdult Circ Desk #2 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20080907|PCAdult|PIAllowed|XI863716|AFblocked|AOBiblioTest|AY2AZ0000"
+    evergreen_excessive_fines = b"64  Y           00020161021    143002000000000000000100000000AA12345|AEBooth Excessive Fines Test|BHUSD|BV100.00|BDChildrens Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863718|AOBiblioTest|AY2AZ0000"
+    evergreen_hold_privileges_denied = b"64   Y          00020161021    143002000000000000000100000000AA12345|AEBooth Excessive Fines Test|BHUSD|BV100.00|BDChildrens Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863718|AOBiblioTest|AY2AZ0000"
+    evergreen_card_reported_lost = b"64    Y        00020161021    143002000000000000000100000000AA12345|AEBooth Excessive Fines Test|BHUSD|BV100.00|BDChildrens Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863718|AOBiblioTest|AY2AZ0000"
+    evergreen_inactive_account = b"64YYYY          00020161021    143028000000000000000000000000AE|AA12345|BLN|AOBiblioTest|AY2AZ0000"
 
-    polaris_valid_pin = "64              00120161121    143327000000000000000000000000AO3|AA25891000331441|AEFalk, Jen|BZ0050|CA0075|CB0075|BLY|CQY|BHUSD|BV9.25|CC9.99|BD123 Charlotte Hall, MD 20622|BEfoo@bar.com|BF501-555-1212|BC19710101    000000|PA1|PEHALL|PSSt. Mary's|U1|U2|U3|U4|U5|PZ20622|PX20180609    235959|PYN|FA0.00|AFPatron status is ok.|AGPatron status is ok.|AY2AZ94F3"
+    polaris_valid_pin = b"64              00120161121    143327000000000000000000000000AO3|AA25891000331441|AEFalk, Jen|BZ0050|CA0075|CB0075|BLY|CQY|BHUSD|BV9.25|CC9.99|BD123 Charlotte Hall, MD 20622|BEfoo@bar.com|BF501-555-1212|BC19710101    000000|PA1|PEHALL|PSSt. Mary's|U1|U2|U3|U4|U5|PZ20622|PX20180609    235959|PYN|FA0.00|AFPatron status is ok.|AGPatron status is ok.|AY2AZ94F3"
 
-    polaris_wrong_pin = "64YYYY          00120161121    143157000000000000000000000000AO3|AA25891000331441|AEFalk, Jen|BZ0050|CA0075|CB0075|BLY|CQN|BHUSD|BV9.25|CC9.99|BD123 Charlotte Hall, MD 20622|BEfoo@bar.com|BF501-555-1212|BC19710101    000000|PA1|PEHALL|PSSt. Mary's|U1|U2|U3|U4|U5|PZ20622|PX20180609    235959|PYN|FA0.00|AFInvalid patron password. Passwords do not match.|AGInvalid patron password.|AY2AZ87B4"
+    polaris_wrong_pin = b"64YYYY          00120161121    143157000000000000000000000000AO3|AA25891000331441|AEFalk, Jen|BZ0050|CA0075|CB0075|BLY|CQN|BHUSD|BV9.25|CC9.99|BD123 Charlotte Hall, MD 20622|BEfoo@bar.com|BF501-555-1212|BC19710101    000000|PA1|PEHALL|PSSt. Mary's|U1|U2|U3|U4|U5|PZ20622|PX20180609    235959|PYN|FA0.00|AFInvalid patron password. Passwords do not match.|AGInvalid patron password.|AY2AZ87B4"
 
-    polaris_expired_card = "64YYYY          00120161121    143430000000000000000000000000AO3|AA25891000224613|AETester, Tess|BZ0050|CA0075|CB0075|BLY|CQY|BHUSD|BV0.00|CC9.99|BD|BEfoo@bar.com|BF|BC19710101    000000|PA1|PELEON|PSSt. Mary's|U1|U2|U3|U4|U5|PZ|PX20161025    235959|PYY|FA0.00|AFPatron has blocks.|AGPatron has blocks.|AY2AZA4F8"
+    polaris_expired_card = b"64YYYY          00120161121    143430000000000000000000000000AO3|AA25891000224613|AETester, Tess|BZ0050|CA0075|CB0075|BLY|CQY|BHUSD|BV0.00|CC9.99|BD|BEfoo@bar.com|BF|BC19710101    000000|PA1|PELEON|PSSt. Mary's|U1|U2|U3|U4|U5|PZ|PX20161025    235959|PYY|FA0.00|AFPatron has blocks.|AGPatron has blocks.|AY2AZA4F8"
 
-    polaris_excess_fines = "64YYYY      Y   00120161121    144438000000000000000000000000AO3|AA25891000115879|AEFalk, Jen|BZ0050|CA0075|CB0075|BLY|CQY|BHUSD|BV11.50|CC9.99|BD123, Charlotte Hall, MD 20622|BE|BF501-555-1212|BC20140610    000000|PA1|PEHALL|PS|U1No|U2|U3|U4|U5|PZ20622|PX20170424    235959|PYN|FA0.00|AFPatron has blocks.|AGPatron has blocks.|AY2AZA27B"
+    polaris_excess_fines = b"64YYYY      Y   00120161121    144438000000000000000000000000AO3|AA25891000115879|AEFalk, Jen|BZ0050|CA0075|CB0075|BLY|CQY|BHUSD|BV11.50|CC9.99|BD123, Charlotte Hall, MD 20622|BE|BF501-555-1212|BC20140610    000000|PA1|PEHALL|PS|U1No|U2|U3|U4|U5|PZ20622|PX20170424    235959|PYN|FA0.00|AFPatron has blocks.|AGPatron has blocks.|AY2AZA27B"
 
-    polaris_no_such_patron = "64YYYY          00120161121    143126000000000000000000000000AO3|AA1112|AE, |BZ0000|CA0000|CB0000|BLN|CQN|BHUSD|BV0.00|CC0.00|BD|BE|BF|BC|PA0|PE|PS|U1|U2|U3|U4|U5|PZ|PX|PYN|FA0.00|AFPatron does not exist.|AGPatron does not exist.|AY2AZBCF2"
+    polaris_no_such_patron = b"64YYYY          00120161121    143126000000000000000000000000AO3|AA1112|AE, |BZ0000|CA0000|CB0000|BLN|CQN|BHUSD|BV0.00|CC0.00|BD|BE|BF|BC|PA0|PE|PS|U1|U2|U3|U4|U5|PZ|PX|PYN|FA0.00|AFPatron does not exist.|AGPatron does not exist.|AY2AZBCF2"
 
-    tlc_no_such_patron = "64YYYY          00020171031    092000000000000000000000000000AOhq|AA2642|AE|BLN|AF#Unknown borrower barcode - please refer to the circulation desk.|AY1AZD46E"
+    tlc_no_such_patron = b"64YYYY          00020171031    092000000000000000000000000000AOhq|AA2642|AE|BLN|AF#Unknown borrower barcode - please refer to the circulation desk.|AY1AZD46E"
 
-    end_session_response = "36Y201610210000142637AO3|AA25891000331441|AF|AG"
+    end_session_response = b"36Y201610210000142637AO3|AA25891000331441|AF|AG"
 
     def test_initialize_from_integration(self):
         p = SIP2AuthenticationProvider
@@ -51,8 +57,9 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         integration.setting(p.FIELD_SEPARATOR).value = "\t"
         integration.setting(p.INSTITUTION_ID).value = "MAIN"
         provider = p(self._default_library, integration)
-
-        # A SIPClient was initialized based on the integration values.
+        
+        # A SIP2AuthenticationProvider was initialized based on the
+        # integration values.
         assert "user1" == provider.login_user_id
         assert "pass1" == provider.login_password
         assert "\t" == provider.field_separator
@@ -62,10 +69,21 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         # Default port is 6001.
         assert None == provider.port
 
+        # And it's possible to get a SIP2Client that's configured
+        # based on the same values.
+        client = provider._client
+        assert "user1" == client.login_user_id
+        assert "pass1" == client.login_password
+        assert "\t" == client.separator
+        assert "MAIN" == client.institution_id
+        assert "server.com" == client.target_server
+        assert 6001 == client.target_port
+
         # Try again, specifying a port.
         integration.setting(p.PORT).value = "1234"
         provider = p(self._default_library, integration)
         assert 1234 == provider.port
+        assert 1234 == provider._client.target_port
 
     def test_remote_authenticate(self):
         integration = self._external_integration(self._str)
@@ -80,7 +98,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         patrondata = auth.remote_authenticate("user", "pass")
         assert "12345" == patrondata.authorization_identifier
         assert "foo@example.com" == patrondata.email_address
-        assert "SHELDON, ALICE" == patrondata.personal_name
+        assert "LE CARRÉ, JOHN" == patrondata.personal_name
         assert 0 == patrondata.fines
         assert None == patrondata.authorization_expires
         assert None == patrondata.external_type
@@ -191,11 +209,10 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         integration = self._external_integration(self._str)
         p = SIP2AuthenticationProvider
         integration.setting(p.PASSWORD_KEYBOARD).value = p.NULL_KEYBOARD
-        client = MockSIPClient()
-        auth = SIP2AuthenticationProvider(
-            self._default_library, integration, client=client
+        auth = p(
+            self._default_library, integration, client=MockSIPClientFactory()
         )
-
+        client = auth._client
         # This Evergreen instance doesn't use passwords.
         client.queue_response(self.evergreen_active_user)
         client.queue_response(self.end_session_response)
@@ -213,8 +230,38 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         patrondata = auth.remote_authenticate("user2", "some password")
         assert "12345" == patrondata.authorization_identifier
         request = client.requests[-1]
-        assert 'user2' in request
-        assert 'some password' not in request
+        assert b'user2' in request
+        assert b'some password' not in request
+
+    def test_encoding(self):
+        # It's possible to specify an encoding other than CP850
+        # for communication with the SIP2 server.
+        #
+        # Here, we'll try it with UTF-8.
+        p = SIP2AuthenticationProvider
+        integration = self._external_integration(self._str)
+        integration.setting(p.ENCODING).value = "utf-8"
+        auth = p(
+            self._default_library, integration, client=MockSIPClientFactory()
+        )
+
+        # Queue the UTF-8 version of the patron information
+        # as opposed to the CP850 version.
+        client = auth._client
+        client.queue_response(self.sierra_valid_login_utf8)
+        client.queue_response(self.end_session_response)
+        patrondata = auth.remote_authenticate("user", "pass")
+
+        # We're able to parse the message from the server and parse
+        # out patron data, including the É character, with the proper
+        # encoding.
+        assert "12345" == patrondata.authorization_identifier
+        assert "foo@example.com" == patrondata.email_address
+        assert "LE CARRÉ, JOHN" == patrondata.personal_name
+        assert 0 == patrondata.fines
+        assert None == patrondata.authorization_expires
+        assert None == patrondata.external_type
+        assert PatronData.NO_VALUE == patrondata.block_reason
 
     def test_ioerror_during_connect_becomes_remoteintegrationexception(self):
         """If the IP of the circulation manager has not been whitelisted,
@@ -224,9 +271,10 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
             def connect(self):
                 raise IOError("Doom!")
 
-        client = CannotConnect()
         integration = self._external_integration(self._str)
-        provider = SIP2AuthenticationProvider(self._default_library, integration, client=client)
+        provider = SIP2AuthenticationProvider(
+            self._default_library, integration, client=CannotConnect
+        )
 
         with pytest.raises(RemoteIntegrationException) as excinfo:
             provider.remote_authenticate("username", "password",)
@@ -242,9 +290,8 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
 
         integration = self._external_integration(self._str)
         integration.url = 'server.local'
-        client = CannotSend()
         provider = SIP2AuthenticationProvider(
-            self._default_library, integration, client=client
+            self._default_library, integration, client=CannotSend
         )
         with pytest.raises(RemoteIntegrationException) as excinfo:
             provider.remote_authenticate("username", "password",)
@@ -287,18 +334,18 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     def test_info_to_patrondata_validate_password(self):
         integration = self._external_integration(self._str)
         integration.url = 'server.local'
-        client = MockSIPClient()
         provider = SIP2AuthenticationProvider(
-            self._default_library, integration, client=client
+            self._default_library, integration, client=MockSIPClientFactory()
         )
 
+        client = provider._client
         # Test with valid login, should return PatronData
         info = client.patron_information_parser(TestSIP2AuthenticationProvider.sierra_valid_login)
         patron = provider.info_to_patrondata(info)
         assert patron.__class__ == PatronData
         assert "12345" == patron.authorization_identifier
         assert "foo@example.com" == patron.email_address
-        assert "SHELDON, ALICE" == patron.personal_name
+        assert "LE CARRÉ, JOHN" == patron.personal_name
         assert 0 == patron.fines
         assert None == patron.authorization_expires
         assert None == patron.external_type
@@ -312,10 +359,10 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     def test_info_to_patrondata_no_validate_password(self):
         integration = self._external_integration(self._str)
         integration.url = 'server.local'
-        client = MockSIPClient()
         provider = SIP2AuthenticationProvider(
-            self._default_library, integration, client=client
+            self._default_library, integration, client=MockSIPClientFactory()
         )
+        client = provider._client
 
         # Test with valid login, should return PatronData
         info = client.patron_information_parser(TestSIP2AuthenticationProvider.sierra_valid_login)
@@ -323,7 +370,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         assert patron.__class__ == PatronData
         assert "12345" == patron.authorization_identifier
         assert "foo@example.com" == patron.email_address
-        assert "SHELDON, ALICE" == patron.personal_name
+        assert "LE CARRÉ, JOHN" == patron.personal_name
         assert 0 == patron.fines
         assert None == patron.authorization_expires
         assert None == patron.external_type
@@ -344,10 +391,10 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     def test_patron_block_setting(self):
         integration_block = self._external_integration(self._str, settings={SIP2AuthenticationProvider.PATRON_STATUS_BLOCK: "true"})
         integration_noblock = self._external_integration(self._str, settings={SIP2AuthenticationProvider.PATRON_STATUS_BLOCK: "false"})
-        client = MockSIPClient()
 
         # Test with blocked patron, block should be set
-        p = SIP2AuthenticationProvider(self._default_library, integration_block, client=client)
+        p = SIP2AuthenticationProvider(self._default_library, integration_block, client=MockSIPClientFactory())
+        client = p._client
         info = client.patron_information_parser(TestSIP2AuthenticationProvider.evergreen_expired_card)
         patron = p.info_to_patrondata(info)
         assert patron.__class__ == PatronData
@@ -359,7 +406,11 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         assert PatronData.NO_BORROWING_PRIVILEGES == patron.block_reason
 
         # Test with blocked patron, block should not be set
-        p = SIP2AuthenticationProvider(self._default_library, integration_noblock, client=client)
+        p = SIP2AuthenticationProvider(
+            self._default_library, integration_noblock,
+            client=MockSIPClientFactory()
+        )
+        client = p._client
         info = client.patron_information_parser(TestSIP2AuthenticationProvider.evergreen_expired_card)
         patron = p.info_to_patrondata(info)
         assert patron.__class__ == PatronData
@@ -388,9 +439,8 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
             def patron_information(self, username, password):
                 return self.patron_information_parser(TestSIP2AuthenticationProvider.sierra_valid_login)
 
-        badConnectionClient = MockBadConnection()
         auth = SIP2AuthenticationProvider(
-            self._default_library, integration, client=badConnectionClient
+            self._default_library, integration, client=MockBadConnection
         )
         results = [r for r in auth._run_self_tests(self._db)]
 
@@ -400,9 +450,8 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         assert results[0].success == False
         assert(results[0].exception, IOError("Could not connect"))
 
-        badLoginClient = MockSIPLogin()
         auth = SIP2AuthenticationProvider(
-            self._default_library, integration, client=badLoginClient
+            self._default_library, integration, client=MockSIPLogin
         )
         results = [x for x in auth._run_self_tests(self._db)]
 
