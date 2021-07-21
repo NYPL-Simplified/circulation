@@ -1,15 +1,25 @@
 admin = """
 <!doctype html>
 <html>
-<head>
-<title>Circulation Manager</title>
-<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-<link href=\"/admin/static/circulation-web.css\" rel="stylesheet" />
-</head>
-<body>
-  <script src=\"/admin/static/circulation-web.js\"></script>
-  <script>
-    var circulationWeb = new CirculationWeb({
+  {% if \"/admin/static/circulation-web.css\" == null or \"/admin/static/circulation-web.js\" == null %}
+  <head>
+    <title>Circulation Manager</title>
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+  </head>
+  <body>
+    <p>You probably forgot to run npm install</p>
+  </body>
+</html>
+  {% else %}
+  <head>
+    <title>Circulation Manager</title>
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+    <link href=\"/admin/static/circulation-web.css\" rel="stylesheet" />
+  </head>
+  <body>
+    <script src=\"/admin/static/circulation-web.js\"></script>
+    <script>
+      var circulationWeb = new CirculationWeb({
         csrfToken: \"{{ csrf_token }}\",
         tos_link_href: \"{{ sitewide_tos_href }}\",
         tos_link_text: \"{{ sitewide_tos_text }}\",
@@ -18,8 +28,9 @@ admin = """
         email: \"{{ email }}\",
         roles: [{% for role in roles %}{"role": \"{{role.role}}\"{% if role.library %}, "library": \"{{role.library.short_name}}\"{% endif %} },{% endfor %}]
     });
-  </script>
-</body>
+    </script>
+  </body>
+  {% endif %}
 </html>
 """
 
