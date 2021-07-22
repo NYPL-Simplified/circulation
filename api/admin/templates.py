@@ -1,25 +1,18 @@
 admin = """
 <!doctype html>
 <html>
-  {% if \"/admin/static/circulation-web.css\" == null or \"/admin/static/circulation-web.js\" == null %}
-  <head>
-    <title>Circulation Manager</title>
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-  </head>
-  <body>
-    <p>You probably forgot to run npm install</p>
-  </body>
-</html>
-  {% else %}
-  <head>
-    <title>Circulation Manager</title>
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-    <link href=\"/admin/static/circulation-web.css\" rel="stylesheet" />
-  </head>
-  <body>
-    <script src=\"/admin/static/circulation-web.js\"></script>
-    <script>
-      var circulationWeb = new CirculationWeb({
+<head>
+<title>Circulation Manager</title>
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+<link href=\"/admin/static/circulation-web.css\" rel="stylesheet"/>
+</head>
+<body>
+  <p class="error" id="error1" style="color:#1B7FA7;font-family:sans-serif;font-weight:bold;font-size:x-large;margin-top:50px;margin-left:30px"></p>
+  <p class="error" id="error2" style="color:#1B7FA7;font-family:sans-serif;font-size:medium;margin-top:10px;margin-left:30px"></p>
+  <script src=\"/admin/static/circulation-web.js\"></script>
+  <script>
+  try {
+    var circulationWeb = new CirculationWeb({
         csrfToken: \"{{ csrf_token }}\",
         tos_link_href: \"{{ sitewide_tos_href }}\",
         tos_link_text: \"{{ sitewide_tos_text }}\",
@@ -28,11 +21,20 @@ admin = """
         email: \"{{ email }}\",
         roles: [{% for role in roles %}{"role": \"{{role.role}}\"{% if role.library %}, "library": \"{{role.library.short_name}}\"{% endif %} },{% endfor %}]
     });
-    </script>
-  </body>
-  {% endif %}
+    const elementsToRemove = document.getElementsByClassName("error");
+    while(elementsToRemove.length > 0){
+        elementsToRemove[0].parentNode.removeChild(elementsToRemove[0]);
+    }
+  } catch (e) {
+    document.getElementById("error1").innerHTML = "We're having trouble displaying this page."
+    document.getElementById("error2").innerHTML = "Contact your administrator, and ask them to check the console for more information."
+    console.warn("The CSS and/or JavaScript files for this page could not be found. Try running `npm install` in the api/admin directory of the circulation repo.")
+  }
+  </script>
+</body>
 </html>
 """
+
 
 admin_sign_in_again = """
 <!doctype html>
