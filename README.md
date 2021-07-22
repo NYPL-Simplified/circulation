@@ -263,6 +263,8 @@ Check out the [Docker README](/docker/README.md) in the `/docker` directory for 
 
 If you are served an error message on the admin home screen, you may need to run `npm install` in the api/admin directory of the circulation repo. If you're running the application locally, you can also try running the same command in the root directory of the circulation-web repo.
 
+The latter command will only work if the circulation-web and circulation repos are linked using npm link. You can find more information on how to do this in the circulation-web repo's [README](https://github.com/NYPL-Simplified/circulation-web/blob/main/README.md).
+
 ## License
 
 ```

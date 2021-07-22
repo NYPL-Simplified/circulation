@@ -5,10 +5,17 @@ admin = """
 <title>Circulation Manager</title>
 <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
 <link href=\"/admin/static/circulation-web.css\" rel="stylesheet"/>
+<style>
+  .error {
+    color: #1B7FA7;
+    font-family: sans-serif;
+    margin-left: 30px
+  }
+</style>
 </head>
 <body>
-  <p class="error" id="error1" style="color:#1B7FA7;font-family:sans-serif;font-weight:bold;font-size:x-large;margin-top:50px;margin-left:30px"></p>
-  <p class="error" id="error2" style="color:#1B7FA7;font-family:sans-serif;font-size:medium;margin-top:10px;margin-left:30px"></p>
+  <p class="error" id="error1" style="font-weight:bold;font-size:x-large;margin-top:50px"></p>
+  <p class="error" id="error2" style="font-size:medium;margin-top:10px"></p>
   <script src=\"/admin/static/circulation-web.js\"></script>
   <script>
   try {
@@ -28,6 +35,7 @@ admin = """
   } catch (e) {
     document.getElementById("error1").innerHTML = "We're having trouble displaying this page."
     document.getElementById("error2").innerHTML = "Contact your administrator, and ask them to check the console for more information."
+    console.error("The following error occurred: ", e)
     console.warn("The CSS and/or JavaScript files for this page could not be found. Try running `npm install` in the api/admin directory of the circulation repo.")
   }
   </script>
