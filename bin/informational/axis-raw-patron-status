@@ -13,6 +13,9 @@ from core.scripts import Script                             # noqa: E402
 
 
 class Axis360RawPatronActivityScript(Script):
+    """Show the raw output of the Axis 360 "availability" endpoint
+    for one or more patron identifiers.
+    """
     def run(self):
         for patron_identifier in sys.argv[1:]:
             for collection in Collection.by_protocol(self._db, ExternalIntegration.AXIS_360):
