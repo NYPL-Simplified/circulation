@@ -1,31 +1,40 @@
-import argparse
-import base64
-from cStringIO import StringIO
+import json
+from io import (
+    BytesIO,
+    StringIO,
+)
+import itertools
 from datetime import datetime, timedelta
 import hashlib
 import hmac
 import itertools
-import json
 import logging
 import os
 import re
-import urlparse
+import urllib.parse
 import time
 
 import dateutil.parser
 from flask_babel import lazy_gettext as _
 from lxml import etree
+from pymarc import parse_xml_to_array
 from sqlalchemy import or_
 from sqlalchemy.orm.session import Session
 
-from circulation import (
+from .web_publication_manifest import (
+    FindawayManifest,
+    SpineItem,
+)
+from .circulation import (
     FulfillmentInfo,
     HoldInfo,
     LoanInfo,
     BaseCirculationAPI,
 )
-from circulation_exceptions import *
-from core.analytics import Analytics
+from .selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
 from core.config import (
     Configuration,
     CannotLoadConfiguration,
@@ -81,15 +90,29 @@ from core.util.http import (
     BadResponseException,
     HTTP
 )
-from selftest import (
-    HasSelfTests,
-    SelfTestResult,
-)
-from web_publication_manifest import (
-    FindawayManifest,
-    SpineItem,
-)
 
+from .circulation_exceptions import *
+from core.analytics import Analytics
+
+from core.metadata_layer import (
+    ContributorData,
+    CirculationData,
+    Metadata,
+    LinkData,
+    IdentifierData,
+    FormatData,
+    MeasurementData,
+    ReplacementPolicy,
+    SubjectData,
+)
+from core.util.datetime_helpers import (
+    datetime_utc,
+    strptime_utc,
+    to_utc,
+    utc_now,
+)
+from core.util.string_helpers import base64
+from core.testing import DatabaseTest
 
 class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
 
@@ -133,7 +156,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         (None, findaway_drm) : 'MP3'
     }
     internal_format_to_delivery_mechanism = dict(
-        [v,k] for k, v in delivery_mechanism_to_internal_format.items()
+        [v,k] for k, v in list(delivery_mechanism_to_internal_format.items())
     )
 
     def __init__(self, _db, collection):
@@ -157,12 +180,6 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             raise CannotLoadConfiguration(
                 "Bibliotheca configuration is incomplete."
             )
-
-        # Use utf8 instead of unicode encoding
-        settings = [self.account_id, self.account_key, self.library_id]
-        self.account_id, self.account_key, self.library_id = (
-            setting.encode('utf8') for setting in settings
-        )
 
         self.item_list_parser = ItemListParser()
         self.collection_id = collection.id
@@ -195,7 +212,9 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         now = self.now()
         signature_components = [now, method, path]
         signature_string = "\n".join(signature_components)
-        digest = hmac.new(self.account_key, msg=signature_string,
+        digest = hmac.new(
+                    self.account_key.encode("utf-8"),
+                    msg=signature_string.encode("utf-8"),
                     digestmod=hashlib.sha256).digest()
         signature = base64.standard_b64encode(digest)
         return signature, now
@@ -203,7 +222,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
     def full_url(self, path):
         if not path.startswith("/cirrus"):
             path = self.full_path(path)
-        return urlparse.urljoin(self.base_url, path)
+        return urllib.parse.urljoin(self.base_url, path)
 
     def full_path(self, path):
         if not path.startswith("/"):
@@ -253,6 +272,29 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 results[identifier] = (edition, metadata)
         return results
 
+    def marc_request(self, start, end, offset=1, limit=50):
+        """Make an HTTP request to look up the MARC records for books purchased
+        between two given dates.
+
+        :param start: A datetime to start looking for purchases.
+        :param end: A datetime to stop looking for purchases.
+        :param offset: An offset used to paginate results.
+        :param limit: A limit used to paginate results.
+        :raise: An appropriate exception if the request did not return
+          MARC records.
+        :yield: A list of MARC records.
+        """
+        start = start.strftime(self.ARGUMENT_TIME_FORMAT)
+        end = end.strftime(self.ARGUMENT_TIME_FORMAT)
+        url = "data/marc?startdate=%s&enddate=%s&offset=%d&limit=%d" % (
+            start, end, offset, limit
+        )
+        response = self.request(url)
+        if response.status_code != 200:
+            raise ErrorParser().process_all(response.content)
+        for record in parse_xml_to_array(BytesIO(response.content)):
+            yield record
+
     def bibliographic_lookup_request(self, identifiers):
         """Make an HTTP request to look up current bibliographic and
         circulation information for the given `identifiers`.
@@ -272,7 +314,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         :param identifiers: A list containing either Identifier
             objects or Bibliotheca identifier strings.
         """
-        if any(isinstance(identifiers, x) for x in (Identifier, basestring)):
+        if any(isinstance(identifiers, x) for x in (Identifier, str)):
             identifiers = [identifiers]
         identifier_strings = []
         for i in identifiers:
@@ -296,7 +338,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
 
     def _run_self_tests(self, _db):
         def _count_events():
-            now = datetime.utcnow()
+            now = utc_now()
             five_minutes_ago = now - timedelta(minutes=5)
             count = len(list(self.get_events_between(five_minutes_ago, now)))
             return "Found %d event(s)" % count
@@ -333,7 +375,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             self._db.commit()
         try:
             events = EventParser().process_all(response.content, no_events_error)
-        except Exception, e:
+        except Exception as e:
             self.log.error(
                 "Error parsing Bibliotheca response content: %s", response.content,
                 exc_info=e
@@ -385,7 +427,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request('checkout', body, method="PUT")
         if response.status_code == 201:
             # New loan
-            start_date = datetime.utcnow()
+            start_date = utc_now()
         elif response.status_code == 200:
             # Old loan -- we don't know the start date
             start_date = None
@@ -436,7 +478,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 content_type, content = (
                     content_transformation(pool, content)
                 )
-            except Exception, e:
+            except Exception as e:
                 self.log.error(
                     "Error transforming fulfillment document: %s",
                     response.content, exc_info=e
@@ -483,9 +525,14 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                    item_id=item_id, patron_id=patron_id)
         body = self.TEMPLATE % args
         response = self.request('placehold', body, method="PUT")
+        # The response comes in as a byte string that we must
+        # convert into a string.
+        response_content = None
+        if response.content:
+            response_content = response.content.decode("utf-8")
         if response.status_code in (200, 201):
-            start_date = datetime.utcnow()
-            end_date = HoldResponseParser().process_all(response.content)
+            start_date = utc_now()
+            end_date = HoldResponseParser().process_all(response_content)
             return HoldInfo(
                 licensepool.collection, DataSource.BIBLIOTHECA,
                 licensepool.identifier.type,
@@ -495,9 +542,9 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 hold_position=None
             )
         else:
-            if not response.content:
+            if not response_content:
                 raise CannotHold()
-            error = ErrorParser().process_all(response.content)
+            error = ErrorParser().process_all(response_content)
             if isinstance(error, Exception):
                 raise error
             else:
@@ -529,7 +576,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             license document via Bibliotheca, or a dictionary
             representing such a document loaded into JSON form.
         """
-        if isinstance(findaway_license, basestring):
+        if isinstance(findaway_license, (bytes, str)):
             findaway_license = json.loads(findaway_license)
 
         kwargs = {}
@@ -574,7 +621,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             license_pool=license_pool, spine_items=spine_items, **kwargs
         )
 
-        return DeliveryMechanism.FINDAWAY_DRM, unicode(manifest)
+        return DeliveryMechanism.FINDAWAY_DRM, str(manifest)
 
 
 class DummyBibliothecaAPIResponse(object):
@@ -593,14 +640,14 @@ class MockBibliothecaAPI(BibliothecaAPI):
         collection, ignore = get_one_or_create(
             _db, Collection,
             name=name, create_method_kwargs=dict(
-                external_account_id=u'c',
+                external_account_id='c',
             )
         )
         integration = collection.create_external_integration(
             protocol=ExternalIntegration.BIBLIOTHECA
         )
-        integration.username = u'a'
-        integration.password = u'b'
+        integration.username = 'a'
+        integration.password = 'b'
         integration.url = "http://bibliotheca.test"
         library.collections.append(collection)
         return collection
@@ -744,8 +791,8 @@ class ItemListParser(XMLParser):
 
         for format in formats:
             try:
-                published_date = datetime.strptime(published, format)
-            except ValueError, e:
+                published_date = strptime_utc(published, format)
+            except ValueError as e:
                 pass
 
         links = []
@@ -886,16 +933,14 @@ class BibliothecaParser(XMLParser):
             value = None
         else:
             try:
-                value = datetime.strptime(
-                    value, self.INPUT_TIME_FORMAT
-                )
-            except ValueError, e:
+                value = strptime_utc(value, self.INPUT_TIME_FORMAT)
+            except ValueError as e:
                 logging.error(
                     'Unable to parse Bibliotheca date: "%s"', value,
                     exc_info=e
                 )
                 value = None
-        return value
+        return to_utc(value)
 
     def date_from_subtag(self, tag, key, required=True):
         if required:
@@ -942,7 +987,7 @@ class ErrorParser(BibliothecaParser):
             for i in super(ErrorParser, self).process_all(
                     string, "//Error"):
                 return i
-        except Exception, e:
+        except Exception as e:
             # The server sent us an error with an incorrect or
             # nonstandard syntax.
             return RemoteInitiatedServerError(
@@ -1032,6 +1077,10 @@ class PatronCirculationParser(BibliothecaParser):
 
     def process_all(self, string):
         parser = etree.XMLParser()
+        # If the data is an HTTP response, it is a bytestring and
+        # must be converted before it is parsed.
+        if isinstance(string, bytes):
+            string = string.decode("utf-8")
         root = etree.parse(StringIO(string), parser)
         sup = super(PatronCirculationParser, self)
         loans = sup.process_all(
@@ -1063,8 +1112,9 @@ class PatronCirculationParser(BibliothecaParser):
 
         def datevalue(key):
             value = self.text_of_subtag(tag, key)
-            return datetime.strptime(
-                value, BibliothecaAPI.ARGUMENT_TIME_FORMAT)
+            return strptime_utc(
+                value, BibliothecaAPI.ARGUMENT_TIME_FORMAT
+            )
 
         identifier = self.text_of_subtag(tag, "ItemId")
         start_date = datevalue("EventStartDateInUTC")
@@ -1086,6 +1136,10 @@ class DateResponseParser(BibliothecaParser):
 
     def process_all(self, string):
         parser = etree.XMLParser()
+        # If the data is an HTTP response, it is a bytestring and
+        # must be converted before it is parsed.
+        if isinstance(string, bytes):
+            string = string.decode("utf-8")
         root = etree.parse(StringIO(string), parser)
         m = root.xpath("/%s/%s" % (self.RESULT_TAG_NAME, self.DATE_TAG_NAME))
         if not m:
@@ -1093,8 +1147,7 @@ class DateResponseParser(BibliothecaParser):
         due_date = m[0].text
         if not due_date:
             return None
-        return datetime.strptime(
-                due_date, EventParser.INPUT_TIME_FORMAT)
+        return strptime_utc(due_date, EventParser.INPUT_TIME_FORMAT)
 
 
 class CheckoutResponseParser(DateResponseParser):
@@ -1208,7 +1261,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
             identifiers_by_bibliotheca_id[identifier.identifier] = identifier
 
         identifiers_not_mentioned_by_bibliotheca = set(identifiers)
-        now = datetime.utcnow()
+        now = utc_now()
         for metadata in self.api.bibliographic_lookup(bibliotheca_ids):
             self._process_metadata(
                 metadata, identifiers_by_bibliotheca_id,
@@ -1257,37 +1310,19 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
             for library in self.collection.libraries:
                 self.analytics.collect_event(
                     library, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD,
-                    datetime.utcnow()
+                    utc_now()
                 )
         edition, ignore = metadata.apply(edition, collection=self.collection,
                                          replace=self.replacement_policy)
 
-class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
 
-    """Register CirculationEvents for Bibliotheca titles.
-
-    Most of the time we will just be finding out that someone checked
-    in or checked out a copy of a book we already knew about.
-
-    But when a new book comes on the scene, this is where we first
-    find out about it. When this happens, we create a LicensePool and
-    immediately ensure that we get coverage from the
-    BibliothecaBibliographicCoverageProvider.
-
-    But getting up-to-date circulation data for that new book requires
-    either that we process further events, or that we encounter it in
-    the BibliothecaCirculationSweep.
-    """
-
-    SERVICE_NAME = "Bibliotheca Event Monitor"
-    DEFAULT_START_TIME = timedelta(days=365*3)
+class BibliothecaTimelineMonitor(CollectionMonitor, TimelineMonitor):
+    """Common superclass for our two TimelineMonitors."""
     PROTOCOL = ExternalIntegration.BIBLIOTHECA
     LOG_DATE_FORMAT = '%Y-%m-%dT%H:%M:%S'
 
     def __init__(self, _db, collection, api_class=BibliothecaAPI,
-                 default_start=None, analytics=None,
-                 override_timestamp=False,
-                 ):
+                 analytics=None):
         """Initializer.
 
         :param _db: Database session object.
@@ -1295,7 +1330,55 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         :param collection: Collection for which this monitor operates.
 
         :param api_class: API class or an instance thereof for this monitor.
-        :param api_class: Union[Type[BibliothecaAPI], BibliothecaAPI]
+        :type api_class: Union[Type[BibliothecaAPI], BibliothecaAPI]
+
+        :param analytics: An optional Analytics object.
+        :type analytics: Optional[Analytics]
+        """
+        self.analytics = analytics or Analytics(_db)
+        super(BibliothecaTimelineMonitor, self).__init__(_db, collection)
+        if isinstance(api_class, BibliothecaAPI):
+            # We were given an actual API object. Just use it.
+            self.api = api_class
+        else:
+            self.api = api_class(_db, collection)
+        self.replacement_policy = BibliothecaAPI.replacement_policy(
+            _db, self.analytics
+        )
+        self.bibliographic_coverage_provider = BibliothecaBibliographicCoverageProvider(
+            collection, self.api, replacement_policy=self.replacement_policy
+        )
+
+
+class BibliothecaPurchaseMonitor(BibliothecaTimelineMonitor):
+    """Track purchases of licenses from Bibliotheca.
+
+    Most TimelineMonitors monitor the timeline starting at whatever
+    time they're first run. But it's crucial that this monitor start
+    at or before the first day on which a book was added to this
+    collection, even if that date was years in the past. That's
+    because this monitor may be the only time we hear about a
+    particular book.
+
+    Because of this, this monitor has a very old DEFAULT_START_TIME
+    and special capabilities for customizing the start_time to go back
+    even further.
+    """
+    SERVICE_NAME = "Bibliotheca Purchase Monitor"
+    DEFAULT_START_TIME = datetime_utc(2014, 1, 1)
+
+    def __init__(self, _db, collection, api_class=BibliothecaAPI,
+                 default_start=None, override_timestamp=False,
+                 analytics=None
+    ):
+        """Initializer.
+
+        :param _db: Database session object.
+
+        :param collection: Collection for which this monitor operates.
+
+        :param api_class: API class or an instance thereof for this monitor.
+        :type api_class: Union[Type[BibliothecaAPI], BibliothecaAPI]
 
         :param default_start: A default date/time at which to start
             requesting events. It should be specified as a `datetime` or
@@ -1311,18 +1394,9 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
             for an already initialized monitor.
         :type override_timestamp: bool
         """
-        self.analytics = analytics or Analytics(_db)
-        super(BibliothecaEventMonitor, self).__init__(_db, collection)
-        if isinstance(api_class, BibliothecaAPI):
-            # We were given an actual API object. Just use it.
-            self.api = api_class
-        else:
-            self.api = api_class(_db, collection)
-        self.replacement_policy = BibliothecaAPI.replacement_policy(
-            _db, self.analytics
-        )
-        self.bibliographic_coverage_provider = BibliothecaBibliographicCoverageProvider(
-            collection, self.api, replacement_policy=self.replacement_policy
+        super(BibliothecaPurchaseMonitor, self).__init__(
+            _db=_db, collection=collection, api_class=api_class,
+            analytics=analytics
         )
 
         # We should only force the use of `default_start` as the actual
@@ -1344,9 +1418,9 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         :rtype: Optional[datetime]
         """
         if date is None or isinstance(date, datetime):
-            return date
+            return to_utc(date)
         try:
-            dt_date = dateutil.parser.isoparse(date)
+            dt_date = to_utc(dateutil.parser.isoparse(date))
         except ValueError as e:
             self.log.warn(
                 '%r. Date argument "%s" was not in a valid format. Use an ISO 8601 string or a datetime.',
@@ -1360,8 +1434,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
 
         The intrinsic start time is the time at which this monitor would
         start if it were uninitialized (no timestamp) and no `default_start`
-        parameter were supplied. It is a datetime `self.DEFAULT_START_TIME`
-        in the past.
+        parameter were supplied. It is `self.DEFAULT_START_TIME`.
 
         :param _db: Database session object.
 
@@ -1371,7 +1444,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         # We don't use Monitor.timestamp() because that will create
         # the timestamp if it doesn't exist -- we want to see whether
         # or not it exists.
-        default_start_time = datetime.utcnow() - self.DEFAULT_START_TIME
+        default_start_time = self.DEFAULT_START_TIME
         initialized = get_one(
             _db, Timestamp, service=self.service_name,
             service_type=Timestamp.MONITOR_TYPE, collection=self.collection
@@ -1392,96 +1465,221 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
         and setting`timestamp.finish` to None will cause the default to
         be used.
         """
-        timestamp = super(BibliothecaEventMonitor, self).timestamp()
+        timestamp = super(BibliothecaPurchaseMonitor, self).timestamp()
         if self.override_timestamp:
             self.log.info('Overriding timestamp and starting at %s.',
                           datetime.strftime(self.default_start_time, self.LOG_DATE_FORMAT))
             timestamp.finish = None
         return timestamp
 
-    @staticmethod
-    def _impose_bibliotheca_timespan_constraint(timespan):
-        # Due to the workings of the Bibliotheca API, no mode
-        # should have a timespan longer than 72 hours.
-        if timespan <= timedelta(hours=72):
+    def catch_up_from(self, start, cutoff, progress):
+        """Ask the Bibliotheca API about new purchases for every
+        day between `start` and `cutoff`.
+
+        :param start: The first day to ask about.
+        :type start: datetime.datetime
+        :param cutoff: The last day to ask about.
+        :type cutoff: datetime.datetime
+        :param progress: Object used to record progress through the timeline.
+        :type progress: core.metadata_layer.TimestampData
+        """
+        num_records = 0
+        # Ask the Bibliotheca API for one day of data at a time.  This
+        # ensures that TITLE_ADD events are associated with the day
+        # the license was purchased.
+        today = utc_now().date()
+        achievement_template = "MARC records processed: %s"
+        for slice_start, slice_end, is_full_slice in self.slice_timespan(
+            start, cutoff, timedelta(days=1)
+        ):
+            for record in self.purchases(slice_start, slice_end):
+                self.process_record(record, slice_start)
+                num_records += 1
+            if isinstance(slice_end, datetime):
+                slice_end_as_date = slice_end.date()
+            else:
+                slice_end_as_date = slice_end
+            if is_full_slice and slice_end_as_date < today:
+                # We have finished processing a date in the past.
+                # There can never be more licenses purchased for that
+                # day. Treat this as a checkpoint.
+                #
+                # We're playing it safe by using slice_start instead
+                # of slice_end here -- slice_end should be fine.
+                self._checkpoint(
+                    progress, start, slice_start,
+                    achievement_template % num_records
+                )
+            # We're all caught up. The superclass will take care of
+            # finalizing the dates, so there's no need to explicitly
+            # set a checkpoint.
+            progress.achievements = achievement_template % num_records
+
+    def _checkpoint(self, progress, start, finish, achievements):
+        """Set the monitor's progress so that if it crashes later on it will
+        start from this point, reducing duplicate work.
+
+        This is especially important for this monitor, which usually
+        starts several years in the past. TODO: However it might be
+        useful to make this a general feature of TimelineMonitor.
+
+        :param progress: Object used to record progress through the timeline.
+        :type progress: core.metadata_layer.TimestampData
+
+        :param start: New value for `progress.start`
+        :type start: datetime.datetime
+
+        :param finish: New value for `progress.finish`
+        :type finish: datetime.datetime
+
+        :param achievements: The monitor's achievements thus far.
+        :type achievements: str
+        """
+        progress.start = start
+        progress.finish = finish
+        progress.achievements = achievements
+        progress.finalize(
+            service=self.service_name,
+            service_type=Timestamp.MONITOR_TYPE,
+            collection=self.collection,
+        )
+        progress.apply(self._db)
+        self._db.commit()
+
+    def purchases(self, start, end):
+        """Ask Bibliotheca for a MARC record for each book purchased
+        between `start` and `end`.
+
+        :yield: A sequence of pymarc Record objects
+        """
+        offset = 1     # Smallest allowed offset
+        page_size = 50 # Maximum supported size.
+        records = None
+        while records is None or len(records) >= page_size:
+            records = [
+                x for x in self.api.marc_request(start, end, offset, page_size)
+            ]
+            for record in records:
+                yield record
+            offset += page_size
+
+    def process_record(self, record, purchase_time):
+        """Record the purchase of a new title.
+
+        :param record: Bibliographic information about the new title.
+        :type record: pymarc.Record
+
+        :param purchase_time: Put down this time as the time the 
+           purchase happened.
+        :type start_time: datetime.datetime
+
+        :return: A LicensePool representing the new title.
+        :rtype: core.model.LicensePool
+        """
+        # The control number associated with the MARC record is what
+        # we call the Bibliotheca ID.
+        control_numbers = [x for x in record.fields if x.tag == '001']
+        # These errors should not happen in real usage.
+        error = None
+        if not control_numbers:
+            error = "Ignoring MARC record with no Bibliotheca control number."
+        elif len(control_numbers) > 1:
+            error = "Ignoring MARC record with multiple Bibliotheca control numbers."
+        if error is not None:
+            self.log.error(error + " " + record.as_json())
             return
-        raise ValueError('A timespan greater than 72 hours can result in spurious'
-                         ' results from the Bibliotheca events API.')
+
+        # At this point we know there is one and only one control
+        # number.
+        bibliotheca_id = control_numbers[0].value()
+
+        # Find or lookup a LicensePool from the control number.
+        license_pool, is_new = LicensePool.for_foreign_id(
+            self._db, self.api.source, Identifier.BIBLIOTHECA_ID,
+            bibliotheca_id, collection=self.collection
+        )
+
+        if is_new:
+            # We've never seen this book before. Immediately acquire
+            # bibliographic coverage for it. This will set the
+            # DistributionMechanisms and make the book
+            # presentation-ready.
+            #
+            # We have most of the bibliographic information in the
+            # MARC record itself, but using the
+            # BibliographicCoverageProvider saves code and also gives
+            # us up-to-date circulation information.
+            coverage_record = self.bibliographic_coverage_provider.ensure_coverage(
+                license_pool.identifier, force=True
+            )
+
+        # Record the addition of this title to the collection. Do this
+        # even if we've heard about the book before, through some
+        # other monitor. That's because this is the only Bibliotheca
+        # monitor that issues TITLE_ADD events.
+        #
+        # We know approximately when the license was purchased --
+        # potentially a long time ago -- since `start_time` is
+        # provided.
+        license_pool.collect_analytics_event(
+            self.analytics, CirculationEvent.DISTRIBUTOR_TITLE_ADD,
+            purchase_time, 0, 1
+        )
+        return license_pool
+
+
+class BibliothecaEventMonitor(BibliothecaTimelineMonitor):
+
+    """Register CirculationEvents for Bibliotheca titles.
+
+    When run, this monitor will look at recent events as a way of keeping
+    the local collection up to date.
+
+    Although useful in everyday situations, the events endpoint will
+    not always give you all the events:
+
+    * Any given call to the events endpoint will return at most
+      100-150 events. If there is a particularly busy 5-minute
+      stretch, events will be lost.
+
+    * The Bibliotheca API has, in the past, gone into a state where
+      this endpoint returns an empty list of events rather than an
+      error message.
+
+    Fortunately, we have the BibliothecaPurchaseMonitor to keep track
+    of new license purchases, and the BibliothecaCirculationSweep to
+    keep up to date on books we already know about. If the
+    BibliothecaEventMonitor stopped working completely, the rest of
+    the system would continue to work, but circulation data would
+    always be a few hours out of date.
+
+    Thus, running the BibliothecaEventMonitor alongside the other two
+    Bibliotheca monitors ensures that circulation data is kept up to date
+    in near-real-time with good, but not perfect, consistency.
+    """
+
+    SERVICE_NAME = "Bibliotheca Event Monitor"
 
     def catch_up_from(self, start, cutoff, progress):
-        # This method operates in three modes: Uninitialized, Backlog,
-        # and Recent. Uninitialized Mode happens when the monitor's
-        # `progress.counter` is null, but is functionally identical
-        # to Backlog Mode (0, backlog_mode_counter_value).
-        # In both of these modes, the timespan for which we fetch
-        # events is `backlog_mode_timespan` and it is NOT considered
-        # an error when the response contains no events.
-        # In Recent Mode, the timespan (`backlog_mode_timespan`) is
-        # longer and a response contains no events DOES raise an error.
-        recent_mode_counter_value = 1
-        backlog_mode_counter_value = 0
-        # Due to the workings of the Bibliotheca API, no mode
-        # should have a timespan longer than 72 hours.
-        recent_mode_timespan = timedelta(hours=70)
-        backlog_mode_timespan = timedelta(minutes=5)
-        # The CloudEvents API might not return all events. If we
-        # get 100 or more events, then we may have lost some.
-        reliable_max_cloudevents_count = 100
-
-        self._impose_bibliotheca_timespan_constraint(recent_mode_timespan)
-        self._impose_bibliotheca_timespan_constraint(backlog_mode_timespan)
-
+        self.log.info(
+            "Requesting events between %s and %s",
+            start.strftime(self.LOG_DATE_FORMAT),
+            cutoff.strftime(self.LOG_DATE_FORMAT)
+        )
         events_handled = 0
 
-        # Setup for Uninitialized or Backlog Mode
-        timespan_to_check = backlog_mode_timespan
-        raise_on_no_events = False
-
-        # Unless we are already in Recent Mode.
-        # NB: If the timespan is too long, we might yet end up in Backlog Mode.
-        if progress.counter == recent_mode_counter_value:
-            raise_on_no_events = True
-            timespan_to_check = recent_mode_timespan
-
-            if (cutoff - start) > timespan_to_check:
-                raise_on_no_events = False
-                progress.counter = backlog_mode_counter_value
-                timespan_to_check = backlog_mode_timespan
-
+        # Since we'll never get more than about 100 events from a
+        # single API call, slice the timespan into relatively small
+        # chunks.
         for slice_start, slice_cutoff, full_slice in self.slice_timespan(
-            start, cutoff, timespan_to_check
+            start, cutoff, timedelta(minutes=5)
         ):
-            self.log.info(
-                "Requesting events between %s and %s",
-                slice_start.strftime(self.LOG_DATE_FORMAT),
-                slice_cutoff.strftime(self.LOG_DATE_FORMAT)
-            )
-            _events_pre_request = events_handled
-            events = self.api.get_events_between(
-                slice_start, slice_cutoff, full_slice, raise_on_no_events
-            )
+            events = self.api.get_events_between(slice_start, slice_cutoff)
             for event in events:
                 self.handle_event(*event)
                 events_handled += 1
-                if not events_handled % 1000:
-                    self._db.commit()
             self._db.commit()
-            _events_this_request = events_handled - _events_pre_request
-            if _events_this_request >= reliable_max_cloudevents_count:
-                self.log.warning(
-                    'Response contained %d events, which equals or exceeds the number '
-                    'reliably returned by this API (%d). Some events may have been lost.',
-                    _events_this_request, reliable_max_cloudevents_count)
         progress.achievements = "Events handled: %d." % events_handled
-        # We have not encountered an exception, which means that we have
-        # completed processing either:
-        # - a Recent Mode update that contained at least one event, so we
-        #   can process next run in more granular Backlog Mode.
-        # - a backlog (Uninitialized or Backlog Mode), so we have caught
-        #   up, so can resume checking in Recent Mode's longer timespan.
-        progress.counter = (recent_mode_counter_value
-                            if progress.counter != recent_mode_counter_value
-                            else backlog_mode_counter_value)
 
     def handle_event(self, bibliotheca_id, isbn, foreign_patron_id,
                      start_time, end_time, internal_event_type):
@@ -1498,6 +1696,9 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
             # presentation-ready. However, its circulation information
             # might not be up to date until we process some more
             # events.
+            #
+            # Note that we do not record a TITLE_ADD event for this
+            # book; that's the job of the BibliothecaPurchaseMonitor.
             record = self.bibliographic_coverage_provider.ensure_coverage(
                 license_pool.identifier, force=True
             )
@@ -1524,25 +1725,22 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
             internal_event_type, start_time, 1, self.analytics
         )
 
-        if is_new:
-            # This is our first time seeing this LicensePool. Log its
-            # occurance as a separate event.
-            license_pool.collect_analytics_event(
-                self.analytics, CirculationEvent.DISTRIBUTOR_TITLE_ADD,
-                license_pool.last_checked or start_time,
-                0, 1
-            )
         title = edition.title or "[no title]"
         self.log.info("%s %s: %s", start_time.strftime(self.LOG_DATE_FORMAT),
                       title, internal_event_type)
         return start_time
 
 
-class RunBibliothecaMonitorScript(RunCollectionMonitorScript):
+class RunBibliothecaPurchaseMonitorScript(RunCollectionMonitorScript):
+    """Adds the ability to specify a particular start date for the
+    BibliothecaPurchaseMonitor. This is important because for a given
+    collection, the start date needs to be before books
+    started being licensed into that collection.
+    """
 
     @classmethod
     def arg_parser(cls):
-        parser = super(RunBibliothecaMonitorScript, cls).arg_parser()
+        parser = super(RunBibliothecaPurchaseMonitorScript, cls).arg_parser()
         parser.add_argument('--default-start', metavar='DATETIME',
                             default=None, type=dateutil.parser.isoparse,
                             help='Default start date/time to be used for uninitialized (no timestamp) monitors.'
@@ -1556,7 +1754,7 @@ class RunBibliothecaMonitorScript(RunCollectionMonitorScript):
 
     @classmethod
     def parse_command_line(cls, _db=None, cmd_args=None, *args, **kwargs):
-        parsed = super(RunBibliothecaMonitorScript, cls).parse_command_line(
+        parsed = super(RunBibliothecaPurchaseMonitorScript, cls).parse_command_line(
             _db=_db, cmd_args=cmd_args, *args, **kwargs
         )
         if parsed.override_timestamp and not parsed.default_start:
@@ -1567,6 +1765,7 @@ class RunBibliothecaMonitorScript(RunCollectionMonitorScript):
 
 
 class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
+
     """Fill in bibliographic metadata for Bibliotheca records.
 
     This will occasionally fill in some availability information for a

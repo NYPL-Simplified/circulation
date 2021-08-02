@@ -226,9 +226,9 @@ class IndividualAdminSettingsController(SettingsController):
 
     def response(self, admin, is_new):
         if is_new:
-            return Response(unicode(admin.email), 201)
+            return Response(str(admin.email), 201)
         else:
-            return Response(unicode(admin.email), 200)
+            return Response(str(admin.email), 200)
 
     def process_delete(self, email):
         self.require_sitewide_library_manager()
@@ -238,4 +238,4 @@ class IndividualAdminSettingsController(SettingsController):
         if not admin:
             return MISSING_ADMIN
         self._db.delete(admin)
-        return Response(unicode(_("Deleted")), 200)
+        return Response(str(_("Deleted")), 200)

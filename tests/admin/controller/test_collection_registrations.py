@@ -15,7 +15,7 @@ from core.model import (
     Library,
 )
 from core.util.http import HTTP
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestCollectionRegistration(SettingsControllerTest):
     """Test the process of registering a specific collection with

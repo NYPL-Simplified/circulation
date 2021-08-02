@@ -4,7 +4,7 @@ from core.selftest import (
     HasSelfTests,
     SelfTestResult,
 )
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 from core.model import (
     create,
     ExternalIntegration,
@@ -65,7 +65,7 @@ class TestMetadataServiceSelfTests(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             response = m(metadata_service.id)
             assert response._status == "200 OK"
-            assert "Successfully ran new self tests" == response.data
+            assert "Successfully ran new self tests" == response.get_data(as_text=True)
 
         positional, keyword = self.run_self_tests_called_with
         # run_self_tests was called with positional arguments:

@@ -5,7 +5,7 @@ from flask import request
 from flask_babel import lazy_gettext as _
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from onelogin.saml2.errors import OneLogin_Saml2_Error
-from six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 
 from api.saml.configuration.model import SAMLOneLoginConfiguration
 from api.saml.metadata.filter import SAMLSubjectFilter, SAMLSubjectFilterError

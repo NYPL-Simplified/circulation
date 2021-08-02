@@ -42,7 +42,7 @@ class TestConfiguration(DatabaseTest):
         assert new_private == private_key
 
     def test_cipher(self):
-        """Test the cipher() helper method."""
+        # Test the cipher() helper method.
 
         # Generate a public/private key pair.
         key = RSA.generate(2048)
@@ -53,13 +53,13 @@ class TestConfiguration(DatabaseTest):
         # Pass the public key into cipher() to get something that can
         # encrypt.
         encryptor = Configuration.cipher(public)
-        encrypted = encryptor.encrypt("some text")
+        encrypted = encryptor.encrypt(b"some text")
 
         # Pass the private key into cipher() to get something that can
         # decrypt.
         decryptor = Configuration.cipher(private)
         decrypted = decryptor.decrypt(encrypted)
-        assert "some text" == decrypted
+        assert b"some text" == decrypted
 
     def test_collection_language_method_performs_estimate(self):
         C = Configuration
@@ -112,7 +112,7 @@ class TestConfiguration(DatabaseTest):
             Configuration.TINY_COLLECTION_LANGUAGES : ["rus"],
         }
 
-        for key, value in old_settings.items():
+        for key, value in list(old_settings.items()):
             ConfigurationSetting.for_library(
                 key, library).value = json.dumps(value)
 

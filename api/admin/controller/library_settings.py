@@ -5,8 +5,8 @@ from flask_babel import lazy_gettext as _
 import json
 from pypostalcode import PostalCodeDatabase
 import re
-from StringIO import StringIO
-import urllib
+from io import BytesIO
+import urllib.request, urllib.parse, urllib.error
 import uszipcode
 import uuid
 import wcag_contrast_ratio
@@ -112,9 +112,9 @@ class LibrarySettingsController(SettingsController):
             # Now that the configuration settings are in place, create
             # a default set of lanes.
             create_default_lanes(self._db, library)
-            return Response(unicode(library.uuid), 201)
+            return Response(str(library.uuid), 201)
         else:
-            return Response(unicode(library.uuid), 200)
+            return Response(str(library.uuid), 200)
 
     def create_library(self, short_name, library_uuid):
         self.require_system_admin()
@@ -127,7 +127,7 @@ class LibrarySettingsController(SettingsController):
         self.require_system_admin()
         library = self.get_library_from_uuid(library_uuid)
         self._db.delete(library)
-        return Response(unicode(_("Deleted")), 200)
+        return Response(str(_("Deleted")), 200)
 
 # Validation methods:
 
@@ -153,8 +153,8 @@ class LibrarySettingsController(SettingsController):
             return error
 
     def check_for_missing_settings(self, settings):
-        required = filter(lambda s: s.get('required') and not s.get('default'), Configuration.LIBRARY_SETTINGS)
-        missing = filter(lambda s: not flask.request.form.get(s.get("key")), required)
+        required = [s for s in Configuration.LIBRARY_SETTINGS if s.get('required') and not s.get('default')]
+        missing = [s for s in required if not flask.request.form.get(s.get("key"))]
         if missing:
             return INCOMPLETE_CONFIGURATION.detailed(
                 _("The configuration is missing a required setting: %(setting)s",
@@ -335,7 +335,7 @@ class LibrarySettingsController(SettingsController):
                         i = [i]
                     value.extend(i)
 
-        return json.dumps(filter(None, value))
+        return json.dumps([_f for _f in value if _f])
 
     def image_setting(self, setting):
         """Retrieve an uploaded image for the given setting from the current HTTP request."""
@@ -345,7 +345,7 @@ class LibrarySettingsController(SettingsController):
             width, height = image.size
             if width > 135 or height > 135:
                 image.thumbnail((135, 135), Image.ANTIALIAS)
-            buffer = StringIO()
+            buffer = BytesIO()
             image.save(buffer, format="PNG")
             b64 = base64.b64encode(buffer.getvalue())
             return "data:image/png;base64,%s" % b64

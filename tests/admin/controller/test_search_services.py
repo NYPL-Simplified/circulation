@@ -10,7 +10,7 @@ from core.model import (
     get_one,
     ExternalIntegration,
 )
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestSearchServices(SettingsControllerTest):
     def test_search_services_get_with_no_services(self):

@@ -1,6 +1,6 @@
 import json
 import logging
-import urllib
+import urllib.request, urllib.parse, urllib.error
 from collections import Counter
 from flask_babel import lazy_gettext as _
 
@@ -55,7 +55,7 @@ class NoveListAPI(object):
     # Hardcoded authentication key used as a Header for calling the NoveList
     # Collections API. It identifies the client, and lets NoveList know that
     # SimplyE is making the requests.
-    AUTHORIZED_IDENTIFIER = u"62521fa1-bdbb-4939-84aa-aee2a52c8d59"
+    AUTHORIZED_IDENTIFIER = "62521fa1-bdbb-4939-84aa-aee2a52c8d59"
 
     SETTINGS = [
         { "key": ExternalIntegration.USERNAME, "label": _("Profile"), "required": True },
@@ -88,8 +88,8 @@ class NoveListAPI(object):
     currentQueryIdentifier = None
 
     medium_to_book_format_type_values = {
-        Edition.BOOK_MEDIUM : u"EBook",
-        Edition.AUDIO_MEDIUM : u"Audiobook",
+        Edition.BOOK_MEDIUM : "EBook",
+        Edition.AUDIO_MEDIUM : "Audiobook",
     }
 
     @classmethod
@@ -220,9 +220,7 @@ class NoveListAPI(object):
             self.log.warn(self.NO_ISBN_EQUIVALENCY, identifier)
             return None, None
         confidence = most_amount / float(len(metadata_objects))
-        target_metadata = filter(
-            lambda m: m.primary_identifier==target_identifier, metadata_objects
-        )
+        target_metadata = [m for m in metadata_objects if m.primary_identifier==target_identifier]
         return target_metadata[0], confidence
 
     def lookup(self, identifier, **kwargs):
@@ -240,7 +238,7 @@ class NoveListAPI(object):
             ClientIdentifier=client_identifier, ISBN=identifier.identifier,
             version=self.version, profile=self.profile, password=self.password
         )
-        scrubbed_url = unicode(self.scrubbed_url(params))
+        scrubbed_url = str(self.scrubbed_url(params))
 
         url = self.build_query_url(params)
         self.log.debug("NoveList lookup: %s",  url)
@@ -252,7 +250,7 @@ class NoveListAPI(object):
             return scrubbed_url
 
         representation, from_cache = Representation.post(
-            _db=self._db, url=unicode(url), data='',
+            _db=self._db, url=str(url), data='',
             max_age=self.MAX_REPRESENTATION_AGE,
             response_reviewer=self.review_response,
             url_normalizer=normalized_url, **kwargs
@@ -271,8 +269,8 @@ class NoveListAPI(object):
         status_code, headers, content = response
         if status_code == 403:
             raise Exception("Invalid NoveList credentials")
-        if content.startswith('"Missing'):
-            raise Exception("Invalid NoveList parameters: %s" % content)
+        if content.startswith(b'"Missing'):
+            raise Exception("Invalid NoveList parameters: %s" % content.decode("utf-8"))
         return response
 
     @classmethod
@@ -297,8 +295,8 @@ class NoveListAPI(object):
             url += cls.AUTH_PARAMS
 
         urlencoded_params = dict()
-        for name, value in params.items():
-            urlencoded_params[name] = urllib.quote(value)
+        for name, value in list(params.items()):
+            urlencoded_params[name] = urllib.parse.quote(value)
         return url % urlencoded_params
 
     def lookup_info_to_metadata(self, lookup_representation):
@@ -453,7 +451,7 @@ class NoveListAPI(object):
             return metadata
 
         related_books = recommendations_info.get('titles')
-        related_books = filter(lambda b: b.get('is_held_locally'), related_books)
+        related_books = [b for b in related_books if b.get('is_held_locally')]
         if related_books:
             for book_info in related_books:
                 metadata.recommendations += self._extract_isbns(book_info)

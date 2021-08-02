@@ -290,7 +290,7 @@ class TestSAMLSubjectPatronIDExtractor(object):
                         [
                             SAMLAttribute(
                                 name=SAMLAttributeType.eduPersonPrincipalName.name,
-                                values=[u"pątron@university.org"],
+                                values=["pątron@university.org"],
                             ),
                             SAMLAttribute(
                                 name=SAMLAttributeType.eduPersonUniqueId.name,
@@ -302,7 +302,7 @@ class TestSAMLSubjectPatronIDExtractor(object):
                         ]
                     ),
                 ),
-                u"pątron",
+                "pątron",
                 False,
                 [
                     SAMLAttributeType.eduPersonPrincipalName.name,

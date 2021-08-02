@@ -1,13 +1,13 @@
 
 from flask import url_for
 
-from admin_authentication_provider import AdminAuthenticationProvider
+from .admin_authentication_provider import AdminAuthenticationProvider
 from core.model import (
     Admin,
     Session,
 )
-from problem_details import *
-from template_styles import *
+from .problem_details import *
+from .template_styles import *
 
 class PasswordAdminAuthenticationProvider(AdminAuthenticationProvider):
 

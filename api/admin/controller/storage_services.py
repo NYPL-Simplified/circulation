@@ -20,7 +20,7 @@ class StorageServicesController(SettingsController):
         super(StorageServicesController, self).__init__(manager)
         self.goal = ExternalIntegration.STORAGE_GOAL
         self.protocols = self._get_integration_protocols(
-            MirrorUploader.IMPLEMENTATION_REGISTRY.values(),
+            list(MirrorUploader.IMPLEMENTATION_REGISTRY.values()),
             protocol_name_attr="NAME"
         )
 
@@ -70,9 +70,9 @@ class StorageServicesController(SettingsController):
         storage_service.name = name
 
         if is_new:
-            return Response(unicode(storage_service.id), 201)
+            return Response(str(storage_service.id), 201)
         else:
-            return Response(unicode(storage_service.id), 200)
+            return Response(str(storage_service.id), 200)
 
     def process_delete(self, service_id):
         return self._delete_integration(

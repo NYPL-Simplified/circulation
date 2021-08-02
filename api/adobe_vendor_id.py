@@ -8,17 +8,21 @@ import datetime
 import jwt
 from jwt.algorithms import HMACAlgorithm
 import sys
-
 import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
-from config import (
+from .config import (
     CannotLoadConfiguration,
     Configuration,
 )
+
 from api.base_controller import BaseCirculationManagerController
-from problem_details import *
+from .problem_details import *
 from sqlalchemy.orm.session import Session
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from core.util.xmlparser import XMLParser
 from core.util.problem_detail import ProblemDetail
 from core.app_server import url_for
@@ -134,7 +138,7 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
                     _("Expected %(media_type)s document.",
                       media_type=device_ids)
                 )
-            output = handler.register_device(flask.request.data)
+            output = handler.register_device(flask.request.get_data(as_text=True))
             if isinstance(output, ProblemDetail):
                 return output
             return Response(output, 200, self.PLAIN_TEXT_HEADERS)
@@ -189,9 +193,9 @@ class AdobeVendorIDRequestHandler(object):
         parser = AdobeSignInRequestParser()
         try:
             data = parser.process(data)
-        except Exception, e:
+        except Exception as e:
             logging.error("Error processing %s", data, exc_info=e)
-            return self.error_document(self.AUTH_ERROR_TYPE, unicode(e))
+            return self.error_document(self.AUTH_ERROR_TYPE, str(e))
         user_id = label = None
         if not data:
             return self.error_document(
@@ -226,9 +230,9 @@ class AdobeVendorIDRequestHandler(object):
                     self.ACCOUNT_INFO_ERROR_TYPE,
                     "Could not find user identifer in request document.")
             label = urn_to_label(data['user'])
-        except Exception, e:
+        except Exception as e:
             return self.error_document(
-                self.ACCOUNT_INFO_ERROR_TYPE, unicode(e))
+                self.ACCOUNT_INFO_ERROR_TYPE, str(e))
 
         if label:
             return self.ACCOUNT_INFO_RESPONSE_TEMPLATE % dict(label=label)
@@ -294,6 +298,8 @@ class AdobeRequestParser(XMLParser):
                 v = v.strip()
                 if transform is not None:
                     v = transform(v)
+        if isinstance(v, bytes):
+            v = v.decode("utf-8")
         d[key] = v
 
 class AdobeSignInRequestParser(AdobeRequestParser):
@@ -345,7 +351,7 @@ class AdobeVendorIDModel(object):
         self.authenticator = authenticator
         self.temporary_token_duration = (
             temporary_token_duration or datetime.timedelta(minutes=10))
-        if isinstance(node_value, basestring):
+        if isinstance(node_value, (bytes, str)):
             node_value = int(node_value, 16)
         self.node_value = node_value
 
@@ -467,7 +473,7 @@ class AdobeVendorIDModel(object):
                 library_uri, foreign_patron_identifier = utility.decode(
                     authdata
                 )
-            except Exception, e:
+            except Exception as e:
                 # Not a problem -- we'll try the old system.
                 pass
 
@@ -502,7 +508,7 @@ class AdobeVendorIDModel(object):
             # another library's circulation manager.
             try:
                 library_uri, foreign_patron_identifier = utility.decode_two_part_short_client_token(token, signature)
-            except Exception, e:
+            except Exception as e:
                 # This didn't work--either the incoming data was wrong
                 # or this technique wasn't the right one to use.
                 pass
@@ -652,7 +658,7 @@ class AuthdataUtility(object):
 
         # Fill in secrets_by_library_uri and library_uris_by_short_name
         # for other libraries.
-        for uri, v in other_libraries.items():
+        for uri, v in list(other_libraries.items()):
             short_name, secret = v
             short_name = short_name.upper()
             if short_name in self.library_uris_by_short_name:
@@ -671,8 +677,8 @@ class AuthdataUtility(object):
             self.secret
         )
 
-    VENDOR_ID_KEY = u'vendor_id'
-    OTHER_LIBRARIES_KEY = u'other_libraries'
+    VENDOR_ID_KEY = 'vendor_id'
+    OTHER_LIBRARIES_KEY = 'other_libraries'
 
     @classmethod
     def from_config(cls, library, _db=None):
@@ -778,7 +784,7 @@ class AuthdataUtility(object):
         """
         if not patron_identifier:
             raise ValueError("No patron identifier specified")
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         expires = now + datetime.timedelta(minutes=60)
         authdata = self._encode(
             self.library_uri, patron_identifier, now, expires
@@ -794,12 +800,12 @@ class AuthdataUtility(object):
             payload['iat'] = self.numericdate(iat) # Issued At
         if exp:
             payload['exp'] = self.numericdate(exp) # Expiration Time
-        return base64.encodestring(
+        return base64.encodebytes(
             jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
         )
 
     @classmethod
-    def adobe_base64_encode(cls, str):
+    def adobe_base64_encode(cls, str_to_encode):
         """A modified base64 encoding that avoids triggering an Adobe bug.
 
         The bug seems to happen when the 'password' portion of a
@@ -807,14 +813,16 @@ class AuthdataUtility(object):
         with :. We also replace / (another "suspicious" character)
         with ;. and strip newlines.
         """
-        encoded = base64.encodestring(str)
-        return encoded.replace("+", ":").replace("/", ";").replace("=", "@").strip()
+        if isinstance(str_to_encode, str):
+            str_to_encode = str_to_encode.encode("utf-8")
+        encoded = base64.encodebytes(str_to_encode).decode("utf-8").strip()
+        return encoded.replace("+", ":").replace("/", ";").replace("=", "@")
 
     @classmethod
     def adobe_base64_decode(cls, str):
         """Undoes adobe_base64_encode."""
         encoded = str.replace(":", "+").replace(";", "/").replace("@", "=")
-        return base64.decodestring(encoded)
+        return base64.decodebytes(encoded.encode("utf-8"))
 
     def decode(self, authdata):
         """Decode and verify an authdata JWT from one of the libraries managed
@@ -832,9 +840,9 @@ class AuthdataUtility(object):
         # try to decode it ourselves and verify it that way.
         potential_tokens = [authdata]
         try:
-            decoded = base64.decodestring(authdata)
+            decoded = base64.decodebytes(authdata)
             potential_tokens.append(decoded)
-        except Exception, e:
+        except Exception as e:
             # Do nothing -- the authdata was not encoded to begin with.
             pass
 
@@ -843,7 +851,7 @@ class AuthdataUtility(object):
         for authdata in potential_tokens:
             try:
                 return self._decode(authdata)
-            except Exception, e:
+            except Exception as e:
                 self.log.error("Error decoding %s", authdata, exc_info=e)
                 exceptions.append(e)
 
@@ -876,7 +884,7 @@ class AuthdataUtility(object):
         return library_uri, decoded['sub']
 
     @classmethod
-    def _adobe_patron_identifier(self, patron):
+    def _adobe_patron_identifier(cls, patron):
         """Take patron object and return identifier for Adobe ID purposes"""
         _db = Session.object_session(patron)
         internal = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
@@ -914,7 +922,7 @@ class AuthdataUtility(object):
         """
         if not patron_identifier:
             raise ValueError("No patron identifier specified")
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         expires = int(self.numericdate(now + datetime.timedelta(minutes=60)))
         authdata = self._encode_short_client_token(
             self.short_name, patron_identifier, expires
@@ -925,7 +933,7 @@ class AuthdataUtility(object):
                                    patron_identifier, expires):
         base = library_short_name + "|" + str(expires) + "|" + patron_identifier
         signature = self.short_token_signer.sign(
-            base, self.short_token_signing_key
+            base.encode("utf-8"), self.short_token_signing_key
         )
         signature = self.adobe_base64_encode(signature)
         if len(base) > 80:
@@ -994,7 +1002,7 @@ class AuthdataUtility(object):
         secret = self.secrets_by_library_uri[library_uri]
 
         # Don't bother checking an expired token.
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         expiration = self.EPOCH + datetime.timedelta(seconds=expiration)
         if expiration < now:
             raise ValueError(
@@ -1005,7 +1013,7 @@ class AuthdataUtility(object):
 
         # Sign the token and check against the provided signature.
         key = self.short_token_signer.prepare_key(secret)
-        actual_signature = self.short_token_signer.sign(token, key)
+        actual_signature = self.short_token_signer.sign(token.encode("utf-8"), key)
 
         if actual_signature != supposed_signature:
             raise ValueError(
@@ -1014,7 +1022,7 @@ class AuthdataUtility(object):
 
         return library_uri, patron_identifier
 
-    EPOCH = datetime.datetime(1970, 1, 1)
+    EPOCH = datetime_utc(1970, 1, 1)
 
     @classmethod
     def numericdate(cls, d):
@@ -1103,7 +1111,7 @@ class VendorIDLibraryConfigurationScript(Script):
 
         chosen_website = args.website_url
         if not chosen_website:
-            for website in other_libraries.keys():
+            for website in list(other_libraries.keys()):
                 self.explain(output, other_libraries, website)
             return
 

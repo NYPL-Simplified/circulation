@@ -34,8 +34,8 @@ class TestNoveListAPI(DatabaseTest):
         super(TestNoveListAPI, self).setup_method()
         self.integration = self._external_integration(
             ExternalIntegration.NOVELIST,
-            ExternalIntegration.METADATA_GOAL, username=u'library',
-            password=u'yep', libraries=[self._default_library],
+            ExternalIntegration.METADATA_GOAL, username='library',
+            password='yep', libraries=[self._default_library],
         )
         self.novelist = NoveListAPI.from_config(self._default_library)
 
@@ -63,7 +63,7 @@ class TestNoveListAPI(DatabaseTest):
         self.integration.password = None
         pytest.raises(CannotLoadConfiguration, NoveListAPI.from_config, self._default_library)
 
-        self.integration.password = u'yep'
+        self.integration.password = 'yep'
         self.integration.username = None
         pytest.raises(CannotLoadConfiguration, NoveListAPI.from_config, self._default_library)
 
@@ -80,13 +80,13 @@ class TestNoveListAPI(DatabaseTest):
         assert library.id == NoveListAPI._configuration_library_id
 
     def test_review_response(self):
-        invalid_credential_response = (403, {}, 'HTML Access Denied page')
+        invalid_credential_response = (403, {}, b'HTML Access Denied page')
         pytest.raises(Exception, self.novelist.review_response, invalid_credential_response)
 
-        missing_argument_response = (200, {}, '"Missing ISBN, UPC, or Client Identifier!"')
+        missing_argument_response = (200, {}, b'"Missing ISBN, UPC, or Client Identifier!"')
         pytest.raises(Exception, self.novelist.review_response, missing_argument_response)
 
-        response = (200, {}, "Here's the goods!")
+        response = (200, {}, b"Here's the goods!")
         assert response == self.novelist.review_response(response)
 
     def test_lookup_info_to_metadata(self):
@@ -119,11 +119,11 @@ class TestNoveListAPI(DatabaseTest):
         metadata = self.novelist.lookup_info_to_metadata(vampire)
 
         [lexile] = filter(lambda s: s.type=='Lexile', metadata.subjects)
-        assert u'630' == lexile.identifier
-        assert u'Vampire kisses manga' == metadata.series
+        assert '630' == lexile.identifier
+        assert 'Vampire kisses manga' == metadata.series
         # The full title should be selected, since every volume
         # has the same main title: 'Vampire kisses'
-        assert u'Vampire kisses: blood relatives. Volume 1' == metadata.title
+        assert 'Vampire kisses: blood relatives. Volume 1' == metadata.title
         assert 1 == metadata.series_position
         assert 5 == len(metadata.recommendations)
 
@@ -234,7 +234,7 @@ class TestNoveListAPI(DatabaseTest):
 
         # The HTTP response was passed into novelist.review_response()
         assert (
-            (200, {'content-type': 'text/html'}, 'yay') ==
+            (200, {'content-type': 'text/html'}, b'yay') ==
             novelist.review_response_called_with)
 
         # Finally, the Representation was passed into
@@ -247,7 +247,7 @@ class TestNoveListAPI(DatabaseTest):
         # make the request.
         rep = novelist.lookup_info_to_metadata_called_with
         assert "http://scrubbed-url/" == rep.url
-        assert "yay" == rep.content
+        assert b"yay" == rep.content
 
     def test_lookup_info_to_metadata_ignores_empty_responses(self):
         """API requests that return no data result return a None tuple"""
