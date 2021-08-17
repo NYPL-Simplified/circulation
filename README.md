@@ -131,13 +131,13 @@ And install the dependencies:
 $ pip install -r requirements-dev.txt
 ```
 
-Generally, you should run the application with:
+Generally, you can run the application with:
 
 ```sh
 $ python app.py
 ```
 
-And visit `http://localhost:6500/`.
+Then, navigate to `http://localhost:6500/`.
 
 But, if you need to run the application over https, explicitly state that in the command:
 
