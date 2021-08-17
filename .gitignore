@@ -68,6 +68,3 @@ docs/**/
 docs/source/*
 !docs/source/conf.py
 !docs/source/index.rst
-
-# For SSL
-certificates
