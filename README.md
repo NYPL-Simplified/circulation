@@ -131,7 +131,7 @@ And install the dependencies:
 $ pip install -r requirements-dev.txt
 ```
 
-Generally, you can run the application with:
+Run the application with:
 
 ```sh
 $ python app.py
@@ -139,11 +139,17 @@ $ python app.py
 
 Then, navigate to `http://localhost:6500/`.
 
-But, if you need to run the application over https, explicitly state that in the command:
+### Note on HTTP/S in development
+
+When deployed, the application should be run behind a secure proxy responsible for SSL termination. While developing locally, if it becomes necessary to observe app code serving HTTP/S requests, it is possible to start the Flask/Werkzeug development server with an ad-hoc SSL context (see [werkzeug.serving.run_simple()](https://werkzeug.palletsprojects.com/en/2.0.x/serving/#werkzeug.serving.run_simple) for more details). These ad-hoc certs work because of the pyopenssl package.
+
+To have the server listen for HTTP/S requests, supply an https:// URL on start:
 
 ```sh
 $ python app.py https://localhost:6500/
 ```
+
+Also note that this does not fully replicate secure requests as they would appear on a deployed app instance. In particular, the X-Forwarded-* headers may be different, since you are hitting the application server directly rather than through one or more proxy layers.
 
 ### Python Installation Issues
 
