@@ -141,7 +141,9 @@ Then, navigate to `http://localhost:6500/`.
 
 ### Note on HTTP/S in development
 
-When deployed, the application should be run behind a secure proxy responsible for SSL termination. While developing locally, if it becomes necessary to observe app code serving HTTP/S requests, it is possible to start the Flask/Werkzeug development server with an ad-hoc SSL context (see [werkzeug.serving.run_simple()](https://werkzeug.palletsprojects.com/en/2.0.x/serving/#werkzeug.serving.run_simple) for more details). These ad-hoc certs work because of the pyopenssl package.
+When deployed, the application should be run behind a secure proxy responsible for SSL termination. 
+
+While developing locally, if it becomes necessary to observe app code serving HTTP/S requests, it is possible to start the Flask/Werkzeug development server with an ad-hoc SSL context (see [werkzeug.serving.run_simple()](https://werkzeug.palletsprojects.com/en/2.0.x/serving/#werkzeug.serving.run_simple) for more details). These ad-hoc certs work because of the pyopenssl package.
 
 To have the server listen for HTTP/S requests, supply an https:// URL on start:
 
