@@ -107,7 +107,7 @@ HOME=/var/www/circulation
 30 5 * * * root core/bin/run opds2_import_monitor >> /var/log/cron.log 2>&1
 
 # OPDS import from Feedbooks
-* * */7 * * root core/bin/run feedbooks_import_monitor >> /var/log/cron.log 2>&1
+0 0 */7 * * root core/bin/run feedbooks_import_monitor >> /var/log/cron.log 2>&1
 
 # ODL import
 #
