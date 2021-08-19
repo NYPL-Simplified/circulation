@@ -57,10 +57,6 @@ While you're at it, go ahead and install the following required dependencies:
 - `$ brew install libxmlsec1`
 - `$ brew install libjpeg`
 
-Please note: only certain versions of Python 3 will work with this application. One such version is Python 3.6.5. Check to see which version you currently have installed by running `$ python -V`.
-
-If you're using a version of Python that doesn't work, install [pyenv](https://github.com/pyenv/pyenv-installer) using command `$ curl https://pyenv.run | bash`, then install the version of Python you want to work with, ie `$ pyenv install python3.6.5`, and then run `$ pyenv global 3.6.5`. Check the current version again with `$ python -V` to make sure it's correct before proceeding.
-
 You will need to set up a local virtual environment to install packages and run the project. If you haven't done so before, use pip to install virtualenv – `$ pip install virtualenv` – before creating the virtual environment in the root of the circulation repository:
 
 ```sh
@@ -71,6 +67,12 @@ As mentioned above, this application depends on [Library Simplified Server Core]
 
 - `$ git submodule init`
 - `$ git submodule update`
+
+### Python Version
+
+It is important to know that only certain versions of Python 3 will work with this application. One such version is Python 3.6.5. Check to see which version you currently have installed by running `$ python -V`.
+
+If you're using a version of Python that doesn't work, install [pyenv](https://github.com/pyenv/pyenv-installer) using command `$ curl https://pyenv.run | bash`, then install the version of Python you want to work with, ie `$ pyenv install python3.6.5`, and then run `$ pyenv global 3.6.5`. Check the current version again with `$ python -V` to make sure it's correct before proceeding.
 
 ### Elasticsearch Set Up
 
@@ -135,7 +137,21 @@ Run the application with:
 $ python app.py
 ```
 
-And visit `http://localhost:6500/`.
+Then, navigate to `http://localhost:6500/`.
+
+### Note on HTTP/S in development
+
+When deployed, the application should be run behind a secure proxy responsible for SSL termination. 
+
+While developing locally, if it becomes necessary to observe app code serving HTTP/S requests, it is possible to start the Flask/Werkzeug development server with an ad-hoc SSL context (see [werkzeug.serving.run_simple()](https://werkzeug.palletsprojects.com/en/2.0.x/serving/#werkzeug.serving.run_simple) for more details). These ad-hoc certs work because of the pyopenssl package.
+
+To have the server listen for HTTP/S requests, supply an https:// URL on start:
+
+```sh
+$ python app.py https://localhost:6500/
+```
+
+Also note that this does not fully replicate secure requests as they would appear on a deployed app instance. In particular, the X-Forwarded-* headers may be different, since you are hitting the application server directly rather than through one or more proxy layers.
 
 ### Python Installation Issues
 
@@ -144,7 +160,7 @@ When running the `pip install ...` command, you may run into installation issues
 ```sh
 error: command '/usr/bin/clang' failed with exit code 1
   ----------------------------------------
-  ERROR: Failed building wheel for xmlsec
+ERROR: Failed building wheel for xmlsec
 Failed to build dm.xmlsec.binding xmlsec
 ERROR: Could not build wheels for xmlsec which use PEP 517 and cannot be installed directly
 ```
