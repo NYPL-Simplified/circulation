@@ -80,7 +80,7 @@ The circulation manager requires Elasticsearch. If you don't have Elasticsearch,
 
 1. Download it [here](https://www.elastic.co/downloads/past-releases/elasticsearch-6-8-6).
 2. `cd` into the `elasticsearch-[version number]` directory.
-3. Run `$ elasticsearch-plugin install analysis-icu`
+3. Run `$ sudo bin/elasticsearch-plugin install analysis-icu`
 4. Run `$ ./bin/elasticsearch`.
 5. You may be prompted to download [Java SE](https://www.oracle.com/java/technologies/javase-downloads.html). If so, go ahead and do so.
 6. Check `http://localhost:9200` to make sure the Elasticsearch server is running.
@@ -152,6 +152,10 @@ $ python app.py https://localhost:6500/
 ```
 
 Also note that this does not fully replicate secure requests as they would appear on a deployed app instance. In particular, the X-Forwarded-* headers may be different, since you are hitting the application server directly rather than through one or more proxy layers.
+
+### Adding Collections to the Circulation Manager Admin
+
+If you are working on the Circulation Manager Admin, and need to add collections of books to your local app for testing purposes, you can follow [these instructions](https://docs.google.com/document/d/1a0QNWTvt9NKChr8TcLJ3G1PfpBCKV6hC2JuB5Yk_CYY/edit?usp=sharing).
 
 ### Python Installation Issues
 
