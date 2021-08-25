@@ -1,7 +1,7 @@
 import json
 import os
 
-from flask_babel import lazy_gettext as _
+from flask_babel import lazy_gettext as lgt
 
 from api.authenticator import (
     OAuthAuthenticationProvider,
@@ -18,22 +18,22 @@ from api.problem_details import INVALID_CREDENTIALS
 UNSUPPORTED_CLEVER_USER_TYPE = ProblemDetail(
     "http://librarysimplified.org/terms/problem/unsupported-clever-user-type",
     401,
-    _("Your Clever user type is not supported."),
-    _("Your Clever user type is not supported. You can request a code from First Book instead"),
+    lgt("Your Clever user type is not supported."),
+    lgt("Your Clever user type is not supported. You can request a code from First Book instead"),
 )
 
 CLEVER_NOT_ELIGIBLE = ProblemDetail(
     "http://librarysimplified.org/terms/problem/clever-not-eligible",
     401,
-    _("Your Clever account is not eligible to access this application."),
-    _("Your Clever account is not eligible to access this application."),
+    lgt("Your Clever account is not eligible to access this application."),
+    lgt("Your Clever account is not eligible to access this application."),
 )
 
 CLEVER_UNKNOWN_SCHOOL = ProblemDetail(
     "http://librarysimplified.org/terms/problem/clever-unknown-school",
     401,
-    _("Clever did not provide the necessary information about your school to verify eligibility."),
-    _("Clever did not provide the necessary information about your school to verify eligibility."),
+    lgt("Clever did not provide the necessary information about your school to verify eligibility."),
+    lgt("Clever did not provide the necessary information about your school to verify eligibility."),
 )
 
 
@@ -52,15 +52,15 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
     NAME = 'Clever'
 
-    DESCRIPTION = _("""
+    DESCRIPTION = lgt("""
         An authentication service for Open eBooks that uses Clever as an
         OAuth provider.""")
 
     LOGIN_BUTTON_IMAGE = "CleverLoginButton280.png"
 
     SETTINGS = [
-        {"key": ExternalIntegration.USERNAME, "label": _("Client ID"), "required": True},
-        {"key": ExternalIntegration.PASSWORD, "label": _("Client Secret"), "required": True},
+        {"key": ExternalIntegration.USERNAME, "label": lgt("Client ID"), "required": True},
+        {"key": ExternalIntegration.PASSWORD, "label": lgt("Client Secret"), "required": True},
     ] + OAuthAuthenticationProvider.SETTINGS
 
     # Unlike other authentication providers, external type regular expression
@@ -141,22 +141,21 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             bearer token.
         """
         payload = self._remote_exchange_payload(_db, code)
-        authorization = base64.b64encode(
-            self.client_id + ":" + self.client_secret
-        )
+        authorization = base64.b64encode(self.client_id + ":" + self.client_secret)
         headers = {
             'Authorization': 'Basic %s' % authorization,
             'Content-Type': 'application/json',
         }
         response = self._get_token(payload, headers)
-        invalid = INVALID_CREDENTIALS.detailed(
-            _("A valid Clever login is required.")
-        )
+        invalid = INVALID_CREDENTIALS.detailed(lgt("A valid Clever login is required."))
         if not response:
             return invalid
+
         token = response.get('access_token', None)
+
         if not token:
             return invalid
+
         return token
 
     def _remote_exchange_payload(self, _db, code):
@@ -218,18 +217,14 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             with the data listed above.
 
         """
-        bearer_headers = {
-            'Authorization': 'Bearer %s' % token
-        }
+        bearer_headers = {'Authorization': 'Bearer %s' % token}
         result = self._get(self.CLEVER_API_BASE_URL + '/me', bearer_headers)
         data = result.get('data', {}) or {}
 
         identifier = data.get('id', None)
 
         if not identifier:
-            return INVALID_CREDENTIALS.detailed(
-                _("A valid Clever login is required.")
-            )
+            return INVALID_CREDENTIALS.detailed(lgt("A valid Clever login is required."))
 
         if result.get('type') not in self.SUPPORTED_USER_TYPES:
             return UNSUPPORTED_CLEVER_USER_TYPE
@@ -251,9 +246,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         # TODO: check student free and reduced lunch status as well
 
         if school_nces_id is None:
-            self.log.error(
-                "No NCES ID found in Clever school data: %s", repr(school)
-            )
+            self.log.error("No NCES ID found in Clever school data: %s", repr(school))
             return CLEVER_UNKNOWN_SCHOOL
 
         if school_nces_id not in TITLE_I_NCES_IDS:
