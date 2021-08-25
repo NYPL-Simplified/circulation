@@ -36,6 +36,13 @@ CLEVER_UNKNOWN_SCHOOL = ProblemDetail(
     lgt("Clever did not provide the necessary information about your school to verify eligibility."),
 )
 
+CLEVER_UNKNOWN_PATRON_GRADE = ProblemDetail(
+    "http://librarysimplified.org/terms/problem/clever-unknown-patron-grade",
+    401,
+    lgt("Clever did not provide a grade level for this student, so we cannot determine an appropriate content level."),
+    lgt("Clever did not provide a grade level for this student, so we cannot determine an appropriate content level."),
+)
+
 
 # Load Title I NCES ID data from json.
 TITLE_I_NCES_IDS = None
@@ -76,7 +83,12 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         "?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_url)s&state=%(state)s"
     )
     CLEVER_TOKEN_URL = "https://clever.com/oauth/tokens"
+
+    # Not all calls should be made to a versioned endpoint. Please see the
+    # Clever API documentation when adding a new endpoint.
     CLEVER_API_BASE_URL = "https://api.clever.com"
+    CLEVER_API_VERSION = "3.0"
+    CLEVER_API_VERSIONED_URL = f"{CLEVER_API_BASE_URL}/v{CLEVER_API_VERSION}"
 
     # To check Title I status we need state, which is associated with
     # a school in Clever's API. Any users at the district-level will
@@ -218,7 +230,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         """
         bearer_headers = {'Authorization': 'Bearer %s' % token}
-        result = self._get(self.CLEVER_API_BASE_URL + '/me', bearer_headers)
+        result = self._get(self.CLEVER_API_VERSIONED_URL + '/me', bearer_headers)
         data = result.get('data', {}) or {}
 
         identifier = data.get('id', None)
@@ -232,14 +244,12 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         links = result['links']
 
         user_link = [link for link in links if link['rel'] == 'canonical'][0]['uri']
+        # The canonical link includes the API version, so we use the base URL.
         user = self._get(self.CLEVER_API_BASE_URL + user_link, bearer_headers)
 
         user_data = user['data']
         school_id = user_data['school']
-        school = self._get(
-            self.CLEVER_API_BASE_URL + '/v1.1/schools/%s' % school_id,
-            bearer_headers
-        )
+        school = self._get(f"{self.CLEVER_API_VERSIONED_URL}/schools/{school_id}", bearer_headers)
 
         school_nces_id = school['data'].get('nces_id')
 
@@ -254,13 +264,36 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             return CLEVER_NOT_ELIGIBLE
 
         if result['type'] == 'student':
-            grade = user_data.get('grade')
+            # We need to be able to assign an external_type to students, so that they
+            # get the correct content level. To do so we rely on the grade field in the
+            # user data we get back from Clever. Their API doesn't guarantee that the
+            # grade field is present, so we supply a default.
+            grade = user_data.get('grade', None)
+
+            # If we can't bucket them into a content category, we return a problem detail.
+            if not grade or grade in ("Other", "Ungraded"):
+                return CLEVER_UNKNOWN_PATRON_GRADE
+
+            # The possible return values for the grade field are the following strings:
+            #   "1" through "13"
+            #   "PreKindergarten", "TransitionalKindergarten", "Kindergarten"
+            #   "InfantToddler", "Preschool",
+            #   "PostGraduate"
+            #   "Ungraded", "Other", ""
             external_type = None
-            if grade in ["Kindergarten", "1", "2", "3"]:
+
+            if grade in [
+                "InfantToddler",
+                "Preschool",
+                "PreKindergarten",
+                "TransitionalKindergarten",
+                "Kindergarten",
+                "1", "2", "3"
+            ]:
                 external_type = "E"
             elif grade in ["4", "5", "6", "7", "8"]:
                 external_type = "M"
-            elif grade in ["9", "10", "11", "12"]:
+            elif grade in ["9", "10", "11", "12", "13", "PostGraduate"]:
                 external_type = "H"
         else:
             external_type = "A"
