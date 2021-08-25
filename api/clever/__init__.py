@@ -1,44 +1,35 @@
-import logging
 import json
 import os
-from flask_babel import lazy_gettext as _
 
-from core.util.problem_detail import ProblemDetail
+from flask_babel import lazy_gettext as _
 
 from api.authenticator import (
     OAuthAuthenticationProvider,
     OAuthController,
     PatronData,
 )
-from api.config import Configuration
-from core.model import (
-    get_one,
-    get_one_or_create,
-    Credential,
-    DataSource,
-    ExternalIntegration,
-    Patron,
-)
+from core.model import ExternalIntegration
 from core.util.http import HTTP
+from core.util.problem_detail import ProblemDetail
 from core.util.string_helpers import base64
-from api.problem_details import *
+from api.problem_details import INVALID_CREDENTIALS
 
 
-UNSUPPORTED_CLEVER_USER_TYPE = pd(
+UNSUPPORTED_CLEVER_USER_TYPE = ProblemDetail(
     "http://librarysimplified.org/terms/problem/unsupported-clever-user-type",
     401,
     _("Your Clever user type is not supported."),
     _("Your Clever user type is not supported. You can request a code from First Book instead"),
 )
 
-CLEVER_NOT_ELIGIBLE = pd(
+CLEVER_NOT_ELIGIBLE = ProblemDetail(
     "http://librarysimplified.org/terms/problem/clever-not-eligible",
     401,
     _("Your Clever account is not eligible to access this application."),
     _("Your Clever account is not eligible to access this application."),
 )
 
-CLEVER_UNKNOWN_SCHOOL = pd(
+CLEVER_UNKNOWN_SCHOOL = ProblemDetail(
     "http://librarysimplified.org/terms/problem/clever-unknown-school",
     401,
     _("Clever did not provide the necessary information about your school to verify eligibility."),
@@ -68,8 +59,8 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     LOGIN_BUTTON_IMAGE = "CleverLoginButton280.png"
 
     SETTINGS = [
-        { "key": ExternalIntegration.USERNAME, "label": _("Client ID"), "required": True },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret"), "required": True },
+        {"key": ExternalIntegration.USERNAME, "label": _("Client ID"), "required": True},
+        {"key": ExternalIntegration.PASSWORD, "label": _("Client Secret"), "required": True},
     ] + OAuthAuthenticationProvider.SETTINGS
 
     # Unlike other authentication providers, external type regular expression
@@ -80,7 +71,10 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     TOKEN_TYPE = "Clever token"
     TOKEN_DATA_SOURCE_NAME = 'Clever'
 
-    EXTERNAL_AUTHENTICATE_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_url)s&state=%(state)s"
+    EXTERNAL_AUTHENTICATE_URL = (
+        "https://clever.com/oauth/authorize"
+        "?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_url)s&state=%(state)s"
+    )
     CLEVER_TOKEN_URL = "https://clever.com/oauth/tokens"
     CLEVER_API_BASE_URL = "https://api.clever.com"
 
@@ -242,7 +236,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         links = result['links']
 
-        user_link = [l for l in links if l['rel'] == 'canonical'][0]['uri']
+        user_link = [link for link in links if link['rel'] == 'canonical'][0]['uri']
         user = self._get(self.CLEVER_API_BASE_URL + user_link, bearer_headers)
 
         user_data = user['data']
@@ -294,5 +288,6 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
     def _get(self, url, headers):
         return HTTP.get_with_timeout(url, headers=headers).json()
+
 
 AuthenticationProvider = CleverAuthenticationAPI
