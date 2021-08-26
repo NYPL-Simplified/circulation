@@ -36,14 +36,6 @@ CLEVER_UNKNOWN_SCHOOL = ProblemDetail(
     lgt("Clever did not provide the necessary information about your school to verify eligibility."),
 )
 
-CLEVER_UNKNOWN_PATRON_GRADE = ProblemDetail(
-    "http://librarysimplified.org/terms/problem/clever-unknown-patron-grade",
-    401,
-    lgt("Your grade level is not set. Please contact your school administrator to change your Clever settings."),
-    lgt("Your grade level is not set. Please contact your school administrator to change your Clever settings."),
-)
-
-
 # Load Title I NCES ID data from json.
 TITLE_I_NCES_IDS = None
 clever_dir = os.path.split(__file__)[0]
@@ -306,13 +298,10 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
                        f"did not supply grade for student {user_data.get('id')}")
                 self.log.info(msg)
 
-            external_type = external_type_from_clever_grade(student_grade)
-
-            # If we can't bucket them into a content category, we return a problem detail.
-            if not external_type:
-                return CLEVER_UNKNOWN_PATRON_GRADE
+            # If we can't determine a type from the grade level, set to "A"
+            external_type = external_type_from_clever_grade(student_grade) or "A"
         else:
-            external_type = "A"
+            external_type = "A"     # Non-students get content level "A"
 
         patrondata = PatronData(
             permanent_id=identifier,

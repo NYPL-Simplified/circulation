@@ -8,7 +8,6 @@ from api.clever import (
     UNSUPPORTED_CLEVER_USER_TYPE,
     CLEVER_NOT_ELIGIBLE,
     CLEVER_UNKNOWN_SCHOOL,
-    CLEVER_UNKNOWN_PATRON_GRADE,
     external_type_from_clever_grade,
 )
 from api.problem_details import INVALID_CREDENTIALS
@@ -125,14 +124,6 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         self.api.queue_response(dict(type='district_admin', data=dict(id='1234')))
         token = self.api.remote_patron_lookup("token")
         assert UNSUPPORTED_CLEVER_USER_TYPE == token
-
-    def test_remote_patron_unknown_student_grade(self):
-        self.api.queue_response(dict(type='student', data=dict(id='2'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade="")))
-        self.api.queue_response(dict(data=dict(nces_id='44270647')))
-
-        token = self.api.remote_patron_lookup("token")
-        assert token == CLEVER_UNKNOWN_PATRON_GRADE
 
     def test_remote_patron_lookup_ineligible(self):
         self.api.queue_response(dict(type='student', data=dict(id='1234'), links=[dict(rel='canonical', uri='test')]))
