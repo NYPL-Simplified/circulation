@@ -39,8 +39,8 @@ CLEVER_UNKNOWN_SCHOOL = ProblemDetail(
 CLEVER_UNKNOWN_PATRON_GRADE = ProblemDetail(
     "http://librarysimplified.org/terms/problem/clever-unknown-patron-grade",
     401,
-    lgt("Clever did not provide a grade level for this student, so we cannot determine an appropriate content level."),
-    lgt("Clever did not provide a grade level for this student, so we cannot determine an appropriate content level."),
+    lgt("Your grade level is not set. Please contact your school administrator to change your Clever settings."),
+    lgt("Your grade level is not set. Please contact your school administrator to change your Clever settings."),
 )
 
 
@@ -51,6 +51,35 @@ clever_dir = os.path.split(__file__)[0]
 with open('%s/title_i.json' % clever_dir) as f:
     json_data = f.read()
     TITLE_I_NCES_IDS = json.loads(json_data)
+
+CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP = {
+    "InfantToddler": "E",               # Early
+    "Preschool": "E",
+    "PreKindergarten": "E",
+    "TransitionalKindergarten": "E",
+    "Kindergarten": "E",
+    "1": "E",
+    "2": "E",
+    "3": "E",
+    "4": "M",                           # Middle
+    "5": "M",
+    "6": "M",
+    "7": "M",
+    "8": "M",
+    "9": "H",                           # High
+    "10": "H",
+    "11": "H",
+    "12": "H",
+    "13": "H",
+    "PostGraduate": "H",
+    "Other": None,                      # Indeterminate
+    "Ungraded": None,
+}
+
+
+def external_type_from_clever_grade(grade):
+    """Maps a 'grade' value returned by the Clever API for student users to an external_type"""
+    return CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP.get(grade, None)
 
 
 class CleverAuthenticationAPI(OAuthAuthenticationProvider):
@@ -263,38 +292,25 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             self.log.info("%s didn't match a Title I NCES ID", school_nces_id)
             return CLEVER_NOT_ELIGIBLE
 
+        external_type = None
+
         if result['type'] == 'student':
             # We need to be able to assign an external_type to students, so that they
             # get the correct content level. To do so we rely on the grade field in the
             # user data we get back from Clever. Their API doesn't guarantee that the
             # grade field is present, so we supply a default.
-            grade = user_data.get('grade', None)
+            student_grade = user_data.get('grade', None)
+
+            if not student_grade:   # If no grade was supplied, log the school/student
+                msg = (f"CLEVER_UNKNOWN_PATRON_GRADE: School with NCES ID {school_nces_id} "
+                       f"did not supply grade for student {user_data.get('id')}")
+                self.log.info(msg)
+
+            external_type = external_type_from_clever_grade(student_grade)
 
             # If we can't bucket them into a content category, we return a problem detail.
-            if not grade or grade in ("Other", "Ungraded"):
+            if not external_type:
                 return CLEVER_UNKNOWN_PATRON_GRADE
-
-            # The possible return values for the grade field are the following strings:
-            #   "1" through "13"
-            #   "PreKindergarten", "TransitionalKindergarten", "Kindergarten"
-            #   "InfantToddler", "Preschool",
-            #   "PostGraduate"
-            #   "Ungraded", "Other", ""
-            external_type = None
-
-            if grade in [
-                "InfantToddler",
-                "Preschool",
-                "PreKindergarten",
-                "TransitionalKindergarten",
-                "Kindergarten",
-                "1", "2", "3"
-            ]:
-                external_type = "E"
-            elif grade in ["4", "5", "6", "7", "8"]:
-                external_type = "M"
-            elif grade in ["9", "10", "11", "12", "13", "PostGraduate"]:
-                external_type = "H"
         else:
             external_type = "A"
 

@@ -9,6 +9,7 @@ from api.clever import (
     CLEVER_NOT_ELIGIBLE,
     CLEVER_UNKNOWN_SCHOOL,
     CLEVER_UNKNOWN_PATRON_GRADE,
+    external_type_from_clever_grade,
 )
 from api.problem_details import INVALID_CREDENTIALS
 from core.model import ExternalIntegration
@@ -36,6 +37,28 @@ class MockAPI(CleverAuthenticationAPI):
 
     def _internal_authenticate_url(self):
         return ""
+
+
+class TestClever:
+    def test_external_type_from_clever_grade(self):
+        """
+        GIVEN: A string representing a student grade level supplied by the Clever API
+        WHEN:  That string is present in api.clever.CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP
+        THEN:  The matching external_type value should be returned, or None if the match fails
+        """
+        for e_grade in [
+            "InfantToddler", "Preschool", "PreKindergarten", "TransitionalKindergarten", "Kindergarten", "1", "2", "3"
+        ]:
+            assert external_type_from_clever_grade(e_grade) == "E"
+
+        for m_grade in ["4", "5", "6", "7", "8"]:
+            assert external_type_from_clever_grade(m_grade) == "M"
+
+        for h_grade in ["9", "10", "11", "12", "13", "PostGraduate"]:
+            assert external_type_from_clever_grade(h_grade) == "H"
+
+        for none_grade in ["Other", "Ungraded", None, "NOT A VALID GRADE STRING"]:
+            assert external_type_from_clever_grade(none_grade) is None
 
 
 class TestCleverAuthenticationAPI(DatabaseTest):
@@ -129,7 +152,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
     def test_remote_patron_lookup_title_i(self):
         self.api.queue_response(dict(type='student', data=dict(id='5678'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
+        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade="10")))
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         patrondata = self.api.remote_patron_lookup("token")
