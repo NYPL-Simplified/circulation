@@ -299,7 +299,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
                 self.log.info(msg)
 
             # If we can't determine a type from the grade level, set to "A"
-            external_type = external_type_from_clever_grade(student_grade) or "A"
+            external_type = external_type_from_clever_grade(student_grade)
         else:
             external_type = "A"     # Non-students get content level "A"
 

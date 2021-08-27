@@ -141,6 +141,14 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         token = self.api.remote_patron_lookup("")
         assert CLEVER_UNKNOWN_SCHOOL == token
 
+    def test_remote_patron_unknown_student_grade(self):
+        self.api.queue_response(dict(type='student', data=dict(id='2'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade="")))
+        self.api.queue_response(dict(data=dict(nces_id='44270647')))
+
+        patrondata = self.api.remote_patron_lookup("token")
+        assert patrondata.external_type is None
+
     def test_remote_patron_lookup_title_i(self):
         self.api.queue_response(dict(type='student', data=dict(id='5678'), links=[dict(rel='canonical', uri='test')]))
         self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade="10")))
