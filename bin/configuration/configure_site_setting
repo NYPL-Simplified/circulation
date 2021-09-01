@@ -1,12 +1,14 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """View or configure the site-wide settings."""
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
-from core.scripts import (
-     ConfigureSiteScript
-)
-from api.config import Configuration
+
+from core.scripts import ConfigureSiteScript      # noqa: E402
+from api.config import Configuration              # noqa: E402
+
 ConfigureSiteScript(config=Configuration).run()

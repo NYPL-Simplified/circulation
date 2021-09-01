@@ -1,5 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Associate LicensePools to their Collections"""
+
 import os
 import sys
 import logging
@@ -8,30 +9,32 @@ bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from core.model import (
+from core.model import (        # noqa: E402
     Collection,
     DataSource,
     LicensePool,
     production_session,
 )
-from core.util import fast_query_count
+from core.util import fast_query_count  # noqa: E402
 
 _db = production_session()
 log = logging.getLogger('Migration [20170714]')
+
 
 def log_change(count, collection):
     log.info('UPDATED: %d LicensePools given Collection %r' % (
         int(count), collection))
 
+
 try:
     collections = _db.query(Collection).all()
     collections_by_data_source = dict([(collection.data_source, collection) for collection in collections])
 
-    base_query = _db.query(LicensePool).filter(LicensePool.collection_id==None)
+    base_query = _db.query(LicensePool).filter(LicensePool.collection_id==None)     # noqa: E225,E711
     for data_source, collection in collections_by_data_source.items():
         # Find LicensePools with the matching DataSource.
-        qu = base_query.filter(LicensePool.data_source==data_source)
-        qu.update({LicensePool.collection_id : collection.id})
+        qu = base_query.filter(LicensePool.data_source==data_source)                # noqa: E225
+        qu.update({LicensePool.collection_id: collection.id})
         log_change(fast_query_count(qu), collection)
         _db.commit()
 
@@ -46,7 +49,7 @@ try:
     bibliotheca_collection = collections_by_data_source.get(bibliotheca)
     if bibliotheca_collection:
         result = threem_qu.update(
-            {LicensePool.collection_id : bibliotheca_collection.id},
+            {LicensePool.collection_id: bibliotheca_collection.id},
             synchronize_session='fetch'
         )
 
@@ -60,7 +63,7 @@ try:
         log.warning('No Collection found for %d LicensePools', remaining)
 
         source_ids = _db.query(LicensePool.data_source_id)\
-                        .filter(LicensePool.collection_id==None).subquery()
+                        .filter(LicensePool.collection_id==None).subquery()     # noqa: E225,E711
         sources = _db.query(DataSource).filter(DataSource.id.in_(source_ids))
         names = ', '.join(["%s" % source.name for source in sources])
 

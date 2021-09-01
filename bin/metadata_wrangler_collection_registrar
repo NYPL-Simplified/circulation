@@ -1,17 +1,19 @@
-#!/usr/bin/env python
-"""Gather information from the metadata wrangler.
+#!/usr/bin/env python3
+"""
+Gather information from the metadata wrangler.
 
 This script should be invoked as metadata_wrangler_collection_registrar.
 metadata_wrangler_collection_sync is a deprecated name for the same script.
 """
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
-from api.metadata_wrangler import MetadataWranglerCollectionRegistrar
-from core.scripts import RunCollectionCoverageProviderScript
 
-RunCollectionCoverageProviderScript(
-    MetadataWranglerCollectionRegistrar
-).run()
+from api.metadata_wrangler import MetadataWranglerCollectionRegistrar   # noqa: E402
+from core.scripts import RunCollectionCoverageProviderScript            # noqa: E402
+
+RunCollectionCoverageProviderScript(MetadataWranglerCollectionRegistrar).run()

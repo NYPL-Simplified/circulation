@@ -1,16 +1,19 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Maintain a CustomList containing all books classified under certain subjects."""
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
-from core.external_list import ClassificationBasedMembershipManager
-from core.scripts import CustomListManagementScript
-from core.model import DataSource
+
+from core.external_list import ClassificationBasedMembershipManager     # noqa: E402
+from core.scripts import CustomListManagementScript                     # noqa: E402
+from core.model import DataSource                                       # noqa: E402
 
 if len(sys.argv) < 6:
-    print "Usage: %s [SHORT_NAME] [HUMAN_READABLE_NAME] [PRIMARY_LANGUAGE] [DESCRIPTION] [SUBJECT] [subject2] ..." % sys.argv[0]
+    print("Usage: %s [SHORT_NAME] [HUMAN_READABLE_NAME] [PRIMARY_LANGUAGE] [DESCRIPTION] [SUBJECT] [subject2] ..." % sys.argv[0])   # noqa: E501
     sys.exit()
 
 list_identifier, list_name, primary_language, description = sys.argv[1:5]
