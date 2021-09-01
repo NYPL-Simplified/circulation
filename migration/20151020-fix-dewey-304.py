@@ -1,5 +1,6 @@
-#!/usr/bin/env python
-"""DDC 304 was incorrectly classified under Periodicals. 304 is Social Sciences, 305 is Periodicals.
+#!/usr/bin/env python3
+"""
+DDC 304 was incorrectly classified under Periodicals. 304 is Social Sciences, 305 is Periodicals.
 
 That has now been fixed.
 
@@ -8,11 +9,12 @@ Correct all 304.* and 305.* subjects, and reclassify every work classified under
 import os
 import sys
 import logging
-from pdb import set_trace
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
-from core.model import (
+
+from core.model import (        # noqa: E402,F401
     production_session,
     Edition,
     Identifier,
@@ -27,7 +29,7 @@ _db = production_session()
 
 def reclassify(ddc):
     log = logging.getLogger("Migration script - Fix Dewey %s" % ddc)
-    for subject in _db.query(Subject).filter(Subject.type==Subject.DDC).filter(Subject.identifier.like(ddc + "%")):
+    for subject in _db.query(Subject).filter(Subject.type==Subject.DDC).filter(Subject.identifier.like(ddc + "%")):     # noqa: E225,E501
         log.info("Considering subject %s/%s", subject.identifier, subject.name)
         subject.assign_to_genre()
         for cl in subject.classifications:
@@ -43,6 +45,7 @@ def reclassify(ddc):
                 else:
                     edition.calculate_presentation()
         _db.commit()
+
 
 reclassify("205")
 reclassify("304")

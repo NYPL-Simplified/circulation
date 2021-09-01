@@ -1,22 +1,26 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Set Edition.open_access_download_url for all Project Gutenberg books."""
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
-from core.monitor import EditionSweepMonitor
-from core.model import (
+
+from core.monitor import EditionSweepMonitor        # noqa: E402
+from core.model import (                            # noqa: E402,F401
     production_session,
     DataSource,
     Edition,
     Representation,
     DeliveryMechanism,
 )
-from core.scripts import RunMonitorScript
+from core.scripts import RunMonitorScript           # noqa: E402
 
 
 set_delivery_mechanism = len(sys.argv) > 1 and sys.argv[1] == 'delivery'
+
 
 class OpenAccessDownloadSetMonitor(EditionSweepMonitor):
     """Set the open-access link f."""
@@ -29,7 +33,7 @@ class OpenAccessDownloadSetMonitor(EditionSweepMonitor):
 
     def edition_query(self):
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        return self._db.query(Edition).filter(Edition.data_source==gutenberg)
+        return self._db.query(Edition).filter(Edition.data_source==gutenberg)       # noqa: E225
 
     def process_edition(self, edition):
         edition.set_open_access_link()
@@ -44,5 +48,6 @@ class OpenAccessDownloadSetMonitor(EditionSweepMonitor):
         else:
             print(edition.id, edition.title, "[no link]")
         return True
+
 
 RunMonitorScript(OpenAccessDownloadSetMonitor).run()

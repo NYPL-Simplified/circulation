@@ -1,26 +1,22 @@
-#!/usr/bin/env python
-"""Fix Editions that list the same contributor as both 'Primary Author'
+#!/usr/bin/env python3
+"""
+Fix Editions that list the same contributor as both 'Primary Author'
 and 'Author', and Editions that list the same contributor in an
 'Unknown' role plus some more specific role.
 """
+
 import os
 import sys
-import logging
-from pdb import set_trace
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
 
-import time
+import time                                         # noqa: E402
 
-from sqlalchemy.orm import (
-    aliased,
-)
-from sqlalchemy.sql.expression import (
-    and_,
-    or_
-)
-from core.model import (
+from sqlalchemy.orm import aliased                  # noqa: E402
+from sqlalchemy.sql.expression import (and_, or_)   # noqa: E402
+from core.model import (                            # noqa: E402
     Contribution,
     Contributor,
     Edition,
@@ -30,7 +26,7 @@ from core.model import (
 
 def dedupe(edition):
     print("Deduping edition %s (%s)" % (edition.id, edition.title))
-    primary_author = [x for x in edition.contributions if x.role==Contributor.PRIMARY_AUTHOR_ROLE]
+    primary_author = [x for x in edition.contributions if x.role == Contributor.PRIMARY_AUTHOR_ROLE]
     seen = set()
     contributors_with_roles = set()
     unresolved_mysteries = {}
@@ -71,6 +67,7 @@ def dedupe(edition):
                 del unresolved_mysteries[contributor]
                 _db.delete(now_resolved)
 
+
 _db = production_session()
 contribution2 = aliased(Contribution)
 
@@ -79,7 +76,7 @@ contribution2 = aliased(Contribution)
 # and some other role. Also find editions where one Contributor is listed
 # twice in author roles.
 unknown_role_or_duplicate_author_role = or_(
-    and_(Contribution.role==Contributor.UNKNOWN_ROLE,
+    and_(Contribution.role==Contributor.UNKNOWN_ROLE,                   # noqa: E225
          contribution2.role != Contributor.UNKNOWN_ROLE),
     and_(
         Contribution.role.in_(Contributor.AUTHOR_ROLES),
@@ -88,9 +85,9 @@ unknown_role_or_duplicate_author_role = or_(
 )
 
 qu = _db.query(Edition).join(Edition.contributions).join(
-    contribution2, contribution2.edition_id==Edition.id).filter(
+    contribution2, contribution2.edition_id==Edition.id).filter(        # noqa: E225
         contribution2.id != Contribution.id).filter(
-            contribution2.contributor_id==Contribution.contributor_id
+            contribution2.contributor_id==Contribution.contributor_id   # noqa: E225
         ).filter(
             unknown_role_or_duplicate_author_role
         )
@@ -102,8 +99,8 @@ while results:
     a = time.time()
     results = qu.all()
     for ed in qu:
-        #for contribution in ed.contributions:
-        #    print contribution.contributor, contribution.role
+        # for contribution in ed.contributions:
+        #     print contribution.contributor, contribution.role
         dedupe(ed)
     _db.commit()
     b = time.time()

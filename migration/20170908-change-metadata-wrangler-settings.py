@@ -1,20 +1,20 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Delete outdated ConfigurationSettings for the metadata wrangler."""
+
 import os
 import sys
-import logging
-
 
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from model import (
+from model import (                 # noqa: E402
     production_session,
     ExternalIntegration as EI,
 )
 
 _db = production_session()
+
 try:
     integration = EI.lookup(_db, EI.METADATA_WRANGLER, EI.METADATA_GOAL)
 

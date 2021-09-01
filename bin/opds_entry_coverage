@@ -1,6 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Make sure all presentation-ready works have up-to-date OPDS entries."""
-import startup
+
+import startup      # noqa: F401
+
 from core.coverage import OPDSEntryWorkCoverageProvider
 from core.scripts import RunWorkCoverageProviderScript
 

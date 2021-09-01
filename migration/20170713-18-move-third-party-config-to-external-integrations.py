@@ -1,29 +1,31 @@
-#!/usr/bin/env python
-"""Move integration details from the Configuration file into the
+#!/usr/bin/env python3
+"""
+Move integration details from the Configuration file into the
 database as ExternalIntegrations
 """
 import os
 import sys
 import logging
 
-
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from config import Configuration
-from external_search import ExternalSearchIndex
-from model import (
+from config import Configuration                    # noqa: E402
+from external_search import ExternalSearchIndex     # noqa: E402
+from model import (                                 # noqa: E402
     ExternalIntegration as EI,
     production_session,
 )
 
-from s3 import S3Uploader
+from s3 import S3Uploader                           # noqa: E402
 
 log = logging.getLogger(name="Core configuration import")
 
+
 def log_import(integration_or_setting):
     log.info("CREATED: %r" % integration_or_setting)
+
 
 try:
     Configuration.load()
@@ -76,7 +78,7 @@ try:
             S3Uploader.OA_CONTENT_BUCKET_KEY,
         ]
         for k, v in list(s3_conf.items()):
-            if not k in S3_SETTINGS:
+            if k not in S3_SETTINGS:
                 log.warn('No ExternalIntegration goal for "%s" S3 bucket' % k)
                 continue
             integration.setting(str(k)).value = str(v)
