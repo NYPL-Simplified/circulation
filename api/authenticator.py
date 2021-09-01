@@ -1940,6 +1940,12 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             patron
         )
 
+    def scrub_credential(self, value):
+        """Scrub an incoming value that is part of a patron's set of credentials."""
+        if not isinstance(value, (str, bytes)):
+            return value
+        return value.strip()
+
     def authenticate(self, _db, credentials):
         """Turn a set of credentials into a Patron object.
 
@@ -1948,8 +1954,8 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         :return: A Patron if one can be authenticated; a ProblemDetail
             if an error occurs; None if the credentials are missing or wrong.
         """
-        username = credentials.get('username')
-        password = credentials.get('password')
+        username = self.scrub_credential(credentials.get('username'))
+        password = self.scrub_credential(credentials.get('password'))
         server_side_validation_result = self.server_side_validation(
             username, password
         )
