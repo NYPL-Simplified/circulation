@@ -1,8 +1,7 @@
 import dateutil
 import logging
 from lxml import etree
-from urllib.parse import urljoin
-from urllib.parse import urlencode
+from urllib import parse
 import datetime
 import requests
 from money import Money
@@ -212,8 +211,13 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
 
         if self.auth_mode == self.PIN_AUTHENTICATION_MODE:
             # Patrons are authenticated with a secret PIN.
+            #
+            # The PIN is URL-encoded. The username is not: as far as
+            # we can tell Millenium Patron doesn't even try to decode
+            # it.
+            quoted_password = parse.quote(password) if password else password
             path = "%(barcode)s/%(pin)s/pintest" % dict(
-                barcode=username, pin=password
+                barcode=username, pin=quoted_password
             )
             url = self.root + path
             response = self.request(url)
