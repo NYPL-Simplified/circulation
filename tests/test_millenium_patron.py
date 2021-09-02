@@ -2,6 +2,7 @@ import pkgutil
 from datetime import date, timedelta
 from decimal import Decimal
 import json
+from urllib import parse
 
 import pytest
 from api.config import (
@@ -184,12 +185,18 @@ class TestMilleniumPatronAPI(DatabaseTest):
 
     def test_remote_authenticate_correct_pin(self):
         self.api.enqueue("pintest.good.html")
-        patrondata = self.api.remote_authenticate(
-            "barcode1234567", "correct pin"
-        )
+        barcode = "barcode1234567!"
+        pin = "!correct pin<>@"
+        patrondata = self.api.remote_authenticate(barcode, pin)
         # The return value includes everything we know about the
         # authenticated patron, which isn't much.
-        assert "barcode1234567" == patrondata.authorization_identifier
+        assert "barcode1234567!" == patrondata.authorization_identifier
+
+        # The PIN went out URL-encoded. The barcode did not.
+        [args, kwargs] = self.api.requests_made.pop()
+        [url] = args
+        assert kwargs == {}
+        assert url == 'http://url/%s/%s/pintest' % (barcode, parse.quote(pin))
 
     def test_authentication_updates_patron_authorization_identifier(self):
         """Verify that Patron.authorization_identifier is updated when
