@@ -1,19 +1,19 @@
-#!/usr/bin/env python
-"""Update the circulation manager server with new books from
-Feedbooks collections."""
+#!/usr/bin/env python3
+"""Update the circulation manager server with new books from Feedbooks collections."""
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
-from core.scripts import OPDSImportScript
-from core.model import ExternalIntegration
-from api.feedbooks import (
-    FeedbooksOPDSImporter,
-    FeedbooksImportMonitor
-)
+
+from core.scripts import OPDSImportScript                                   # noqa: E402
+from core.model import ExternalIntegration                                  # noqa: E402
+from api.feedbooks import (FeedbooksOPDSImporter, FeedbooksImportMonitor)   # noqa: E402
+
 OPDSImportScript(
     importer_class=FeedbooksOPDSImporter,
-    monitor_class=FeedbooksImportMonitor, 
+    monitor_class=FeedbooksImportMonitor,
     protocol=ExternalIntegration.FEEDBOOKS
 ).run()

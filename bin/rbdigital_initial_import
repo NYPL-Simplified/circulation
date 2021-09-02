@@ -1,13 +1,16 @@
-#!/usr/bin/env python
-"""Perform the initial population of an RBdigital collection with
-works from the RBdigital content server.
+#!/usr/bin/env python3
 """
+Perform the initial population of an RBdigital collection with works from the RBdigital content server.
+"""
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from core.scripts import RunCollectionMonitorScript
-from api.rbdigital import RBDigitalImportMonitor
+from core.scripts import RunCollectionMonitorScript         # noqa: E402
+from api.rbdigital import RBDigitalImportMonitor            # noqa: E402
+
 RunCollectionMonitorScript(RBDigitalImportMonitor).run()

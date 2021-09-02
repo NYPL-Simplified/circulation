@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """A simple SIP2 client.
 
 Implementation is guided by the SIP2 specification:

@@ -1,7 +1,9 @@
-#!/usr/bin/env python
-"""Due to a bug in version 2.2.0, borrow links for open-access books in a
+#!/usr/bin/env python3
+"""
+Due to a bug in version 2.2.0, borrow links for open-access books in a
 shared ODL collection were imported. This migration delete the links and
-their associated resources and representations."""
+their associated resources and representations.
+"""
 import os
 import sys
 
@@ -9,10 +11,10 @@ bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from sqlalchemy.orm import aliased
-from sqlalchemy import and_
+from sqlalchemy.orm import aliased      # noqa: E402
+from sqlalchemy import and_             # noqa: E402
 
-from core.model import (
+from core.model import (                # noqa: E402
     Collection,
     Hyperlink,
     LicensePool,
@@ -20,7 +22,7 @@ from core.model import (
     Resource,
     production_session,
 )
-from api.odl import SharedODLAPI
+from api.odl import SharedODLAPI        # noqa: E402
 
 try:
     _db = production_session()
@@ -32,26 +34,26 @@ try:
             LicensePool
         ).join(
             borrow_link,
-            LicensePool.identifier_id==borrow_link.identifier_id,
+            LicensePool.identifier_id==borrow_link.identifier_id,       # noqa: E225
         ).join(
             open_link,
-            LicensePool.identifier_id==open_link.identifier_id,
+            LicensePool.identifier_id==open_link.identifier_id,         # noqa: E225
         ).join(
             Resource,
-            borrow_link.resource_id==Resource.id,
+            borrow_link.resource_id==Resource.id,                       # noqa: E225
         ).join(
             Representation,
-            Resource.representation_id==Representation.id,
+            Resource.representation_id==Representation.id,              # noqa: E225
         ).filter(
             and_(
-                LicensePool.collection_id==collection.id,
-                borrow_link.rel==Hyperlink.BORROW,
-                open_link.rel==Hyperlink.OPEN_ACCESS_DOWNLOAD,
-                Representation.media_type=='application/atom+xml;type=entry;profile=opds-catalog',
+                LicensePool.collection_id==collection.id,               # noqa: E225
+                borrow_link.rel==Hyperlink.BORROW,                      # noqa: E225
+                open_link.rel==Hyperlink.OPEN_ACCESS_DOWNLOAD,          # noqa: E225
+                Representation.media_type=='application/atom+xml;type=entry;profile=opds-catalog',  # noqa: E225
             )
         )
 
-        print "Deleting hyperlinks for %i license pools" % pools.count()
+        print("Deleting hyperlinks for %i license pools" % pools.count())
         for pool in pools:
             for link in pool.identifier.links:
                 if link.rel == Hyperlink.BORROW:

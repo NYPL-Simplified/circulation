@@ -1,10 +1,16 @@
-#!/usr/bin/env python
-"""Update the circulation manager server with to remove books that
-have been removed from OPDS for distributors collections."""
+#!/usr/bin/env python3
+"""
+Update the circulation manager server with to remove books that have been removed from
+OPDS for distributors collections.
+"""
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
-from scripts import OPDSForDistributorsReaperScript
+
+from scripts import OPDSForDistributorsReaperScript     # noqa: E402
+
 OPDSForDistributorsReaperScript().run()

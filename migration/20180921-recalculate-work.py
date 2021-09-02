@@ -1,13 +1,14 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
 import os
 import sys
 import logging
-from pdb import set_trace
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from core.model import (
+from core.model import (        # noqa: E402
     Edition,
     production_session,
     LicensePool,
@@ -16,7 +17,7 @@ from core.model import (
 
 _db = production_session()
 
-works = _db.query(Work).filter(Work.fiction == None).order_by(Work.id)
+works = _db.query(Work).filter(Work.fiction == None).order_by(Work.id)          # noqa: E711
 logging.info("Processing %d works with no fiction status.", works.count())
 a = 0
 for work in works:
@@ -27,12 +28,12 @@ for work in works:
 _db.commit()
 
 
-license_pools = _db.query(LicensePool).join(LicensePool.presentation_edition).filter(LicensePool.work == None).filter(Edition.title != None).filter(Edition.author == "[Unknown]").order_by(LicensePool.id)
+license_pools = _db.query(LicensePool).join(LicensePool.presentation_edition).filter(LicensePool.work == None).filter(Edition.title != None).filter(Edition.author == "[Unknown]").order_by(LicensePool.id)  # noqa: E501,E711
 logging.info("Processing %d license pools with no work and no known author.", license_pools.count())
 for license_pool in license_pools:
     logging.info("Processing %s", license_pool.presentation_edition.title)
     try:
         license_pool.calculate_work()
-    except Exception, e:
+    except Exception as e:
         logging.error("That didn't work.", exc_info=e)
     _db.commit()
