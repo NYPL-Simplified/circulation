@@ -932,7 +932,7 @@ class DatabaseMigrationScriptTest(DatabaseTest):
             elif migration_type=='py':
                 # Create unique, innocuous content for a Python file.
                 content = (
-                    "#!/usr/bin/env python\n\n"+
+                    "#!/usr/bin/env python3\n\n"+
                     "import tempfile\nimport os\n\n"+
                     "file_info = tempfile.mkstemp(prefix='"+
                     unique_string+"-', suffix='.py', dir='"+str(tmp_path)+"')\n\n"+

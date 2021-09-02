@@ -1,29 +1,27 @@
-#!/usr/bin/env python
-"""Fix work descriptions that were originally UTF-8 but were incorrectly
+#!/usr/bin/env python3
+"""
+Fix work descriptions that were originally UTF-8 but were incorrectly
 encoded as Windows-1252.
 """
+
 import os
 import sys
-import logging
-from pdb import set_trace
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
 
-import time
-
-from core.external_search import ExternalSearchIndex
-from core.model import (
-    production_session,
-    Work,
-)
+from core.external_search import ExternalSearchIndex    # noqa: E402
+from core.model import (production_session, Work)       # noqa: E402
 
 _db = production_session()
 client = ExternalSearchIndex()
-base = _db.query(Work).filter(Work.summary_text != None).order_by(Work.id)
+base = _db.query(Work).filter(Work.summary_text != None).order_by(Work.id)      # noqa: E711
 results = True
 offset = 0
+
 print("Looking at %d works." % base.count())
+
 while results:
     fixed = 0
     qu = base.offset(offset).limit(1000)
@@ -38,10 +36,10 @@ while results:
                 final = windows_1252_from_unicode.decode("utf8")
                 # If we get to this point, it's UTF-8 that was incorrectly
                 # encoded as Windows-1252.
-            except UnicodeDecodeError as e:
+            except UnicodeDecodeError:
                 # It was Windows-1252 all along.
                 final = windows_1252_from_unicode.decode("windows-1252")
-        except UnicodeEncodeError as e:
+        except UnicodeEncodeError:
             # This description can't be encoded as Windows-1252, an
             # indication that it was originally UTF-8 and is not
             # subject to this problem.

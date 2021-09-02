@@ -1,22 +1,26 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Fix audiobooks mislabeled as print books."""
 
 import os
 import sys
+from pdb import set_trace
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
-from monitor import IdentifierSweepMonitor
-from model import (
+
+from monitor import IdentifierSweepMonitor                              # noqa: E402
+from model import (                                                     # noqa: E402
     Identifier,
     LicensePool,
     DeliveryMechanism,
     LicensePoolDeliveryMechanism,
     Edition,
 )
-from scripts import RunMonitorScript
-from overdrive import OverdriveAPI, OverdriveRepresentationExtractor
-from threem import ThreeMAPI
+from scripts import RunMonitorScript                                    # noqa: E402
+from overdrive import OverdriveAPI, OverdriveRepresentationExtractor    # noqa: E402
+from threem import ThreeMAPI                                            # noqa: E402
+
 
 class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
 
@@ -51,12 +55,12 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
             correct_medium = lpdm.delivery_mechanism.implicit_medium
             if correct_medium:
                 break
-        if not correct_medium and identifier.type==Identifier.OVERDRIVE_ID:
+        if not correct_medium and identifier.type == Identifier.OVERDRIVE_ID:
             content = self.overdrive.metadata_lookup(identifier)
             metadata = OverdriveRepresentationExtractor.book_info_to_metadata(content)
             correct_medium = metadata.medium
 
-        if not correct_medium and identifier.type==Identifier.THREEM_ID:
+        if not correct_medium and identifier.type == Identifier.THREEM_ID:
             metadata = self.threem.bibliographic_lookup(identifier)
             correct_medium = metadata.medium
 
@@ -66,5 +70,6 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
         if lp.edition.medium != correct_medium:
             print(("%s is actually %s, not %s" % (lp.edition.title, correct_medium, lp.edition.medium)))
             lp.edition.medium = correct_medium or Edition.BOOK_MEDIUM
+
 
 RunMonitorScript(SetDeliveryMechanismMonitor).run()
