@@ -1,25 +1,21 @@
 import os
 import datetime
-import flask
-from flask import url_for
+
+from flask import request, url_for
+
 from api.clever import (
     CleverAuthenticationAPI,
     UNSUPPORTED_CLEVER_USER_TYPE,
     CLEVER_NOT_ELIGIBLE,
     CLEVER_UNKNOWN_SCHOOL,
+    external_type_from_clever_grade,
 )
-from api.problem_details import *
-from core.model import (
-    Credential,
-    DataSource,
-    ExternalIntegration,
-    Patron,
-    get_one,
-    get_one_or_create,
-)
+from api.problem_details import INVALID_CREDENTIALS
+from core.model import ExternalIntegration
 from core.util.datetime_helpers import utc_now
 from core.util.problem_detail import ProblemDetail
 from core.testing import DatabaseTest
+
 
 class MockAPI(CleverAuthenticationAPI):
     def __init__(self, *args, **kwargs):
@@ -41,12 +37,33 @@ class MockAPI(CleverAuthenticationAPI):
     def _internal_authenticate_url(self):
         return ""
 
-class TestCleverAuthenticationAPI(DatabaseTest):
 
+class TestClever:
+    def test_external_type_from_clever_grade(self):
+        """
+        GIVEN: A string representing a student grade level supplied by the Clever API
+        WHEN:  That string is present in api.clever.CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP
+        THEN:  The matching external_type value should be returned, or None if the match fails
+        """
+        for e_grade in [
+            "InfantToddler", "Preschool", "PreKindergarten", "TransitionalKindergarten", "Kindergarten", "1", "2", "3"
+        ]:
+            assert external_type_from_clever_grade(e_grade) == "E"
+
+        for m_grade in ["4", "5", "6", "7", "8"]:
+            assert external_type_from_clever_grade(m_grade) == "M"
+
+        for h_grade in ["9", "10", "11", "12", "13", "PostGraduate"]:
+            assert external_type_from_clever_grade(h_grade) == "H"
+
+        for none_grade in ["Other", "Ungraded", None, "NOT A VALID GRADE STRING"]:
+            assert external_type_from_clever_grade(none_grade) is None
+
+
+class TestCleverAuthenticationAPI(DatabaseTest):
 
     def setup_method(self):
         super(TestCleverAuthenticationAPI, self).setup_method()
-
         self.api = MockAPI(self._default_library, self.mock_integration)
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
@@ -55,37 +72,30 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
     @property
     def mock_integration(self):
-        """Make a fake ExternalIntegration that can be used to configure
-        a CleverAuthenticationAPI.
-        """
-        integration = self._external_integration(
-            protocol="OAuth",
-            goal=ExternalIntegration.PATRON_AUTH_GOAL,
-            username="fake_client_id",
-            password="fake_client_secret"
-        )
+        """Make a fake ExternalIntegration that can be used to configure a CleverAuthenticationAPI"""
+        integration = self._external_integration(protocol="OAuth", goal=ExternalIntegration.PATRON_AUTH_GOAL,
+                                                 username="fake_client_id", password="fake_client_secret")
         integration.setting(MockAPI.OAUTH_TOKEN_EXPIRATION_DAYS).value = 20
         return integration
 
     def test_authenticated_patron(self):
         """An end-to-end test of authenticated_patron()."""
-        assert None == self.api.authenticated_patron(self._db, "not a valid token")
+        assert self.api.authenticated_patron(self._db, "not a valid token") is None
 
         # This patron has a valid clever token.
         patron = self._patron()
-        credential, is_new = self.api.create_token(self._db, patron, "test")
+        (credential, _) = self.api.create_token(self._db, patron, "test")
         assert patron == self.api.authenticated_patron(self._db, "test")
 
         # If the token is expired, the patron has to log in again.
         credential.expires = utc_now() - datetime.timedelta(days=1)
-        assert None == self.api.authenticated_patron(self._db, "test")
+        assert self.api.authenticated_patron(self._db, "test") is None
 
     def test_remote_exchange_code_for_bearer_token(self):
         # Test success.
         self.api.queue_response(dict(access_token="a token"))
         with self.app.test_request_context("/"):
-            assert ("a token" ==
-                self.api.remote_exchange_code_for_bearer_token(self._db, "code"))
+            assert self.api.remote_exchange_code_for_bearer_token(self._db, "code") == "a token"
 
         # Test failure.
         self.api.queue_response(None)
@@ -99,9 +109,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         assert INVALID_CREDENTIALS.uri == problem.uri
 
     def test_remote_exchange_payload(self):
-        """Test the content of the document sent to Clever when
-        exchanging tokens.
-        """
+        """Test the content of the document sent to Clever when exchanging tokens"""
         with self.app.test_request_context("/"):
             payload = self.api._remote_exchange_payload(self._db, "a code")
 
@@ -133,13 +141,21 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         token = self.api.remote_patron_lookup("")
         assert CLEVER_UNKNOWN_SCHOOL == token
 
-    def test_remote_patron_lookup_title_i(self):
-        self.api.queue_response(dict(type='student', data=dict(id='5678'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
+    def test_remote_patron_unknown_student_grade(self):
+        self.api.queue_response(dict(type='student', data=dict(id='2'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade="")))
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         patrondata = self.api.remote_patron_lookup("token")
-        assert None == patrondata.personal_name
+        assert patrondata.external_type is None
+
+    def test_remote_patron_lookup_title_i(self):
+        self.api.queue_response(dict(type='student', data=dict(id='5678'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade="10")))
+        self.api.queue_response(dict(data=dict(nces_id='44270647')))
+
+        patrondata = self.api.remote_patron_lookup("token")
+        assert patrondata.personal_name is None
         assert "5678" == patrondata.permanent_id
         assert "5678" == patrondata.authorization_identifier
 
@@ -160,7 +176,6 @@ class TestCleverAuthenticationAPI(DatabaseTest):
             self.api.queue_response(dict(type='student', data=dict(id='2'), links=[dict(rel='canonical', uri='test')]))
             self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade=grade)))
             self.api.queue_response(dict(data=dict(nces_id='44270647')))
-
 
         queue_student(grade="1")
         patrondata = self.api.remote_patron_lookup("token")
@@ -186,18 +201,14 @@ class TestCleverAuthenticationAPI(DatabaseTest):
             credential, patron, patrondata = response
 
         # The bearer token was turned into a Credential.
-        expect_credential, ignore = self.api.create_token(
-            self._db, patron, "bearer token"
-        )
+        expect_credential, ignore = self.api.create_token(self._db, patron, "bearer token")
         assert credential == expect_credential
 
-        # Since the patron is a teacher, their external_type
-        # was set to 'A'.
+        # Since the patron is a teacher, their external_type was set to 'A'.
         assert "A" == patron.external_type
 
-        # Clever provided personal name information, but we don't
-        # include it in the PatronData.
-        assert None == patrondata.personal_name
+        # Clever provided personal name information, but we don't include it in the PatronData.
+        assert patrondata.personal_name is None
 
     def test_oauth_callback_problem_detail_if_bad_token(self):
         self.api.queue_response(dict(something_else="not a token"))
@@ -209,22 +220,25 @@ class TestCleverAuthenticationAPI(DatabaseTest):
     def test_oauth_callback_problem_detail_if_remote_patron_lookup_fails(self):
         self.api.queue_response(dict(access_token="token"))
         self.api.queue_response(dict())
+
         with self.app.test_request_context("/"):
             response = self.api.oauth_callback(self._db, dict(code="teacher code"))
+
         assert isinstance(response, ProblemDetail)
         assert INVALID_CREDENTIALS.uri == response.uri
 
     def test_external_authenticate_url(self):
-        """Verify that external_authenticate_url is generated properly.
-        """
-        # We're about to call url_for, so we must create an
-        # application context.
-        my_api = CleverAuthenticationAPI(
-            self._default_library, self.mock_integration
-        )
-        with self.app.test_request_context("/"):
-            flask.request.library = self._default_library
-            params = my_api.external_authenticate_url("state", self._db)
-            expected_redirect_uri = url_for("oauth_callback", library_short_name=self._default_library.short_name, _external=True)
-            assert 'https://clever.com/oauth/authorize?response_type=code&client_id=fake_client_id&redirect_uri=%s&state=state' % expected_redirect_uri == params
+        """Verify that external_authenticate_url is generated properly"""
+        # We're about to call url_for, so we must create an application context.
+        my_api = CleverAuthenticationAPI(self._default_library, self.mock_integration)
 
+        with self.app.test_request_context("/"):
+            request.library = self._default_library
+            params = my_api.external_authenticate_url("state", self._db)
+            expected_redirect_uri = url_for("oauth_callback", library_short_name=self._default_library.short_name,
+                                            _external=True)
+            expected = (
+                'https://clever.com/oauth/authorize'
+                '?response_type=code&client_id=fake_client_id&redirect_uri=%s&state=state'
+            ) % expected_redirect_uri
+            assert params == expected
