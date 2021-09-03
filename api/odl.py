@@ -1,68 +1,56 @@
 import datetime
-import dateutil
 import json
 import uuid
-from flask_babel import lazy_gettext as _
-import urllib.parse
-from collections import defaultdict
-import flask
-from flask import Response
-import feedparser
-from lxml import etree
-from .problem_details import NO_LICENSES
 from io import StringIO
-import re
+
+import dateutil
+import feedparser
+import flask
+from flask import url_for
+from flask_babel import lazy_gettext as _
+from lxml import etree
+from sqlalchemy.sql.expression import or_
 from uritemplate import URITemplate
 
-from sqlalchemy.sql.expression import or_
-
-from core.opds_import import (
-    OPDSXMLParser,
-    OPDSImporter,
-    OPDSImportMonitor,
-)
-from core.monitor import (
-    CollectionMonitor,
-    TimelineMonitor,
+from core import util
+from core.analytics import Analytics
+from core.metadata_layer import (
+    CirculationData,
+    FormatData,
+    LicenseData,
+    TimestampData,
 )
 from core.model import (
     Collection,
     ConfigurationSetting,
-    Credential,
     DataSource,
     DeliveryMechanism,
     Edition,
     ExternalIntegration,
     Hold,
     Hyperlink,
-    Identifier,
-    IntegrationClient,
     LicensePool,
     Loan,
     MediaTypes,
     RightsStatus,
     Session,
-    create,
     get_one,
     get_one_or_create,
+    Representation)
+from core.monitor import (
+    CollectionMonitor,
+    IdentifierSweepMonitor)
+from core.opds_import import (
+    OPDSXMLParser,
+    OPDSImporter,
+    OPDSImportMonitor,
 )
-from core.metadata_layer import (
-    CirculationData,
-    FormatData,
-    IdentifierData,
-    LicenseData,
-    TimestampData,
+from core.testing import (
+    DatabaseTest,
+    MockRequestsResponse,
 )
-from .circulation import (
-    BaseCirculationAPI,
-    LoanInfo,
-    FulfillmentInfo,
-    HoldInfo,
-)
-from core.analytics import Analytics
 from core.util.datetime_helpers import (
     utc_now,
-    strptime_utc,
 )
 from core.util.http import (
     HTTP,
@@ -70,13 +58,15 @@ from core.util.http import (
     RemoteIntegrationException,
 )
 from core.util.string_helpers import base64
-from flask import url_for
-from core.testing import (
-    DatabaseTest,
-    MockRequestsResponse,
+from .circulation import (
+    BaseCirculationAPI,
+    LoanInfo,
+    FulfillmentInfo,
+    HoldInfo,
 )
 from .circulation_exceptions import *
 from .shared_collection import BaseSharedCollectionAPI
+
 
 class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
     """ODL (Open Distribution to Libraries) is a specification that allows
@@ -596,7 +586,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
                 Loan.end>utc_now()
             )
         ).count()
-        remaining_licenses = licensepool.licenses_owned - loans_count
+        remaining_licenses = max(licensepool.licenses_owned - loans_count, 0)
 
         holds = _db.query(Hold).filter(
             Hold.license_pool_id==licensepool.id
@@ -782,6 +772,7 @@ class ODLXMLParser(OPDSXMLParser):
     NAMESPACES = dict(OPDSXMLParser.NAMESPACES,
                       odl="http://opds-spec.org/odl")
 
+
 class ODLImporter(OPDSImporter):
     """Import information and formats from an ODL feed.
 
@@ -887,8 +878,13 @@ class ODLImporter(OPDSImporter):
             if terms:
                 concurrent_checkouts = subtag(terms[0], "odl:concurrent_checkouts")
                 expires = subtag(terms[0], "odl:expires")
+
                 if expires:
-                    expires = dateutil.parser.parse(expires)
+                    expires = util.datetime_helpers.to_utc(dateutil.parser.parse(expires))
+                    now = util.datetime_helpers.utc_now()
+
+                    if expires <= now:
+                            continue
 
             licenses_owned += int(concurrent_checkouts or 0)
             licenses_available += int(available_checkouts or 0)
@@ -913,6 +909,7 @@ class ODLImporter(OPDSImporter):
         data['circulation']['licenses_owned'] = licenses_owned
         data['circulation']['licenses_available'] = licenses_available
         return data
+
 
 class ODLImportMonitor(OPDSImportMonitor):
     """Import information from an ODL feed."""
@@ -959,11 +956,12 @@ class ODLHoldReaper(CollectionMonitor):
         progress = TimestampData(achievements=message)
         return progress
 
+
 class MockODLAPI(ODLAPI):
     """Mock API for tests that overrides _get and _url_for and tracks requests."""
 
     @classmethod
-    def mock_collection(self, _db):
+    def mock_collection(cls, _db, protocol=ODLAPI.NAME):
         """Create a mock ODL collection to use in tests."""
         library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
@@ -973,7 +971,7 @@ class MockODLAPI(ODLAPI):
             )
         )
         integration = collection.create_external_integration(
-            protocol=ODLAPI.NAME
+            protocol=protocol
         )
         integration.username = 'a'
         integration.password = 'b'
@@ -1040,6 +1038,25 @@ class SharedODLAPI(BaseCirculationAPI):
 
         self.base_url = collection.external_account_id
 
+    @staticmethod
+    def _parse_feed_from_response(response):
+        """Parse ODL (Atom) feed from the HTTP response.
+
+        :param response: HTTP response
+        :type response: requests.Response
+
+        :return: Parsed ODL (Atom) feed
+        :rtype: dict
+        """
+        response_content = response.content
+
+        if not isinstance(response_content, (str, bytes)):
+            raise ValueError("Response content must be a string or byte-encoded value")
+
+        feed = feedparser.parse(response_content)
+
+        return feed
+
     def internal_format(self, delivery_mechanism):
         """Each consolidated copy is only available in one format, so we don't need
         a mapping to internal formats.
@@ -1091,7 +1108,8 @@ class SharedODLAPI(BaseCirculationAPI):
                 hold_info_response = self._get(hold.external_identifier)
             except RemoteIntegrationException as e:
                 raise CannotLoan()
-            feed = feedparser.parse(str(hold_info_response.content))
+
+            feed = self._parse_feed_from_response(hold_info_response)
             entries = feed.get("entries")
             if len(entries) < 1:
                 raise CannotLoan()
@@ -1117,7 +1135,8 @@ class SharedODLAPI(BaseCirculationAPI):
         elif response.status_code == 404:
             if hasattr(response, 'json') and response.json().get('type', '') == NO_LICENSES.uri:
                 raise NoLicenses()
-        feed = feedparser.parse(str(response.content))
+
+        feed = self._parse_feed_from_response(response)
         entries = feed.get("entries")
         if len(entries) < 1:
             raise CannotLoan()
@@ -1181,7 +1200,8 @@ class SharedODLAPI(BaseCirculationAPI):
             raise CannotReturn()
         if response.status_code == 404:
             raise NotCheckedOut()
-        feed = feedparser.parse(str(response.content))
+
+        feed = self._parse_feed_from_response(response)
         entries = feed.get("entries")
         if len(entries) < 1:
             raise CannotReturn()
@@ -1286,7 +1306,8 @@ class SharedODLAPI(BaseCirculationAPI):
             raise CannotReleaseHold()
         if response.status_code == 404:
             raise NotOnHold()
-        feed = feedparser.parse(str(response.content))
+
+        feed = self._parse_feed_from_response(response)
         entries = feed.get("entries")
         if len(entries) < 1:
             raise CannotReleaseHold()
@@ -1325,7 +1346,7 @@ class SharedODLAPI(BaseCirculationAPI):
             if response.status_code == 404:
                 # 404 is returned when the loan has been deleted. Leave this loan out of the result.
                 continue
-            feed = feedparser.parse(str(response.content))
+            feed = self._parse_feed_from_response(response)
             entries = feed.get("entries")
             if len(entries) < 1:
                 raise CirculationException()
@@ -1354,7 +1375,7 @@ class SharedODLAPI(BaseCirculationAPI):
             if response.status_code == 404:
                 # 404 is returned when the hold has been deleted. Leave this hold out of the result.
                 continue
-            feed = feedparser.parse(str(response.content))
+            feed = self._parse_feed_from_response(response)
             entries = feed.get("entries")
             if len(entries) < 1:
                 raise CirculationException()
@@ -1518,3 +1539,38 @@ class MockSharedODLAPI(SharedODLAPI):
         self.request_args.append((patron, headers, allowed_response_codes))
         response = self.responses.pop()
         return HTTP._process_response(url, response, allowed_response_codes=allowed_response_codes)
+
+
+class ODLExpiredItemsReaper(IdentifierSweepMonitor):
+    """Responsible for removing expired ODL licenses."""
+
+    SERVICE_NAME = "ODL Expired Items Reaper"
+    PROTOCOL = ODLAPI.NAME
+
+    def __init__(self, _db, collection):
+        super(ODLExpiredItemsReaper, self).__init__(_db, collection)
+
+    def process_item(self, identifier):
+        for licensepool in identifier.licensed_through:
+            licenses_owned = licensepool.licenses_owned
+            licenses_available = licensepool.licenses_available
+
+            for license in licensepool.licenses:
+                if license.is_expired:
+                    licenses_owned -= 1
+                    licenses_available -= 1
+
+            if licenses_owned != licensepool.licenses_owned or licenses_available != licensepool.licenses_available:
+                licenses_owned = max(licenses_owned, 0)
+                licenses_available = max(licenses_available, 0)
+
+                circulation_data = CirculationData(
+                    data_source=licensepool.data_source,
+                    primary_identifier=identifier,
+                    licenses_owned=licenses_owned,
+                    licenses_available=licenses_available,
+                    licenses_reserved=licensepool.licenses_reserved,
+                    patrons_in_hold_queue=licensepool.patrons_in_hold_queue,
+                )
+
+                circulation_data.apply(self._db, self.collection)
