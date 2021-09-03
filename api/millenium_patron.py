@@ -215,7 +215,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             # The PIN is URL-encoded. The username is not: as far as
             # we can tell Millenium Patron doesn't even try to decode
             # it.
-            quoted_password = parse.quote(password) if password else password
+            quoted_password = parse.quote(password, safe='') if password else password
             path = "%(barcode)s/%(pin)s/pintest" % dict(
                 barcode=username, pin=quoted_password
             )
