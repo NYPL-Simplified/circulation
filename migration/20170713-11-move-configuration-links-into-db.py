@@ -1,6 +1,6 @@
-#!/usr/bin/env python
-"""Move links from the Configuration file into the database as ConfigurationSettings
-for the default Library.
+#!/usr/bin/env python3
+"""
+Move links from the Configuration file into the database as ConfigurationSettings for the default Library.
 """
 import os
 import sys
@@ -9,13 +9,13 @@ bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from core.model import (
+from core.model import (                # noqa: E402,F401
     ConfigurationSetting,
     Library,
     get_one_or_create,
     production_session,
 )
-from api.config import Configuration
+from api.config import Configuration    # noqa: E402
 
 Configuration.load()
 _db = production_session()
@@ -33,4 +33,3 @@ for rel, value in (
 
 _db.commit()
 _db.close()
-

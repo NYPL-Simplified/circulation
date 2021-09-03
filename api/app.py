@@ -69,6 +69,5 @@ def run(url=None):
         socket.setdefaulttimeout(None)
 
     logging.info("Starting app on %s:%s", host, port)
-    app.run(debug=debug, host=host, port=port, threaded=True)
-
-
+    sslContext = 'adhoc' if scheme == 'https' else None
+    app.run(debug=debug, host=host, port=port, threaded=True, ssl_context=sslContext)

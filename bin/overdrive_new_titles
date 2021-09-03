@@ -1,10 +1,14 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Look for new titles added to Overdrive collections which slipped through the cracks."""
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
-from core.scripts import RunCollectionMonitorScript
-from api.overdrive import NewTitlesOverdriveCollectionMonitor
+
+from core.scripts import RunCollectionMonitorScript             # noqa: E402
+from api.overdrive import NewTitlesOverdriveCollectionMonitor   # noqa: E402
+
 RunCollectionMonitorScript(NewTitlesOverdriveCollectionMonitor).run()

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """List languages in the collection sorted by number of non-open access works."""
+
 import os
 import sys
 

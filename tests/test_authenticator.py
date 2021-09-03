@@ -2222,7 +2222,24 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
                 patron.authorization_identifier, patron
             )
 
+    def test_scrub_credential(self):
+        # Verify that the scrub_credential helper method strips extra whitespace
+        # and nothing else.
+        integration = self._external_integration(
+            self._str, ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        provider = BasicAuthenticationProvider(self._default_library, integration)
+        m = provider.scrub_credential
 
+        assert None == provider.scrub_credential(None)
+        assert 1 == provider.scrub_credential(1)
+        o = object()
+        assert o == provider.scrub_credential(o)
+        assert "user" == provider.scrub_credential("user")
+        assert "user" == provider.scrub_credential(" user")
+        assert "user" == provider.scrub_credential(" user ")
+        assert "user" == provider.scrub_credential("    \ruser\t     ")
+        assert b"user" == provider.scrub_credential(b" user ")
 
 class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     """Test the complex BasicAuthenticationProvider.authenticate method."""
@@ -2239,7 +2256,12 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         # authenticate() calls remote_authenticate(), which returns the
         # queued up PatronData object. The corresponding Patron is then
         # looked up in the database.
-        assert patron == provider.authenticate(self._db, self.credentials)
+
+        # BasicAuthenticationProvider scrubs leading and trailing spaces from
+        # the credentials.
+        credentials_with_spaces = dict(username="  user ", password=" pass \t ")
+        for creds in (self.credentials, credentials_with_spaces):
+            assert patron == provider.authenticate(self._db, self.credentials)
 
         # All the different ways the database lookup might go are covered in
         # test_local_patron_lookup. This test only covers the case where

@@ -1,20 +1,20 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Create a -current alias for the index being used"""
 
 import os
 import sys
-from pdb import set_trace
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from api.config import Configuration as C
-from core.external_search import ExternalSearchIndex
+from api.config import Configuration as C                   # noqa: E402
+from core.external_search import ExternalSearchIndex        # noqa: E402
 
 C.load()
 config_index = C.integration(C.ELASTICSEARCH_INTEGRATION).get(C.ELASTICSEARCH_INDEX_KEY)
 if not config_index:
-    print "No action taken. Elasticsearch not configured."
+    print("No action taken. Elasticsearch not configured.")
     sys.exit()
 
 search = ExternalSearchIndex()
@@ -48,21 +48,21 @@ if config_index == search.works_index:
             "\t     e.g. \"works_index\" : \"%s\" ===> \"works_index\" : \"%s\"\n\n"
             "\t  2. Confirm alias \"%s\" is pointing to the preferred index.\n\n"
         )
-        print (
+        print(
             (misplaced_alias_text + manual_steps_text) %
             (current_alias, indices, config_index, config_index, current_alias, current_alias))
     else:
         # Initialization found or created an alias, but the configuration
         # file itself needs to be updated.
-        print (
+        print(
             update_required_text %
             (search.works_alias, config_index, search.works_alias))
 
 elif 'error' not in search.indices.get_alias(name=config_index, ignore=[404]):
     # The configuration has an alias instead of an index.
     if config_index == search.works_alias:
-        print "No action needed. Elasticsearch alias '%s' is properly named and configured." % config_index
-        print "Works are being uploaded to Elasticsearch index '%s'" % search.works_index
+        print("No action needed. Elasticsearch alias '%s' is properly named and configured." % config_index)
+        print("Works are being uploaded to Elasticsearch index '%s'" % search.works_index)
     else:
         # The alias doesn't use the naming convention we expect. Try to create one
         # that does.
@@ -79,7 +79,7 @@ elif 'error' not in search.indices.get_alias(name=config_index, ignore=[404]):
                 "\tOR:\n\t  Use -current alias \"%s\" in the configuration file"
                 "\n\t  if \"%s\" is the preferred index.\n\n"
             )
-            print (
+            print(
                 (misplaced_alias_text + manual_steps_text) %
                 (current_alias, current_alias_index, index, current_alias,
                  current_alias_index, index, current_alias, current_alias_index))
@@ -89,12 +89,12 @@ elif 'error' not in search.indices.get_alias(name=config_index, ignore=[404]):
             response = search.indices.put_alias(
                 index=search.works_index, name=current_alias
             )
-            print (update_required_text % (current_alias, config_index, current_alias))
+            print(update_required_text % (current_alias, config_index, current_alias))
 else:
     # A catchall just in case. This shouldn't happen.
-    print "\n\tSomething unexpected happened. Weird!"
-    print "\t  - Given index (in configuration file): \t\"%s\"" % config_index
-    print "\t  - Elasticsearch index (in use): \t\t\"%s\"" % search.works_index
-    print "\t  - Elasticsearch alias (in use): \t\t\"%s\"" % search.works_alias
-    print "\n\tThe configured index should be manually set to the Elasticsearch alias\n"
-    print "\tand this migration should be run again."
+    print("\n\tSomething unexpected happened. Weird!")
+    print("\t  - Given index (in configuration file): \t\"%s\"" % config_index)
+    print("\t  - Elasticsearch index (in use): \t\t\"%s\"" % search.works_index)
+    print("\t  - Elasticsearch alias (in use): \t\t\"%s\"" % search.works_alias)
+    print("\n\tThe configured index should be manually set to the Elasticsearch alias\n")
+    print("\tand this migration should be run again.")

@@ -14,16 +14,28 @@ from api.sip.dialect import (
 
 class MockSocket(object):
     def __init__(self, *args, **kwargs):
+        self.data = b''
         self.args = args
         self.kwargs = kwargs
         self.timeout = None
         self.connected_to = None
+
+    def queue_data(self, new_data):
+        if isinstance(new_data, str):
+            new_data = new_data.encode("cp850")
+        self.data += new_data
 
     def connect(self, server_and_port):
         self.connected_to = server_and_port
 
     def settimeout(self, value):
         self.timeout = value
+
+    def recv(self, size):
+        block = self.data[:size]
+        self.data = self.data[size:]
+        return block
+
 
 class MockWrapSocket(object):
     def __init__(self):
@@ -111,6 +123,46 @@ class TestSIPClient(object):
             socket.socket = old_socket
             ssl.wrap_socket = old_wrap_socket
 
+    def test_read_message(self):
+        target_server = object()
+        sip = SIPClient(target_server, 999)
+
+        old_socket = socket.socket
+
+        # Mock the socket.socket function.
+        socket.socket = MockSocket
+
+        try:
+            sip.connect()
+            conn = sip.connection
+
+            # Queue bytestrings and read them.
+            for data in (
+                # Simple message.
+                b"abcd\n",
+
+                # Message that contains non-ASCII characters.
+                "LE CARRÉ, JOHN\r".encode("cp850"),
+
+                # Message that spans multiple blocks.
+                (b"a" * 4097) + b"\n",
+            ):
+                conn.queue_data(data)
+                assert data == sip.read_message()
+
+            # IOError on a message that's too large.
+            conn.queue_data("too big\n")
+            with pytest.raises(IOError, match="SIP2 response too large."):
+                sip.read_message(max_size=2)
+
+            # IOError if transmission stops without ending on a newline.
+            conn.queue_data("no newline")
+            with pytest.raises(IOError, match="No data read from socket."):
+                sip.read_message()
+        finally:
+            # Un-mock the socket.socket function
+            socket.socket = old_socket
+
 class TestBasicProtocol(object):
 
     def test_login_message(self):
@@ -151,11 +203,11 @@ class TestBasicProtocol(object):
         req1, req2 = sip.requests
         # The first request includes a sequence ID field, "AY", with
         # the value "0".
-        assert '9300CNuser_id|COpassword|AY0AZF556\r' == req1
+        assert b'9300CNuser_id|COpassword|AY0AZF556\r' == req1
 
         # The second request does not include a sequence ID field. As
         # a consequence its checksum is different.
-        assert '9300CNuser_id|COpassword|AZF620\r' == req2
+        assert b'9300CNuser_id|COpassword|AZF620\r' == req2
 
         # The login request eventually succeeded.
         assert {'login_ok': '1', '_status': '94'} == response
@@ -179,25 +231,25 @@ class TestBasicProtocol(object):
 class TestLogin(object):
 
     def test_login_success(self):
-        sip = MockSIPClient('user_id', 'password')
+        sip = MockSIPClient(login_user_id='user_id', login_password='password')
         sip.queue_response('941')
         response = sip.login()
         assert {'login_ok': '1', '_status': '94'} == response
 
     def test_login_password_is_optional(self):
         """You can specify a login_id without specifying a login_password."""
-        sip = MockSIPClient('user_id')
+        sip = MockSIPClient(login_user_id='user_id')
         sip.queue_response('941')
         response = sip.login()
         assert {'login_ok': '1', '_status': '94'} == response
 
     def test_login_failure(self):
-        sip = MockSIPClient('user_id', 'password')
+        sip = MockSIPClient(login_user_id='user_id', login_password='password')
         sip.queue_response('940')
         pytest.raises(IOError, sip.login)
 
     def test_login_happens_when_user_id_and_password_specified(self):
-        sip = MockSIPClient('user_id', 'password')
+        sip = MockSIPClient(login_user_id='user_id', login_password='password')
         # We're not logged in, and we must log in before sending a real
         # message.
         assert True == sip.must_log_in
@@ -235,7 +287,7 @@ class TestLogin(object):
         assert '12345' == response['patron_identifier']
 
     def test_login_failure_interrupts_other_request(self):
-        sip = MockSIPClient('user_id', 'password')
+        sip = MockSIPClient(login_user_id='user_id', login_password='password')
         sip.queue_response('940')
 
         # We don't even get a chance to make the patron information request
@@ -303,6 +355,31 @@ class TestPatronResponse(object):
         # The ZZ field is an unknown extension and is captured under
         # its SIP code.
         assert ["foo"] == response['ZZ']
+
+    def test_variant_encoding(self):
+        response_unicode = "64              000201610210000142637000000000000000000000000AOnypl |AA12345|AELE CARRÉ, JOHN|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|BEfoo@example.com|AY1AZD1B7\r"
+
+        # By default, we expect data from a SIP2 server to be encoded
+        # as CP850.
+        assert "cp850" == self.sip.encoding
+        self.sip.queue_response(response_unicode.encode("cp850"))
+        response = self.sip.patron_information('identifier')
+        assert "LE CARRÉ, JOHN" == response['personal_name']
+
+        # But a SIP2 server may send some other encoding, such as
+        # UTF-8. This can cause odd results if the circulation manager
+        # tries to parse the data as CP850.
+        self.sip.queue_response(response_unicode.encode("utf-8"))
+        response = self.sip.patron_information('identifier')
+        assert "LE CARR├ë, JOHN" == response['personal_name']
+
+        # Giving SIPClient the right encoding means the data is
+        # converted correctly.
+        sip = MockSIPClient(encoding="utf-8")
+        assert "utf-8" == sip.encoding
+        sip.queue_response(response_unicode.encode("utf-8"))
+        response = sip.patron_information('identifier')
+        assert "LE CARRÉ, JOHN" == response['personal_name']
 
     def test_embedded_pipe(self):
         """In most cases we can handle data even if it contains embedded
