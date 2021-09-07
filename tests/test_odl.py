@@ -1,49 +1,46 @@
-import pytest
-import os
-import json
 import datetime
-import dateutil
-import re
+import json
+import os
 import urllib.parse
-from pdb import set_trace
-from core.testing import DatabaseTest
-from core.metadata_layer import TimestampData
+
+import dateutil
+import pytest
+from dateutil.tz import tzoffset
+from freezegun import freeze_time
+from mock import MagicMock
+
+from api.circulation_exceptions import *
+from api.odl import (
+    ODLAPI,
+    MockODLAPI,
+    MockSharedODLAPI,
+    ODLExpiredItemsReaper,
+    ODLHoldReaper,
+    ODLImporter,
+    SharedODLAPI,
+    SharedODLImporter,
+)
 from core.model import (
     Collection,
     ConfigurationSetting,
-    Credential,
     DataSource,
     DeliveryMechanism,
     Edition,
     ExternalIntegration,
     Hold,
     Hyperlink,
-    Identifier,
     Loan,
     MediaTypes,
     Representation,
     RightsStatus,
-    get_one,
 )
-from api.odl import (
-    ODLImporter,
-    ODLHoldReaper,
-    MockODLAPI,
-    SharedODLAPI,
-    MockSharedODLAPI,
-    SharedODLImporter,
-)
-from api.circulation_exceptions import *
-from core.util.datetime_helpers import (
-    datetime_utc,
-    strptime_utc,
-    utc_now,
-)
-from core.util.http import (
-    BadResponseException,
-    RemoteIntegrationException,
-)
+from core.scripts import RunCollectionMonitorScript
+from core.testing import DatabaseTest
+from core.util import datetime_helpers
+from core.util.datetime_helpers import datetime_utc, utc_now
+from core.util.http import BadResponseException, RemoteIntegrationException
 from core.util.string_helpers import base64
+
 
 class BaseODLTest(object):
     base_path = os.path.split(__file__)[0]
@@ -52,7 +49,8 @@ class BaseODLTest(object):
     @classmethod
     def get_data(cls, filename):
         path = os.path.join(cls.resource_path, filename)
-        return open(path, "rb").read()
+        return open(path, "r").read()
+
 
 class TestODLAPI(DatabaseTest, BaseODLTest):
 
@@ -1290,8 +1288,12 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
 
 
 class TestODLImporter(DatabaseTest, BaseODLTest):
-
+    @freeze_time("2019-01-01T00:00:00+00:00")
     def test_import(self):
+        """Ensure that ODLImporter correctly processes and imports the ODL feed encoded using OPDS 1.x.
+
+        NOTE: `freeze_time` decorator is required to treat the licenses in the ODL feed as non-expired.
+        """
         feed = self.get_data("feedbooks_bibliographic.atom")
         data_source = DataSource.lookup(self._db, "Feedbooks", autocreate=True)
         collection = MockODLAPI.mock_collection(self._db)
@@ -1515,7 +1517,6 @@ class TestODLHoldReaper(DatabaseTest, BaseODLTest):
         # that will be applied by run().
         assert None == progress.start
         assert None == progress.finish
-
 
 
 class TestSharedODLAPI(DatabaseTest, BaseODLTest):
@@ -1847,6 +1848,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         pytest.raises(RemoteIntegrationException, self.api.patron_activity, self.patron, "pin")
         assert [hold.external_identifier] == self.api.requests[1:]
 
+
 class TestSharedODLImporter(DatabaseTest, BaseODLTest):
 
     def test_get_fulfill_url(self):
@@ -1929,3 +1931,162 @@ class TestSharedODLImporter(DatabaseTest, BaseODLTest):
         assert 'http://localhost:6500/AL/works/URI/http://www.feedbooks.com/item/1946289/borrow' == borrow_link.resource.url
 
 
+class TestODLExpiredItemsReaper(DatabaseTest, BaseODLTest):
+    ODL_PROTOCOL = ODLAPI.NAME
+    ODL_FEED_FILENAME_WITH_SINGLE_ODL_LICENSE = "single_license.opds"
+    ODL_LICENSE_EXPIRATION_TIME_PLACEHOLDER = "{{expires}}"
+    ODL_REAPER_CLASS = ODLExpiredItemsReaper
+    SECONDS_PER_HOUR = 3600
+
+    def _create_importer(self, collection, http_get):
+        """Create a new ODL importer with the specified parameters.
+
+        :param collection: Collection object
+        :type collection: core.model.collection.Collection
+
+        :param http_get: Use this method to make an HTTP GET request.
+            This can be replaced with a stub method for testing purposes.
+        :type http_get: Callable
+
+        :return: ODLImporter object
+        :rtype: ODLImporter
+        """
+        importer = ODLImporter(
+            self._db,
+            collection=collection,
+            http_get=http_get,
+        )
+
+        return importer
+
+    def _get_test_feed_with_single_odl_license(self, expires):
+        """Get the feed with a single ODL license with the specific expiration date.
+
+        :param expires: Expiration date of the ODL license
+        :type expires: datetime.datetime
+
+        :return: Test ODL feed with a single ODL license with the specific expiration date
+        :rtype: str
+        """
+        feed = self.get_data(self.ODL_FEED_FILENAME_WITH_SINGLE_ODL_LICENSE)
+        feed = feed.replace(self.ODL_LICENSE_EXPIRATION_TIME_PLACEHOLDER, expires.isoformat())
+
+        return feed
+
+    def _import_test_feed_with_single_odl_license(self, expires):
+        """Import the test ODL feed with a single ODL license with the specific expiration date.
+
+        :param expires: Expiration date of the ODL license
+        :type expires: datetime.datetime
+
+        :return: 3-tuple containing imported editions, license pools and works
+        :rtype: Tuple[List[Edition], List[LicensePool], List[Work]]
+        """
+        feed = self._get_test_feed_with_single_odl_license(expires)
+        data_source = DataSource.lookup(self._db, "Feedbooks", autocreate=True)
+        collection = MockODLAPI.mock_collection(self._db, protocol=self.ODL_PROTOCOL)
+        collection.external_integration.set_setting(
+            Collection.DATA_SOURCE_NAME_SETTING,
+            data_source.name
+        )
+        license_status = {
+            "checkouts": {
+                "available": 1
+            }
+        }
+        license_status_response = MagicMock(return_value=(200, {}, json.dumps(license_status)))
+        importer = self._create_importer(collection, license_status_response)
+
+        imported_editions, imported_pools, imported_works, _ = (
+            importer.import_from_feed(feed)
+        )
+
+        return imported_editions, imported_pools, imported_works
+
+    @freeze_time("2021-01-01T00:00:00+00:00")
+    def test_odl_importer_skips_expired_licenses(self):
+        """Ensure ODLImporter skips expired licenses
+            and does not count them in the total number of available licenses."""
+        # 1.1. Import the test feed with an expired ODL license.
+        # The license expires 2021-01-01T00:01:00+01:00 that equals to 2010-01-01T00:00:00+00:00, the current time.
+        # It means the license had already expired at the time of the import.
+        license_expiration_date = datetime.datetime(2021, 1, 1, 1, 0, 0, tzinfo=tzoffset(None, self.SECONDS_PER_HOUR))
+        imported_editions, imported_pools, imported_works = self._import_test_feed_with_single_odl_license(
+            license_expiration_date
+        )
+
+        # Commit to expire the SQLAlchemy cache.
+        self._db.commit()
+
+        # 1.2. Ensure that the license pool was successfully created but it does not have any available licenses.
+        assert len(imported_pools) == 1
+
+        [imported_pool] = imported_pools
+        assert imported_pool.licenses_owned == 0
+        assert imported_pool.licenses_available == 0
+        assert len(imported_pool.licenses) == 0
+
+    @freeze_time("2021-01-01T00:00:00+00:00")
+    def test_odl_reaper_removes_expired_licenses(self):
+        """Ensure ODLExpiredItemsReaper removes expired licenses."""
+        patron = self._patron()
+
+        # 1.1. Import the test feed with an ODL license that is still valid.
+        # The license will be valid for one more day since this very moment.
+        license_expiration_date = datetime_helpers.utc_now() + datetime.timedelta(days=1)
+        imported_editions, imported_pools, imported_works = self._import_test_feed_with_single_odl_license(
+            license_expiration_date
+        )
+
+        # Commit to expire the SQLAlchemy cache.
+        self._db.commit()
+
+        # 1.2. Ensure that there is a license pool with available license.
+        assert len(imported_pools) == 1
+
+        [imported_pool] = imported_pools
+        assert imported_pool.licenses_owned == 1
+        assert imported_pool.licenses_available == 1
+
+        assert len(imported_pool.licenses) == 1
+        [license] = imported_pool.licenses
+        assert license.expires == license_expiration_date
+
+        # 2. Create a loan to ensure that the licence with active loan can also be removed (hidden).
+        loan, _ = license.loan_to(patron)
+
+        # 3.1. Run ODLExpiredItemsReaper. This time nothing should happen since the license is still valid.
+        script = RunCollectionMonitorScript(self.ODL_REAPER_CLASS, _db=self._db, cmd_args=["Test ODL Collection"])
+        script.run()
+
+        # Commit to expire the SQLAlchemy cache.
+        self._db.commit()
+
+        # 3.2. Ensure that availability of the license pool didn't change.
+        assert imported_pool.licenses_owned == 1
+        assert imported_pool.licenses_available == 1
+
+        # 4. Expire the license.
+        # Set the expiration date to 2021-01-01T00:01:00+01:00
+        # that equals to 2010-01-01T00:00:00+00:00, the current time.
+        license.expires = datetime.datetime(2021, 1, 1, 1, 0, 0, tzinfo=tzoffset(None, self.SECONDS_PER_HOUR))
+
+        # 5.1. Run ODLExpiredItemsReaper again. This time it should remove the expired license.
+        script.run()
+
+        # Commit to expire the SQLAlchemy cache.
+        self._db.commit()
+
+        # 5.2. Ensure that availability of the license pool was updated and now it doesn't have any available licenses.
+        assert imported_pool.licenses_owned == 0
+        assert imported_pool.licenses_available == 0
+
+        # 6.1. Run ODLExpiredItemsReaper again to ensure that number of licenses won't become negative.
+        script.run()
+
+        # Commit to expire the SQLAlchemy cache.
+        self._db.commit()
+
+        # 6.2. Ensure that number of licenses is still 0.
+        assert imported_pool.licenses_owned == 0
+        assert imported_pool.licenses_available == 0
