@@ -1,9 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Push the configurations of one or more libraries to a library registry."""
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
-from api.registry import LibraryRegistrationScript
+
+from api.registry import LibraryRegistrationScript      # noqa: E402
+
 LibraryRegistrationScript().run()

@@ -1,12 +1,14 @@
-#!/usr/bin/env python
-"""Re-index any Works whose entries in the search index have become
-out of date.
-"""
+#!/usr/bin/env python3
+"""Re-index any Works whose entries in the search index have become out of date."""
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
-from core.external_search import SearchIndexCoverageProvider
-from core.scripts import RunWorkCoverageProviderScript
+
+from core.external_search import SearchIndexCoverageProvider        # noqa: E402
+from core.scripts import RunWorkCoverageProviderScript              # noqa: E402
+
 RunWorkCoverageProviderScript(SearchIndexCoverageProvider).run()

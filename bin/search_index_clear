@@ -1,13 +1,18 @@
-#!/usr/bin/env python
-"""Mark all Works as having out-of-date search index entries.
+#!/usr/bin/env python3
+"""
+Mark all Works as having out-of-date search index entries.
 
 This guarantees that the search index is periodically rebuilt from scratch,
 providing automatic recovery from bugs and major metadata changes.
 """
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
-from core.scripts import SearchIndexCoverageRemover
+
+from core.scripts import SearchIndexCoverageRemover     # noqa: E402
+
 SearchIndexCoverageRemover().run()

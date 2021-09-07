@@ -254,6 +254,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 self._db, url, extra_request_headers=headers,
                 do_get=self._simple_http_get, max_age=max_age,
                 exception_handler=Representation.reraise_exception,
+                timeout=60
             )
             content = representation.content
             return content

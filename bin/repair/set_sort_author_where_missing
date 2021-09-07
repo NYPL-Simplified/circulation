@@ -1,14 +1,17 @@
-#!/usr/bin/env python
-"""Fill in Edition.sort_author for Editions that have a list of	
-Contributors, but no .sort_author.
-
-This is a data repair script that should not need to be run
-regularly.
+#!/usr/bin/env python3
 """
+Fill in Edition.sort_author for Editions that have a list of Contributors, but no .sort_author.
+
+This is a data repair script that should not need to be run regularly.
+"""
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
-from scripts import FillInAuthorScript
+
+from scripts import FillInAuthorScript      # noqa: E402
+
 FillInAuthorScript().run()
