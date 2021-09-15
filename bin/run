@@ -128,6 +128,9 @@ if [[ ! -f $logfile ]]; then
     touch $logfile
 fi
 
+# Force Python scripts not to write .pyc files
+export PYTHONDONTWRITEBYTECODE=1
+
 # Run the script and append its output to its log file.
 echo "Running $SCRIPT_NAME (PID: $$)"
 source $LIBSIMPLE_DIR/env/bin/activate && \
