@@ -1494,7 +1494,7 @@ class WorkClassifier(object):
             for parent, (child, weight) in sorted(
                 heaviest_child.items(),
                 key=lambda genre: genre[1][1], reverse=True
-            )
+            ):
                 parent_weight = consolidated.get(parent, 0)
                 if weight > (subgenre_swallows_parent_at * parent_weight):
                     consolidated[child] += parent_weight
