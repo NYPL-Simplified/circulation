@@ -35,8 +35,7 @@ HOME=/var/www/circulation
 # If the Metadata Wrangler needs content such as book covers or distributor
 # information that only we can provide, send it over.
 30 21 * * * root core/bin/run -d 60 metadata_upload_coverage >> /var/log/cron.log 2>&1
-# HOTFIX commented out to determine whether it causes problems
-#0 3 * * 3 root core/bin/run -d 60 metadata_wrangler_auxiliary_metadata >> /var/log/cron.log 2>&1
+0 3 * * 3 root core/bin/run -d 60 metadata_wrangler_auxiliary_metadata >> /var/log/cron.log 2>&1
 
 # If any works are missing presentation editions, add them.
 0 */3 * * * root core/bin/run work_presentation_editions >> /var/log/cron.log 2>&1
@@ -51,8 +50,7 @@ HOME=/var/www/circulation
 
 # If any works have out-of-date OPDS entries or MARC records, rebuild them,
 40 22 * * * root core/bin/run opds_entry_coverage >> /var/log/cron.log 2>&1
-# HOTFIX commented out to determine whether it causes problems
-#40 23 * * * root core/bin/run marc_record_coverage >> /var/log/cron.log 2>&1
+40 23 * * * root core/bin/run marc_record_coverage >> /var/log/cron.log 2>&1
 
 # Remove miscellaneous expired things from the database
 0 2 * * * root core/bin/run database_reaper >> /var/log/cron.log 2>&1
@@ -61,8 +59,7 @@ HOME=/var/www/circulation
 0 0 * * 0 root core/bin/run -d 60 novelist_update >> /var/log/cron.log 2>&1
 
 # Generate MARC files for libraries that have a MARC exporter configured.
-# HOTFIX commented out to determine whether it causes problems
-# 0 1 * * * root core/bin/run cache_marc_files >> /var/log/cron.log 2>&1
+ 0 1 * * * root core/bin/run cache_marc_files >> /var/log/cron.log 2>&1
 
 # The remaining scripts keep the circulation manager in sync with
 # specific types of collections.
