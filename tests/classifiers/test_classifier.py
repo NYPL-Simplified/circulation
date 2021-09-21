@@ -236,6 +236,19 @@ class TestConsolidateWeights(object):
         assert 104 == w2[classifier.Paranormal_Romance]
         assert classifier.Romance not in w2
 
+    def test_consolidate_consolidates_multiple_subgenres(self):
+        # This work is classified under two different sets of
+        # genres/subgenres. Both of the genre/subgenre pairs get
+        # rolled up properly, not just the heavier one.
+        weights = dict()
+        weights[classifier.Women_Detectives] = 150
+        weights[classifier.Mystery] = 10
+        weights[classifier.Historical_Romance] = 200
+        weights[classifier.Romance] = 10
+        w2 = WorkClassifier.consolidate_genre_weights(weights)
+        assert 210 == w2[classifier.Historical_Romance]
+        assert 160 == w2[classifier.Women_Detectives]
+
     def test_consolidate_through_multiple_levels_from_multiple_sources(self):
         # This test can't work anymore because we no longer have a
         # triply-nested category like Romance/Erotica -> Romance ->
