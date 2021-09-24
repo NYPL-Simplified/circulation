@@ -6,7 +6,6 @@ Table of contents
 =================
 
 * [Overview](#Overview)
-* [Installation](#Installation)
 * [Git Branch Workflow](#git-branch-workflow)
 * [Getting Started / Set Up](#getting-started--set-up)
   * [Docker](#docker-setup)
@@ -50,10 +49,12 @@ There are additional protected branches that are used for _NYPL-specific_ deploy
 
 
 # Getting Started / Set Up
-To get this project up and running locally, you can follow the [Docker](#docker-setup) setup or the [Manual](#manual-setup) setup. The Docker setup will take care of the pre-requisites for you.
+To get this project up and running locally, you can follow the [Docker](#docker-setup) setup or the [Manual](#manual-setup) setup. The Docker setup will take care of many of the pre-requisites for you.
 
 ## **Docker Setup**
 ***Note**: For more in depth information, check out the [Docker README](/docker/README.md) in the `/docker` directory.*
+
+Before proceeding, ensure you have [Docker](https://docs.docker.com/get-docker/) installed for your environment.
 
 Clone this repo:
 
@@ -67,19 +68,25 @@ Go to the `docker` directory:
   cd circulation/docker
 ```
 
-Install dependencies
+Build the containers:
 
 ```bash
-  npm install
+  docker compose build
 ```
 
-Start the server
+Run the containers:
 
 ```bash
-  npm run start
+  docker compose up -d
 ```
 
-Open the administration panel at http://localhost:80/admin to view the Circulation Manager Administration app.
+Confirm all of the containers are running successfully:
+
+```bash
+  docker ps -a
+```
+
+Finally, open the administration panel at http://localhost:80/admin to view the Circulation Manager Administration app. 
 
 
 ## **Manual Setup**
