@@ -15,9 +15,10 @@ Table of contents
 * [Testing](#testing)
 * [Debugging](#debugging)
 * [Contributing](#contributing)
+* [License](#license)
 * [Appendix](#appendix)
 
-# Overview
+## Overview
 
 Default Branch: `develop`
 
@@ -25,7 +26,7 @@ This is the Circulation Manager for [Library Simplified](https://www.librarysimp
 
 It depends on [Library Simplified Server Core](https://github.com/NYPL-Simplified/server_core) as a git submodule.
 
-# Git Branch Workflow
+## Git Branch Workflow
 
 | Branch  | Python Version |
 | ------- | -------------- |
@@ -49,10 +50,11 @@ There are additional protected branches that are used for _NYPL-specific_ deploy
 | bpl-deploy-production  |
 
 
-# Getting Started / Set Up
+## Getting Started / Set Up
 To get this project up and running locally, you can follow the [Docker](#docker-setup) setup or the [Manual](#manual-setup) setup. The Docker setup will take care of many of the pre-requisites for you. Once you're set up, you can proceed with [adding collections](#adding-collections-to-the-circulation-manager-admin).
 
-## **Docker Setup**
+### **Docker Setup**
+---
 ***Note**: For more in depth information, check out the [Docker README](/docker/README.md) in the `/docker` directory.*
 
 Before proceeding, ensure you have [Docker](https://docs.docker.com/get-docker/) installed for your environment.
@@ -89,9 +91,9 @@ Confirm all of the containers are running successfully:
 
 Finally, open the administration panel at http://localhost:80/admin to view the Circulation Manager Administration app. 
 
-## **Manual Setup**
-
-### Python Set Up
+### **Manual Setup**
+---
+#### **Python Set Up**
 
 If you do not have Python 3 installed, you can use [Homebrew](https://brew.sh/)\* to install it by running the command `$ brew install python3`.
 
@@ -118,13 +120,13 @@ As mentioned above, this application depends on [Library Simplified Server Core]
 - `$ git submodule init`
 - `$ git submodule update`
 
-### Python Version
+#### **Python Version**
 
 It is important to know that only certain versions of Python 3 will work with this application. One such version is Python 3.6.5. Check to see which version you currently have installed by running `$ python -V`.
 
 If you're using a version of Python that doesn't work, install [pyenv](https://github.com/pyenv/pyenv-installer) using command `$ curl https://pyenv.run | bash`, then install the version of Python you want to work with, ie `$ pyenv install python3.6.5`, and then run `$ pyenv global 3.6.5`. Check the current version again with `$ python -V` to make sure it's correct before proceeding.
 
-### Elasticsearch Set Up
+#### **Elasticsearch Set Up**
 
 The circulation manager requires Elasticsearch. If you don't have Elasticsearch, check out instructions in the [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions), or simply read on.
 
@@ -135,7 +137,7 @@ The circulation manager requires Elasticsearch. If you don't have Elasticsearch,
 5. You may be prompted to download [Java SE](https://www.oracle.com/java/technologies/javase-downloads.html). If so, go ahead and do so.
 6. Check `http://localhost:9200` to make sure the Elasticsearch server is running.
 
-### Database Set Up
+#### **Database Set Up**
 
 The databases should be created next. To find instructions for how to do so, check out the [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions), or simply read on.
 
@@ -167,7 +169,7 @@ export SIMPLIFIED_PRODUCTION_DATABASE="postgres://simplified:[password]@localhos
 export SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:[password]@localhost:5432/simplified_circulation_test"
 ```
 
-### Running the Application
+#### **Running the Application**
 
 Activate the virtual environment:
 
@@ -189,7 +191,7 @@ $ python app.py
 
 Then, navigate to `http://localhost:6500/`.
 
-### Note on HTTP/S in development
+#### **Note on HTTP/S in development**
 
 When deployed, the application should be run behind a secure proxy responsible for SSL termination. 
 
@@ -203,7 +205,7 @@ $ python app.py https://localhost:6500/
 
 Also note that this does not fully replicate secure requests as they would appear on a deployed app instance. In particular, the X-Forwarded-* headers may be different, since you are hitting the application server directly rather than through one or more proxy layers.
 
-### Python Installation Issues
+#### **Python Installation Issues**
 
 When running the `pip install ...` command, you may run into installation issues. The [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions) instructions say to install some packages through brew such as `libxmlsec1`. On newer macos machines, you may encounter an error such as:
 
@@ -223,11 +225,11 @@ This [blog post](https://mbbroberg.fun/clang-error-in-pip/) explains and shows a
 export CPPFLAGS="-DXMLSEC_NO_XKMS=1"
 ```
 
-## Adding Collections to the Circulation Manager Admin
+### Adding Collections to the Circulation Manager Admin
 
 If you are working on the Circulation Manager Admin, and need to add collections of books to your local app for testing purposes, you can follow [these instructions](https://docs.google.com/document/d/1a0QNWTvt9NKChr8TcLJ3G1PfpBCKV6hC2JuB5Yk_CYY/edit?usp=sharing).
 
-# Generating Documentation
+## Generating Documentation
 
 Code documentation using Sphinx can be found on this repo's [Github Pages](http://nypl-simplified.github.io/circulation/index.html). It currently documents this repo's `api` directory, `scripts` file, and the `core` submodule directory. The configuration for the documentation can be found in `/docs`.
 
@@ -235,13 +237,13 @@ Github Actions handles generating the `.rst` source files, generating the HTML s
 
 To view the documentation _locally_, go into the `/docs` directory and run `make html`. This will generate the .rst source files and build the static site in `/docs/build/html`.
 
-# Continuous Integration
+## Continuous Integration
 
 This project runs all the unit tests through Github Actions for new pull requests and when merging into the default `develop` branch. The relevant file can be found in `.github/workflows/test.yml`. When contributing updates or fixes, it's required for the test Github Action to pass for all python 3 environments. Run the `tox` command locally before pushing changes to make sure you find any failing tests before committing them.
 
 As mentioned above, Github Actions is also used to build and deploy Sphinx documentation to Github Pages. The relevant file can be found in `.github/workflows/docks.yml`.
 
-# Testing
+## Testing
 
 The Github Actions CI service runs the unit tests against Python 3.6, 3.7, and 3.8 automatically using [tox](https://tox.readthedocs.io/en/latest/).
 
@@ -255,7 +257,7 @@ Tox has an environment for each python version and an optional `-docker` factor 
 deploy service containers used for the tests. You can select the environment you would like to test with the tox `-e`
 flag.
 
-## Environments
+### Environments
 
 | Environment | Python Version |
 | ----------- | -------------- |
@@ -276,7 +278,7 @@ You need to have the Python versions you are testing against installed on your l
 
 [Pyenv](https://github.com/pyenv/pyenv) is a useful tool to install multiple Python versions, if you need to install missing Python versions in your system for local testing.
 
-## Docker
+### Docker
 
 If you install `tox-docker` tox will take care of setting up all the service containers necessary to run the unit tests
 and pass the correct environment variables to configure the tests to use these services. Using `tox-docker` is not required, but it is the recommended way to run the tests locally, since it runs the tests in the same way they are run on the Github Actions CI server.
@@ -294,7 +296,7 @@ Test with Python 3.8 using docker containers for the services.
 tox -e py38-docker
 ```
 
-## Local services
+### Local services
 
 If you already have elastic search or postgres running locally, you can run them instead by setting the
 following environment variables:
@@ -313,7 +315,7 @@ export SIMPLIFIED_TEST_ELASTICSEARCH="http://localhost:9006"
 tox -e py38
 ```
 
-## Override `pytest` arguments
+### Override `pytest` arguments
 
 If you wish to pass additional arguments to `pytest` you can do so through `tox`. The default argument passed to `pytest`
 is `tests`, however you can override this. Every argument passed after a `--` to the `tox` command line will the passed
@@ -325,19 +327,20 @@ Only run the `test_cdn` tests with Python 3.6 using docker.
 tox -e py36-docker -- tests/test_google_analytics_provider.py
 ```
 
-# Debugging
+## Debugging
 
 If you are served an error message on the admin home screen, you may need to run `npm install` in the api/admin directory of the circulation repo. If you're running the application locally, you can also try running the same command in the root directory of the circulation-web repo.
 
 The latter command will only work if the circulation-web and circulation repos are linked using npm link. You can find more information on how to do this in the circulation-web repo's [README](https://github.com/NYPL-Simplified/circulation-web/blob/main/README.md).
 
-# Contributing
+## Contributing
 
-Contributions are always welcome!
+Contributions are always welcome! See [here](CONTRIBUTING.md) for ways to get started.
 
-See [`contributing.md`](./CONTRIBUTING.md) for ways to get started.
+## License
 
+This project is open-sourced software licensed under the [Apache-2.0 License](LICENSE.md).
 
-# Appendix
+## Appendix
 
 View the [NYPL Simplified Wiki](https://github.com/NYPL-Simplified/Simplified/wiki) for more in depth information on various topics relating to the circulation manager.
