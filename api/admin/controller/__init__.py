@@ -937,6 +937,8 @@ class CustomListsController(AdminCirculationManagerController):
         list.name = name
         membership_change = False
 
+        works_to_update_in_search = []
+
         for entry in entries:
             urn = entry.get("id")
             work = self._get_work_from_urn(library, urn)
@@ -944,6 +946,7 @@ class CustomListsController(AdminCirculationManagerController):
             if work:
                 entry, entry_is_new = list.add_entry(work, featured=True)
                 if entry_is_new:
+                    works_to_update_in_search.append(work)
                     membership_change = True
 
         if deletedEntries:
@@ -953,9 +956,14 @@ class CustomListsController(AdminCirculationManagerController):
 
                 if work:
                     list.remove_entry(work)
+                    works_to_update_in_search.append(work)
                     membership_change = True
 
         if membership_change:
+            # We need to update the search index entries for works that caused a membership change,
+            # so the upstream counts can be calculated correctly.
+            self.search_engine.bulk_update(works_to_update_in_search)
+
             # If this list was used to populate any lanes, those lanes need to have their counts updated.
             for lane in Lane.affected_by_customlist(list):
                 lane.update_size(self._db, self.search_engine)
