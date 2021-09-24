@@ -10,6 +10,7 @@ Table of contents
 * [Getting Started / Set Up](#getting-started--set-up)
   * [Docker](#docker-setup)
   * [Manual](#manual)
+  * [Adding Collections](#adding-collections-to-the-circulation-manager-admin)
 * [Generating Documentation](#generating-documentation)
 * [Testing](#testing)
 * [Debugging](#debugging)
@@ -49,7 +50,7 @@ There are additional protected branches that are used for _NYPL-specific_ deploy
 
 
 # Getting Started / Set Up
-To get this project up and running locally, you can follow the [Docker](#docker-setup) setup or the [Manual](#manual-setup) setup. The Docker setup will take care of many of the pre-requisites for you.
+To get this project up and running locally, you can follow the [Docker](#docker-setup) setup or the [Manual](#manual-setup) setup. The Docker setup will take care of many of the pre-requisites for you. Once you're set up, you can proceed with [adding collections](#adding-collections-to-the-circulation-manager-admin).
 
 ## **Docker Setup**
 ***Note**: For more in depth information, check out the [Docker README](/docker/README.md) in the `/docker` directory.*
@@ -87,7 +88,6 @@ Confirm all of the containers are running successfully:
 ```
 
 Finally, open the administration panel at http://localhost:80/admin to view the Circulation Manager Administration app. 
-
 
 ## **Manual Setup**
 
@@ -203,10 +203,6 @@ $ python app.py https://localhost:6500/
 
 Also note that this does not fully replicate secure requests as they would appear on a deployed app instance. In particular, the X-Forwarded-* headers may be different, since you are hitting the application server directly rather than through one or more proxy layers.
 
-### Adding Collections to the Circulation Manager Admin
-
-If you are working on the Circulation Manager Admin, and need to add collections of books to your local app for testing purposes, you can follow [these instructions](https://docs.google.com/document/d/1a0QNWTvt9NKChr8TcLJ3G1PfpBCKV6hC2JuB5Yk_CYY/edit?usp=sharing).
-
 ### Python Installation Issues
 
 When running the `pip install ...` command, you may run into installation issues. The [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions) instructions say to install some packages through brew such as `libxmlsec1`. On newer macos machines, you may encounter an error such as:
@@ -226,6 +222,10 @@ This [blog post](https://mbbroberg.fun/clang-error-in-pip/) explains and shows a
 ```sh
 export CPPFLAGS="-DXMLSEC_NO_XKMS=1"
 ```
+
+## Adding Collections to the Circulation Manager Admin
+
+If you are working on the Circulation Manager Admin, and need to add collections of books to your local app for testing purposes, you can follow [these instructions](https://docs.google.com/document/d/1a0QNWTvt9NKChr8TcLJ3G1PfpBCKV6hC2JuB5Yk_CYY/edit?usp=sharing).
 
 # Generating Documentation
 
