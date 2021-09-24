@@ -937,7 +937,7 @@ class CustomListsController(AdminCirculationManagerController):
         list.name = name
         membership_change = False
 
-        works_to_update_in_search = []
+        works_to_update_in_search = set()
 
         for entry in entries:
             urn = entry.get("id")
@@ -946,7 +946,7 @@ class CustomListsController(AdminCirculationManagerController):
             if work:
                 entry, entry_is_new = list.add_entry(work, featured=True)
                 if entry_is_new:
-                    works_to_update_in_search.append(work)
+                    works_to_update_in_search.add(work)
                     membership_change = True
 
         if deletedEntries:
@@ -956,7 +956,7 @@ class CustomListsController(AdminCirculationManagerController):
 
                 if work:
                     list.remove_entry(work)
-                    works_to_update_in_search.append(work)
+                    works_to_update_in_search.add(work)
                     membership_change = True
 
         if membership_change:

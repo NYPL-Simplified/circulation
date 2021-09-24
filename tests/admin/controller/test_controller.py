@@ -1162,7 +1162,7 @@ class TestCustomListsController(AdminControllerTest):
 
         # Whenever the mocked search engine is asked how many
         # works are in a Lane, it will say there are two.
-        self.controller.search_engine.docs = dict(id1="doc1", id2="doc2")
+        self.controller.search_engine.docs = {}
 
         w1 = self._work(with_license_pool=True, language="eng")
         w2 = self._work(with_license_pool=True, language="fre")
