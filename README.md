@@ -55,7 +55,7 @@ To get this project up and running locally, you can follow the [Docker](#docker-
 
 ### **Docker Setup**
 ---
-***Note**: For more in depth information, check out the [Docker README](/docker/README.md) in the `/docker` directory.*
+***Note**: For more in depth information on using Docker images for deployment, check out the [Docker README](/docker/README.md) in the `/docker` directory.*
 
 Before proceeding, ensure you have [Docker](https://docs.docker.com/get-docker/) installed for your environment.
 
