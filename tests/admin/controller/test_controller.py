@@ -1150,7 +1150,7 @@ class TestCustomListsController(AdminControllerTest):
                           self.manager.admin_custom_lists_controller.custom_list,
                           list.id)
 
-    def test_custom_list_edit(self):
+    def test_custom_list_edit(self, monkeypatch):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         (list, _) = create(self._db, CustomList, name=self._str, data_source=data_source)
         list.library = self._default_library
@@ -1194,6 +1194,11 @@ class TestCustomListsController(AdminControllerTest):
         list.collections = [c1]
         new_collections = [c2]
 
+        # The lane size is set to a static value above. After this call it should
+        # be reset to a value that reflects the number of documents in the search_engine,
+        # regardless of filter, since that's what the mock search engine's count_works does.
+        assert lane.size == 350
+
         with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", str(list.id)),
@@ -1220,9 +1225,13 @@ class TestCustomListsController(AdminControllerTest):
         assert (set([w2, w3]) == set([entry.work for entry in list.entries]))
         assert new_collections == list.collections
 
-        # This change caused an immediate update to lane.size
-        # based on information from the mocked search index.
-        assert 2 == lane.size
+        # If we were using a real search engine instance, the lane's size would be set
+        # to 2, since that's the number of works that would be associated with the
+        # custom list that the lane is based on. In this case we're using an instance of
+        # MockExternalSearchIndex, whose count_works() method (called in Lane.update_size())
+        # returns the number of items in search_engine.docs. Testing that lane.size is now
+        # set to 3 shows that .update_size() was called during the call to custom_list().
+        assert lane.size == 3
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/", method="POST"):
