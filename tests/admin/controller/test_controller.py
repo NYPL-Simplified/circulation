@@ -1150,7 +1150,7 @@ class TestCustomListsController(AdminControllerTest):
                           self.manager.admin_custom_lists_controller.custom_list,
                           list.id)
 
-    def test_custom_list_edit(self, monkeypatch):
+    def test_custom_list_edit(self):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         (list, _) = create(self._db, CustomList, name=self._str, data_source=data_source)
         list.library = self._default_library
