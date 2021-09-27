@@ -1160,19 +1160,25 @@ class TestCustomListsController(AdminControllerTest):
         lane.customlists.append(list)
         lane.size = 350
 
-        # Whenever the mocked search engine is asked how many
-        # works are in a Lane, it will say there are two.
         self.controller.search_engine.docs = {}
 
-        w1 = self._work(with_license_pool=True, language="eng")
-        w2 = self._work(with_license_pool=True, language="fre")
-        w3 = self._work(with_license_pool=True)
+        w1 = self._work(title="Alpha", with_license_pool=True, language="eng")
+        w2 = self._work(title="Bravo", with_license_pool=True, language="fre")
+        w3 = self._work(title="Charlie", with_license_pool=True)
         w2.presentation_edition.medium = Edition.AUDIO_MEDIUM
         w3.presentation_edition.permanent_work_id = w2.presentation_edition.permanent_work_id
         w3.presentation_edition.medium = Edition.BOOK_MEDIUM
 
         list.add_entry(w1)
         list.add_entry(w2)
+        self.controller.search_engine.bulk_update([w1, w2, w3])
+
+        # All three works should be indexed, but only w1 and w2 should be related to the list
+        assert len(self.controller.search_engine.docs) == 3
+        currently_indexed_on_list = [v['title'] for (k, v)
+                                     in self.controller.search_engine.docs.items()
+                                     if v['customlists'] is not None]
+        assert sorted(currently_indexed_on_list) == ['Alpha', 'Bravo']
 
         new_entries = [dict(id=work.presentation_edition.primary_identifier.urn,
                             medium=Edition.medium_to_additional_type[work.presentation_edition.medium])
@@ -1198,6 +1204,15 @@ class TestCustomListsController(AdminControllerTest):
             ])
 
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
+
+        # The works associated with the list in ES should have changed, though the total
+        # number of documents in the index should be the same.
+        assert len(self.controller.search_engine.docs) == 3
+        currently_indexed_on_list = [v['title'] for (k, v)
+                                     in self.controller.search_engine.docs.items()
+                                     if v['customlists'] is not None]
+        assert sorted(currently_indexed_on_list) == ['Bravo', 'Charlie']
+
         assert 200 == response.status_code
         assert list.id == int(response.get_data(as_text=True))
 
