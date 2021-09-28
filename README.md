@@ -95,7 +95,7 @@ Finally, open the administration panel at http://localhost:80/admin to view the 
 ---
 #### **Python Set Up**
 
-If you do not have Python 3 installed, you can use [Homebrew](https://brew.sh/)\* to install it by running the command `$ brew install python3`.
+If you do not have Python 3 installed, and you are running MacOS or Linux, you can use [Homebrew](https://brew.sh/)\* to install it by running the command `$ brew install python3`.
 
 \*If you do not yet have Homebrew, you can install it by running the following:
 
@@ -335,7 +335,7 @@ The latter command will only work if the circulation-web and circulation repos a
 
 ## Contributing
 
-Contributions are always welcome! See [here](CONTRIBUTING.md) for ways to get started.
+See [here](CONTRIBUTING.md) for more information.
 
 ## License
 
