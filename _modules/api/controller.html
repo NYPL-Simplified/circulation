@@ -1441,6 +1441,9 @@
         <span class="n">patron</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span>
         <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
 
+        <span class="n">header</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authorization_header</span><span class="p">()</span>
+        <span class="n">credential</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">auth</span><span class="o">.</span><span class="n">get_credential_from_header</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
+
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_lendable_pool</span><span class="p">(</span>
             <span class="n">library</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">mechanism_id</span>
         <span class="p">)</span>
@@ -1451,51 +1454,22 @@
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;I&#39;ve never heard of this work.&quot;</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="c1"># There was a problem determining the appropriate</span>
+            <span class="c1"># LicensePool to use.</span>
             <span class="k">return</span> <span class="n">result</span>
-        <span class="n">pool</span><span class="p">,</span> <span class="n">mechanism</span> <span class="o">=</span> <span class="n">result</span>
 
-        <span class="n">header</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authorization_header</span><span class="p">()</span>
-        <span class="n">credential</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">auth</span><span class="o">.</span><span class="n">get_credential_from_header</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
-        <span class="n">problem_doc</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">loan</span><span class="p">,</span> <span class="n">hold</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">borrow</span><span class="p">(</span>
-                <span class="n">patron</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">mechanism</span>
-            <span class="p">)</span>
-        <span class="k">except</span> <span class="n">NoOpenAccessDownload</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">NO_LICENSES</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
-                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Couldn&#39;t find an open-access download link for this book.&quot;</span><span class="p">),</span>
-                <span class="n">status_code</span><span class="o">=</span><span class="mi">404</span>
-            <span class="p">)</span>
-        <span class="k">except</span> <span class="n">PatronAuthorizationFailedException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">INVALID_CREDENTIALS</span>
-        <span class="k">except</span> <span class="p">(</span><span class="n">PatronLoanLimitReached</span><span class="p">,</span> <span class="n">PatronHoldLimitReached</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">()</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">DeliveryMechanismError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">BAD_DELIVERY_MECHANISM</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
-            <span class="p">)</span>
-        <span class="k">except</span> <span class="n">OutstandingFines</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">OUTSTANDING_FINES</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
-                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You must pay your $</span><span class="si">%(fine_amount).2f</span><span class="s2"> outstanding fines before you can borrow more books.&quot;</span><span class="p">,</span> <span class="n">fine_amount</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">fines</span><span class="p">)</span>
-            <span class="p">)</span>
-        <span class="k">except</span> <span class="n">AuthorizationExpired</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">AuthorizationBlocked</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">CannotLoan</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">CHECKOUT_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">CannotHold</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">HOLD_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">CannotRenew</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">RENEW_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">NotFoundOnRemote</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">NOT_FOUND_ON_REMOTE</span>
-        <span class="k">except</span> <span class="n">CirculationException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="c1"># Generic circulation error.</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">CHECKOUT_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">Loan</span><span class="p">):</span>
+            <span class="c1"># We already have a Loan, so there&#39;s no need to go to the API.</span>
+            <span class="n">loan_or_hold</span> <span class="o">=</span> <span class="n">result</span>
+            <span class="n">is_new</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># We need to actually go out to the API</span>
+            <span class="c1"># and try to take out a loan.</span>
+            <span class="n">pool</span><span class="p">,</span> <span class="n">mechanism</span> <span class="o">=</span> <span class="n">result</span>
+            <span class="n">loan_or_hold</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_borrow</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">mechanism</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">problem_doc</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">problem_doc</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loan_or_hold</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">loan_or_hold</span>
 
         <span class="c1"># At this point we have either a loan or a hold. If a loan, serve</span>
         <span class="c1"># a feed that tells the patron how to fulfill the loan. If a hold,</span>
@@ -1505,20 +1479,78 @@
             <span class="n">response_kwargs</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">201</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">response_kwargs</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">200</span>
-        <span class="n">item</span> <span class="o">=</span> <span class="n">loan</span> <span class="ow">or</span> <span class="n">hold</span>
-        <span class="k">if</span> <span class="n">item</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">LibraryLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_item_feed</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="o">**</span><span class="n">response_kwargs</span>
-            <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># This should never happen -- we should have sent a more specific</span>
-            <span class="c1"># error earlier.</span>
-            <span class="k">return</span> <span class="n">HOLD_FAILED</span></div>
+        <span class="k">return</span> <span class="n">LibraryLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_item_feed</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">loan_or_hold</span><span class="p">,</span> <span class="o">**</span><span class="n">response_kwargs</span>
+        <span class="p">)</span></div>
 
-<div class="viewcode-block" id="LoanController.best_lendable_pool"><a class="viewcode-back" href="../../api.html#api.controller.LoanController.best_lendable_pool">[docs]</a>    <span class="k">def</span> <span class="nf">best_lendable_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span>
-                           <span class="n">mechanism_id</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Of the available LicensePools for the given Identifier, return the</span>
+    <span class="k">def</span> <span class="nf">_borrow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">mechanism</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Go out to the API, try to take out a loan, and handle errors as</span>
+<span class="sd">        problem detail documents.</span>
+
+<span class="sd">        :param patron: The Patron who&#39;s trying to take out the loan</span>
+<span class="sd">        :param credential: A Credential to use when authenticating</span>
+<span class="sd">           as this Patron with the external API.</span>
+<span class="sd">        :param pool: The LicensePool for the book the Patron wants.</span>
+<span class="sd">        :mechanism: The DeliveryMechanism to request when asking for</span>
+<span class="sd">           a loan.</span>
+<span class="sd">        :return: a 2-tuple (result, is_new) `result` is a Loan (if one</span>
+<span class="sd">           could be created or found), a Hold (if a Loan could not be</span>
+<span class="sd">           created but a Hold could be), or a ProblemDetail (if the</span>
+<span class="sd">           entire operation failed).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">is_new</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">loan</span><span class="p">,</span> <span class="n">hold</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">borrow</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">mechanism</span>
+            <span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">loan</span> <span class="ow">or</span> <span class="n">hold</span>
+        <span class="k">except</span> <span class="n">NoOpenAccessDownload</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">NO_LICENSES</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Couldn&#39;t find an open-access download link for this book.&quot;</span><span class="p">),</span>
+                <span class="n">status_code</span><span class="o">=</span><span class="mi">404</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">PatronAuthorizationFailedException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">INVALID_CREDENTIALS</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">PatronLoanLimitReached</span><span class="p">,</span> <span class="n">PatronHoldLimitReached</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">()</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">DeliveryMechanismError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">BAD_DELIVERY_MECHANISM</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">OutstandingFines</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">OUTSTANDING_FINES</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You must pay your $</span><span class="si">%(fine_amount).2f</span><span class="s2"> outstanding fines before you can borrow more books.&quot;</span><span class="p">,</span> <span class="n">fine_amount</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">fines</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">AuthorizationExpired</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">AuthorizationBlocked</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">CannotLoan</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">CHECKOUT_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">CannotHold</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">HOLD_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">CannotRenew</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">RENEW_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">NotFoundOnRemote</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">NOT_FOUND_ON_REMOTE</span>
+        <span class="k">except</span> <span class="n">CirculationException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># Generic circulation error.</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">CHECKOUT_FAILED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># This shouldn&#39;t happen, but if it does, it means no exception</span>
+            <span class="c1"># was raised but we just didn&#39;t get a loan or hold. Return a</span>
+            <span class="c1"># generic circulation error.</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">HOLD_FAILED</span>
+        <span class="k">return</span> <span class="n">result</span><span class="p">,</span> <span class="n">is_new</span>
+
+<div class="viewcode-block" id="LoanController.best_lendable_pool"><a class="viewcode-back" href="../../api.html#api.controller.LoanController.best_lendable_pool">[docs]</a>    <span class="k">def</span> <span class="nf">best_lendable_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">mechanism_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Of the available LicensePools for the given Identifier, return the</span>
 <span class="sd">        one that&#39;s the best candidate for loaning out right now.</span>
+
+<span class="sd">        :return: A Loan if this patron already has an active loan, otherwise a LicensePool.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Turn source + identifier into a set of LicensePools</span>
         <span class="n">pools</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_licensepools</span><span class="p">(</span>
@@ -1537,7 +1569,10 @@
             <span class="n">Loan</span><span class="o">.</span><span class="n">patron</span><span class="o">==</span><span class="n">patron</span>
         <span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">existing_loans</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">ALREADY_CHECKED_OUT</span>
+            <span class="c1"># The patron already has at least one loan on this book already.</span>
+            <span class="c1"># To make the &quot;borrow&quot; operation idempotent, return one of</span>
+            <span class="c1"># those loans instead of an error.</span>
+            <span class="k">return</span> <span class="n">existing_loans</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
         <span class="c1"># We found a number of LicensePools. Try to locate one that</span>
         <span class="c1"># we can actually loan to the patron.</span>

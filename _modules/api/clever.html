@@ -33,53 +33,43 @@
           <div class="body" role="main">
             
   <h1>Source code for api.clever</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">json</span>
+<span></span><span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">lgt</span>
 
 <span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">OAuthAuthenticationProvider</span><span class="p">,</span>
     <span class="n">OAuthController</span><span class="p">,</span>
     <span class="n">PatronData</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">get_one</span><span class="p">,</span>
-    <span class="n">get_one_or_create</span><span class="p">,</span>
-    <span class="n">Credential</span><span class="p">,</span>
-    <span class="n">DataSource</span><span class="p">,</span>
-    <span class="n">ExternalIntegration</span><span class="p">,</span>
-    <span class="n">Patron</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 <span class="kn">from</span> <span class="nn">core.util.string_helpers</span> <span class="kn">import</span> <span class="n">base64</span>
-<span class="kn">from</span> <span class="nn">api.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">api.problem_details</span> <span class="kn">import</span> <span class="n">INVALID_CREDENTIALS</span>
 
 
-<span class="n">UNSUPPORTED_CLEVER_USER_TYPE</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
+<span class="n">UNSUPPORTED_CLEVER_USER_TYPE</span> <span class="o">=</span> <span class="n">ProblemDetail</span><span class="p">(</span>
     <span class="s2">&quot;http://librarysimplified.org/terms/problem/unsupported-clever-user-type&quot;</span><span class="p">,</span>
     <span class="mi">401</span><span class="p">,</span>
-    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Your Clever user type is not supported.&quot;</span><span class="p">),</span>
-    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Your Clever user type is not supported. You can request a code from First Book instead&quot;</span><span class="p">),</span>
+    <span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;Your Clever user type is not supported.&quot;</span><span class="p">),</span>
+    <span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;Your Clever user type is not supported. You can request a code from First Book instead&quot;</span><span class="p">),</span>
 <span class="p">)</span>
 
-<span class="n">CLEVER_NOT_ELIGIBLE</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
+<span class="n">CLEVER_NOT_ELIGIBLE</span> <span class="o">=</span> <span class="n">ProblemDetail</span><span class="p">(</span>
     <span class="s2">&quot;http://librarysimplified.org/terms/problem/clever-not-eligible&quot;</span><span class="p">,</span>
     <span class="mi">401</span><span class="p">,</span>
-    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Your Clever account is not eligible to access this application.&quot;</span><span class="p">),</span>
-    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Your Clever account is not eligible to access this application.&quot;</span><span class="p">),</span>
+    <span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;Your Clever account is not eligible to access this application.&quot;</span><span class="p">),</span>
+    <span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;Your Clever account is not eligible to access this application.&quot;</span><span class="p">),</span>
 <span class="p">)</span>
 
-<span class="n">CLEVER_UNKNOWN_SCHOOL</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
+<span class="n">CLEVER_UNKNOWN_SCHOOL</span> <span class="o">=</span> <span class="n">ProblemDetail</span><span class="p">(</span>
     <span class="s2">&quot;http://librarysimplified.org/terms/problem/clever-unknown-school&quot;</span><span class="p">,</span>
     <span class="mi">401</span><span class="p">,</span>
-    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Clever did not provide the necessary information about your school to verify eligibility.&quot;</span><span class="p">),</span>
-    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Clever did not provide the necessary information about your school to verify eligibility.&quot;</span><span class="p">),</span>
+    <span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;Clever did not provide the necessary information about your school to verify eligibility.&quot;</span><span class="p">),</span>
+    <span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;Clever did not provide the necessary information about your school to verify eligibility.&quot;</span><span class="p">),</span>
 <span class="p">)</span>
-
 
 <span class="c1"># Load Title I NCES ID data from json.</span>
 <span class="n">TITLE_I_NCES_IDS</span> <span class="o">=</span> <span class="kc">None</span>
@@ -89,6 +79,35 @@
     <span class="n">json_data</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
     <span class="n">TITLE_I_NCES_IDS</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">json_data</span><span class="p">)</span>
 
+<span class="n">CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;InfantToddler&quot;</span><span class="p">:</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span>               <span class="c1"># Early</span>
+    <span class="s2">&quot;Preschool&quot;</span><span class="p">:</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PreKindergarten&quot;</span><span class="p">:</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;TransitionalKindergarten&quot;</span><span class="p">:</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Kindergarten&quot;</span><span class="p">:</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;1&quot;</span><span class="p">:</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;2&quot;</span><span class="p">:</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;3&quot;</span><span class="p">:</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;4&quot;</span><span class="p">:</span> <span class="s2">&quot;M&quot;</span><span class="p">,</span>                           <span class="c1"># Middle</span>
+    <span class="s2">&quot;5&quot;</span><span class="p">:</span> <span class="s2">&quot;M&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;6&quot;</span><span class="p">:</span> <span class="s2">&quot;M&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;7&quot;</span><span class="p">:</span> <span class="s2">&quot;M&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;8&quot;</span><span class="p">:</span> <span class="s2">&quot;M&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;9&quot;</span><span class="p">:</span> <span class="s2">&quot;H&quot;</span><span class="p">,</span>                           <span class="c1"># High</span>
+    <span class="s2">&quot;10&quot;</span><span class="p">:</span> <span class="s2">&quot;H&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;11&quot;</span><span class="p">:</span> <span class="s2">&quot;H&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;12&quot;</span><span class="p">:</span> <span class="s2">&quot;H&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;13&quot;</span><span class="p">:</span> <span class="s2">&quot;H&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PostGraduate&quot;</span><span class="p">:</span> <span class="s2">&quot;H&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Other&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>                      <span class="c1"># Indeterminate</span>
+    <span class="s2">&quot;Ungraded&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="external_type_from_clever_grade"><a class="viewcode-back" href="../../api.clever.html#api.clever.external_type_from_clever_grade">[docs]</a><span class="k">def</span> <span class="nf">external_type_from_clever_grade</span><span class="p">(</span><span class="n">grade</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Maps a &#39;grade&#39; value returned by the Clever API for student users to an external_type&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">grade</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
 
 <div class="viewcode-block" id="CleverAuthenticationAPI"><a class="viewcode-back" href="../../api.clever.html#api.clever.CleverAuthenticationAPI">[docs]</a><span class="k">class</span> <span class="nc">CleverAuthenticationAPI</span><span class="p">(</span><span class="n">OAuthAuthenticationProvider</span><span class="p">):</span>
 
@@ -96,15 +115,15 @@
 
     <span class="n">NAME</span> <span class="o">=</span> <span class="s1">&#39;Clever&#39;</span>
 
-    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
+    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
 <span class="s2">        An authentication service for Open eBooks that uses Clever as an</span>
 <span class="s2">        OAuth provider.&quot;&quot;&quot;</span><span class="p">)</span>
 
     <span class="n">LOGIN_BUTTON_IMAGE</span> <span class="o">=</span> <span class="s2">&quot;CleverLoginButton280.png&quot;</span>
 
     <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Client ID&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
-        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Client Secret&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;Client ID&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;Client Secret&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
     <span class="p">]</span> <span class="o">+</span> <span class="n">OAuthAuthenticationProvider</span><span class="o">.</span><span class="n">SETTINGS</span>
 
     <span class="c1"># Unlike other authentication providers, external type regular expression</span>
@@ -115,9 +134,17 @@
     <span class="n">TOKEN_TYPE</span> <span class="o">=</span> <span class="s2">&quot;Clever token&quot;</span>
     <span class="n">TOKEN_DATA_SOURCE_NAME</span> <span class="o">=</span> <span class="s1">&#39;Clever&#39;</span>
 
-    <span class="n">EXTERNAL_AUTHENTICATE_URL</span> <span class="o">=</span> <span class="s2">&quot;https://clever.com/oauth/authorize?response_type=code&amp;client_id=</span><span class="si">%(client_id)s</span><span class="s2">&amp;redirect_uri=</span><span class="si">%(oauth_callback_url)s</span><span class="s2">&amp;state=</span><span class="si">%(state)s</span><span class="s2">&quot;</span>
+    <span class="n">EXTERNAL_AUTHENTICATE_URL</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;https://clever.com/oauth/authorize&quot;</span>
+        <span class="s2">&quot;?response_type=code&amp;client_id=</span><span class="si">%(client_id)s</span><span class="s2">&amp;redirect_uri=</span><span class="si">%(oauth_callback_url)s</span><span class="s2">&amp;state=</span><span class="si">%(state)s</span><span class="s2">&quot;</span>
+    <span class="p">)</span>
     <span class="n">CLEVER_TOKEN_URL</span> <span class="o">=</span> <span class="s2">&quot;https://clever.com/oauth/tokens&quot;</span>
+
+    <span class="c1"># Not all calls should be made to a versioned endpoint. Please see the</span>
+    <span class="c1"># Clever API documentation when adding a new endpoint.</span>
     <span class="n">CLEVER_API_BASE_URL</span> <span class="o">=</span> <span class="s2">&quot;https://api.clever.com&quot;</span>
+    <span class="n">CLEVER_API_VERSION</span> <span class="o">=</span> <span class="s2">&quot;3.0&quot;</span>
+    <span class="n">CLEVER_API_VERSIONED_URL</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">CLEVER_API_BASE_URL</span><span class="si">}</span><span class="s2">/v</span><span class="si">{</span><span class="n">CLEVER_API_VERSION</span><span class="si">}</span><span class="s2">&quot;</span>
 
     <span class="c1"># To check Title I status we need state, which is associated with</span>
     <span class="c1"># a school in Clever&#39;s API. Any users at the district-level will</span>
@@ -182,22 +209,21 @@
 <span class="sd">            bearer token.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">payload</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_remote_exchange_payload</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">code</span><span class="p">)</span>
-        <span class="n">authorization</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">client_id</span> <span class="o">+</span> <span class="s2">&quot;:&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_secret</span>
-        <span class="p">)</span>
+        <span class="n">authorization</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">client_id</span> <span class="o">+</span> <span class="s2">&quot;:&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_secret</span><span class="p">)</span>
         <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s1">&#39;Authorization&#39;</span><span class="p">:</span> <span class="s1">&#39;Basic </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">authorization</span><span class="p">,</span>
             <span class="s1">&#39;Content-Type&#39;</span><span class="p">:</span> <span class="s1">&#39;application/json&#39;</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_token</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
-        <span class="n">invalid</span> <span class="o">=</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
-            <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A valid Clever login is required.&quot;</span><span class="p">)</span>
-        <span class="p">)</span>
+        <span class="n">invalid</span> <span class="o">=</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;A valid Clever login is required.&quot;</span><span class="p">))</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">response</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">invalid</span>
+
         <span class="n">token</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;access_token&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="ow">not</span> <span class="n">token</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">invalid</span>
+
         <span class="k">return</span> <span class="n">token</span></div>
 
     <span class="k">def</span> <span class="nf">_remote_exchange_payload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">code</span><span class="p">):</span>
@@ -259,59 +285,58 @@
 <span class="sd">            with the data listed above.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">bearer_headers</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s1">&#39;Authorization&#39;</span><span class="p">:</span> <span class="s1">&#39;Bearer </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">token</span>
-        <span class="p">}</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">CLEVER_API_BASE_URL</span> <span class="o">+</span> <span class="s1">&#39;/me&#39;</span><span class="p">,</span> <span class="n">bearer_headers</span><span class="p">)</span>
+        <span class="n">bearer_headers</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;Authorization&#39;</span><span class="p">:</span> <span class="s1">&#39;Bearer </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">token</span><span class="p">}</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">CLEVER_API_VERSIONED_URL</span> <span class="o">+</span> <span class="s1">&#39;/me&#39;</span><span class="p">,</span> <span class="n">bearer_headers</span><span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
 
         <span class="n">identifier</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
-                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A valid Clever login is required.&quot;</span><span class="p">)</span>
-            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;A valid Clever login is required.&quot;</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_USER_TYPES</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">UNSUPPORTED_CLEVER_USER_TYPE</span>
 
         <span class="n">links</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;links&#39;</span><span class="p">]</span>
 
-        <span class="n">user_link</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">links</span> <span class="k">if</span> <span class="n">l</span><span class="p">[</span><span class="s1">&#39;rel&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;canonical&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;uri&#39;</span><span class="p">]</span>
+        <span class="n">user_link</span> <span class="o">=</span> <span class="p">[</span><span class="n">link</span> <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="n">links</span> <span class="k">if</span> <span class="n">link</span><span class="p">[</span><span class="s1">&#39;rel&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;canonical&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;uri&#39;</span><span class="p">]</span>
+        <span class="c1"># The canonical link includes the API version, so we use the base URL.</span>
         <span class="n">user</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">CLEVER_API_BASE_URL</span> <span class="o">+</span> <span class="n">user_link</span><span class="p">,</span> <span class="n">bearer_headers</span><span class="p">)</span>
 
         <span class="n">user_data</span> <span class="o">=</span> <span class="n">user</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
         <span class="n">school_id</span> <span class="o">=</span> <span class="n">user_data</span><span class="p">[</span><span class="s1">&#39;school&#39;</span><span class="p">]</span>
-        <span class="n">school</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">CLEVER_API_BASE_URL</span> <span class="o">+</span> <span class="s1">&#39;/v1.1/schools/</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">school_id</span><span class="p">,</span>
-            <span class="n">bearer_headers</span>
-        <span class="p">)</span>
+        <span class="n">school</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">CLEVER_API_VERSIONED_URL</span><span class="si">}</span><span class="s2">/schools/</span><span class="si">{</span><span class="n">school_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">bearer_headers</span><span class="p">)</span>
 
         <span class="n">school_nces_id</span> <span class="o">=</span> <span class="n">school</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;nces_id&#39;</span><span class="p">)</span>
 
         <span class="c1"># TODO: check student free and reduced lunch status as well</span>
 
         <span class="k">if</span> <span class="n">school_nces_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                <span class="s2">&quot;No NCES ID found in Clever school data: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">school</span><span class="p">)</span>
-            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;No NCES ID found in Clever school data: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">school</span><span class="p">))</span>
             <span class="k">return</span> <span class="n">CLEVER_UNKNOWN_SCHOOL</span>
 
         <span class="k">if</span> <span class="n">school_nces_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">TITLE_I_NCES_IDS</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> didn&#39;t match a Title I NCES ID&quot;</span><span class="p">,</span> <span class="n">school_nces_id</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">CLEVER_NOT_ELIGIBLE</span>
 
+        <span class="n">external_type</span> <span class="o">=</span> <span class="kc">None</span>
+
         <span class="k">if</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;student&#39;</span><span class="p">:</span>
-            <span class="n">grade</span> <span class="o">=</span> <span class="n">user_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;grade&#39;</span><span class="p">)</span>
-            <span class="n">external_type</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">if</span> <span class="n">grade</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;Kindergarten&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">,</span> <span class="s2">&quot;2&quot;</span><span class="p">,</span> <span class="s2">&quot;3&quot;</span><span class="p">]:</span>
-                <span class="n">external_type</span> <span class="o">=</span> <span class="s2">&quot;E&quot;</span>
-            <span class="k">elif</span> <span class="n">grade</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;4&quot;</span><span class="p">,</span> <span class="s2">&quot;5&quot;</span><span class="p">,</span> <span class="s2">&quot;6&quot;</span><span class="p">,</span> <span class="s2">&quot;7&quot;</span><span class="p">,</span> <span class="s2">&quot;8&quot;</span><span class="p">]:</span>
-                <span class="n">external_type</span> <span class="o">=</span> <span class="s2">&quot;M&quot;</span>
-            <span class="k">elif</span> <span class="n">grade</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;9&quot;</span><span class="p">,</span> <span class="s2">&quot;10&quot;</span><span class="p">,</span> <span class="s2">&quot;11&quot;</span><span class="p">,</span> <span class="s2">&quot;12&quot;</span><span class="p">]:</span>
-                <span class="n">external_type</span> <span class="o">=</span> <span class="s2">&quot;H&quot;</span>
+            <span class="c1"># We need to be able to assign an external_type to students, so that they</span>
+            <span class="c1"># get the correct content level. To do so we rely on the grade field in the</span>
+            <span class="c1"># user data we get back from Clever. Their API doesn&#39;t guarantee that the</span>
+            <span class="c1"># grade field is present, so we supply a default.</span>
+            <span class="n">student_grade</span> <span class="o">=</span> <span class="n">user_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;grade&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">student_grade</span><span class="p">:</span>   <span class="c1"># If no grade was supplied, log the school/student</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CLEVER_UNKNOWN_PATRON_GRADE: School with NCES ID </span><span class="si">{</span><span class="n">school_nces_id</span><span class="si">}</span><span class="s2"> &quot;</span>
+                       <span class="sa">f</span><span class="s2">&quot;did not supply grade for student </span><span class="si">{</span><span class="n">user_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;id&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+            <span class="c1"># If we can&#39;t determine a type from the grade level, set to &quot;A&quot;</span>
+            <span class="n">external_type</span> <span class="o">=</span> <span class="n">external_type_from_clever_grade</span><span class="p">(</span><span class="n">student_grade</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">external_type</span> <span class="o">=</span> <span class="s2">&quot;A&quot;</span>
+            <span class="n">external_type</span> <span class="o">=</span> <span class="s2">&quot;A&quot;</span>     <span class="c1"># Non-students get content level &quot;A&quot;</span>
 
         <span class="n">patrondata</span> <span class="o">=</span> <span class="n">PatronData</span><span class="p">(</span>
             <span class="n">permanent_id</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
@@ -329,6 +354,7 @@
 
     <span class="k">def</span> <span class="nf">_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">get_with_timeout</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span></div>
+
 
 <span class="n">AuthenticationProvider</span> <span class="o">=</span> <span class="n">CleverAuthenticationAPI</span>
 </pre></div>

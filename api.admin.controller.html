@@ -1254,7 +1254,9 @@ LicensePoool.</p>
 <dl class="method">
 <dt id="api.admin.controller.AdminController.admin_auth_provider">
 <code class="descname">admin_auth_provider</code><span class="sig-paren">(</span><em>type</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller.html#AdminController.admin_auth_provider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.AdminController.admin_auth_provider" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Return an auth provider with the given type.
+If no auth provider has this type, return None.</p>
+</dd></dl>
 
 <dl class="attribute">
 <dt id="api.admin.controller.AdminController.admin_auth_providers">
@@ -1276,8 +1278,7 @@ LicensePoool.</p>
 <dl class="method">
 <dt id="api.admin.controller.AdminController.check_csrf_token">
 <code class="descname">check_csrf_token</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller.html#AdminController.check_csrf_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.AdminController.check_csrf_token" title="Permalink to this definition">¶</a></dt>
-<dd><p>Verifies that the CSRF token in the form data or X-CSRF-Token header
-matches the one in the session cookie.</p>
+<dd><p>Verifies that the CSRF token in the form data or X-CSRF-Token header matches the one in the session cookie.</p>
 </dd></dl>
 
 <dl class="method">
@@ -1415,14 +1416,13 @@ during tests; it’s not necessary to provide it normally.</td>
 <dl class="method">
 <dt id="api.admin.controller.PatronController.reset_adobe_id">
 <code class="descname">reset_adobe_id</code><span class="sig-paren">(</span><em>authenticator=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller.html#PatronController.reset_adobe_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.PatronController.reset_adobe_id" title="Permalink to this definition">¶</a></dt>
-<dd><p>Delete all Credentials for a patron that are relevant
-to the patron’s Adobe Account ID.</p>
+<dd><p>Delete all Credentials for a patron that are relevant to the patron’s Adobe Account ID.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>authenticator</strong> – A LibraryAuthenticator. This is for mocking
-during tests; it’s not necessary to provide it normal</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>authenticator</strong> – A LibraryAuthenticator. This is for mocking during tests;
+it’s not necessary to provide it normal</td>
 </tr>
 </tbody>
 </table>
@@ -1452,28 +1452,25 @@ during tests; it’s not necessary to provide it normal</td>
 <dl class="method">
 <dt id="api.admin.controller.SettingsController.check_name_unique">
 <code class="descname">check_name_unique</code><span class="sig-paren">(</span><em>new_service</em>, <em>name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller.html#SettingsController.check_name_unique"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.SettingsController.check_name_unique" title="Permalink to this definition">¶</a></dt>
-<dd><p>A service cannot be created with, or edited to have, the same name
-as a service that already exists.
-This method is used by analytics_services, cdn_services, discovery_services,
-metadata_services, and sitewide_services.</p>
+<dd><p>A service cannot be created with, or edited to have, the same name as a service that
+already exists. This method is used by analytics_services, cdn_services,
+discovery_services, metadata_services, and sitewide_services.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="api.admin.controller.SettingsController.check_url_unique">
 <code class="descname">check_url_unique</code><span class="sig-paren">(</span><em>new_service</em>, <em>url</em>, <em>protocol</em>, <em>goal</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller.html#SettingsController.check_url_unique"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.SettingsController.check_url_unique" title="Permalink to this definition">¶</a></dt>
-<dd><p>Enforce a rule that a given circulation manager can only have
-one integration that uses a given URL for a certain purpose.</p>
-<p>Whether to enforce this rule for a given type of integration
-is up to you – it’s a good general rule but there are
-conceivable exceptions.</p>
+<dd><p>Enforce a rule that a given circulation manager can only have one integration that
+uses a given URL for a certain purpose.</p>
+<p>Whether to enforce this rule for a given type of integration is up to you – it’s
+a good general rule but there are conceivable exceptions.</p>
 <p>This method is used by discovery_services.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="api.admin.controller.SettingsController.look_up_service_by_id">
 <code class="descname">look_up_service_by_id</code><span class="sig-paren">(</span><em>id</em>, <em>protocol</em>, <em>goal=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller.html#SettingsController.look_up_service_by_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.SettingsController.look_up_service_by_id" title="Permalink to this definition">¶</a></dt>
-<dd><p>Find an existing service, and make sure that the user is not trying to edit
-its protocol.
+<dd><p>Find an existing service, and make sure that the user is not trying to edit its protocol.
 This method is used by analytics_services, cdn_services, metadata_services,
 and sitewide_services.</p>
 </dd></dl>
@@ -1481,21 +1478,17 @@ and sitewide_services.</p>
 <dl class="method">
 <dt id="api.admin.controller.SettingsController.set_protocols">
 <code class="descname">set_protocols</code><span class="sig-paren">(</span><em>service</em>, <em>protocol</em>, <em>protocols=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller.html#SettingsController.set_protocols"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.SettingsController.set_protocols" title="Permalink to this definition">¶</a></dt>
-<dd><p>Validate the protocol that the user has submitted; depending on whether
-the validations pass, either save it to this metadata service or
-return an error message.
-This method is used by analytics_services, cdn_services, discovery_services,
-metadata_services, and sitewide_services.</p>
+<dd><p>Validate the protocol that the user has submitted; depending on whether the validations pass,
+either save it to this metadata service or return an error message. This method is used by
+analytics_services, cdn_services, discovery_services, metadata_services, and sitewide_services.</p>
 </dd></dl>
 
 <dl class="classmethod">
 <dt id="api.admin.controller.SettingsController.url_variants">
 <em class="property">classmethod </em><code class="descname">url_variants</code><span class="sig-paren">(</span><em>url</em>, <em>check_protocol_variant=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller.html#SettingsController.url_variants"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.SettingsController.url_variants" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate minor variants of a URL – HTTP vs HTTPS, trailing slash
-vs not, etc.</p>
-<p>Technically these are all distinct URLs, but in real life they
-generally mean someone typed the same URL slightly
-differently. Since this isn’t an exact science, this doesn’t
+<dd><p>Generate minor variants of a URL – HTTP vs HTTPS, trailing slash vs not, etc.</p>
+<p>Technically these are all distinct URLs, but in real life they generally mean someone
+typed the same URL slightly differently. Since this isn’t an exact science, this doesn’t
 need to catch all variant URLs, only the most common ones.</p>
 </dd></dl>
 
@@ -1517,12 +1510,12 @@ need to catch all variant URLs, only the most common ones.</p>
 <dd><p>Bases: <a class="reference internal" href="#api.admin.controller.AdminController" title="api.admin.controller.AdminController"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.controller.AdminController</span></code></a></p>
 <dl class="attribute">
 <dt id="api.admin.controller.SignInController.ERROR_RESPONSE_TEMPLATE">
-<code class="descname">ERROR_RESPONSE_TEMPLATE</code><em class="property"> = '&lt;!DOCTYPE HTML&gt;\n&lt;html lang=&quot;en&quot;&gt;\n&lt;head&gt;&lt;meta charset=&quot;utf8&quot;&gt;&lt;/head&gt;\n&lt;body style=&quot;\n    margin: 10vh auto;\n    font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;\n    padding: 25px 15px;\n    width: 40vw;\n    color: #403d37;\n    border: 1px solid #DDD;\n    border-radius: 4px;\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n\n    border-color: #D0343A;\n&quot;&gt;\n&lt;p&gt;&lt;strong&gt;%(status_code)d ERROR:&lt;/strong&gt; %(message)s&lt;/p&gt;\n&lt;hr style=&quot;\n    width: 10vw;\n    margin: 3px 0 0 0;\n    border: none;\n    border-bottom: 1px solid #403d37;\n&quot;&gt;\n&lt;a href=&quot;/admin/sign_in&quot; style=&quot;\n    background: #1B7FA7;\n    text-align: center;\n    text-decoration: none;\n    border-color: #1B7FA7;\n    border-radius: .25em;\n    color: #fff;\n    padding: 10px;\n    font-size: 1rem;\n    cursor: pointer;\n    display: block;\n    width: 25vw;\n    margin: 2vh auto;\n\n    width: 5vw;\n    margin-bottom: 0;\n&quot;&gt;Try again&lt;/a&gt;\n&lt;/body&gt;\n&lt;/html&gt;'</em><a class="headerlink" href="#api.admin.controller.SignInController.ERROR_RESPONSE_TEMPLATE" title="Permalink to this definition">¶</a></dt>
+<code class="descname">ERROR_RESPONSE_TEMPLATE</code><em class="property"> = '&lt;!DOCTYPE HTML&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;utf8&quot;&gt;&lt;/head&gt;&lt;body style=&quot;\n    margin: 10vh auto;\n    font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;\n    padding: 25px 15px;\n    width: 40vw;\n    color: #403d37;\n    border: 1px solid #DDD;\n    border-radius: 4px;\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n\n    border-color: #D0343A;\n&quot;&gt;&lt;p&gt;&lt;strong&gt;%(status_code)d ERROR:&lt;/strong&gt; %(message)s&lt;/p&gt;&lt;hr style=&quot;\n    width: 10vw;\n    margin: 3px 0 0 0;\n    border: none;\n    border-bottom: 1px solid #403d37;\n&quot;&gt;&lt;a href=&quot;/admin/sign_in&quot; style=&quot;\n    background: #1B7FA7;\n    text-align: center;\n    text-decoration: none;\n    border-color: #1B7FA7;\n    border-radius: .25em;\n    color: #fff;\n    padding: 10px;\n    font-size: 1rem;\n    cursor: pointer;\n    display: block;\n    width: 25vw;\n    margin: 2vh auto;\n\n    width: 5vw;\n    margin-bottom: 0;\n&quot;&gt;Try again&lt;/a&gt;&lt;/body&gt;&lt;/html&gt;'</em><a class="headerlink" href="#api.admin.controller.SignInController.ERROR_RESPONSE_TEMPLATE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.admin.controller.SignInController.SIGN_IN_TEMPLATE">
-<code class="descname">SIGN_IN_TEMPLATE</code><em class="property"> = '&lt;!DOCTYPE HTML&gt;\n&lt;html lang=&quot;en&quot;&gt;\n&lt;head&gt;&lt;meta charset=&quot;utf8&quot;&gt;&lt;/head&gt;\n&lt;body style=&quot;\n    margin: 10vh auto;\n    font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;\n    padding: 25px 15px;\n    width: 40vw;\n    color: #403d37;\n    border: 1px solid #DDD;\n    border-radius: 4px;\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n&quot;&gt;\n&lt;h1&gt;Library Simplified&lt;/h1&gt;\n%(auth_provider_html)s\n&lt;/body&gt;\n&lt;/html&gt;'</em><a class="headerlink" href="#api.admin.controller.SignInController.SIGN_IN_TEMPLATE" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SIGN_IN_TEMPLATE</code><em class="property"> = '&lt;!DOCTYPE HTML&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;utf8&quot;&gt;&lt;/head&gt;&lt;body style=&quot;\n    margin: 10vh auto;\n    font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;\n    padding: 25px 15px;\n    width: 40vw;\n    color: #403d37;\n    border: 1px solid #DDD;\n    border-radius: 4px;\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n&quot;&gt;&lt;h1&gt;Library Simplified&lt;/h1&gt;%(auth_provider_html)s&lt;/body&gt;&lt;/html&gt;'</em><a class="headerlink" href="#api.admin.controller.SignInController.SIGN_IN_TEMPLATE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -1565,13 +1558,11 @@ callback. Barring error, redirects to the provided redirect url..</p>
 <dt id="api.admin.controller.SitewideRegistrationController">
 <em class="property">class </em><code class="descclassname">api.admin.controller.</code><code class="descname">SitewideRegistrationController</code><span class="sig-paren">(</span><em>manager</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller.html#SitewideRegistrationController"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.SitewideRegistrationController" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.admin.controller.SettingsController" title="api.admin.controller.SettingsController"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.controller.SettingsController</span></code></a></p>
-<p>A controller for managing a circulation manager’s registrations
-with external services.</p>
-<p>Currently the only supported site-wide registration is with a
-metadata wrangler. The protocol for registration with library
-registries and ODL collections is similar, but those registrations
-happen on the level of the individual library, not on the level of
-the circulation manager.</p>
+<p>A controller for managing a circulation manager’s registrations with external services.</p>
+<p>Currently the only supported site-wide registration is with a metadata wrangler.
+The protocol for registration with library registries and ODL collections is similar,
+but those registrations happen on the level of the individual library, not on the level
+of the circulation manager.</p>
 <dl class="method">
 <dt id="api.admin.controller.SitewideRegistrationController.check_content_type">
 <code class="descname">check_content_type</code><span class="sig-paren">(</span><em>catalog_response</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller.html#SitewideRegistrationController.check_content_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.SitewideRegistrationController.check_content_type" title="Permalink to this definition">¶</a></dt>
