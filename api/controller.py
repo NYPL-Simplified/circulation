@@ -1510,13 +1510,12 @@ class LoanController(CirculationManagerController):
             result = HOLD_FAILED
         return result, is_new
 
-    def best_lendable_pool(self, library, patron, identifier_type, identifier,
-                           mechanism_id):
-        """Of the available LicensePools for the given Identifier, return the
+    def best_lendable_pool(self, library, patron, identifier_type, identifier, mechanism_id):
+        """
+        Of the available LicensePools for the given Identifier, return the
         one that's the best candidate for loaning out right now.
 
-        :return: A Loan if this patron already has an active loan, otherwise
-        a LicensePool.
+        :return: A Loan if this patron already has an active loan, otherwise a LicensePool.
         """
         # Turn source + identifier into a set of LicensePools
         pools = self.load_licensepools(
