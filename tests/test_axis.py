@@ -371,9 +371,12 @@ class TestAxis360API(Axis360Test):
         [url, args, kwargs] = request
         data = kwargs.pop('data')
         assert kwargs['method'] == 'GET'
-        assert url.endswith('/VendorAPI/EarlyCheckInTitle/v3')
-        assert data == dict(itemID=pool.identifier.identifier,
-                            patronID=barcode)
+        expect = (
+            '/EarlyCheckInTitle/v3?itemID=%s&patronID=%s' % (
+                pool.identifier.identifier, barcode
+            )
+        )
+        assert expect in url
 
     def test_checkin_failure(self):
         # Verify that we correctly handle failure conditions sent from
@@ -386,6 +389,7 @@ class TestAxis360API(Axis360Test):
         data = self.sample_data("checkin_failure.xml")
         self.api.queue_response(200, content=data)
         patron = self._patron()
+        patron.authorization_identifier = self._str
         pytest.raises(
             NotFoundOnRemote, self.api.checkin, patron, 'pin', pool
         )

@@ -348,7 +348,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
     def _checkin(self, title_id, patron_id):
         """Make a request to the EarlyCheckInTitle endpoint."""
         url = self.base_url + "EarlyCheckInTitle/v3?itemID=%s&patronID=%s" % (
-            urllib.parse.quote(title_id), urllib.parse.quote(patron_id)
+            urllib.parse.quote(title_id),
+            urllib.parse.quote(patron_id)
         )
         return self.request(url, method="GET", verbose=True)
 
