@@ -336,7 +336,6 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         title_id = licensepool.identifier.identifier
         patron_id = patron.authorization_identifier
         response = self._checkin(title_id, patron_id)
-        import pdb; pdb.set_trace()
         try:
             return CheckinResponseParser(
                 licensepool.collection
