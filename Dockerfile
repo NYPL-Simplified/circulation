@@ -130,7 +130,7 @@ COPY . /home/simplified/circulation
 
 # TODO: Do we really need a 'simplified' user? This takes a really long time.
 # Could we just let this run as root?
-# RUN chown -RHh simplified:simplified /home/simplified/circulation
+RUN chown -RHh simplified:simplified /home/simplified/circulation
 
 # Add a .version file to the directory. This file
 # supplies an endpoint to check the app's current version.
