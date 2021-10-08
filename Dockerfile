@@ -19,6 +19,18 @@ ENV MINIMAL_APT_GET_INSTALL "apt-get install -y --no-install-recommends"
 
 COPY --from=lcpencrypt /go/bin/lcpencrypt /go/bin/lcpencrypt
 
+# Give logs a place to go.
+RUN mkdir -p /var/log/simplified
+
+# Create a user.
+RUN useradd -ms /bin/bash -U simplified
+WORKDIR /home/simplified/circulation
+
+# We'll install everything in /home/simplified/circulation, but nginx expects
+# to see it i n/var/www/circulation.
+RUN mkdir -p /var/www
+RUN ln -s /home/simplified/circulation /var/www/circulation
+
 # Install the nodesource nodejs package
 # This lets us use node 10 and avoids dependency conflict between node and libxmlsec1 over the
 # version of the ssl library that we find from package managemnet
@@ -48,18 +60,6 @@ RUN $MINIMAL_APT_GET_INSTALL --no-upgrade \
   libxmlsec1-openssl \
   libxml2-dev
 
-# Create a user.
-RUN useradd -ms /bin/bash -U simplified
-
-# Give logs a place to go.
-RUN mkdir /var/log/simplified
-
-# We'll install everything in /home/simplified/circulation, but nginx expects
-# to see it i n/var/www/circulation.
-RUN mkdir /var/www
-RUN ln -s /home/simplified/circulation /var/www/circulation
-
-WORKDIR /home/simplified/circulation
 RUN python3 -m venv env
 
 # Pass runtime environment variables to the app at runtime.
@@ -85,12 +85,12 @@ RUN env/bin/python -m textblob.download_corpora
 RUN mv /root/nltk_data /usr/lib/
 
 # Install other Python dependencies
-COPY ./requirements*.txt ./
-COPY ./core/requirements*.txt core/
+COPY --chown=simplified:simplified ./requirements*.txt ./
+COPY --chown=simplified:simplified ./core/requirements*.txt core/
 RUN env/bin/pip install -r requirements.txt
 
 # Install npm dependencies
-COPY ./api/admin/package*.json .
+COPY --chown=simplified:simplified ./api/admin/package*.json .
 RUN npm install
 
 # Copy scripts that run at startup.
@@ -120,23 +120,20 @@ RUN rm -rf /etc/logrotate.d/dpkg
 ###############################################################################
 ## circulation_source
 ###############################################################################
+
 from circulation_logrotate as circulation_source
 
 # The images are about to diverge, so it's time to take the step that
 # can't really be cached: copying the application source code into the
 # image.
 
-COPY . /home/simplified/circulation
-
-# TODO: Do we really need a 'simplified' user? This takes a really long time.
-# Could we just let this run as root?
-RUN chown -RHh simplified:simplified /home/simplified/circulation
+COPY --chown=simplified:simplified . /home/simplified/circulation
 
 # Add a .version file to the directory. This file
 # supplies an endpoint to check the app's current version.
 WORKDIR /home/simplified/circulation
 RUN printf "$(git describe --tags)" > .version
-
+RUN chown simplified:simplified .version
 
 ###############################################################################
 ## circulation_nginx
@@ -153,7 +150,7 @@ COPY docker/services/nginx.conf /etc/nginx/conf.d/circulation.conf
 RUN echo "daemon off;" >> /etc/nginx/nginx.conf
 
 # Prepare nginx for runit.
-RUN mkdir /etc/service/nginx
+RUN mkdir -p /etc/service/nginx
 COPY docker/services/nginx.runit /etc/service/nginx/run
 
 ###############################################################################
@@ -163,19 +160,18 @@ COPY docker/services/nginx.runit /etc/service/nginx/run
 from circulation_nginx as circulation_uwsgi
 
 # Configure uwsgi.
-RUN cp docker/services/uwsgi.ini /var/www/circulation/uwsgi.ini
-RUN chown simplified:simplified /var/www/circulation/uwsgi.ini
-RUN mkdir /var/log/uwsgi
+COPY --chown=simplified:simplified docker/services/uwsgi.ini /var/www/circulation/uwsgi.ini
+RUN mkdir -p /var/log/uwsgi
 RUN chown -R simplified:simplified /var/log/uwsgi
 
 # Defer uwsgi service to simplified.
-RUN mkdir /etc/service/runsvdir-simplified
-RUN cp docker/services/simplified_user.runit /etc/service/runsvdir-simplified/run
+RUN mkdir -p /etc/service/runsvdir-simplified
+COPY docker/services/simplified_user.runit /etc/service/runsvdir-simplified/run
 
 # Prepare uwsgi for runit.
 ENV APP_HOME=/home/simplified
 RUN mkdir -p $APP_HOME/service/uwsgi
-RUN cp docker/services/uwsgi.runit $APP_HOME/service/uwsgi/run
+COPY docker/services/uwsgi.runit $APP_HOME/service/uwsgi/run
 RUN chown -R simplified:simplified $APP_HOME/service
 
 # Create an alias to restart the application.
