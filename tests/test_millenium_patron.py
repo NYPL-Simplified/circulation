@@ -186,7 +186,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
     def test_remote_authenticate_correct_pin(self):
         self.api.enqueue("pintest.good.html")
         barcode = "barcode1234567!"
-        pin = "!correct pin<>@"
+        pin = "!correct pin<>@/"
         patrondata = self.api.remote_authenticate(barcode, pin)
         # The return value includes everything we know about the
         # authenticated patron, which isn't much.
@@ -196,7 +196,11 @@ class TestMilleniumPatronAPI(DatabaseTest):
         [args, kwargs] = self.api.requests_made.pop()
         [url] = args
         assert kwargs == {}
-        assert url == 'http://url/%s/%s/pintest' % (barcode, parse.quote(pin))
+        assert url == 'http://url/%s/%s/pintest' % (barcode, parse.quote(pin, safe=''))
+
+        # In particular, verify that the slash character in the PIN was encoded;
+        # by default, parse.quote leaves it alone.
+        assert '%2F' in url
 
     def test_authentication_updates_patron_authorization_identifier(self):
         """Verify that Patron.authorization_identifier is updated when

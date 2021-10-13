@@ -1,50 +1,40 @@
-import logging
 import json
 import os
-from flask_babel import lazy_gettext as _
 
-from core.util.problem_detail import ProblemDetail
+from flask_babel import lazy_gettext as lgt
 
 from api.authenticator import (
     OAuthAuthenticationProvider,
     OAuthController,
     PatronData,
 )
-from api.config import Configuration
-from core.model import (
-    get_one,
-    get_one_or_create,
-    Credential,
-    DataSource,
-    ExternalIntegration,
-    Patron,
-)
+from core.model import ExternalIntegration
 from core.util.http import HTTP
+from core.util.problem_detail import ProblemDetail
 from core.util.string_helpers import base64
-from api.problem_details import *
+from api.problem_details import INVALID_CREDENTIALS
 
 
-UNSUPPORTED_CLEVER_USER_TYPE = pd(
+UNSUPPORTED_CLEVER_USER_TYPE = ProblemDetail(
     "http://librarysimplified.org/terms/problem/unsupported-clever-user-type",
     401,
-    _("Your Clever user type is not supported."),
-    _("Your Clever user type is not supported. You can request a code from First Book instead"),
+    lgt("Your Clever user type is not supported."),
+    lgt("Your Clever user type is not supported. You can request a code from First Book instead"),
 )
 
-CLEVER_NOT_ELIGIBLE = pd(
+CLEVER_NOT_ELIGIBLE = ProblemDetail(
     "http://librarysimplified.org/terms/problem/clever-not-eligible",
     401,
-    _("Your Clever account is not eligible to access this application."),
-    _("Your Clever account is not eligible to access this application."),
+    lgt("Your Clever account is not eligible to access this application."),
+    lgt("Your Clever account is not eligible to access this application."),
 )
 
-CLEVER_UNKNOWN_SCHOOL = pd(
+CLEVER_UNKNOWN_SCHOOL = ProblemDetail(
     "http://librarysimplified.org/terms/problem/clever-unknown-school",
     401,
-    _("Clever did not provide the necessary information about your school to verify eligibility."),
-    _("Clever did not provide the necessary information about your school to verify eligibility."),
+    lgt("Clever did not provide the necessary information about your school to verify eligibility."),
+    lgt("Clever did not provide the necessary information about your school to verify eligibility."),
 )
-
 
 # Load Title I NCES ID data from json.
 TITLE_I_NCES_IDS = None
@@ -54,6 +44,35 @@ with open('%s/title_i.json' % clever_dir) as f:
     json_data = f.read()
     TITLE_I_NCES_IDS = json.loads(json_data)
 
+CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP = {
+    "InfantToddler": "E",               # Early
+    "Preschool": "E",
+    "PreKindergarten": "E",
+    "TransitionalKindergarten": "E",
+    "Kindergarten": "E",
+    "1": "E",
+    "2": "E",
+    "3": "E",
+    "4": "M",                           # Middle
+    "5": "M",
+    "6": "M",
+    "7": "M",
+    "8": "M",
+    "9": "H",                           # High
+    "10": "H",
+    "11": "H",
+    "12": "H",
+    "13": "H",
+    "PostGraduate": "H",
+    "Other": None,                      # Indeterminate
+    "Ungraded": None,
+}
+
+
+def external_type_from_clever_grade(grade):
+    """Maps a 'grade' value returned by the Clever API for student users to an external_type"""
+    return CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP.get(grade, None)
+
 
 class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
@@ -61,15 +80,15 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
     NAME = 'Clever'
 
-    DESCRIPTION = _("""
+    DESCRIPTION = lgt("""
         An authentication service for Open eBooks that uses Clever as an
         OAuth provider.""")
 
     LOGIN_BUTTON_IMAGE = "CleverLoginButton280.png"
 
     SETTINGS = [
-        { "key": ExternalIntegration.USERNAME, "label": _("Client ID"), "required": True },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret"), "required": True },
+        {"key": ExternalIntegration.USERNAME, "label": lgt("Client ID"), "required": True},
+        {"key": ExternalIntegration.PASSWORD, "label": lgt("Client Secret"), "required": True},
     ] + OAuthAuthenticationProvider.SETTINGS
 
     # Unlike other authentication providers, external type regular expression
@@ -80,9 +99,17 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     TOKEN_TYPE = "Clever token"
     TOKEN_DATA_SOURCE_NAME = 'Clever'
 
-    EXTERNAL_AUTHENTICATE_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_url)s&state=%(state)s"
+    EXTERNAL_AUTHENTICATE_URL = (
+        "https://clever.com/oauth/authorize"
+        "?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_url)s&state=%(state)s"
+    )
     CLEVER_TOKEN_URL = "https://clever.com/oauth/tokens"
+
+    # Not all calls should be made to a versioned endpoint. Please see the
+    # Clever API documentation when adding a new endpoint.
     CLEVER_API_BASE_URL = "https://api.clever.com"
+    CLEVER_API_VERSION = "3.0"
+    CLEVER_API_VERSIONED_URL = f"{CLEVER_API_BASE_URL}/v{CLEVER_API_VERSION}"
 
     # To check Title I status we need state, which is associated with
     # a school in Clever's API. Any users at the district-level will
@@ -147,22 +174,21 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             bearer token.
         """
         payload = self._remote_exchange_payload(_db, code)
-        authorization = base64.b64encode(
-            self.client_id + ":" + self.client_secret
-        )
+        authorization = base64.b64encode(self.client_id + ":" + self.client_secret)
         headers = {
             'Authorization': 'Basic %s' % authorization,
             'Content-Type': 'application/json',
         }
         response = self._get_token(payload, headers)
-        invalid = INVALID_CREDENTIALS.detailed(
-            _("A valid Clever login is required.")
-        )
+        invalid = INVALID_CREDENTIALS.detailed(lgt("A valid Clever login is required."))
         if not response:
             return invalid
+
         token = response.get('access_token', None)
+
         if not token:
             return invalid
+
         return token
 
     def _remote_exchange_payload(self, _db, code):
@@ -224,59 +250,58 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             with the data listed above.
 
         """
-        bearer_headers = {
-            'Authorization': 'Bearer %s' % token
-        }
-        result = self._get(self.CLEVER_API_BASE_URL + '/me', bearer_headers)
+        bearer_headers = {'Authorization': 'Bearer %s' % token}
+        result = self._get(self.CLEVER_API_VERSIONED_URL + '/me', bearer_headers)
         data = result.get('data', {}) or {}
 
         identifier = data.get('id', None)
 
         if not identifier:
-            return INVALID_CREDENTIALS.detailed(
-                _("A valid Clever login is required.")
-            )
+            return INVALID_CREDENTIALS.detailed(lgt("A valid Clever login is required."))
 
         if result.get('type') not in self.SUPPORTED_USER_TYPES:
             return UNSUPPORTED_CLEVER_USER_TYPE
 
         links = result['links']
 
-        user_link = [l for l in links if l['rel'] == 'canonical'][0]['uri']
+        user_link = [link for link in links if link['rel'] == 'canonical'][0]['uri']
+        # The canonical link includes the API version, so we use the base URL.
         user = self._get(self.CLEVER_API_BASE_URL + user_link, bearer_headers)
 
         user_data = user['data']
         school_id = user_data['school']
-        school = self._get(
-            self.CLEVER_API_BASE_URL + '/v1.1/schools/%s' % school_id,
-            bearer_headers
-        )
+        school = self._get(f"{self.CLEVER_API_VERSIONED_URL}/schools/{school_id}", bearer_headers)
 
         school_nces_id = school['data'].get('nces_id')
 
         # TODO: check student free and reduced lunch status as well
 
         if school_nces_id is None:
-            self.log.error(
-                "No NCES ID found in Clever school data: %s", repr(school)
-            )
+            self.log.error("No NCES ID found in Clever school data: %s", repr(school))
             return CLEVER_UNKNOWN_SCHOOL
 
         if school_nces_id not in TITLE_I_NCES_IDS:
             self.log.info("%s didn't match a Title I NCES ID", school_nces_id)
             return CLEVER_NOT_ELIGIBLE
 
+        external_type = None
+
         if result['type'] == 'student':
-            grade = user_data.get('grade')
-            external_type = None
-            if grade in ["Kindergarten", "1", "2", "3"]:
-                external_type = "E"
-            elif grade in ["4", "5", "6", "7", "8"]:
-                external_type = "M"
-            elif grade in ["9", "10", "11", "12"]:
-                external_type = "H"
+            # We need to be able to assign an external_type to students, so that they
+            # get the correct content level. To do so we rely on the grade field in the
+            # user data we get back from Clever. Their API doesn't guarantee that the
+            # grade field is present, so we supply a default.
+            student_grade = user_data.get('grade', None)
+
+            if not student_grade:   # If no grade was supplied, log the school/student
+                msg = (f"CLEVER_UNKNOWN_PATRON_GRADE: School with NCES ID {school_nces_id} "
+                       f"did not supply grade for student {user_data.get('id')}")
+                self.log.info(msg)
+
+            # If we can't determine a type from the grade level, set to "A"
+            external_type = external_type_from_clever_grade(student_grade)
         else:
-            external_type = "A"
+            external_type = "A"     # Non-students get content level "A"
 
         patrondata = PatronData(
             permanent_id=identifier,
@@ -294,5 +319,6 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
     def _get(self, url, headers):
         return HTTP.get_with_timeout(url, headers=headers).json()
+
 
 AuthenticationProvider = CleverAuthenticationAPI
