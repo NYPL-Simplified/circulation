@@ -2235,10 +2235,16 @@ a patron’s credentials are verified by an OAuth provider.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>patron</strong> – a Patron object for the patron who wants to check out the book.</li>
-<li><strong>pin</strong> – The patron’s alleged password.</li>
-<li><strong>licensepool</strong> – Contains lending info as well as link to parent Identifier.</li>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>patron</strong> – The Patron who wants to return their book.</li>
+<li><strong>pin</strong> – Not used.</li>
+<li><strong>licensepool</strong> – LicensePool for the book to be returned.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><ul class="first last simple">
+<li><a class="reference internal" href="#api.circulation_exceptions.CirculationException" title="api.circulation_exceptions.CirculationException"><strong>CirculationException</strong></a> – If the API can’t carry out the operation.</li>
+<li><a class="reference internal" href="#api.circulation_exceptions.RemoteInitiatedServerError" title="api.circulation_exceptions.RemoteInitiatedServerError"><strong>RemoteInitiatedServerError</strong></a> – If the API is down.</li>
 </ul>
 </td>
 </tr>
@@ -2787,6 +2793,23 @@ Ursu, Anne ; Fortune, Eric (ILT)</p>
 </dd></dl>
 
 <dl class="class">
+<dt id="api.axis.CheckinResponseParser">
+<em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">CheckinResponseParser</code><span class="sig-paren">(</span><em>collection</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#CheckinResponseParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.CheckinResponseParser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.axis.ResponseParser" title="api.axis.ResponseParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.axis.ResponseParser</span></code></a></p>
+<dl class="method">
+<dt id="api.axis.CheckinResponseParser.process_all">
+<code class="descname">process_all</code><span class="sig-paren">(</span><em>string</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#CheckinResponseParser.process_all"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.CheckinResponseParser.process_all" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.axis.CheckinResponseParser.process_one">
+<code class="descname">process_one</code><span class="sig-paren">(</span><em>e</em>, <em>namespaces</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#CheckinResponseParser.process_one"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.CheckinResponseParser.process_one" title="Permalink to this definition">¶</a></dt>
+<dd><p>Either raise an appropriate exception, or do nothing.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
 <dt id="api.axis.CheckoutResponseParser">
 <em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">CheckoutResponseParser</code><span class="sig-paren">(</span><em>collection</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#CheckoutResponseParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.CheckoutResponseParser" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.axis.ResponseParser" title="api.axis.ResponseParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.axis.ResponseParser</span></code></a></p>
@@ -2896,7 +2919,7 @@ response.</p>
 
 <dl class="attribute">
 <dt id="api.axis.ResponseParser.code_to_exception">
-<code class="descname">code_to_exception</code><em class="property"> = {315: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 316: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 1000: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 1001: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 1002: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 1003: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 2000: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2001: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2002: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2003: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2004: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2005: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2007: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2008: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 3100: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3101: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3102: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3103: &lt;class 'api.circulation_exceptions.NotFoundOnRemote'&gt;, 3104: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3105: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 3106: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 3108: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 3109: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 3110: &lt;class 'api.circulation_exceptions.AlreadyCheckedOut'&gt;, 3111: &lt;class 'api.circulation_exceptions.CurrentlyAvailable'&gt;, 3112: &lt;class 'api.circulation_exceptions.CannotFulfill'&gt;, 3113: &lt;class 'api.circulation_exceptions.CannotLoan'&gt;, (3113, 'Title ID is not available for checkout'): &lt;class 'api.circulation_exceptions.NoAvailableCopies'&gt;, 3114: &lt;class 'api.circulation_exceptions.PatronLoanLimitReached'&gt;, 3115: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3117: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3118: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3119: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 3120: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 3123: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 3126: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3127: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 3128: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 3130: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3131: &lt;class 'api.circulation_exceptions.RemoteInitiatedServerError'&gt;, 3132: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3134: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3135: &lt;class 'api.circulation_exceptions.NoAcceptableFormat'&gt;, 3136: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 5000: &lt;class 'api.circulation_exceptions.RemoteInitiatedServerError'&gt;, 5003: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 5004: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;}</em><a class="headerlink" href="#api.axis.ResponseParser.code_to_exception" title="Permalink to this definition">¶</a></dt>
+<code class="descname">code_to_exception</code><em class="property"> = {315: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 316: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 1000: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 1001: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 1002: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 1003: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 2000: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2001: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2002: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2003: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2004: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2005: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2007: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 2008: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 3100: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3101: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3102: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3103: &lt;class 'api.circulation_exceptions.NotFoundOnRemote'&gt;, 3104: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3105: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 3106: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 3108: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 3109: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 3110: &lt;class 'api.circulation_exceptions.AlreadyCheckedOut'&gt;, 3111: &lt;class 'api.circulation_exceptions.CurrentlyAvailable'&gt;, 3112: &lt;class 'api.circulation_exceptions.CannotFulfill'&gt;, 3113: &lt;class 'api.circulation_exceptions.CannotLoan'&gt;, (3113, 'Title ID is not available for checkout'): &lt;class 'api.circulation_exceptions.NoAvailableCopies'&gt;, 3114: &lt;class 'api.circulation_exceptions.PatronLoanLimitReached'&gt;, 3115: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3116: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3117: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3118: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3119: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 3120: &lt;class 'api.circulation_exceptions.LibraryAuthorizationFailedException'&gt;, 3123: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 3124: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 3126: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3127: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 3128: &lt;class 'api.circulation_exceptions.InvalidInputException'&gt;, 3129: &lt;class 'api.circulation_exceptions.PatronAuthorizationFailedException'&gt;, 3130: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3131: &lt;class 'api.circulation_exceptions.RemoteInitiatedServerError'&gt;, 3132: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3134: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 3135: &lt;class 'api.circulation_exceptions.NoAcceptableFormat'&gt;, 3136: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 4058: &lt;class 'api.circulation_exceptions.NoActiveLoan'&gt;, 5000: &lt;class 'api.circulation_exceptions.RemoteInitiatedServerError'&gt;, 5003: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;, 5004: &lt;class 'api.circulation_exceptions.LibraryInvalidInputException'&gt;}</em><a class="headerlink" href="#api.axis.ResponseParser.code_to_exception" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2906,9 +2929,25 @@ response.</p>
 
 <dl class="method">
 <dt id="api.axis.ResponseParser.raise_exception_on_error">
-<code class="descname">raise_exception_on_error</code><span class="sig-paren">(</span><em>e</em>, <em>ns</em>, <em>custom_error_classes={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#ResponseParser.raise_exception_on_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.ResponseParser.raise_exception_on_error" title="Permalink to this definition">¶</a></dt>
+<code class="descname">raise_exception_on_error</code><span class="sig-paren">(</span><em>e</em>, <em>ns</em>, <em>custom_error_classes={}</em>, <em>ignore_error_codes=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#ResponseParser.raise_exception_on_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.ResponseParser.raise_exception_on_error" title="Permalink to this definition">¶</a></dt>
 <dd><p>Raise an error if the given lxml node represents an Axis 360 error
 condition.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>e</strong> – An lxml Element</li>
+<li><strong>ns</strong> – A dictionary of namespaces</li>
+<li><strong>custom_error_classes</strong> – A dictionary of errors to map to custom
+classes rather than the defaults.</li>
+<li><strong>ignore_error_codes</strong> – A list of error codes to treat as success
+rather than as cause to raise an exception.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 </dd></dl>
@@ -9263,7 +9302,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2021, 10, 17, 19, 25, 18, 256770, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2021, 10, 23, 20, 30, 29, 505539, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -11614,7 +11653,7 @@ routes and arguments for ‘loan info’ and ‘hold info’.</p>
 
 <dl class="attribute">
 <dt id="api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES">
-<code class="descname">SUPPORTED_MEDIA_TYPES</code><em class="property"> = ['application/pdf', 'application/epub+zip', 'application/audiobook+json']</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SUPPORTED_MEDIA_TYPES</code><em class="property"> = ['application/epub+zip', 'application/audiobook+json', 'application/pdf']</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -14544,17 +14583,17 @@ the given dictionary?</p>
 <p>A test that needs to create announcements.</p>
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.a_week_ago">
-<code class="descname">a_week_ago</code><em class="property"> = '2021-09-30'</em><a class="headerlink" href="#api.testing.AnnouncementTest.a_week_ago" title="Permalink to this definition">¶</a></dt>
+<code class="descname">a_week_ago</code><em class="property"> = '2021-10-06'</em><a class="headerlink" href="#api.testing.AnnouncementTest.a_week_ago" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.active">
-<code class="descname">active</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-10-08', 'id': 'active', 'start': '2021-10-07'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.active" title="Permalink to this definition">¶</a></dt>
+<code class="descname">active</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-10-14', 'id': 'active', 'start': '2021-10-13'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.active" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.expired">
-<code class="descname">expired</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-10-06', 'id': 'expired', 'start': '2021-09-30'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.expired" title="Permalink to this definition">¶</a></dt>
+<code class="descname">expired</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-10-12', 'id': 'expired', 'start': '2021-10-06'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.expired" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -14564,27 +14603,27 @@ the given dictionary?</p>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.forthcoming">
-<code class="descname">forthcoming</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-10-14', 'id': 'forthcoming', 'start': '2021-10-08'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.forthcoming" title="Permalink to this definition">¶</a></dt>
+<code class="descname">forthcoming</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-10-20', 'id': 'forthcoming', 'start': '2021-10-14'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.forthcoming" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.in_a_week">
-<code class="descname">in_a_week</code><em class="property"> = '2021-10-14'</em><a class="headerlink" href="#api.testing.AnnouncementTest.in_a_week" title="Permalink to this definition">¶</a></dt>
+<code class="descname">in_a_week</code><em class="property"> = '2021-10-20'</em><a class="headerlink" href="#api.testing.AnnouncementTest.in_a_week" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.today">
-<code class="descname">today</code><em class="property"> = '2021-10-07'</em><a class="headerlink" href="#api.testing.AnnouncementTest.today" title="Permalink to this definition">¶</a></dt>
+<code class="descname">today</code><em class="property"> = '2021-10-13'</em><a class="headerlink" href="#api.testing.AnnouncementTest.today" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.tomorrow">
-<code class="descname">tomorrow</code><em class="property"> = '2021-10-08'</em><a class="headerlink" href="#api.testing.AnnouncementTest.tomorrow" title="Permalink to this definition">¶</a></dt>
+<code class="descname">tomorrow</code><em class="property"> = '2021-10-14'</em><a class="headerlink" href="#api.testing.AnnouncementTest.tomorrow" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.yesterday">
-<code class="descname">yesterday</code><em class="property"> = '2021-10-06'</em><a class="headerlink" href="#api.testing.AnnouncementTest.yesterday" title="Permalink to this definition">¶</a></dt>
+<code class="descname">yesterday</code><em class="property"> = '2021-10-12'</em><a class="headerlink" href="#api.testing.AnnouncementTest.yesterday" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

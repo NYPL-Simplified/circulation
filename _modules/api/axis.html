@@ -37,6 +37,7 @@
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">urllib</span>
 
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
@@ -358,6 +359,35 @@
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="s2">&quot;POST&quot;</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">response</span></div>
 
+<div class="viewcode-block" id="Axis360API.checkin"><a class="viewcode-back" href="../../api.html#api.axis.Axis360API.checkin">[docs]</a>    <span class="k">def</span> <span class="nf">checkin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a book early.</span>
+
+<span class="sd">        :param patron: The Patron who wants to return their book.</span>
+<span class="sd">        :param pin: Not used.</span>
+<span class="sd">        :param licensepool: LicensePool for the book to be returned.</span>
+<span class="sd">        :raise CirculationException: If the API can&#39;t carry out the operation.</span>
+<span class="sd">        :raise RemoteInitiatedServerError: If the API is down.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">title_id</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="n">patron_id</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkin</span><span class="p">(</span><span class="n">title_id</span><span class="p">,</span> <span class="n">patron_id</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">CheckinResponseParser</span><span class="p">(</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">etree</span><span class="o">.</span><span class="n">XMLSyntaxError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span>
+                <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">SERVICE_NAME</span>
+            <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_checkin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title_id</span><span class="p">,</span> <span class="n">patron_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make a request to the EarlyCheckInTitle endpoint.&quot;&quot;&quot;</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">+</span> <span class="s2">&quot;EarlyCheckInTitle/v3?itemID=</span><span class="si">%s</span><span class="s2">&amp;patronID=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">title_id</span><span class="p">),</span>
+            <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">patron_id</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
 <div class="viewcode-block" id="Axis360API.checkout"><a class="viewcode-back" href="../../api.html#api.axis.Axis360API.checkout">[docs]</a>    <span class="k">def</span> <span class="nf">checkout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">):</span>
         <span class="n">title_id</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
         <span class="n">patron_id</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span>
@@ -403,9 +433,6 @@
         <span class="c1"># If we made it to this point, the patron does not have this</span>
         <span class="c1"># book checked out.</span>
         <span class="k">raise</span> <span class="n">NoActiveLoan</span><span class="p">()</span></div>
-
-<div class="viewcode-block" id="Axis360API.checkin"><a class="viewcode-back" href="../../api.html#api.axis.Axis360API.checkin">[docs]</a>    <span class="k">def</span> <span class="nf">checkin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
-        <span class="k">pass</span></div>
 
 <div class="viewcode-block" id="Axis360API.place_hold"><a class="viewcode-back" href="../../api.html#api.axis.Axis360API.place_hold">[docs]</a>    <span class="k">def</span> <span class="nf">place_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">hold_notification_email</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">hold_notification_email</span><span class="p">:</span>
@@ -1218,20 +1245,24 @@
         <span class="p">(</span><span class="mi">3113</span><span class="p">,</span> <span class="s2">&quot;Title ID is not available for checkout&quot;</span><span class="p">)</span> <span class="p">:</span> <span class="n">NoAvailableCopies</span><span class="p">,</span>
         <span class="mi">3114</span> <span class="p">:</span> <span class="n">PatronLoanLimitReached</span><span class="p">,</span>
         <span class="mi">3115</span> <span class="p">:</span> <span class="n">LibraryInvalidInputException</span><span class="p">,</span> <span class="c1"># Missing DRM format</span>
+        <span class="mi">3116</span> <span class="p">:</span> <span class="n">LibraryInvalidInputException</span><span class="p">,</span> <span class="c1"># No patron session ID provided -- we don&#39;t use this</span>
         <span class="mi">3117</span> <span class="p">:</span> <span class="n">LibraryInvalidInputException</span><span class="p">,</span> <span class="c1"># Invalid DRM format</span>
         <span class="mi">3118</span> <span class="p">:</span> <span class="n">LibraryInvalidInputException</span><span class="p">,</span> <span class="c1"># Invalid Patron credentials</span>
         <span class="mi">3119</span> <span class="p">:</span> <span class="n">LibraryAuthorizationFailedException</span><span class="p">,</span> <span class="c1"># No Blio account</span>
         <span class="mi">3120</span> <span class="p">:</span> <span class="n">LibraryAuthorizationFailedException</span><span class="p">,</span> <span class="c1"># No Acoustikaccount</span>
         <span class="mi">3123</span> <span class="p">:</span> <span class="n">PatronAuthorizationFailedException</span><span class="p">,</span> <span class="c1"># Patron Session ID expired</span>
+        <span class="mi">3124</span> <span class="p">:</span> <span class="n">PatronAuthorizationFailedException</span><span class="p">,</span> <span class="c1"># Patron SessionID is required</span>
         <span class="mi">3126</span> <span class="p">:</span> <span class="n">LibraryInvalidInputException</span><span class="p">,</span> <span class="c1"># Invalid checkout format</span>
         <span class="mi">3127</span> <span class="p">:</span> <span class="n">InvalidInputException</span><span class="p">,</span> <span class="c1"># First name is required</span>
         <span class="mi">3128</span> <span class="p">:</span> <span class="n">InvalidInputException</span><span class="p">,</span> <span class="c1"># Last name is required</span>
+        <span class="mi">3129</span> <span class="p">:</span> <span class="n">PatronAuthorizationFailedException</span><span class="p">,</span> <span class="c1"># Invalid Patron Session Id</span>
         <span class="mi">3130</span> <span class="p">:</span> <span class="n">LibraryInvalidInputException</span><span class="p">,</span> <span class="c1"># Invalid hold format (?)</span>
         <span class="mi">3131</span> <span class="p">:</span> <span class="n">RemoteInitiatedServerError</span><span class="p">,</span> <span class="c1"># Custom error message (?)</span>
         <span class="mi">3132</span> <span class="p">:</span> <span class="n">LibraryInvalidInputException</span><span class="p">,</span> <span class="c1"># Invalid delta datetime format</span>
         <span class="mi">3134</span> <span class="p">:</span> <span class="n">LibraryInvalidInputException</span><span class="p">,</span> <span class="c1"># Delta datetime format must not be in the future</span>
         <span class="mi">3135</span> <span class="p">:</span> <span class="n">NoAcceptableFormat</span><span class="p">,</span>
         <span class="mi">3136</span> <span class="p">:</span> <span class="n">LibraryInvalidInputException</span><span class="p">,</span> <span class="c1"># Missing checkout format</span>
+        <span class="mi">4058</span> <span class="p">:</span> <span class="n">NoActiveLoan</span><span class="p">,</span> <span class="c1"># No checkout is associated with patron for the title.</span>
         <span class="mi">5000</span> <span class="p">:</span> <span class="n">RemoteInitiatedServerError</span><span class="p">,</span>
         <span class="mi">5003</span> <span class="p">:</span> <span class="n">LibraryInvalidInputException</span><span class="p">,</span> <span class="c1"># Missing TransactionID</span>
         <span class="mi">5004</span> <span class="p">:</span> <span class="n">LibraryInvalidInputException</span><span class="p">,</span> <span class="c1"># Missing TransactionID</span>
@@ -1245,9 +1276,17 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">=</span> <span class="n">collection</span>
 
-<div class="viewcode-block" id="ResponseParser.raise_exception_on_error"><a class="viewcode-back" href="../../api.html#api.axis.ResponseParser.raise_exception_on_error">[docs]</a>    <span class="k">def</span> <span class="nf">raise_exception_on_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">ns</span><span class="p">,</span> <span class="n">custom_error_classes</span><span class="o">=</span><span class="p">{}):</span>
+<div class="viewcode-block" id="ResponseParser.raise_exception_on_error"><a class="viewcode-back" href="../../api.html#api.axis.ResponseParser.raise_exception_on_error">[docs]</a>    <span class="k">def</span> <span class="nf">raise_exception_on_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">ns</span><span class="p">,</span> <span class="n">custom_error_classes</span><span class="o">=</span><span class="p">{},</span>
+                                 <span class="n">ignore_error_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Raise an error if the given lxml node represents an Axis 360 error</span>
 <span class="sd">        condition.</span>
+
+<span class="sd">        :param e: An lxml Element</span>
+<span class="sd">        :param ns: A dictionary of namespaces</span>
+<span class="sd">        :param custom_error_classes: A dictionary of errors to map to custom</span>
+<span class="sd">           classes rather than the defaults.</span>
+<span class="sd">        :param ignore_error_codes: A list of error codes to treat as success</span>
+<span class="sd">           rather than as cause to raise an exception.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xpath1</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="s1">&#39;//axis:status/axis:code&#39;</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
         <span class="n">message</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xpath1</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="s1">&#39;//axis:status/axis:statusMessage&#39;</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
@@ -1259,11 +1298,12 @@
             <span class="c1"># Something is so wrong that we don&#39;t know what to do.</span>
             <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">SERVICE_NAME</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_raise_exception_on_error</span><span class="p">(</span>
-            <span class="n">code</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">custom_error_classes</span>
+            <span class="n">code</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">custom_error_classes</span><span class="p">,</span> <span class="n">ignore_error_codes</span>
         <span class="p">)</span></div>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">_raise_exception_on_error</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">code</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">custom_error_classes</span><span class="o">=</span><span class="p">{}):</span>
+    <span class="k">def</span> <span class="nf">_raise_exception_on_error</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">code</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">custom_error_classes</span><span class="o">=</span><span class="p">{},</span>
+                                  <span class="n">ignore_error_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">code</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
@@ -1272,6 +1312,9 @@
                 <span class="s2">&quot;Invalid response code from Axis 360: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">code</span><span class="p">,</span>
                 <span class="bp">cls</span><span class="o">.</span><span class="n">SERVICE_NAME</span>
             <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">ignore_error_codes</span> <span class="ow">and</span> <span class="n">code</span> <span class="ow">in</span> <span class="n">ignore_error_codes</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">code</span><span class="p">,</span> <span class="n">message</span>
 
         <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">custom_error_classes</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">code_to_exception</span><span class="p">:</span>
             <span class="k">if</span> <span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span> <span class="ow">in</span> <span class="n">d</span><span class="p">:</span>
@@ -1286,6 +1329,22 @@
                     <span class="n">e</span> <span class="o">=</span> <span class="n">error_class</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
                 <span class="k">raise</span> <span class="n">e</span>
         <span class="k">return</span> <span class="n">code</span><span class="p">,</span> <span class="n">message</span></div>
+
+
+<div class="viewcode-block" id="CheckinResponseParser"><a class="viewcode-back" href="../../api.html#api.axis.CheckinResponseParser">[docs]</a><span class="k">class</span> <span class="nc">CheckinResponseParser</span><span class="p">(</span><span class="n">ResponseParser</span><span class="p">):</span>
+
+<div class="viewcode-block" id="CheckinResponseParser.process_all"><a class="viewcode-back" href="../../api.html#api.axis.CheckinResponseParser.process_all">[docs]</a>    <span class="k">def</span> <span class="nf">process_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">super</span><span class="p">(</span><span class="n">CheckinResponseParser</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">process_all</span><span class="p">(</span>
+                <span class="n">string</span><span class="p">,</span> <span class="s2">&quot;//axis:EarlyCheckinRestResult&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">NS</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">i</span></div>
+
+<div class="viewcode-block" id="CheckinResponseParser.process_one"><a class="viewcode-back" href="../../api.html#api.axis.CheckinResponseParser.process_one">[docs]</a>    <span class="k">def</span> <span class="nf">process_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">namespaces</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Either raise an appropriate exception, or do nothing.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span>
+            <span class="n">e</span><span class="p">,</span> <span class="n">namespaces</span><span class="p">,</span> <span class="n">ignore_error_codes</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4058</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div></div>
 
 
 <div class="viewcode-block" id="CheckoutResponseParser"><a class="viewcode-back" href="../../api.html#api.axis.CheckoutResponseParser">[docs]</a><span class="k">class</span> <span class="nc">CheckoutResponseParser</span><span class="p">(</span><span class="n">ResponseParser</span><span class="p">):</span>
