@@ -56,6 +56,7 @@ from api.axis import (
     AxisCollectionReaper,
     AxisNowManifest,
     BibliographicParser,
+    CheckinResponseParser,
     CheckoutResponseParser,
     HoldReleaseResponseParser,
     HoldResponseParser,
@@ -348,6 +349,50 @@ class TestAxis360API(Axis360Test):
         assert 1 == pool.licenses_available
         assert 0 == pool.patrons_in_hold_queue
         assert pool.last_checked is not None
+
+    def test_checkin_success(self):
+        # Verify that we can make a request to the EarlyCheckInTitle
+        # endpoint and get a good response.
+        edition, pool = self._edition(
+            identifier_type=Identifier.AXIS_360_ID,
+            data_source_name=DataSource.AXIS_360,
+            with_license_pool=True
+        )
+        data = self.sample_data("checkin_success.xml")
+        self.api.queue_response(200, content=data)
+        patron = self._patron()
+        barcode = self._str
+        patron.authorization_identifier = barcode
+        response = self.api.checkin(patron, 'pin', pool)
+        assert response == True
+
+        # Verify the format of the HTTP request that was made.
+        [request] = self.api.requests
+        [url, args, kwargs] = request
+        data = kwargs.pop('data')
+        assert kwargs['method'] == 'GET'
+        expect = (
+            '/EarlyCheckInTitle/v3?itemID=%s&patronID=%s' % (
+                pool.identifier.identifier, barcode
+            )
+        )
+        assert expect in url
+
+    def test_checkin_failure(self):
+        # Verify that we correctly handle failure conditions sent from
+        # the EarlyCheckInTitle endpoint.
+        edition, pool = self._edition(
+            identifier_type=Identifier.AXIS_360_ID,
+            data_source_name=DataSource.AXIS_360,
+            with_license_pool=True
+        )
+        data = self.sample_data("checkin_failure.xml")
+        self.api.queue_response(200, content=data)
+        patron = self._patron()
+        patron.authorization_identifier = self._str
+        pytest.raises(
+            NotFoundOnRemote, self.api.checkin, patron, 'pin', pool
+        )
 
     def test_place_hold(self):
         edition, pool = self._edition(
@@ -1111,6 +1156,24 @@ class TestRaiseExceptionOnError(TestResponseParser):
             parser.process_all(data)
         assert "Internal Server Error" in str(excinfo.value)
 
+
+    def test_ignore_error_codes(self):
+        # A parser subclass can decide not to raise exceptions
+        # when encountering specific error codes.
+        data = self.sample_data("internal_server_error.xml")
+        retval = object()
+        class IgnoreISE(HoldReleaseResponseParser):
+            def process_one(self, e, namespaces):
+                self.raise_exception_on_error(
+                    e, namespaces, ignore_error_codes = [5000]
+                )
+                return retval
+        # Unlike in test_internal_server_error, no exception is
+        # raised, because we told the parser to ignore this particular
+        # error code.
+        parser = IgnoreISE(None)
+        assert retval == parser.process_all(data)
+
     def test_internal_server_error(self):
         data = self.sample_data("invalid_error_code.xml")
         parser = HoldReleaseResponseParser(None)
@@ -1124,6 +1187,28 @@ class TestRaiseExceptionOnError(TestResponseParser):
         with pytest.raises(RemoteInitiatedServerError) as excinfo:
             parser.process_all(data)
         assert "No status code!" in str(excinfo.value)
+
+
+class TestCheckinResponseParser(TestResponseParser):
+
+    def test_parse_checkin_success(self):
+        # The response parser raises an exception if there's a problem,
+        # and returne True otherwise.
+        #
+        # "Book is not on loan" is not treated as a problem.
+        for filename in (
+            "checkin_success.xml",
+            "checkin_not_checked_out.xml"
+        ):
+            data = self.sample_data(filename)
+            parser = CheckinResponseParser(self._default_collection)
+            parsed = parser.process_all(data)
+            assert parsed == True
+
+    def test_parse_checkin_failure(self):
+        data = self.sample_data("checkin_failure.xml")
+        parser = CheckinResponseParser(self._default_collection)
+        pytest.raises(NotFoundOnRemote, parser.process_all, data)
 
 
 class TestCheckoutResponseParser(TestResponseParser):
