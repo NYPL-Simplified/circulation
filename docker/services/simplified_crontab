@@ -113,6 +113,7 @@ HOME=/var/www/circulation
 #
 0 6 * * * root core/bin/run odl_import_monitor >> /var/log/cron.log 2>&1
 0 */8 * * * root core/bin/run odl_hold_reaper >> /var/log/cron.log 2>&1
+0 */14 * * * root core/bin/run odl_reaper >> /var/log/cron.log 2>&1
 5 */6 * * * root core/bin/run shared_odl_import_monitor >> /var/log/cron.log 2>&1
 
 # Odilo
