@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Explain what the system knows about a book."""
+
 import os
 import sys
 

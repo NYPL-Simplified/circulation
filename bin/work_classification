@@ -1,11 +1,14 @@
-#!/usr/bin/env python
-"""Re-classify any Works that need it.
-"""
+#!/usr/bin/env python3
+"""Re-classify any Works that need it."""
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
-from core.coverage import WorkClassificationCoverageProvider
-from core.scripts import RunWorkCoverageProviderScript
+
+from core.coverage import WorkClassificationCoverageProvider        # noqa: E402
+from core.scripts import RunWorkCoverageProviderScript              # noqa: E402
+
 RunWorkCoverageProviderScript(WorkClassificationCoverageProvider).run()

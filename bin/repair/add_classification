@@ -1,16 +1,25 @@
-#!/usr/bin/env python
-"""Add a classification to one or more identifiers, and redo the
-classifications of any associated work.
-
-This example classifies a Bibliotheca book as a children's book,
-filling in a gap in the data provided by Bibliotheca:
-
-bin/repair/add_classification --identifier-type="Bibliotheca ID" --subject-type="schema:audience" --subject-identifier="Children" hzb1oz9
+#!/usr/bin/env python3
 """
+Add a classification to one or more identifiers, and redo the classifications
+of any associated work.
+
+This example classifies a Bibliotheca book as a children's book, filling in a
+gap in the data provided by Bibliotheca:
+
+    bin/repair/add_classification \
+      --identifier-type="Bibliotheca ID" \
+      --subject-type="schema:audience" \
+      --subject-identifier="Children" \
+      hzb1oz9
+"""
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
-from core.scripts import AddClassificationScript
+
+from core.scripts import AddClassificationScript        # noqa: E402
+
 AddClassificationScript().run()

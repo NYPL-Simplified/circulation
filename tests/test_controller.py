@@ -2082,19 +2082,38 @@ class TestLoanController(CirculationControllerTest):
              assert 404 == response.status_code
              assert "http://librarysimplified.org/terms/problem/not-found-on-remote" == response.uri
 
-    def test_borrow_fails_when_work_already_checked_out(self):
+    def test_borrow_succeeds_when_work_already_checked_out(self):
+        # An attempt to borrow a book that's already on loan is
+        # treated as success without even going to the remote API.
         loan, _ignore = get_one_or_create(
             self._db, Loan, license_pool=self.pool,
             patron=self.default_patron
         )
 
+
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             self.manager.loans.authenticated_patron_from_request()
+
+            # Set it up that going to the remote API would raise an
+            # exception, to prove we're not going to do that.
+            circulation = self.manager.d_circulation
+            circulation.queue_checkout(loan.license_pool, NotFoundOnRemote())
+
+            mock_remote = circulation.api_for_license_pool(loan.license_pool)
+            assert 1 == len(mock_remote.responses['checkout'])
             response = self.manager.loans.borrow(
                 self.identifier.type, self.identifier.identifier)
 
-            assert ALREADY_CHECKED_OUT == response
+            # No checkout request was actually made to the remote.
+            assert 1 == len(mock_remote.responses['checkout'])
+
+            # We got an OPDS entry that includes at least one
+            # fulfillment link, which is what we expect when we ask
+            # about an active loan.
+            assert 200 == response.status_code
+            [entry] = feedparser.parse(response.response[0])['entries']
+            assert any([x for x in entry['links'] if x['rel'] == 'http://opds-spec.org/acquisition'])
 
     def test_fulfill(self):
         # Verify that arguments to the fulfill() method are propagated

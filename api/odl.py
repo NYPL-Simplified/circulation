@@ -253,7 +253,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
                 id=id,
                 checkout_id=checkout_id,
                 patron_id=patron_id,
-                expires=(expires.isoformat() + 'Z'),
+                expires=expires.isoformat(),
                 notification_url=notification_url,
             )
         response = self._get(url)

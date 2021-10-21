@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Migrate patron restriction to library identifier."""
 import os
 import sys
@@ -7,13 +7,13 @@ bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from core.model import (
+from core.model import (        # noqa: E402
     Library,
     ExternalIntegration,
     ConfigurationSetting,
     production_session,
 )
-from api.authenticator import AuthenticationProvider
+from api.authenticator import AuthenticationProvider        # noqa: E402
 
 try:
     _db = production_session()
@@ -34,13 +34,13 @@ try:
 
                 # Set new settings.
                 if not patron_restriction.value:
-                    library_identifier_restriction_type.value = AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE
+                    library_identifier_restriction_type.value = AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE     # noqa: E501
                 elif patron_restriction.value.startswith("^"):
-                    library_identifier_restriction_type.value = AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX
+                    library_identifier_restriction_type.value = AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX    # noqa: E501
                     library_identifier_field.value = 'barcode'
                     library_identifier_restriction.value = patron_restriction.value
                 else:
-                    library_identifier_restriction_type.value = AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_PREFIX
+                    library_identifier_restriction_type.value = AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_PREFIX   # noqa: E501
                     library_identifier_field.value = 'barcode'
                     library_identifier_restriction.value = patron_restriction.value
 
