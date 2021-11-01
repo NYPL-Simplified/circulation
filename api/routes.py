@@ -95,7 +95,7 @@ def allows_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-# The allows_patron_web decorator will add Cross-Origin Resource Sharing
+# The allows_cors decorator will add Cross-Origin Resource Sharing
 # (CORS) headers to routes that will be used by the patron web interface.
 # This is necessary for a JS app on a different domain to make requests.
 #
@@ -132,8 +132,8 @@ h = ErrorHandler(app, app.config['DEBUG'])
 allows_patron_web = allows_cors(f, app.manager.patron_web_domains + app.manager.admin_web_domains)
 allows_admin_web = allows_cors(f, app.manager.admin_web_domains)
 
-@allows_admin_web
 def admin_route(f, *args, *kwargs):
+    f = allows_admin_web(f)
     return app.route(f, *args, **kwargs)
 
 def exception_handler(exception):
