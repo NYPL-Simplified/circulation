@@ -277,6 +277,7 @@ class CirculationManager(object):
         # Assemble the list of patron web client domains from individual
         # library registration settings as well as a sitewide setting.
         patron_web_domains = set()
+        admin_web_domains = set()
 
         def get_domain(url):
             url = url.strip()
@@ -295,6 +296,14 @@ class CirculationManager(object):
                 domain = get_domain(url)
                 if domain:
                     patron_web_domains.add(domain)
+                
+        sitewide_admin_web_client_urls = ConfigurationSetting.sitewide(
+            self._db, Configuration.ADMIN_WEB_HOSTNAMES).value
+        if sitewide_admin_web_client_urls:
+            for url in admin_patron_web_client_urls.split('|'):
+                domain = get_domain(url)
+                if domain:
+                    admin_web_domains.add(domain)
 
         from .registry import Registration
         for setting in self._db.query(
