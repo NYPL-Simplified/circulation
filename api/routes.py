@@ -95,12 +95,20 @@ def allows_auth(f):
         return f(*args, **kwargs)
     return decorated
 
+# The allows_patron_web decorator will add Cross-Origin Resource Sharing
+# (CORS) headers to routes that will be used by the patron web interface.
+# This is necessary for a JS app on a different domain to make requests.
+#
+# This is mostly taken from the cross_origin decorator in flask_cors, but we
+# can't use that decorator because we aren't able to look up the patron web
+# client url configuration setting at the time we create the decorator.
 def allows_patron_web(f):
     # Override Flask's default behavior and intercept the OPTIONS method for
     # every request so CORS headers can be added.
     f.required_methods = getattr(f, 'required_methods', set())
     f.required_methods.add("OPTIONS")
     f.provide_automatic_options = False
+
     def wrapped_function(*args, **kwargs):
         if request.method == "OPTIONS":
             resp = app.make_default_options_response()
@@ -114,12 +122,9 @@ def allows_patron_web(f):
                           supports_credentials=True)
             )
             set_cors_headers(resp, options)
-	    return resp
-    return update_wrapper(wrapped_function, f)
 
-h = ErrorHandler(app, app.config['DEBUG'])
-@app.errorhandler(Exception)
-@allows_patron_web
+        return resp
+    return update_wrapper(wrapped_function, f)
 
 def allows_admin_web(f):
     # Override Flask's default behavior and intercept the OPTIONS method for
@@ -127,6 +132,7 @@ def allows_admin_web(f):
     f.required_methods = getattr(f, 'required_methods', set())
     f.required_methods.add("OPTIONS")
     f.provide_automatic_options = False
+
     def wrapped_function(*args, **kwargs):
         if request.method == "OPTIONS":
             resp = app.make_default_options_response()
@@ -140,12 +146,9 @@ def allows_admin_web(f):
                           supports_credentials=True)
             )
             set_cors_headers(resp, options)
-		return resp
-    return update_wrapper(wrapped_function, f)
 
-h = ErrorHandler(app, app.config['DEBUG'])
-@app.errorhandler(Exception)
-@allows_admin_web
+        return resp
+    return update_wrapper(wrapped_function, f)
 
 # def allows_cors(f, web_domains):
 #     # Override Flask's default behavior and intercept the OPTIONS method for
@@ -181,6 +184,11 @@ h = ErrorHandler(app, app.config['DEBUG'])
 #     f = allows_admin_web(f)
 #     return app.route(f, *args, **kwargs)
 
+
+h = ErrorHandler(app, app.config['DEBUG'])
+@app.errorhandler(Exception)
+@allows_admin_web
+@allows_patron_web
 def exception_handler(exception):
     if isinstance(exception, HTTPException):
         # This isn't an exception we need to handle, it's werkzeug's way
