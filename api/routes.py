@@ -95,46 +95,89 @@ def allows_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-# The allows_cors decorator will add Cross-Origin Resource Sharing
-# (CORS) headers to routes that will be used by the patron web interface.
-# This is necessary for a JS app on a different domain to make requests.
-#
-# This is mostly taken from the cross_origin decorator in flask_cors, but we
-# can't use that decorator because we aren't able to look up the patron web
-# client url configuration setting at the time we create the decorator.
-def allows_cors(f, web_domains):
+def allows_patron_web(f):
     # Override Flask's default behavior and intercept the OPTIONS method for
     # every request so CORS headers can be added.
     f.required_methods = getattr(f, 'required_methods', set())
     f.required_methods.add("OPTIONS")
     f.provide_automatic_options = False
-
     def wrapped_function(*args, **kwargs):
         if request.method == "OPTIONS":
             resp = app.make_default_options_response()
         else:
             resp = make_response(f(*args, **kwargs))
 
-        if web_domains:
+        patron_web_domains = app.manager.patron_web_domains
+        if patron_web_domains:
             options = get_cors_options(
-                app, dict(origins=web_domains,
+                app, dict(origins=patron_web_domains,
                           supports_credentials=True)
             )
             set_cors_headers(resp, options)
-
-        return resp
-    return update_wrapper(wrapped_function, f)
+	@@ -128,7 +127,15 @@ def wrapped_function(*args, **kwargs):
 
 h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)
-@allows_cors
+@allows_patron_web
 
-allows_patron_web = allows_cors(f, app.manager.patron_web_domains + app.manager.admin_web_domains)
-allows_admin_web = allows_cors(f, app.manager.admin_web_domains)
+def allows_admin_web(f):
+    # Override Flask's default behavior and intercept the OPTIONS method for
+    # every request so CORS headers can be added.
+    f.required_methods = getattr(f, 'required_methods', set())
+    f.required_methods.add("OPTIONS")
+    f.provide_automatic_options = False
+    def wrapped_function(*args, **kwargs):
+        if request.method == "OPTIONS":
+            resp = app.make_default_options_response()
+        else:
+            resp = make_response(f(*args, **kwargs))
 
-def admin_route(f, *args, *kwargs):
-    f = allows_admin_web(f)
-    return app.route(f, *args, **kwargs)
+        admin_web_domains = app.manager.admin_web_domains
+        if admin_web_domains:
+            options = get_cors_options(
+                app, dict(origins=admin_web_domains,
+                          supports_credentials=True)
+            )
+            set_cors_headers(resp, options)
+	@@ -128,7 +127,15 @@ def wrapped_function(*args, **kwargs):
+
+h = ErrorHandler(app, app.config['DEBUG'])
+@app.errorhandler(Exception)
+@allows_admin_web
+
+# def allows_cors(f, web_domains):
+#     # Override Flask's default behavior and intercept the OPTIONS method for
+#     # every request so CORS headers can be added.
+#     f.required_methods = getattr(f, 'required_methods', set())
+#     f.required_methods.add("OPTIONS")
+#     f.provide_automatic_options = False
+
+#     def wrapped_function(*args, **kwargs):
+#         if request.method == "OPTIONS":
+#             resp = app.make_default_options_response()
+#         else:
+#             resp = make_response(f(*args, **kwargs))
+
+#         if web_domains:
+#             options = get_cors_options(
+#                 app, dict(origins=web_domains,
+#                           supports_credentials=True)
+#             )
+#             set_cors_headers(resp, options)
+
+#         return resp
+#     return update_wrapper(wrapped_function, f)
+
+# h = ErrorHandler(app, app.config['DEBUG'])
+# @app.errorhandler(Exception)
+# @allows_cors
+
+# allows_patron_web = allows_cors(f, app.manager.patron_web_domains + app.manager.admin_web_domains)
+# allows_admin_web = allows_cors(f, app.manager.admin_web_domains)
+
+# def allows_admin(f, *args, *kwargs):
+#     f = allows_admin_web(f)
+#     return app.route(f, *args, **kwargs)
 
 def exception_handler(exception):
     if isinstance(exception, HTTPException):
@@ -215,9 +258,9 @@ def library_route(path, *args, **kwargs):
         # in this case it's the prefix route.
         # We may want to have a configuration option to specify whether to
         # use a subdomain or a url path prefix.
-        prefix_route = admin_route("/<library_short_name>" + path, *args, **kwargs)(f)
-        subdomain_route = admin_route(path, subdomain="<library_short_name>", *args, **kwargs)(prefix_route)
-        default_library_route = admin_route(path, *args, **kwargs)(subdomain_route)
+        prefix_route = app.route("/<library_short_name>" + path, *args, **kwargs)(f)
+        subdomain_route = app.route(path, subdomain="<library_short_name>", *args, **kwargs)(prefix_route)
+        default_library_route = app.route(path, *args, **kwargs)(subdomain_route)
         return default_library_route
     return decorator
 
@@ -237,17 +280,18 @@ def library_dir_route(path, *args, **kwargs):
         # by the CORS decorator and won't be valid CORS responses.
 
         # Decorate f with four routes, with and without the slash, with a prefix or subdomain
-        prefix_slash = admin_route("/<library_short_name>" + path_without_slash + "/", strict_slashes=False, *args, **kwargs)(f)
-        prefix_no_slash = admin_route("/<library_short_name>" + path_without_slash, *args, **kwargs)(prefix_slash)
-        subdomain_slash = admin_route(path_without_slash + "/", strict_slashes=False, subdomain="<library_short_name>", *args, **kwargs)(prefix_no_slash)
-        subdomain_no_slash = admin_route(path_without_slash, subdomain="<library_short_name>", *args, **kwargs)(subdomain_slash)
-        default_library_slash = admin_route(path_without_slash, *args, **kwargs)(subdomain_no_slash)
-        default_library_no_slash = admin_route(path_without_slash + "/", *args, **kwargs)(default_library_slash)
+        prefix_slash = app.route("/<library_short_name>" + path_without_slash + "/", strict_slashes=False, *args, **kwargs)(f)
+        prefix_no_slash = app.route("/<library_short_name>" + path_without_slash, *args, **kwargs)(prefix_slash)
+        subdomain_slash = app.route(path_without_slash + "/", strict_slashes=False, subdomain="<library_short_name>", *args, **kwargs)(prefix_no_slash)
+        subdomain_no_slash = app.route(path_without_slash, subdomain="<library_short_name>", *args, **kwargs)(subdomain_slash)
+        default_library_slash = app.route(path_without_slash, *args, **kwargs)(subdomain_no_slash)
+        default_library_no_slash = app.route(path_without_slash + "/", *args, **kwargs)(default_library_slash)
         return default_library_no_slash
     return decorator
 
 @library_route("/", strict_slashes=False)
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
@@ -256,12 +300,14 @@ def index():
 
 @library_route('/authentication_document')
 @has_library
+@allows_admin_web
 @returns_problem_detail
 @compressible
 def authentication_document():
     return app.manager.index_controller.authentication_document()
 
 @library_route('/public_key_document')
+@allows_admin_web
 @returns_problem_detail
 @compressible
 def public_key_document():
@@ -270,6 +316,7 @@ def public_key_document():
 @library_dir_route('/groups', defaults=dict(lane_identifier=None))
 @library_route('/groups/<lane_identifier>')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
@@ -278,6 +325,7 @@ def acquisition_groups(lane_identifier):
 
 @library_route('/feed/qa/series')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @requires_auth
 @returns_problem_detail
@@ -287,6 +335,7 @@ def qa_series_feed():
 
 @library_route('/feed/qa')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @requires_auth
 @returns_problem_detail
@@ -297,6 +346,7 @@ def qa_feed():
 @library_dir_route('/feed', defaults=dict(lane_identifier=None))
 @library_route('/feed/<lane_identifier>')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
@@ -306,6 +356,7 @@ def feed(lane_identifier):
 @library_dir_route('/navigation', defaults=dict(lane_identifier=None))
 @library_route('/navigation/<lane_identifier>')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
@@ -314,6 +365,7 @@ def navigation_feed(lane_identifier):
 
 @library_route('/crawlable')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
@@ -322,65 +374,76 @@ def crawlable_library_feed():
 
 @library_route('/lists/<list_name>/crawlable')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
 def crawlable_list_feed(list_name):
     return app.manager.opds_feeds.crawlable_list_feed(list_name)
 
-@admin_route('/collections/<collection_name>/crawlable')
+@app.route('/collections/<collection_name>/crawlable')
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
 def crawlable_collection_feed(collection_name):
     return app.manager.opds_feeds.crawlable_collection_feed(collection_name)
 
-@admin_route("/collections/<collection_name>")
+@app.route("/collections/<collection_name>")
+@allows_admin_web
 @returns_problem_detail
 def shared_collection_info(collection_name):
     return app.manager.shared_collection_controller.info(collection_name)
 
-@admin_route("/collections/<collection_name>/register", methods=["POST"])
+@app.route("/collections/<collection_name>/register", methods=["POST"])
+@allows_admin_web
 @returns_problem_detail
 def shared_collection_register(collection_name):
     return app.manager.shared_collection_controller.register(collection_name)
 
-@admin_route("/collections/<collection_name>/<identifier_type>/<path:identifier>/borrow",
+@app.route("/collections/<collection_name>/<identifier_type>/<path:identifier>/borrow",
            methods=['GET', 'POST'], defaults=dict(hold_id=None))
-@admin_route("/collections/<collection_name>/holds/<hold_id>/borrow",
+@app.route("/collections/<collection_name>/holds/<hold_id>/borrow",
            methods=['GET', 'POST'], defaults=dict(identifier_type=None, identifier=None))
+@allows_admin_web
 @returns_problem_detail
 def shared_collection_borrow(collection_name, identifier_type, identifier, hold_id):
     return app.manager.shared_collection_controller.borrow(collection_name, identifier_type, identifier, hold_id)
 
-@admin_route("/collections/<collection_name>/loans/<loan_id>")
+@app.route("/collections/<collection_name>/loans/<loan_id>")
+@allows_admin_web
 @returns_problem_detail
 def shared_collection_loan_info(collection_name, loan_id):
     return app.manager.shared_collection_controller.loan_info(collection_name, loan_id)
 
-@admin_route("/collections/<collection_name>/loans/<loan_id>/revoke")
+@app.route("/collections/<collection_name>/loans/<loan_id>/revoke")
+@allows_admin_web
 @returns_problem_detail
 def shared_collection_revoke_loan(collection_name, loan_id):
     return app.manager.shared_collection_controller.revoke_loan(collection_name, loan_id)
 
-@admin_route("/collections/<collection_name>/loans/<loan_id>/fulfill", defaults=dict(mechanism_id=None))
-@admin_route("/collections/<collection_name>/loans/<loan_id>/fulfill/<mechanism_id>")
+@app.route("/collections/<collection_name>/loans/<loan_id>/fulfill", defaults=dict(mechanism_id=None))
+@app.route("/collections/<collection_name>/loans/<loan_id>/fulfill/<mechanism_id>")
+@allows_admin_web
 @returns_problem_detail
 def shared_collection_fulfill(collection_name, loan_id, mechanism_id):
     return app.manager.shared_collection_controller.fulfill(collection_name, loan_id, mechanism_id)
 
-@admin_route("/collections/<collection_name>/holds/<hold_id>")
+@app.route("/collections/<collection_name>/holds/<hold_id>")
+@allows_admin_web
 @returns_problem_detail
 def shared_collection_hold_info(collection_name, hold_id):
     return app.manager.shared_collection_controller.hold_info(collection_name, hold_id)
 
-@admin_route("/collections/<collection_name>/holds/<hold_id>/revoke")
+@app.route("/collections/<collection_name>/holds/<hold_id>/revoke")
+@allows_admin_web
 @returns_problem_detail
 def shared_collection_revoke_hold(collection_name, hold_id):
     return app.manager.shared_collection_controller.revoke_hold(collection_name, hold_id)
 
 @library_route('/marc')
 @has_library
+@allows_admin_web
 @returns_problem_detail
 @compressible
 def marc_page():
@@ -389,6 +452,7 @@ def marc_page():
 @library_dir_route('/search', defaults=dict(lane_identifier=None))
 @library_route('/search/<lane_identifier>')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
@@ -397,6 +461,7 @@ def lane_search(lane_identifier):
 
 @library_dir_route('/patrons/me', methods=['GET', 'PUT'])
 @has_library
+@allows_admin_web
 @allows_patron_web
 @requires_auth
 @returns_problem_detail
@@ -405,6 +470,7 @@ def patron_profile():
 
 @library_dir_route('/loans', methods=['GET', 'HEAD'])
 @has_library
+@allows_admin_web
 @allows_patron_web
 @requires_auth
 @returns_problem_detail
@@ -414,6 +480,7 @@ def active_loans():
 
 @library_route('/annotations/', methods=['HEAD', 'GET', 'POST'])
 @has_library
+@allows_admin_web
 @allows_patron_web
 @requires_auth
 @returns_problem_detail
@@ -423,6 +490,7 @@ def annotations():
 
 @library_route('/annotations/<annotation_id>', methods=['HEAD', 'GET', 'DELETE'])
 @has_library
+@allows_admin_web
 @allows_patron_web
 @requires_auth
 @returns_problem_detail
@@ -432,6 +500,7 @@ def annotation_detail(annotation_id):
 
 @library_route('/annotations/<identifier_type>/<path:identifier>', methods=['GET'])
 @has_library
+@allows_admin_web
 @allows_patron_web
 @requires_auth
 @returns_problem_detail
@@ -443,6 +512,7 @@ def annotations_for_work(identifier_type, identifier):
 @library_route('/works/<identifier_type>/<path:identifier>/borrow/<mechanism_id>',
            methods=['GET', 'PUT'])
 @has_library
+@allows_admin_web
 @allows_patron_web
 @requires_auth
 @returns_problem_detail
@@ -451,6 +521,7 @@ def borrow(identifier_type, identifier, mechanism_id=None):
 
 @library_route('/works/<license_pool_id>/fulfill/<mechanism_id>/<part>/rbdproxy/<bearer>')
 @has_library
+@allows_admin_web
 def proxy_rbdigital_patron_requests(license_pool_id, mechanism_id, part, bearer):
     return app.manager.rbdproxy.proxy(bearer)
 
@@ -458,6 +529,7 @@ def proxy_rbdigital_patron_requests(license_pool_id, mechanism_id, part, bearer)
 @library_route('/works/<license_pool_id>/fulfill/<mechanism_id>')
 @library_route('/works/<license_pool_id>/fulfill/<mechanism_id>/<part>')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 def fulfill(license_pool_id, mechanism_id=None, part=None):
@@ -465,6 +537,7 @@ def fulfill(license_pool_id, mechanism_id=None, part=None):
 
 @library_route('/loans/<license_pool_id>/revoke', methods=['GET', 'PUT'])
 @has_library
+@allows_admin_web
 @allows_patron_web
 @requires_auth
 @returns_problem_detail
@@ -473,6 +546,7 @@ def revoke_loan_or_hold(license_pool_id):
 
 @library_route('/loans/<identifier_type>/<path:identifier>', methods=['GET', 'DELETE'])
 @has_library
+@allows_admin_web
 @allows_patron_web
 @requires_auth
 @returns_problem_detail
@@ -481,6 +555,7 @@ def loan_or_hold_detail(identifier_type, identifier):
 
 @library_dir_route('/works')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
@@ -491,6 +566,7 @@ def work():
 @library_dir_route('/works/contributor/<contributor_name>/<languages>', defaults=dict(audiences=None))
 @library_route('/works/contributor/<contributor_name>/<languages>/<audiences>')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
@@ -501,6 +577,7 @@ def contributor(contributor_name, languages, audiences):
 @library_dir_route('/works/series/<series_name>/<languages>', defaults=dict(audiences=None))
 @library_route('/works/series/<series_name>/<languages>/<audiences>')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
@@ -510,6 +587,7 @@ def series(series_name, languages, audiences):
 @library_route('/works/<identifier_type>/<path:identifier>')
 @has_library
 @allows_auth
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
@@ -518,6 +596,7 @@ def permalink(identifier_type, identifier):
 
 @library_route('/works/<identifier_type>/<path:identifier>/recommendations')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
@@ -526,6 +605,7 @@ def recommendations(identifier_type, identifier):
 
 @library_route('/works/<identifier_type>/<path:identifier>/related_books')
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 @compressible
@@ -534,6 +614,7 @@ def related_books(identifier_type, identifier):
 
 @library_route('/works/<identifier_type>/<path:identifier>/report', methods=['GET', 'POST'])
 @has_library
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 def report(identifier_type, identifier):
@@ -542,6 +623,7 @@ def report(identifier_type, identifier):
 @library_route('/analytics/<identifier_type>/<path:identifier>/<event_type>')
 @has_library
 @allows_auth
+@allows_admin_web
 @allows_patron_web
 @returns_problem_detail
 def track_analytics_event(identifier_type, identifier, event_type):
@@ -550,6 +632,7 @@ def track_analytics_event(identifier_type, identifier, event_type):
 # Adobe Vendor ID implementation
 @library_route('/AdobeAuth/authdata')
 @has_library
+@allows_admin_web
 @requires_auth
 @returns_problem_detail
 def adobe_vendor_id_get_token():
@@ -561,16 +644,19 @@ def adobe_vendor_id_get_token():
 
 @library_route('/AdobeAuth/SignIn', methods=['POST'])
 @has_library
+@allows_admin_web
 @returns_problem_detail
 def adobe_vendor_id_signin():
     return app.manager.adobe_vendor_id.signin_handler()
 
-@admin_route('/AdobeAuth/AccountInfo', methods=['POST'])
+@app.route('/AdobeAuth/AccountInfo', methods=['POST'])
+@allows_admin_web
 @returns_problem_detail
 def adobe_vendor_id_accountinfo():
     return app.manager.adobe_vendor_id.userinfo_handler()
 
-@admin_route('/AdobeAuth/Status')
+@app.route('/AdobeAuth/Status')
+@allows_admin_web
 @returns_problem_detail
 def adobe_vendor_id_status():
     return app.manager.adobe_vendor_id.status_handler()
@@ -578,6 +664,7 @@ def adobe_vendor_id_status():
 # DRM Device Management Protocol implementation for ACS.
 @library_route('/AdobeAuth/devices', methods=['GET', 'POST'])
 @has_library
+@allows_admin_web
 @requires_auth
 @returns_problem_detail
 def adobe_drm_devices():
@@ -585,6 +672,7 @@ def adobe_drm_devices():
 
 @library_route('/AdobeAuth/devices/<device_id>', methods=['DELETE'])
 @has_library
+@allows_admin_web
 @requires_auth
 @returns_problem_detail
 def adobe_drm_device(device_id):
@@ -593,6 +681,7 @@ def adobe_drm_device(device_id):
 # Route that redirects to the authentication URL for an OAuth provider
 @library_route('/oauth_authenticate')
 @has_library
+@allows_admin_web
 @returns_problem_detail
 def oauth_authenticate():
     return app.manager.oauth_controller.oauth_authentication_redirect(flask.request.args, app.manager._db)
@@ -600,6 +689,7 @@ def oauth_authenticate():
 # Redirect URI for OAuth providers, eg. Clever
 @library_route('/oauth_callback')
 @has_library
+@allows_admin_web
 @returns_problem_detail
 def oauth_callback():
     return app.manager.oauth_controller.oauth_authentication_callback(app.manager._db, flask.request.args)
@@ -607,6 +697,7 @@ def oauth_callback():
 # Route that redirects to the authentication URL for a SAML provider
 @library_route('/saml_authenticate')
 @has_library
+@allows_admin_web
 @returns_problem_detail
 def saml_authenticate():
     return app.manager.saml_controller.saml_authentication_redirect(flask.request.args, app.manager._db)
@@ -621,21 +712,23 @@ def saml_authenticate():
 # the URL saved in the SP's metadata configured in this IdP will differ.
 # Library's name is passed as a part of the relay state and processed in SAMLController.saml_authentication_callback
 @returns_problem_detail
-@admin_route("/saml_callback", methods=['POST'])
+@app.route("/saml_callback", methods=['POST'])
 def saml_callback():
     return app.manager.saml_controller.saml_authentication_callback(request, app.manager._db)
 
 
-@admin_route('/<collection_name>/lcp/licenses/<license_id>/hint')
+@app.route('/<collection_name>/lcp/licenses/<license_id>/hint')
 @has_library_through_external_loan_identifier(parameter_name='license_id')
+@allows_admin_web
 @requires_auth
 @returns_problem_detail
 def lcp_passphrase(collection_name, license_id):
     return app.manager.lcp_controller.get_lcp_passphrase()
 
 
-@admin_route('/<collection_name>/lcp/licenses/<license_id>')
+@app.route('/<collection_name>/lcp/licenses/<license_id>')
 @has_library_through_external_loan_identifier(parameter_name='license_id')
+@allows_admin_web
 @requires_auth
 @returns_problem_detail
 def lcp_license(collection_name, license_id):
@@ -644,20 +737,24 @@ def lcp_license(collection_name, license_id):
 # Loan notifications for ODL distributors, eg. Feedbooks
 @library_route('/odl_notify/<loan_id>', methods=['GET', 'POST'])
 @has_library
+@allows_admin_web
 @returns_problem_detail
 def odl_notify(loan_id):
     return app.manager.odl_notification_controller.notify(loan_id)
 
 # Controllers used for operations purposes
-@admin_route('/heartbeat')
+@app.route('/heartbeat')
+@allows_admin_web
 @returns_problem_detail
 def heartbeat():
     return app.manager.heartbeat.heartbeat()
 
-@admin_route('/healthcheck.html')
+@app.route('/healthcheck.html')
+@allows_admin_web
 def health_check():
     return Response("", 200)
 
-@admin_route("/images/<filename>")
+@app.route("/images/<filename>")
+@allows_admin_web
 def static_image(filename):
     return app.manager.static_files.image(filename)
