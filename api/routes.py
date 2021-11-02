@@ -114,7 +114,8 @@ def allows_patron_web(f):
                           supports_credentials=True)
             )
             set_cors_headers(resp, options)
-	@@ -128,7 +127,15 @@ def wrapped_function(*args, **kwargs):
+	    return resp
+    return update_wrapper(wrapped_function, f)
 
 h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)
@@ -139,7 +140,8 @@ def allows_admin_web(f):
                           supports_credentials=True)
             )
             set_cors_headers(resp, options)
-	@@ -128,7 +127,15 @@ def wrapped_function(*args, **kwargs):
+		return resp
+    return update_wrapper(wrapped_function, f)
 
 h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)
