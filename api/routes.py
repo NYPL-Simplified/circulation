@@ -126,8 +126,8 @@ def allows_cors(f, web_domains):
         return resp
     return update_wrapper(wrapped_function, f)
 
-allows_patron_web = allows_cors(f, app.manager.patron_web_domains)
-allows_admin_web = allows_cors(f, app.manager.admin_web_domains)
+allows_patron_web = allows_cors(app.manager.patron_web_domains)
+allows_admin_web = allows_cors(app.manager.admin_web_domains)
 
 h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)
