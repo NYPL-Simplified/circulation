@@ -300,7 +300,7 @@ class CirculationManager(object):
         sitewide_admin_web_client_urls = ConfigurationSetting.sitewide(
             self._db, Configuration.ADMIN_WEB_HOSTNAMES).value
         if sitewide_admin_web_client_urls:
-            for url in admin_patron_web_client_urls.split('|'):
+            for url in sitewide_admin_web_client_urls.split('|'):
                 domain = get_domain(url)
                 if domain:
                     admin_web_domains.add(domain)

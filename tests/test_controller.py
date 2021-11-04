@@ -417,6 +417,8 @@ class TestCirculationManager(CirculationControllerTest):
         # be loaded.
         ConfigurationSetting.sitewide(
             self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "http://sitewide/1234"
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.ADMIN_WEB_HOSTNAMES).value = "http://localhosttest/1234"
         registry = self._external_integration(
             protocol="some protocol", goal=ExternalIntegration.DISCOVERY_GOAL
         )
