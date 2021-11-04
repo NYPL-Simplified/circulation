@@ -313,6 +313,7 @@ class CirculationManager(object):
                 patron_web_domains.add(get_domain(setting.value))
 
         self.patron_web_domains = patron_web_domains
+        self.admin_web_domains = admin_web_domains
         self.setup_configuration_dependent_controllers()
         authentication_document_cache_time = int(
             ConfigurationSetting.sitewide(

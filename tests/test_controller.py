@@ -378,6 +378,7 @@ class TestCirculationManager(CirculationControllerTest):
         manager.shared_collection_api = object()
         manager.new_custom_index_views = object()
         manager.patron_web_domains = object()
+        manager.admin_web_domains = object()
 
         # But some fields are _not_ about to be reloaded
         index_controller = manager.index_controller
@@ -417,14 +418,15 @@ class TestCirculationManager(CirculationControllerTest):
         # be loaded.
         ConfigurationSetting.sitewide(
             self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "http://sitewide/1234"
-        ConfigurationSetting.sitewide(
-            self._db, Configuration.ADMIN_WEB_HOSTNAMES).value = "http://localhosttest/1234"
         registry = self._external_integration(
             protocol="some protocol", goal=ExternalIntegration.DISCOVERY_GOAL
         )
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, Registration.LIBRARY_REGISTRATION_WEB_CLIENT,
             library, registry).value = "http://registration"
+        
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.ADMIN_WEB_HOSTNAMES).value = "http://admin/1234|http://localhost/5678"
 
         ConfigurationSetting.sitewide(
             self._db, Configuration.AUTHENTICATION_DOCUMENT_CACHE_TIME
@@ -472,6 +474,8 @@ class TestCirculationManager(CirculationControllerTest):
         # removed.
         assert set(["http://sitewide", "http://registration"]) == manager.patron_web_domains
 
+        assert set(["http://admin", "http://localhost"]) == manager.admin_web_domains
+
         # The authentication document cache has been rebuilt with a
         # new max_age.
         assert 60 == manager.authentication_for_opds_documents.max_age
@@ -494,6 +498,18 @@ class TestCirculationManager(CirculationControllerTest):
             self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "https://1.com|http://2.com |  http://subdomain.3.com|4.com"
         self.manager.load_settings()
         assert set(["https://1.com", "http://2.com",  "http://subdomain.3.com", "http://registration"]) == manager.patron_web_domains
+
+        # The sitewide admin web domain can also be set to *.
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.ADMIN_WEB_HOSTNAMES).value = "*"
+        self.manager.load_settings()
+        assert set(["*"]) == manager.admin_web_domains
+
+        # The admin web domain can have pipe separated domains, and will get spaces stripped
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.ADMIN_WEB_HOSTNAMES).value = "https://1.com|http://2.com |  http://subdomain.3.com|4.com"
+        self.manager.load_settings()
+        assert set(["https://1.com", "http://2.com",  "http://subdomain.3.com"]) == manager.admin_web_domains
 
         # Restore the CustomIndexView.for_library implementation
         CustomIndexView.for_library = old_for_library
