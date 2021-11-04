@@ -95,15 +95,14 @@ def allows_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-# The allows_cors decorator will add Cross-Origin Resource Sharing
-# (CORS) headers to routes that will be used by the patron web interface
-# or the admin web interface.
+# The allows_patron_web and allows_admin_web decorator will add Cross-Origin Resource Sharing
+# (CORS) headers to routes that will be used by the patron web interface.
 # This is necessary for a JS app on a different domain to make requests.
 #
 # This is mostly taken from the cross_origin decorator in flask_cors, but we
 # can't use that decorator because we aren't able to look up the patron web
 # client url configuration setting at the time we create the decorator.
-def allows_cors(f, web_domains):
+def allows_patron_web(f):
     # Override Flask's default behavior and intercept the OPTIONS method for
     # every request so CORS headers can be added.
     f.required_methods = getattr(f, 'required_methods', set())
@@ -116,9 +115,10 @@ def allows_cors(f, web_domains):
         else:
             resp = make_response(f(*args, **kwargs))
 
-        if web_domains:
+        patron_web_domains = app.manager.patron_web_domains
+        if patron_web_domains:
             options = get_cors_options(
-                app, dict(origins=web_domains,
+                app, dict(origins=patron_web_domains,
                           supports_credentials=True)
             )
             set_cors_headers(resp, options)
@@ -126,8 +126,29 @@ def allows_cors(f, web_domains):
         return resp
     return update_wrapper(wrapped_function, f)
 
-allows_patron_web = allows_cors(app.manager.patron_web_domains)
-allows_admin_web = allows_cors(app.manager.admin_web_domains)
+def allows_admin_web(f):
+    # Override Flask's default behavior and intercept the OPTIONS method for
+    # every request so CORS headers can be added.
+    f.required_methods = getattr(f, 'required_methods', set())
+    f.required_methods.add("OPTIONS")
+    f.provide_automatic_options = False
+
+    def wrapped_function(*args, **kwargs):
+        if request.method == "OPTIONS":
+            resp = app.make_default_options_response()
+        else:
+            resp = make_response(f(*args, **kwargs))
+
+        admin_web_domains = app.manager.admin_web_domains
+        if admin_web_domains:
+            options = get_cors_options(
+                app, dict(origins=admin_web_domains,
+                          supports_credentials=True)
+            )
+            set_cors_headers(resp, options)
+
+        return resp
+    return update_wrapper(wrapped_function, f)
 
 h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)
