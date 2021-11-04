@@ -2,7 +2,7 @@
 ## lcpencrypt
 ###############################################################################
 
-FROM arm64v8/golang AS builder
+FROM amd64/golang AS builder
 
 LABEL maintainer="Library Simplified <info@librarysimplified.org>"
 
