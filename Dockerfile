@@ -1,5 +1,12 @@
 ###############################################################################
-## lcpencrypt
+# README!
+#
+# TODO: Add overview of the stages in this file.
+#
+###############################################################################
+
+###############################################################################
+## lcpencrypt - stage to build lcpencrypt, to copy out into other stages
 ###############################################################################
 
 FROM amd64/golang AS lcpencrypt
@@ -9,204 +16,172 @@ LABEL maintainer="Library Simplified <info@librarysimplified.org>"
 RUN go get -v github.com/readium/readium-lcp-server/lcpencrypt
 
 ###############################################################################
-## circulation_base
+## cm_local_db - standalone stage to build a postgres server for local dev
 ###############################################################################
 
-FROM phusion/baseimage:bionic-1.0.0 as circulation_base
+FROM postgres:12.8-alpine AS cm_local_db
 
-# TODO: Copied from /bd_build/buildconfig, which we can't source anymore
-ENV MINIMAL_APT_GET_INSTALL "apt-get install -y --no-install-recommends"
+ENV POSTGRES_PASSWORD="password"
+ENV POSTGRES_USER="postgres"
 
+COPY ./docker/localdev_postgres_init.sh /docker-entrypoint-initdb.d/localdev_postgres_init.sh
+
+###############################################################################
+## circulation_base - elements common to webapp, scripts, and exec images,
+#     both for local development and remotely deployed images
+#
+# Notes:
+# 
+#   * Logs for various pieces of SimplyE will be put in /var/log/simplified
+#   * We create a user, 'simplified', to be the non-root user we step down to
+#   * We create a symlink at /var/www/circulation that points to the simplified
+#     user's home directory, because Nginx wants to find it under /var/www
+#   * We install NodeJS from the Nodesource packages, which lets use use Node 10,
+#     and avoids dependency conflicts between node and libxmlsec1 over the SSL
+#     library version that we'll get via system packages.
+#
+###############################################################################
+
+FROM ubuntu:18.04 as circulation_base
+
+ARG DEBIAN_FRONTEND="noninteractive"
+ARG NODESOURCE_KEYFILE="https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
+
+# Install system level dependencies
+RUN apt-get update \
+ && apt-get install --yes --no-install-recommends \
+    curl \
+    ca-certificates \
+    gnupg \
+ && curl -sSL ${NODESOURCE_KEYFILE} | apt-key add - \
+ && echo "deb https://deb.nodesource.com/node_10.x bionic main" >> /etc/apt/sources.list.d/nodesource.list \
+ && echo "deb-src https://deb.nodesource.com/node_10.x bionic main" >> /etc/apt/sources.list.d/nodesource.list \
+ && apt-get update \
+ && apt-get install --yes --no-install-recommends \
+    build-essential \
+    software-properties-common \
+    git \
+    python3.6 \
+    python3-dev \
+    python3-setuptools \
+    python3-venv \
+    python3-pip \
+    libpcre3 \
+    libpcre3-dev \
+    libffi-dev \
+    libjpeg-dev \
+    nodejs \
+    libssl-dev \
+    libpq-dev \
+    libxmlsec1-dev \
+    libxmlsec1-openssl \
+    libxml2-dev \
+ && apt-get clean --yes \
+ && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Create group and user, and log directory
+RUN groupadd --gid 1000 simplified \
+ && useradd --uid 1000 --gid 1000 --shell /bin/bash --create-home --home-dir /home/simplified simplified \
+ && mkdir -p /var/log/simplified
+
+WORKDIR /home/simplified/circulation
+
+# Set up for installing Python dependencies, by creating a virtualenv and updating
+# the installation tools. Also, install a pinned version of the NLTK corpus, to avoid
+# having to re-download / re-install that if other Python dependencies change.
+RUN python3 -m venv /simplye_venv \
+ && /simplye_venv/bin/pip install -U pip setuptools \
+ && /simplye_venv/bin/pip install textblob==0.15.3 \
+ && /simplye_venv/bin/python -m textblob.download_corpora \
+ && mv /root/nltk_data /usr/lib
+
+# Copy over the Python requirements files for both CM and core
+COPY --chown=simplified:simplified ./requirements*.txt ./
+COPY --chown=simplified:simplified ./core/requirements*.txt ./core/
+
+# Install the Python dependencies
+RUN /simplye_venv/bin/pip install -r ./requirements.txt
+
+COPY docker/services/logrotate.conf /etc/logrotate.conf
+COPY docker/services/default_logrotate /etc/logrotate.d/default_logrotate
+COPY docker/services/simplified_logrotate.conf /etc/logrotate.d/simplified
+
+RUN chmod 644 /etc/logrotate.conf /etc/logrotate.d/default_logrotate /etc/logrotate.d/simplified \
+ && rm -rf /etc/logrotate.d/dpkg
+
+# Copy over the lcpencrypt executable from its builder stage
 COPY --from=lcpencrypt /go/bin/lcpencrypt /go/bin/lcpencrypt
 
-# Give logs a place to go.
-RUN mkdir -p /var/log/simplified
+# Copy over the script we'll use in all images as the ENTRYPOINT, which we'll
+# pass stage/image specific CMD values to set image-specific behavior.
+COPY --chown=simplified:simplified docker/docker-entrypoint.sh /docker-entrypoint.sh
 
-# Create a user.
-RUN useradd -ms /bin/bash -U simplified
-WORKDIR /home/simplified/circulation
+USER simplified
 
-# We'll install everything in /home/simplified/circulation, but nginx expects
-# to see it i n/var/www/circulation.
-RUN mkdir -p /var/www
-RUN ln -s /home/simplified/circulation /var/www/circulation
-
-# Install the nodesource nodejs package
-# This lets us use node 10 and avoids dependency conflict between node and libxmlsec1 over the
-# version of the ssl library that we find from package managemnet
-RUN curl -sSL https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add -
-RUN echo "deb https://deb.nodesource.com/node_10.x bionic main" >> /etc/apt/sources.list.d/nodesource.list
-RUN echo "deb-src https://deb.nodesource.com/node_10.x bionic main" >> /etc/apt/sources.list.d/nodesource.list
-
-# Add packages we need to build the app and its dependancies
-RUN apt-get update
-RUN $MINIMAL_APT_GET_INSTALL --no-upgrade \
-  software-properties-common \
-  python3.6 \
-  python3-dev \
-  python3-setuptools \
-  python3-venv \
-  python3-pip \
-  gcc \
-  git \
-  libpcre3 \
-  libpcre3-dev \
-  libffi-dev \
-  libjpeg-dev \
-  nodejs \
-  libssl-dev \
-  libpq-dev \
-  libxmlsec1-dev \
-  libxmlsec1-openssl \
-  libxml2-dev
-
-RUN python3 -m venv env
-
-# Pass runtime environment variables to the app at runtime.
-RUN touch environment.sh
-ENV SIMPLIFIED_ENVIRONMENT=/var/www/circulation/environment.sh
-RUN echo "if [[ -f $SIMPLIFIED_ENVIRONMENT ]]; then \
-         source $SIMPLIFIED_ENVIRONMENT; fi" >> env/bin/activate
-
-# Install required python libraries.
-
-# Update pip and setuptools.
-RUN env/bin/pip install -U pip setuptools
-
-# Install textblob separately so we don't have to download the NLTK corpus
-# every time a dependency changes.
-#
-# TODO: Don't hard-code the version number, get it from a standalone core/requirements-textblob.txt
-# file.
-RUN env/bin/pip install textblob==0.15.3
-
-# Install the NLTK corpus
-RUN env/bin/python -m textblob.download_corpora
-RUN mv /root/nltk_data /usr/lib/
-
-# Install other Python dependencies
-COPY --chown=simplified:simplified ./requirements*.txt ./
-COPY --chown=simplified:simplified ./core/requirements*.txt core/
-RUN env/bin/pip install -r requirements.txt
-
-# Install npm dependencies
-COPY --chown=simplified:simplified ./api/admin/package*.json .
-RUN npm install
-
-# Copy scripts that run at startup.
-COPY docker/startup/* /etc/my_init.d/
-
-ENV SIMPLIFIED_DB_TASK "ignore"
+ENTRYPOINT ["/docker-entrypoint.sh"]
 
 ###############################################################################
-## circulation_logrotate
+## cm_webapp_base - elements common to cm_webapp_local and cm_webapp_active
 ###############################################################################
 
-from circulation_base as circulation_logrotate
+FROM circulation_base AS cm_webapp_base
 
-VOLUME /var/log
+# Install and configure Nginx, and set up a symlink between /var/www and /home/simplified
+RUN apt-get update \
+ && apt-get install --yes --no-install-recommends \
+    nginx-light \
+ && rm -rf /etc/nginx/sites-enabled/default \
+ && echo "daemon off;" >> /etc/nginx/nginx.conf \
+ && mkdir -p /etc/service/nginx \
+ && ln -s /home/simplified/circulation /var/www/circulation \
+ && apt-get clean --yes \
+ && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-COPY docker/services/logrotate.conf /etc
-COPY docker/services/default_logrotate /etc/logrotate.d
-COPY docker/services/simplified_logrotate.conf /etc/logrotate.d/simplified.conf
-
-RUN chmod 644 /etc/logrotate.conf \
-  /etc/logrotate.d/default_logrotate \
-  /etc/logrotate.d/simplified.conf
-
-# Remove logrotate for dpkg: default_logrotate overrides that behavior.
-RUN rm -rf /etc/logrotate.d/dpkg
-
-###############################################################################
-## circulation_source
-###############################################################################
-
-from circulation_logrotate as circulation_source
-
-# The images are about to diverge, so it's time to take the step that
-# can't really be cached: copying the application source code into the
-# image.
-
-COPY --chown=simplified:simplified . /home/simplified/circulation
-
-# Add a .version file to the directory. This file
-# supplies an endpoint to check the app's current version.
-WORKDIR /home/simplified/circulation
-RUN printf "$(git describe --tags)" > .version
-RUN chown simplified:simplified .version
-
-###############################################################################
-## circulation_nginx
-###############################################################################
-
-from circulation_source as circulation_nginx
-
-# TODO: Copied from /bd_build/buildconfig, which we can't source anymore
-RUN $MINIMAL_APT_GET_INSTALL nginx
-
-# Configure nginx.
-RUN rm /etc/nginx/sites-enabled/default
 COPY docker/services/nginx.conf /etc/nginx/conf.d/circulation.conf
-RUN echo "daemon off;" >> /etc/nginx/nginx.conf
+COPY docker/services/nginx.runit /etc/services/nginx/run
 
-# Prepare nginx for runit.
-RUN mkdir -p /etc/service/nginx
-COPY docker/services/nginx.runit /etc/service/nginx/run
-
-###############################################################################
-## circulation_uwsgi
-###############################################################################
-
-from circulation_nginx as circulation_uwsgi
-
-# Configure uwsgi.
+# Configure the uwsgi server previously installed as a Python dependency
 COPY --chown=simplified:simplified docker/services/uwsgi.ini /var/www/circulation/uwsgi.ini
-RUN mkdir -p /var/log/uwsgi
-RUN chown -R simplified:simplified /var/log/uwsgi
+COPY --chown=simplified:simplified docker/services/simplified_user.runit /etc/service/runsvdir-simplified/run
+COPY --chown=simplified:simplified docker/services/uwsgi.runit /home/simplified/service/uwsgi/run
 
-# Defer uwsgi service to simplified.
-RUN mkdir -p /etc/service/runsvdir-simplified
-COPY docker/services/simplified_user.runit /etc/service/runsvdir-simplified/run
+RUN mkdir -p /var/log/uwsgi \
+ && chown -R simplified:simplified /var/log/uwsgi
 
-# Prepare uwsgi for runit.
-ENV APP_HOME=/home/simplified
-RUN mkdir -p $APP_HOME/service/uwsgi
-COPY docker/services/uwsgi.runit $APP_HOME/service/uwsgi/run
-RUN chown -R simplified:simplified $APP_HOME/service
-
-# Create an alias to restart the application.
-RUN touch $APP_HOME/.bash_aliases
-RUN echo "alias restart_app=\`touch ~/circulation/uwsgi.ini\`" >> $APP_HOME/.bash_aliases
-RUN chown -R simplified:simplified $APP_HOME/.bash_aliases
-
+CMD ["webapp"]
 
 ###############################################################################
-## circulation_exec
-###############################################################################
-from circulation_source as circulation_exec
-
-WORKDIR /home/simplified/circulation/bin
-CMD ["/sbin/my_init", "--skip-runit", "--quiet", "--", \
-     "/bin/bash", "-c", \
-     "source ../env/bin/activate && ./${SIMPLIFIED_SCRIPT_NAME}"]
-
-
-###############################################################################
-## circulation_scripts
+## cm_scripts_local - local dev version of scripts, relies on host mounted code
 ###############################################################################
 
-from circulation_source as circulation_scripts
-ENV SIMPLIFIED_DB_TASK "auto"
-ENV TZ=US/Eastern
-CMD ["/sbin/my_init"]
+FROM circulation_base AS cm_scripts_local
 
+###############################################################################
+## cm_exec_local - local dev version of exec, relies on host mounted code
+###############################################################################
 
-# ###############################################################################
-# ## circulation_webapp
-# ###############################################################################
+FROM circulation_base AS cm_exec_local
 
-from circulation_uwsgi as circulation_webapp
+###############################################################################
+## cm_webapp_local - local dev version of webapp, relies on host mounted code
+###############################################################################
 
-EXPOSE 80
+FROM cm_webapp_base AS cm_webapp_local
 
-CMD ["/sbin/my_init"]
+###############################################################################
+## cm_scripts_active - self-contained version of scripts, for remote deploy
+###############################################################################
+
+FROM circulation_base AS cm_scripts_active
+
+###############################################################################
+## cm_exec_active - self-contained version of exec, for remote deploy
+###############################################################################
+
+FROM circulation_base AS cm_exec_active
+
+###############################################################################
+## cm_webapp_active - self-contained version of webapp, for remote deploy
+###############################################################################
+
+FROM cm_webapp_base AS cm_webapp_active

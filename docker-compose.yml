@@ -1,17 +1,22 @@
-version: '3.6'
+version: '3.8'
+
 services:
-  db:
-    image: "postgres:12.0-alpine"
-    environment:
-      POSTGRES_PASSWORD: "password"
-      POSTGRES_USER: "simplified"
-      POSTGRES_DB: "simplified_circulation_dev"
-    ports:
-      - 5432:5432/tcp
+
+  database:
+    container_name: cm_local_db
+    build:
+      context: .
+      target: cm_local_db
     volumes:
-      - "dbdata:/var/lib/postgresql/data"
-  es:
+      - cm_local_dbdata:/var/lib/postgresql/data
+    ports:
+      - "5434:5434"
+    environment:
+      - PGPORT=5434
+
+  elasticsearch:
     # Use the latest version of Elasticsearch supported by Amazon AWS ES.
+    container_name: cm_local_es
     image: docker.elastic.co/elasticsearch/elasticsearch:6.7.2
     ports:
       - "9200:9200"
@@ -23,39 +28,45 @@ services:
     command: >
       /bin/sh -c "./bin/elasticsearch-plugin list | grep -q analysis-icu 
       || ./bin/elasticsearch-plugin install analysis-icu; tail -f /dev/null"
-  webapp:
+
+  scripts:
+    container_name: cm_local_scripts
+    depends_on:
+      - database
+      - elasticsearch
     build:
       context: .
-      dockerfile: Dockerfile
-      target: circulation_webapp
-      args:
-        - version
+      target: cm_scripts_local
     environment:
-      UWSGI_PROCESSES: 6
-      UWSGI_THREADS: 2
-      SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:password@db:5432/simplified_circulation_dev
+      SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:simplified@cm_local_db:5434/simplified_circulation_dev
+    volumes:
+      - "cm_local_script_logs:/var/log/simplified"
+      - type: bind
+        source: .
+        target: /home/simplified/circulation
+        read_only: true
+
+  webapp:
+    container_name: cm_local_webapp
+    depends_on:
+      - database
+      - elasticsearch
+      - scripts
+    build:
+      context: .
+      target: cm_webapp_local
+    environment:
+      SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:simplified@cm_local_db:5434/simplified_circulation_dev
     ports:
       - 80:80
-    depends_on:
-      - db
-      - es
     volumes:
-      - "uwsgi_log:/var/log/uwsgi"
-  scripts:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: circulation_scripts
-      args:
-        - version
-    environment:
-      SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:password@db:5432/simplified_circulation_dev
-    depends_on:
-      - db
-    volumes:
-      - "script_logs:/var/log/simplified"
+      - "cm_local_uwsgi_log:/var/log/uwsgi"
+      - type: bind
+        source: .
+        target: /home/simplified/circulation
+        read_only: true
 
 volumes:
-  dbdata:
-  uwsgi_log:
-  script_logs:
+  cm_local_dbdata:
+  cm_local_uwsgi_log:
+  cm_local_script_logs:
