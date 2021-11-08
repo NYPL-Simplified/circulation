@@ -102,6 +102,11 @@ COPY --chown=simplified:simplified ./core/requirements*.txt ./core/
 # Install the Python dependencies
 RUN /simplye_venv/bin/pip install -r ./requirements.txt
 
+RUN /simplye_venv/bin/pip uninstall uWSGI \
+ && /simplye_venv/bin/pip install \
+    supervisor \
+    gunicorn
+
 COPY docker/services/logrotate.conf /etc/logrotate.conf
 COPY docker/services/default_logrotate /etc/logrotate.d/default_logrotate
 COPY docker/services/simplified_logrotate.conf /etc/logrotate.d/simplified
