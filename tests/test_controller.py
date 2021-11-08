@@ -426,7 +426,7 @@ class TestCirculationManager(CirculationControllerTest):
             library, registry).value = "http://registration"
         
         ConfigurationSetting.sitewide(
-            self._db, Configuration.ADMIN_WEB_HOSTNAMES).value = "http://admin/1234|http://localhost/5678"
+            self._db, Configuration.ADMIN_WEB_HOSTNAMES).value = "http://admin/1234"
 
         ConfigurationSetting.sitewide(
             self._db, Configuration.AUTHENTICATION_DOCUMENT_CACHE_TIME
@@ -474,7 +474,7 @@ class TestCirculationManager(CirculationControllerTest):
         # removed.
         assert set(["http://sitewide", "http://registration"]) == manager.patron_web_domains
 
-        assert set(["http://admin", "http://localhost"]) == manager.admin_web_domains
+        assert set(["http://admin"]) == manager.admin_web_domains
 
         # The authentication document cache has been rebuilt with a
         # new max_age.
