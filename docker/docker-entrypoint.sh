@@ -6,29 +6,28 @@
 #       interprets any non-zero return from an operation as a reason to exit.
 
 # Env vars
+SIMPLIFIED_VENV="/simplye_venv"
 SIMPLIFIED_HOME="/home/simplified"
 CM_HOME="${SIMPLIFIED_HOME}/circulation"
 CM_BIN_DIR="${CM_HOME}/bin"
 CORE_BIN_DIR="${CM_HOME}/core/bin"
 
 ##############################################################################
-# Set up the .version file if it does not already exist (with something in it)
+# Write the version info to an environment variable
 ##############################################################################
 
-if ! [[ -s ${CM_HOME}/.version ]]; then
-    pushd ${CM_HOME}
-    printf "$(git describe --tags)" > ${CM_HOME}/.version
-    popd
-fi
+SIMPLIFIED_APP_VERSION="$(git -C ${CM_HOME} describe --tags)"
+export SIMPLIFIED_APP_VERSION
 
 ##############################################################################
 # Make a file that can be sourced by cron jobs to pick up SimplyE env vars
 ##############################################################################
 
-SIMPLIFIED_ENV_SCRIPT=${CM_HOME}/environment.sh
+SIMPLIFIED_ENV_SCRIPT=${SIMPLIFIED_HOME}/environment.sh
 touch $SIMPLIFIED_ENV_SCRIPT
 printenv | grep -e 'SIMPLIFIED' -e 'LIBSIMPLE' | sed 's/^/export /' > $SIMPLIFIED_ENV_SCRIPT
 chown simplified:simplified $SIMPLIFIED_ENV_SCRIPT
+export SIMPLIFIED_ENV_SCRIPT
 
 ##############################################################################
 # Wait for the database to be ready before doing more initialization work
@@ -40,7 +39,7 @@ COUNT=0
 RETRIES=10
 
 db_is_ready () {
-    source ${CM_HOME}/env/bin/activate
+    source ${SIMPLIFIED_VENV}/bin/activate
     python3 > /dev/null 2>&1 <<EOF
 import os,sys,psycopg2
 try:
@@ -64,6 +63,11 @@ until [ -n "$DB_READY" ] || [ $COUNT -gt $RETRIES ]; do
     fi
 done
 
+if ! [ -n "$DB_READY" ]; then
+    echo "Database never became available, exiting!"
+    exit 1
+fi
+
 ##############################################################################
 # Split behavior based on the argument passed to this script, which should be
 # one of 'webapp', 'scripts', or 'exec'.
@@ -72,18 +76,20 @@ done
 while [[ $# -gt 0 ]]; do
     case "$1" in 
         webapp)
-            echo "webapp"
-            exit 0
+            # Defer process management to supervisor
+            exec /usr/local/bin/supervisord -c /etc/supervisord.conf
             ;;
         scripts)
-            source ${CM_HOME}/env/bin/activate
+            # Check for migrations to run, then make cron the foreground process
+            source ${SIMPLIFIED_VENV}/bin/activate
             db_init_script="${CM_BIN_DIR}/util/initialize_database"
             migrate_script="${CORE_BIN_DIR}/migrate_database"
             if [[ -x $db_init_script && -x $migrate_script ]]; then
                 ${db_init_script} && ${migrate_script}
+            fi
+            cron -f
             ;;
         exec)
-            echo "exec"
             exit 0
             ;;
         *)

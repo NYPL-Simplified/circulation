@@ -1,20 +1,22 @@
 #!/bin/bash
 
+# This script creates the test and dev databases, and users to access them,
+# then adds the pgcrypto extension to both of them.
 set -e
 
 psql -v ON_ERROR_STOP=1 --username="$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     CREATE DATABASE simplified_circulation_test;
     CREATE DATABASE simplified_circulation_dev;
 
-    CREATE USER simplified with password 'simplified';
-    grant all privileges on database simplified_circulation_dev to simplified;
+    CREATE USER simplified WITH PASSWORD 'simplified';
+    GRANT ALL PRIVILEGES ON DATABASE simplified_circulation_dev TO simplified;
 
-    CREATE USER simplified_test with password 'simplified_test';
-    grant all privileges on database simplified_circulation_test to simplified_test;
+    CREATE USER simplified_test WITH PASSWORD 'simplified_test';
+    GRANT ALL PRIVILEGES ON DATABASE simplified_circulation_test TO simplified_test;
 
-    --Add pgcrypto to any circulation manager databases.
     \c simplified_circulation_dev
-    create extension pgcrypto;
+    CREATE EXTENSION pgcrypto;
+
     \c simplified_circulation_test
-    create extension pgcrypto;
+    CREATE EXTENSION pgcrypto;
 EOSQL
