@@ -136,7 +136,8 @@ COPY --chown=simplified:simplified ./core/requirements*.txt ./core/
 ENV CPPFLAGS="-DXMLSEC_NO_XKMS=1"
 
 # Install the Python dependencies
-RUN ${SIMPLIFIED_VENV}/bin/python3 -m pip install -r ./requirements.txt
+RUN ${SIMPLIFIED_VENV}/bin/python3 -m pip install -U wheel \
+ && ${SIMPLIFIED_VENV}/bin/python3 -m pip install -r ./requirements.txt
 
 # We're switching to gunicorn for the wsgi server, and supervisor for process management,
 # so we'll remove uWSGI here, add supervisor here, and then install gunicorn only for the
@@ -207,6 +208,7 @@ CMD ["webapp"]
 
 FROM cm_webapp_base AS cm_webapp_local
 ENV FLASK_ENV development
+ENV SIMPLIFIED_RUN_WEBPACK_WATCH 1
 
 ###############################################################################
 ## cm_webapp_active - self-contained version of webapp, for remote deploy
