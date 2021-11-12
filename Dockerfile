@@ -25,7 +25,7 @@
 ## lcpencrypt - stage to build lcpencrypt, to copy out into other stages
 ###############################################################################
 
-FROM amd64/golang AS lcpencrypt
+FROM golang AS lcpencrypt
 LABEL maintainer="Library Simplified <info@librarysimplified.org>"
 RUN go get -v github.com/readium/readium-lcp-server/lcpencrypt
 
@@ -131,6 +131,9 @@ RUN python3 -m venv ${SIMPLIFIED_VENV} \
 # Copy over the Python requirements files for both CM and core
 COPY --chown=simplified:simplified ./requirements*.txt ./
 COPY --chown=simplified:simplified ./core/requirements*.txt ./core/
+
+# Keep there from being a clash between dm.xmlsec and libssl.
+ENV CPPFLAGS="-DXMLSEC_NO_XKMS=1"
 
 # Install the Python dependencies
 RUN ${SIMPLIFIED_VENV}/bin/python3 -m pip install -r ./requirements.txt
