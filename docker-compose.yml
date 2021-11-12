@@ -61,7 +61,7 @@ services:
     ports:
       - 80:80
     volumes:
-      - "cm_local_uwsgi_log:/var/log/uwsgi"
+      - "cm_local_gunicorn_log:/var/log/gunicorn"
       - type: bind
         source: .
         target: /home/simplified/circulation
@@ -69,5 +69,5 @@ services:
 
 volumes:
   cm_local_dbdata:
-  cm_local_uwsgi_log:
+  cm_local_gunicorn_log:
   cm_local_script_logs:

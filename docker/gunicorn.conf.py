@@ -7,8 +7,8 @@ SIMPLIFIED_HOME = os.environ.get("SIMPLIFIED_HOME", "/home/simplified/circulatio
 
 # Shared Settings
 wsgi_app = "api.app:app"
-accesslog = "-"
-errorlog = "-"
+accesslog = "/var/log/gunicorn/access.log"
+errorlog = "/var/log/gunicorn/error.log"
 loglevel = "info"
 limit_request_line = 4094   # max size of HTTP request line, in bytes
 limit_request_fields = 100  # max number of header fields allowed in a request

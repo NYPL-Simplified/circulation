@@ -57,9 +57,6 @@ COPY ./docker/localdev_postgres_init.sh /docker-entrypoint-initdb.d/localdev_pos
 #
 #   * We create a user, 'simplified', to be the non-root user we step down to
 #
-#   * We create a symlink at /var/www/circulation that points to the simplified
-#     user's home directory, because Nginx wants to find it under /var/www
-#
 #   * We install NodeJS from the Nodesource packages, which lets us use Node 10,
 #     and avoids dependency conflicts between node and libxmlsec1 over the SSL
 #     library version that we'll get via system packages.
@@ -84,6 +81,7 @@ RUN apt-get update \
  && apt-get install --yes --no-install-recommends \
     build-essential \
     software-properties-common \
+    language-pack-en \
     git \
     python3.6 \
     python3-dev \
@@ -94,14 +92,20 @@ RUN apt-get update \
     libpcre3-dev \
     libffi-dev \
     libjpeg-dev \
+    logrotate \
     nodejs \
     libssl-dev \
     libpq-dev \
     libxmlsec1-dev \
     libxmlsec1-openssl \
     libxml2-dev \
+ && locale-gen en_US \
+ && update-locale LANG=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 \
  && apt-get clean --yes \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+ENV LANG="en_US.UTF-8"
+ENV LC_CTYPE="en_US.UTF-8"
 
 # Create simplified group and user, and log directory
 RUN groupadd --gid 1000 simplified \
@@ -179,6 +183,8 @@ RUN apt-get update \
  && mkdir -p /var/log/supervisord \
  && chown simplified:simplified /var/log/supervisord \
  && ${SIMPLIFIED_VENV}/bin/python3 -m pip install gunicorn \
+ && mkdir -p /var/log/gunicorn \
+ && chown simplified:simplified /var/log/gunicorn \
  && apt-get clean --yes \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -211,7 +217,19 @@ ENV FLASK_ENV production
 ###############################################################################
 
 FROM circulation_base AS cm_scripts_base
+
+# By default cron is not installed in the base Ubuntu image, so we add it here.
+RUN apt-get update \
+ && apt-get install --yes --no-install-recommends cron \
+ && apt-get clean --yes \
+ && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
 COPY ./docker/simplified_crontab /etc/cron.d/circulation
+
+RUN chmod 664 /etc/cron.d/circulation \
+ && crontab /etc/cron.d/circulation \
+ && touch /var/log/cron.log
+
 CMD ["scripts"]
 
 ###############################################################################

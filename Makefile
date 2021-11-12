@@ -11,6 +11,8 @@ help:
 	@echo "    build            - Build the libreg_webapp and libreg_local_db images"
 	@echo "    db-session       - Start a psql session as the superuser on the db container"
 	@echo "    webapp-shell     - Open a shell on the webapp container"
+	@echo "    up               - Bring up the local cluster in detached mode"
+	@echo "    up-watch         - Bring up the local cluster, attach to webapp and scripts"
 	@echo "    up-webapp        - Start the webapp, db, and elasticsearch containers in detached mode"
 	@echo "    up-webapp-watch  - Start the webapp, db, and elasticsearch containers, stay attached"
 	@echo "    up-full          - Bring up the local cluster in detached mode"
@@ -32,6 +34,12 @@ db-session:
 
 webapp-shell:
 	docker exec -it cm_local_webapp /bin/bash
+
+up:
+	docker-compose up -d
+
+up-watch:
+	docker-compose up webapp scripts
 
 up-webapp:
 	docker-compose up -d webapp
