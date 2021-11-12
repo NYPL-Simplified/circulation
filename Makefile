@@ -8,7 +8,9 @@ help:
 	@echo ""
 	@echo "  Related to Local Development:"
 	@echo ""
-	@echo "    build            - Build the libreg_webapp and libreg_local_db images"
+	@echo "    build            - Build the local Docker images"
+	@echo "    build-arm64      - Build local images for the arm64 chipset"
+	@echo "    build-arm64-es   - Build the base Elasticsearch 6.5.4 image for arm64"
 	@echo "    db-session       - Start a psql session as the superuser on the db container"
 	@echo "    webapp-shell     - Open a shell on the webapp container"
 	@echo "    up               - Bring up the local cluster in detached mode"
@@ -28,6 +30,12 @@ help:
 
 build:
 	docker-compose build
+
+build-arm64-es:
+	docker build --tag cm_local_es:latest -f docker/Dockerfile-es654.arm64 ./docker
+
+build-arm64: build-arm64-es
+	docker-compose --file ./docker-compose.arm64.yml build
 
 db-session:
 	docker exec -it cm_local_db psql -U postgres
