@@ -18,7 +18,8 @@ services:
     # Use the latest version of Elasticsearch supported by Amazon AWS ES.
     container_name: cm_local_es
     image: cm_local_es:latest
-    volumes: es_data:/usr/share/elasticsearch/data
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
     ports:
       - "9200:9200"
       - "9300:9300"
@@ -65,3 +66,4 @@ volumes:
   cm_local_dbdata:
   cm_local_gunicorn_log:
   cm_local_script_logs:
+  es_data:
