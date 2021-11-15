@@ -199,6 +199,20 @@ COPY ./docker/gunicorn.conf.py /etc/gunicorn/gunicorn.conf.py
 # docker-entrypoint.sh script after any initialization logic is complete
 COPY ./docker/supervisord-webapp.ini /etc/supervisord.conf
 
+# Create a static version of the front end to serve
+COPY ./api/admin/package*.json ./
+
+ENV SIMPLIFIED_STATIC_DIR /simplye_static
+
+RUN set -ex \
+ && mkdir -p /tmp/simplye_npm_build \
+ && cp ./package*.json /tmp/simplye_npm_build \
+ && npm install --prefix /tmp/simplye_npm_build \
+ && mkdir -p ${SIMPLIFIED_STATIC_DIR} \
+ && cp /tmp/simplye_npm_build/node_modules/simplified-circulation-web/dist/* ${SIMPLIFIED_STATIC_DIR} \
+ && chown -R simplified:simplified ${SIMPLIFIED_STATIC_DIR} \
+ && rm -rf /tmp/simplye_npm_build
+
 # Set the value that will be passed as an argument to the entrypoint script
 CMD ["webapp"]
 

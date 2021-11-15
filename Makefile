@@ -8,6 +8,8 @@ help:
 	@echo ""
 	@echo "  Related to Local Development:"
 	@echo ""
+	@echo "    setup            - Initialize submodule(s), clone frontend repo in parent dir"
+	@echo "    install          - Run 'setup', then 'build' make recipes"
 	@echo "    build            - Build the local Docker images"
 	@echo "    build-arm64      - Build local images for the arm64 chipset"
 	@echo "    build-arm64-es   - Build the base Elasticsearch 6.5.4 image for arm64"
@@ -28,8 +30,14 @@ help:
 	@echo "    full-clean       - Take down the local cluster and remove containers, volumes, and images"
 	@echo ""
 
+setup:
+	git submodule init && git submodule update
+	git clone git@github.com:NYPL-Simplified/circulation-web.git ../circulation-web
+
 build:
 	docker-compose build
+
+install: setup build
 
 build-arm64-es:
 	docker build --tag cm_local_es:latest -f docker/Dockerfile-es654.arm64 ./docker

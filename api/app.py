@@ -22,6 +22,7 @@ from flask_babel import Babel
 
 app = Flask(__name__)
 app._db = None
+app.static_resources_dir = Configuration.static_resources_dir()
 app.config['BABEL_DEFAULT_LOCALE'] = LanguageCodes.three_to_two[Configuration.localization_languages()[0]]
 app.config['BABEL_TRANSLATION_DIRECTORIES'] = "../translations"
 babel = Babel(app)

@@ -6,8 +6,12 @@
 #       interprets any non-zero return from an operation as a reason to exit.
 
 # Env vars
-SIMPLIFIED_VENV="/simplye_venv"
-SIMPLIFIED_HOME="/home/simplified"
+SIMPLIFIED_VENV=${SIMPLIFIED_VENV:-"/simplye_venv"}
+SIMPLIFIED_HOME=${SIMPLIFIED_HOME:-"/home/simplified"}
+SIMPLIFIED_STATIC_DIR=${SIMPLIFIED_STATIC_DIR:-"/simplye_static"}
+
+export SIMPLIFIED_VENV SIMPLIFIED_HOME SIMPLIFIED_STATIC_DIR
+
 CM_HOME="${SIMPLIFIED_HOME}/circulation"
 CM_BIN_DIR="${CM_HOME}/bin"
 CORE_BIN_DIR="${CM_HOME}/core/bin"
@@ -76,6 +80,11 @@ fi
 while [[ $# -gt 0 ]]; do
     case "$1" in 
         webapp)
+            # Symlink the repo's image resources into the static folder.
+            # This can only be done at run time, because the files in $CM_HOME
+            # may or may not be available at build time, since for a local
+            # set of containers we rely on a host mount of them at startup.
+            ln -s ${CM_HOME}/resources/images ${SIMPLIFIED_STATIC_DIR}/images
             # Defer process management to supervisor
             exec /usr/local/bin/supervisord -c /etc/supervisord.conf
             ;;

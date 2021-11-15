@@ -2501,6 +2501,7 @@ class SharedCollectionController(CirculationManagerController):
             return CANNOT_RELEASE_HOLD.detailed(str(e))
         return Response(_("Success"), 200)
 
+
 class StaticFileController(CirculationManagerController):
     def static_file(self, directory, filename):
         cache_timeout = ConfigurationSetting.sitewide(
@@ -2508,9 +2509,6 @@ class StaticFileController(CirculationManagerController):
         ).int_value
         return flask.send_from_directory(directory, filename, cache_timeout=cache_timeout)
 
-    def image(self, filename):
-        directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
-        return self.static_file(directory, filename)
 
 class RBDFulfillmentProxyController(CirculationManagerController):
 

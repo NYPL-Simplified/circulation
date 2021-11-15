@@ -653,4 +653,5 @@ def health_check():
 
 @app.route("/images/<filename>")
 def static_image(filename):
-    return app.manager.static_files.image(filename)
+    images_dir = f"{app.static_resources_dir}/images"
+    return app.manager.static_files.static_file(images_dir, filename)
