@@ -8,7 +8,7 @@ help:
 	@echo ""
 	@echo "  Related to Local Development:"
 	@echo ""
-	@echo "    setup            - Initialize submodule(s), clone frontend repo in parent dir"
+	@echo "    setup            - Initialize submodule(s)"
 	@echo "    install          - Run 'setup', then 'build' make recipes"
 	@echo "    build            - Build the local Docker images"
 	@echo "    build-arm64      - Build local images for the arm64 chipset"
@@ -32,7 +32,6 @@ help:
 
 setup:
 	git submodule init && git submodule update
-	git clone git@github.com:NYPL-Simplified/circulation-web.git ../circulation-web
 
 build:
 	docker-compose build

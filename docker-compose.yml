@@ -66,9 +66,6 @@ services:
         source: .
         target: /home/simplified/circulation
         read_only: true
-      - type: bind
-        source: ../circulation-web
-        target: /circulation-web
 
 volumes:
   cm_local_dbdata:
