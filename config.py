@@ -471,10 +471,10 @@ class Configuration(ConfigurationConstants):
         """
         Locate the static resources for this installation.
 
-        Default location is /simplye_static. To use a different location, set the value
+        Default location is /simplified_static. To use a different location, set the value
         of the SIMPLIFIED_STATIC_DIR environment variable.
         """
-        default_static_dir = '/simplye_static'
+        default_static_dir = '/simplified_static'
         static_dir = os.environ.get('SIMPLIFIED_STATIC_DIR')
         error_msgs = []
         warning_msgs = []
