@@ -78,10 +78,10 @@ down:
 	docker-compose down
 
 test:
-	docker exec -it cm_local_webapp /usr/local/bin/runinvenv /simplye_venv pytest tests
+	docker exec -it cm_local_webapp /usr/local/bin/runinvenv /simplified_venv pytest tests
 
 test-x:
-	docker exec -it cm_local_webapp /usr/local/bin/runinvenv /simplye_venv pytest -x tests
+	docker exec -it cm_local_webapp /usr/local/bin/runinvenv /simplified_venv pytest -x tests
 
 clean:
 	docker-compose down --volumes

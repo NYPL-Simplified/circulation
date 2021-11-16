@@ -2,7 +2,7 @@ import multiprocessing
 import os
 from pathlib import Path
 
-VENV_ACTUAL = Path("/simplye_venv")
+VENV_ACTUAL = Path("/simplified_venv")
 SIMPLIFIED_HOME = os.environ.get("SIMPLIFIED_HOME", "/home/simplified/circulation")
 
 # Shared Settings

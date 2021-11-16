@@ -836,7 +836,7 @@ class TestAdminStatic(AdminRouteTest):
     def test_static_file(self):
         url = "/admin/static/circulation-web.js"
 
-        local_path = os.getenv('SIMPLIFIED_STATIC_DIR', '/simplye_static')
+        local_path = os.getenv('SIMPLIFIED_STATIC_DIR', '/simplified_static')
 
         self.assert_request_calls(
             url, self.controller.static_file, local_path, "circulation-web.js"
