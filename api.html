@@ -5215,6 +5215,11 @@ policy.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="api.config.Configuration.ADMIN_WEB_HOSTNAMES">
+<code class="descname">ADMIN_WEB_HOSTNAMES</code><em class="property"> = 'admin_web_hostnames'</em><a class="headerlink" href="#api.config.Configuration.ADMIN_WEB_HOSTNAMES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="api.config.Configuration.AREA_INPUT_INSTRUCTIONS">
 <code class="descname">AREA_INPUT_INSTRUCTIONS</code><em class="property"> = l'&lt;ol&gt;Accepted formats:             &lt;li&gt;US zipcode or Canadian FSA&lt;/li&gt;             &lt;li&gt;Two-letter US state abbreviation&lt;/li&gt;             &lt;li&gt;City, US state abbreviation&lt;i&gt;e.g. &quot;Boston, MA&quot;&lt;/i&gt;&lt;/li&gt;             &lt;li&gt;County, US state abbreviation&lt;i&gt;e.g. &quot;Litchfield County, CT&quot;&lt;/i&gt;&lt;/li&gt;             &lt;li&gt;Canadian province name or two-letter abbreviation&lt;/li&gt;             &lt;li&gt;City, Canadian province name/abbreviation&lt;i&gt;e.g. &quot;Stratford, Ontario&quot;/&quot;Stratford, ON&quot;&lt;/i&gt;&lt;/li&gt;         &lt;/ol&gt;'</em><a class="headerlink" href="#api.config.Configuration.AREA_INPUT_INSTRUCTIONS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -5426,7 +5431,7 @@ policy.</p>
 
 <dl class="attribute">
 <dt id="api.config.Configuration.SITEWIDE_SETTINGS">
-<code class="descname">SITEWIDE_SETTINGS</code><em class="property"> = [{'key': 'base_url', 'label': l'Base url of the application', 'required': True, 'format': 'url'}, {'key': 'log_level', 'label': l'Log Level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'default': 'INFO'}, {'key': 'log_app', 'label': l'Application name', 'description': l'Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems.', 'default': 'simplified', 'required': True}, {'key': 'database_log_level', 'label': l'Database Log Level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'description': l'Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages.', 'default': 'WARN'}, {'key': 'excluded_audio_data_sources', 'label': l'Excluded audiobook sources', 'description': l'Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available.', 'default': None, 'required': True}, {'key': 'measurement_reaper_enabled', 'label': l'Cleanup old measurement data', 'type': 'select', 'description': l'If this settings is 'true' old book measurement data will be cleaned out of the database. Some sites may want to keep this data for later analysis.', 'options': {'true': 'true', 'false': 'false'}, 'default': 'true'}, {'key': 'bearer_token_signing_secret', 'label': l'Internal signing secret for OAuth and SAML bearer tokens', 'required': True}, {'key': 'secret_key', 'label': l'Internal secret key for admin interface cookies', 'required': True}, {'key': 'patron_web_hostnames', 'label': l'Hostnames for web application access', 'required': True, 'description': l'Only web applications from these hosts can access this circulation manager. This can be a single hostname (http://catalog.library.org) or a pipe-separated list of hostnames (http://catalog.library.org|https://beta.library.org). You must include the scheme part of the URI (http:// or https://). You can also set this to '*' to allow access from any host, but you must not do this in a production environment -- only during development.'}, {'key': 'static_file_cache_time', 'label': l'Cache time for static images and JS and CSS files (in seconds)', 'required': True, 'type': 'number'}, {'key': 'authentication_document_cache_time', 'label': l'Cache time for authentication documents (in seconds)', 'required': True, 'type': 'number', 'default': 0}, {'key': 'tos_href', 'label': l'Custom Terms of Service link', 'required': False, 'default': 'https://librarysimplified.org/simplyetermsofservice2/', 'description': l'If your inclusion in the SimplyE mobile app is governed by terms other than the default, put the URL to those terms in this link so that librarians will have access to them. This URL will be used for all libraries on this circulation manager.'}, {'key': 'tos_text', 'label': l'Custom Terms of Service link text', 'required': False, 'default': &quot;Terms of Service for presenting e-reading materials through NYPL's SimplyE mobile app&quot;, 'description': l'Custom text for the Terms of Service link in the footer of these administrative interface pages. This is primarily useful if you're not connecting this circulation manager to the SimplyE mobile app. This text will be used for all libraries on this circulation manager.'}]</em><a class="headerlink" href="#api.config.Configuration.SITEWIDE_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SITEWIDE_SETTINGS</code><em class="property"> = [{'key': 'base_url', 'label': l'Base url of the application', 'required': True, 'format': 'url'}, {'key': 'log_level', 'label': l'Log Level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'default': 'INFO'}, {'key': 'log_app', 'label': l'Application name', 'description': l'Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems.', 'default': 'simplified', 'required': True}, {'key': 'database_log_level', 'label': l'Database Log Level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'description': l'Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages.', 'default': 'WARN'}, {'key': 'excluded_audio_data_sources', 'label': l'Excluded audiobook sources', 'description': l'Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available.', 'default': None, 'required': True}, {'key': 'measurement_reaper_enabled', 'label': l'Cleanup old measurement data', 'type': 'select', 'description': l'If this settings is 'true' old book measurement data will be cleaned out of the database. Some sites may want to keep this data for later analysis.', 'options': {'true': 'true', 'false': 'false'}, 'default': 'true'}, {'key': 'bearer_token_signing_secret', 'label': l'Internal signing secret for OAuth and SAML bearer tokens', 'required': True}, {'key': 'secret_key', 'label': l'Internal secret key for admin interface cookies', 'required': True}, {'key': 'patron_web_hostnames', 'label': l'Hostnames for patron web application access', 'required': True, 'description': l'Only web applications from these hosts can access this circulation manager. This can be a single hostname (http://catalog.library.org) or a pipe-separated list of hostnames (http://catalog.library.org|https://beta.library.org). You must include the scheme part of the URI (http:// or https://). You can also set this to '*' to allow access from any host, but you must not do this in a production environment -- only during development.'}, {'key': 'admin_web_hostnames', 'label': l'Hostnames for admin web application access', 'required': True, 'description': l'Only admin web applications from these hosts can access this circulation manager. This can be a single hostname (http://catalog.library.org) or a pipe-separated list of hostnames (http://catalog.library.org|https://beta.library.org). You must include the scheme part of the URI (http:// or https://). You can also set this to '*' to allow access from any host, but you must not do this in a production environment -- only during development.'}, {'key': 'static_file_cache_time', 'label': l'Cache time for static images and JS and CSS files (in seconds)', 'required': True, 'type': 'number'}, {'key': 'authentication_document_cache_time', 'label': l'Cache time for authentication documents (in seconds)', 'required': True, 'type': 'number', 'default': 0}, {'key': 'tos_href', 'label': l'Custom Terms of Service link', 'required': False, 'default': 'https://librarysimplified.org/simplyetermsofservice2/', 'description': l'If your inclusion in the SimplyE mobile app is governed by terms other than the default, put the URL to those terms in this link so that librarians will have access to them. This URL will be used for all libraries on this circulation manager.'}, {'key': 'tos_text', 'label': l'Custom Terms of Service link text', 'required': False, 'default': &quot;Terms of Service for presenting e-reading materials through NYPL's SimplyE mobile app&quot;, 'description': l'Custom text for the Terms of Service link in the footer of these administrative interface pages. This is primarily useful if you're not connecting this circulation manager to the SimplyE mobile app. This text will be used for all libraries on this circulation manager.'}]</em><a class="headerlink" href="#api.config.Configuration.SITEWIDE_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9302,7 +9307,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2021, 11, 12, 18, 31, 46, 736825, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2021, 11, 27, 20, 49, 4, 257762, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -11653,7 +11658,7 @@ routes and arguments for ‘loan info’ and ‘hold info’.</p>
 
 <dl class="attribute">
 <dt id="api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES">
-<code class="descname">SUPPORTED_MEDIA_TYPES</code><em class="property"> = ['application/pdf', 'application/epub+zip', 'application/audiobook+json']</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SUPPORTED_MEDIA_TYPES</code><em class="property"> = ['application/audiobook+json', 'application/epub+zip', 'application/pdf']</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -14011,16 +14016,16 @@ BaseCirculationManagerController.request_patron instead.</p>
 </dd></dl>
 
 <dl class="function">
+<dt id="api.routes.allows_cors">
+<code class="descclassname">api.routes.</code><code class="descname">allows_cors</code><span class="sig-paren">(</span><em>allowed_domain_type</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#allows_cors"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.allows_cors" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
 <dt id="api.routes.allows_library">
 <code class="descclassname">api.routes.</code><code class="descname">allows_library</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#allows_library"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.allows_library" title="Permalink to this definition">¶</a></dt>
 <dd><p>Decorator similar to &#64;has_library but if there is no library short name,
 then don’t set the request library.</p>
 </dd></dl>
-
-<dl class="function">
-<dt id="api.routes.allows_patron_web">
-<code class="descclassname">api.routes.</code><code class="descname">allows_patron_web</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#allows_patron_web"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.allows_patron_web" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
 
 <dl class="function">
 <dt id="api.routes.annotation_detail">
@@ -14583,17 +14588,17 @@ the given dictionary?</p>
 <p>A test that needs to create announcements.</p>
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.a_week_ago">
-<code class="descname">a_week_ago</code><em class="property"> = '2021-10-26'</em><a class="headerlink" href="#api.testing.AnnouncementTest.a_week_ago" title="Permalink to this definition">¶</a></dt>
+<code class="descname">a_week_ago</code><em class="property"> = '2021-11-10'</em><a class="headerlink" href="#api.testing.AnnouncementTest.a_week_ago" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.active">
-<code class="descname">active</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-11-03', 'id': 'active', 'start': '2021-11-02'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.active" title="Permalink to this definition">¶</a></dt>
+<code class="descname">active</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-11-18', 'id': 'active', 'start': '2021-11-17'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.active" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.expired">
-<code class="descname">expired</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-11-01', 'id': 'expired', 'start': '2021-10-26'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.expired" title="Permalink to this definition">¶</a></dt>
+<code class="descname">expired</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-11-16', 'id': 'expired', 'start': '2021-11-10'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.expired" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -14603,27 +14608,27 @@ the given dictionary?</p>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.forthcoming">
-<code class="descname">forthcoming</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-11-09', 'id': 'forthcoming', 'start': '2021-11-03'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.forthcoming" title="Permalink to this definition">¶</a></dt>
+<code class="descname">forthcoming</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-11-24', 'id': 'forthcoming', 'start': '2021-11-18'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.forthcoming" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.in_a_week">
-<code class="descname">in_a_week</code><em class="property"> = '2021-11-09'</em><a class="headerlink" href="#api.testing.AnnouncementTest.in_a_week" title="Permalink to this definition">¶</a></dt>
+<code class="descname">in_a_week</code><em class="property"> = '2021-11-24'</em><a class="headerlink" href="#api.testing.AnnouncementTest.in_a_week" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.today">
-<code class="descname">today</code><em class="property"> = '2021-11-02'</em><a class="headerlink" href="#api.testing.AnnouncementTest.today" title="Permalink to this definition">¶</a></dt>
+<code class="descname">today</code><em class="property"> = '2021-11-17'</em><a class="headerlink" href="#api.testing.AnnouncementTest.today" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.tomorrow">
-<code class="descname">tomorrow</code><em class="property"> = '2021-11-03'</em><a class="headerlink" href="#api.testing.AnnouncementTest.tomorrow" title="Permalink to this definition">¶</a></dt>
+<code class="descname">tomorrow</code><em class="property"> = '2021-11-18'</em><a class="headerlink" href="#api.testing.AnnouncementTest.tomorrow" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.yesterday">
-<code class="descname">yesterday</code><em class="property"> = '2021-11-01'</em><a class="headerlink" href="#api.testing.AnnouncementTest.yesterday" title="Permalink to this definition">¶</a></dt>
+<code class="descname">yesterday</code><em class="property"> = '2021-11-16'</em><a class="headerlink" href="#api.testing.AnnouncementTest.yesterday" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

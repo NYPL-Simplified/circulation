@@ -65,6 +65,9 @@
     <span class="c1"># The list of patron web urls allowed to access this CM</span>
     <span class="n">PATRON_WEB_HOSTNAMES</span> <span class="o">=</span> <span class="s2">&quot;patron_web_hostnames&quot;</span>
 
+    <span class="c1"># The list of admin web urls allowed to access this CM</span>
+    <span class="n">ADMIN_WEB_HOSTNAMES</span> <span class="o">=</span> <span class="s2">&quot;admin_web_hostnames&quot;</span>
+
     <span class="c1"># The name of the sitewide secret used to sign cookies for admin login.</span>
     <span class="n">SECRET_KEY</span> <span class="o">=</span> <span class="s2">&quot;secret_key&quot;</span>
 
@@ -227,9 +230,15 @@
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">PATRON_WEB_HOSTNAMES</span><span class="p">,</span>
-            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Hostnames for web application access&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Hostnames for patron web application access&quot;</span><span class="p">),</span>
             <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Only web applications from these hosts can access this circulation manager. This can be a single hostname (http://catalog.library.org) or a pipe-separated list of hostnames (http://catalog.library.org|https://beta.library.org). You must include the scheme part of the URI (http:// or https://). You can also set this to &#39;*&#39; to allow access from any host, but you must not do this in a production environment -- only during development.&quot;</span><span class="p">)</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ADMIN_WEB_HOSTNAMES</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Hostnames for admin web application access&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Only admin web applications from these hosts can access this circulation manager. This can be a single hostname (http://catalog.library.org) or a pipe-separated list of hostnames (http://catalog.library.org|https://beta.library.org). You must include the scheme part of the URI (http:// or https://). You can also set this to &#39;*&#39; to allow access from any host, but you must not do this in a production environment -- only during development.&quot;</span><span class="p">)</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">STATIC_FILE_CACHE_TIME</span><span class="p">,</span>
