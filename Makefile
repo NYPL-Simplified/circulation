@@ -1,6 +1,12 @@
 .PHONY: help build db-session webapp-shell up up-watch start stop down test clean full-clean
 .DEFAULT_GOAL := help
 
+compose_file = docker-compose.yml
+ifeq ($(shell uname -m),arm64)
+	compose_file = docker-compose.arm64.yml
+endif
+compose_command = docker-compose --file $(compose_file)
+
 help:
 	@echo "Usage: make [COMMAND]"
 	@echo ""
@@ -11,8 +17,6 @@ help:
 	@echo "    setup            - Initialize submodule(s)"
 	@echo "    install          - Run 'setup', then 'build' make recipes"
 	@echo "    build            - Build the local Docker images"
-	@echo "    build-arm64      - Build local images for the arm64 chipset"
-	@echo "    build-arm64-es   - Build the base Elasticsearch 6.5.4 image for arm64"
 	@echo "    db-session       - Start a psql session as the superuser on the db container"
 	@echo "    webapp-shell     - Open a shell on the webapp container"
 	@echo "    up               - Bring up the local cluster in detached mode"
@@ -34,15 +38,9 @@ setup:
 	git submodule init && git submodule update
 
 build:
-	docker-compose build
+	$(compose_command) build
 
 install: setup build
-
-build-arm64-es:
-	docker build --tag cm_local_es:latest -f docker/Dockerfile-es654.arm64 ./docker
-
-build-arm64: build-arm64-es
-	docker-compose --file ./docker-compose.arm64.yml build
 
 db-session:
 	docker exec -it cm_local_db psql -U postgres
@@ -51,31 +49,31 @@ webapp-shell:
 	docker exec -it cm_local_webapp /bin/bash
 
 up:
-	docker-compose up -d
+	$(compose_command) up -d
 
 up-watch:
-	docker-compose up webapp scripts
+	$(compose_command) up webapp scripts
 
 up-webapp:
-	docker-compose up -d webapp
+	$(compose_command) up -d webapp
 
 up-webapp-watch:
-	docker-compose up webapp
+	$(compose_command) up webapp
 
 up-full:
-	docker-compose up -d
+	$(compose_command) up -d
 
 up-full-watch:
-	docker-compose up
+	$(compose_command) up
 
 start:
-	docker-compose start
+	$(compose_command) start
 
 stop:
-	docker-compose stop
+	$(compose_command) stop
 
 down:
-	docker-compose down
+	$(compose_command) down
 
 test:
 	docker exec -it cm_local_webapp /usr/local/bin/runinvenv /simplified_venv pytest tests
@@ -84,7 +82,7 @@ test-x:
 	docker exec -it cm_local_webapp /usr/local/bin/runinvenv /simplified_venv pytest -x tests
 
 clean:
-	docker-compose down --volumes
+	$(compose_command) down --volumes
 
 full-clean:
-	docker-compose down --volumes --rmi all
+	$(compose_command) down --volumes --rmi all

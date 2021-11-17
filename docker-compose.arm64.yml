@@ -17,7 +17,11 @@ services:
   elasticsearch:
     # Use the latest version of Elasticsearch supported by Amazon AWS ES.
     container_name: cm_local_es
-    image: cm_local_es:latest
+    image: cm_local_es_arm64:latest
+    build:
+      context: ./docker
+      dockerfile: Dockerfile-es654.arm64
+      target: es_arm_64
     volumes:
       - es_data:/usr/share/elasticsearch/data
     ports:

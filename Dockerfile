@@ -53,7 +53,7 @@ COPY ./docker/localdev_postgres_init.sh /docker-entrypoint-initdb.d/localdev_pos
 #
 # Notes:
 # 
-#   * Logs for various pieces of SimplyE will be put in /var/log/simplified
+#   * Logs for various pieces of the Circ. Manager will be in /var/log/simplified
 #
 #   * We create a user, 'simplified', to be the non-root user we step down to
 #
@@ -117,7 +117,7 @@ WORKDIR /home/simplified/circulation
 # The virtualenv should be outside the application root, so that we can more
 # easily use a host mount of the codebase without interfering with any virtualenv
 # that may be present on the host.
-ENV SIMPLIFIED_VENV /simplye_venv
+ENV SIMPLIFIED_VENV /simplified_venv
 
 # Set up for installing Python dependencies, by creating a virtualenv and updating
 # the installation tools. Also, install a pinned version of the NLTK corpus, to avoid
@@ -202,16 +202,16 @@ COPY ./docker/supervisord-webapp.ini /etc/supervisord.conf
 # Create a static version of the front end to serve
 COPY ./api/admin/package*.json ./
 
-ENV SIMPLIFIED_STATIC_DIR /simplye_static
+ENV SIMPLIFIED_STATIC_DIR /simplified_static
 
 RUN set -ex \
- && mkdir -p /tmp/simplye_npm_build \
- && cp ./package*.json /tmp/simplye_npm_build \
- && npm install --prefix /tmp/simplye_npm_build \
+ && mkdir -p /tmp/npm_build \
+ && cp ./package*.json /tmp/npm_build \
+ && npm install --prefix /tmp/npm_build \
  && mkdir -p ${SIMPLIFIED_STATIC_DIR} \
- && cp /tmp/simplye_npm_build/node_modules/simplified-circulation-web/dist/* ${SIMPLIFIED_STATIC_DIR} \
+ && cp /tmp/npm_build/node_modules/simplified-circulation-web/dist/* ${SIMPLIFIED_STATIC_DIR} \
  && chown -R simplified:simplified ${SIMPLIFIED_STATIC_DIR} \
- && rm -rf /tmp/simplye_npm_build
+ && rm -rf /tmp/npm_build
 
 # Set the value that will be passed as an argument to the entrypoint script
 CMD ["webapp"]
@@ -222,7 +222,6 @@ CMD ["webapp"]
 
 FROM cm_webapp_base AS cm_webapp_local
 ENV FLASK_ENV development
-ENV SIMPLIFIED_RUN_WEBPACK_WATCH 1
 
 ###############################################################################
 ## cm_webapp_active - self-contained version of webapp, for remote deploy

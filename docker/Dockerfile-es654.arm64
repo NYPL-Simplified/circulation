@@ -1,4 +1,4 @@
-FROM arm64v8/centos:7 AS es_arm
+FROM arm64v8/centos:7 AS es_arm_64
 
 ENV ELASTIC_CONTAINER=true
 ENV JAVA_HOME="/usr/lib/jvm/java-11-openjdk-java-home"
