@@ -11,22 +11,12 @@ services:
     volumes:
       - "dbdata:/var/lib/postgresql/data"
   es:
-    # Use the latest version of Elasticsearch supported by Amazon AWS ES.
-    image: docker.elastic.co/elasticsearch/elasticsearch:6.7.2
+    image: 6953d00f5bf7
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
-      - elasticsearch-plugins:/usr/share/elasticsearch/plugins
     ports:
       - "9200:9200"
       - "9300:9300"
-    environment:
-      - discovery.type=single-node
-      - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    command: >
-      /bin/sh -c "./bin/elasticsearch-plugin list | grep -q analysis-icu 
-      || ./bin/elasticsearch-plugin install analysis-icu;
-      /usr/local/bin/docker-entrypoint.sh"
   webapp:
     build:
       context: .
@@ -57,12 +47,9 @@ services:
       - db
     volumes:
       - "script_logs:/var/log/simplified"
-
 volumes:
   dbdata:
   uwsgi_log:
   script_logs:
   elasticsearch-data:
-    driver: local
-  elasticsearch-plugins:
     driver: local

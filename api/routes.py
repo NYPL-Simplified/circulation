@@ -120,14 +120,15 @@ def allows_cors(allowed_domain_type):
             patron_web_domains = app.manager.patron_web_domains
             admin_web_domains = app.manager.admin_web_domains
             
+            web_domains = set();
             if "patron" in allowed_domain_type:
-                web_domains = " ,".join(admin_web_domains.union(patron_web_domains))
-            else:
-                web_domains = admin_web_domains
+                web_domains.update(patron_web_domains)
+            if "admin" in allowed_domain_type:
+                web_domains.update(admin_web_domains)
 
             if web_domains:
                 options = get_cors_options(
-                    app, dict(origins=web_domains,
+                    app, dict(origins=" ,".join(web_domains),
                             supports_credentials=True)
                 )
                 set_cors_headers(resp, options)
