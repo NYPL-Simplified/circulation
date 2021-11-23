@@ -6,8 +6,10 @@
 .DEFAULT_GOAL := help
 
 compose_file = docker-compose.yml
+can_build_active_images = true
 ifeq ($(shell uname -m),arm64)
 	compose_file = docker-compose.arm64.yml
+	can_build_active_images = false
 endif
 compose_command = docker-compose --file $(compose_file)
 
@@ -20,43 +22,44 @@ help:
 	@echo ""
 	@echo "  Local Development, Setup and Teardown:"
 	@echo ""
-	@echo "    setup            - Initialize submodule(s)"
-	@echo "    install          - Run 'setup', then 'build' make recipes"
-	@echo "    build            - Build the local Docker images"
-	@echo "    clean            - Take down the local cluster and removes the db volume"
-	@echo "    full-clean       - Take down the local cluster and remove containers, volumes, and images"
+	@echo "    setup             - Initialize submodule(s)"
+	@echo "    install           - Run 'setup', then 'build' make recipes"
+	@echo "    build             - Build the local Docker images"
+	@echo "    clean             - Take down the local cluster and removes the db volume"
+	@echo "    full-clean        - Take down the local cluster and remove containers, volumes, and images"
 	@echo ""
 	@echo "  Local Development, Cluster Control:"
 	@echo ""
-	@echo "    up               - Bring up the local cluster in detached mode"
-	@echo "    up-watch         - Bring up the local cluster, attach to webapp and scripts"
-	@echo "    up-webapp        - Start the webapp, db, and elasticsearch containers in detached mode"
-	@echo "    up-webapp-watch  - Start the webapp, db, and elasticsearch containers, stay attached"
-	@echo "    up-full          - Bring up the local cluster in detached mode"
-	@echo "    up-full-watch    - Bring up the local cluster, remains attached"
-	@echo "    start            - Start a stopped cluster"
-	@echo "    stop             - Stop the cluster without removing containers"
-	@echo "    down             - Take down the local cluster"
+	@echo "    up                - Bring up the local cluster in detached mode"
+	@echo "    up-watch          - Bring up the local cluster, attach to webapp and scripts"
+	@echo "    up-webapp         - Start the webapp, db, and elasticsearch containers in detached mode"
+	@echo "    up-webapp-watch   - Start the webapp, db, and elasticsearch containers, stay attached"
+	@echo "    up-full           - Bring up the local cluster in detached mode"
+	@echo "    up-full-watch     - Bring up the local cluster, remains attached"
+	@echo "    start             - Start a stopped cluster"
+	@echo "    stop              - Stop the cluster without removing containers"
+	@echo "    down              - Take down the local cluster"
 	@echo ""
 	@echo "  Local Development, Interacting with Running Containers:"
 	@echo ""
-	@echo "    db-session       - Start a psql session as the superuser on the db container"
-	@echo "    webapp-shell     - Open a shell on the webapp container"
-	@echo "    webapp-py-repl   - Start a Python repl session on the webapp container, in the venv"
-	@echo "    scripts-shell    - Open a shell on the scripts container"
-	@echo "    scripts-py-repl  - Start a Python repl session on the scripts container, in the venv"
-	@echo "    test             - Run the python test suite on the webapp container"
-	@echo "    test-x           - Run the python test suite, exit at first failure"
+	@echo "    db-session        - Start a psql session as the superuser on the db container"
+	@echo "    webapp-shell      - Open a shell on the webapp container"
+	@echo "    webapp-py-repl    - Start a Python repl session on the webapp container, in the venv"
+	@echo "    scripts-shell     - Open a shell on the scripts container"
+	@echo "    scripts-py-repl   - Start a Python repl session on the scripts container, in the venv"
+	@echo "    test              - Run the python test suite on the webapp container"
+	@echo "    test-x            - Run the python test suite, exit at first failure"
 	@echo ""
-	@echo "  CI/CD, building 'active' images for deployment:"
+	@echo "  CI/CD, building 'active' images for deployment (usable on amd64 ONLY):"
 	@echo ""
-	@echo "    active-build     - TODO"
-	@echo "    active-up        - TODO"
-	@echo "    active-up-watch  - TODO"
-	@echo "    active-test      - TODO"
-	@echo "    active-test-x    - TODO"
-	@echo "    active-down      - TODO"
-	@echo "    active-clean     - TODO"
+	@echo "    active-build      - Build images based on the docker-compose.cicd.yml file"
+	@echo "    active-up         - Bring up the cluster from the docker-compose.cicd.yml file"
+	@echo "    active-up-watch   - Bring up the cluster from the docker-compose.cicd.yml file, remain attached"
+	@echo "    active-test       - Run the test suite on the active webapp container"
+	@echo "    active-test-x     - Run the test suite on the active webapp container, exit on failure"
+	@echo "    active-down       - Stop the cluster from the docker-compose.cicd.yml file, remove containers"
+	@echo "    active-clean      - Stop the 'active'/cicd cluster, remove containers and volumes"
+	@echo "    active-full-clean - Stop the 'active'/cicd cluster, remove containers, volumes, and images"
 	@echo ""
 
 ##############################################################################
@@ -138,22 +141,57 @@ test-x:
 ##############################################################################
 
 active-build:
-	@echo "TODO: Implement this recipe"
+ifeq ($(can_build_active_images),true)
+	docker-compose --file docker-compose.cicd.yml build
+else
+	@echo "WARNING: active-* recipes can only run on amd64 machines"
+endif
 
 active-up:
-	@echo "TODO: Implement this recipe"
+ifeq ($(can_build_active_images), true)
+	docker-compose --file docker-compose.cicd.yml up -d
+else
+	@echo "WARNING: active-* recipes can only run on amd64 machines"
+endif
 
 active-up-watch:
-	@echo "TODO: Implement this recipe"
+ifeq ($(can_build_active_images),true)
+	docker-compose --file docker-compose.cicd.yml up
+else
+	@echo "WARNING: active-* recipes can only run on amd64 machines"
+endif
 
 active-test:
-	@echo "TODO: Implement this recipe"
+ifeq ($(can_build_active_images),true)
+	docker exec -it --env TESTING=1 cm_active_webapp /usr/local/bin/runinvenv /simplified_venv pytest tests
+else
+	@echo "WARNING: active-* recipes can only run on amd64 machines"
+endif
 
 active-test-x:
-	@echo "TODO: Implement this recipe"
+ifeq ($(can_build_active_images),true)
+	docker exec -it --env TESTING=1 cm_active_webapp /usr/local/bin/runinvenv /simplified_venv pytest -x tests
+else
+	@echo "WARNING: active-* recipes can only run on amd64 machines"
+endif
 
 active-down:
-	@echo "TODO: Implement this recipe"
+ifeq ($(can_build_active_images),true)
+	docker-compose --file docker-compose.cicd.yml down
+else
+	@echo "WARNING: active-* recipes can only run on amd64 machines"
+endif
 
 active-clean:
-	@echo "TODO: Implement this recipe"
+ifeq ($(can_build_active_images),true)
+	docker-compose --file docker-compose.cicd.yml down --volumes
+else
+	@echo "WARNING: active-* recipes can only run on amd64 machines"
+endif
+
+active-full-clean:
+ifeq ($(can_build_active_images),true)
+	docker-compose --file docker-compose.cicd.yml down --volumes --rmi all
+else
+	@echo "WARNING: active-* recipes can only run on amd64 machines"
+endif

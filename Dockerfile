@@ -230,6 +230,8 @@ ENV FLASK_ENV development
 FROM cm_webapp_base AS cm_webapp_active
 ENV FLASK_ENV production
 
+COPY . /home/simplified/circulation/
+
 ###############################################################################
 ## cm_scripts_base - elements common to cm_scripts_local and cm_scripts_active
 ###############################################################################
@@ -264,6 +266,8 @@ ENV FLASK_ENV development
 FROM cm_scripts_base AS cm_scripts_active
 ENV FLASK_ENV production
 
+COPY . /home/simplified/circulation/
+
 ###############################################################################
 ## cm_exec_base - elements common to cm_exec_local and cm_exec_active
 ###############################################################################
@@ -284,3 +288,5 @@ ENV FLASK_ENV development
 
 FROM cm_exec_base AS cm_exec_active
 ENV FLASK_ENV production
+
+COPY . /home/simplified/circulation/
