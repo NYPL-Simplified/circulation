@@ -58,6 +58,9 @@ coverage.xml
 *~
 .env
 
+# pyenv local version setting file
+.python-version
+
 # Special Elasticsearch 6 environment
 es6
 
