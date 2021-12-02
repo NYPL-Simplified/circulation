@@ -653,11 +653,9 @@ def admin_base(**kwargs):
 @app.route('/admin/static/circulation-web.js')
 @returns_problem_detail
 def admin_js():
-    directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "node_modules", "simplified-circulation-web", "dist")
-    return app.manager.static_files.static_file(directory, "circulation-web.js")
+    return app.manager.static_files.static_file(app.static_resources_dir, "circulation-web.js")
 
 @app.route('/admin/static/circulation-web.css')
 @returns_problem_detail
 def admin_css():
-    directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "node_modules", "simplified-circulation-web", "dist")
-    return app.manager.static_files.static_file(directory, "circulation-web.css")
+    return app.manager.static_files.static_file(app.static_resources_dir, "circulation-web.css")

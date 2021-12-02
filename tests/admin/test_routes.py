@@ -39,6 +39,8 @@ class MockAdminApp(object):
     """
     def __init__(self):
         self.manager = MockAdminManager()
+        self.static_resources_dir = Configuration.static_resources_dir()
+
 
 class MockAdminManager(MockManager):
     def __getattr__(self, controller_name):
@@ -834,15 +836,7 @@ class TestAdminStatic(AdminRouteTest):
     def test_static_file(self):
         url = "/admin/static/circulation-web.js"
 
-        # Go to the back to the root folder to get the right
-        # path for the static files.
-        local_path = os.path.abspath(
-            os.path.join(
-                os.path.abspath(os.path.dirname(__file__)),
-                "../..",
-                "api/admin/node_modules/simplified-circulation-web/dist"
-            )
-        )
+        local_path = os.getenv('SIMPLIFIED_STATIC_DIR', '/simplified_static')
 
         self.assert_request_calls(
             url, self.controller.static_file, local_path, "circulation-web.js"
