@@ -467,6 +467,37 @@ class Configuration(ConfigurationConstants):
         return url
 
     @classmethod
+    def static_resources_dir(cls):
+        """
+        Locate the static resources for this installation.
+
+        Default location is /simplified_static. To use a different location, set the value
+        of the SIMPLIFIED_STATIC_DIR environment variable.
+        """
+        default_static_dir = '/simplified_static'
+        static_dir = os.environ.get('SIMPLIFIED_STATIC_DIR')
+        error_msgs = []
+        warning_msgs = []
+
+        if not static_dir:
+            static_dir = default_static_dir
+            warning_msgs.append(f"Env var SIMPLIFIED_STATIC_DIR unset or empty, defaulted to '{static_dir}'.")
+
+        if not os.path.exists(static_dir):
+            error_msgs.append(f"Static resources directory path '{static_dir}' does not exist.")
+        elif not os.path.isdir(static_dir):
+            error_msgs.append(f"Static resources directory path '{static_dir}' not a directory.")
+        elif not len(os.listdir(static_dir)):
+            error_msgs.append(f"Static resources directory path '{static_dir}' exists, but is empty.")
+
+        if error_msgs:
+            raise CannotLoadConfiguration(' '.join(warning_msgs + error_msgs))
+        elif warning_msgs:
+            logging.warning(' '.join(warning_msgs))
+
+        return static_dir
+
+    @classmethod
     def app_version(cls):
         """Returns the git version of the app, if a .version file exists."""
         version = cls.get(cls.APP_VERSION, None)

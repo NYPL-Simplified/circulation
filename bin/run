@@ -1,33 +1,50 @@
 #!/bin/bash
-#
-# Ensures that Library Simplified Circulation Manager scripts don't run
-# if they've already been started elsewhere. It takes the filename of a
-# script as an argument, and should be used to run all Library Simplified
-# scripts, since it creates and checks again a particular PIDFILE.
-#
-# This file should be placed in your Library Simplified Circulation Manager's
-# /bin directory. It assumes your LIBSIMPLE_DIR is /var/www/circulation
-# unless you set the environment variable otherwise.
 
-# Process an optional delay in starting the script. This parameter takes
-# the maximum number of minutes to delay (using sleep) the start of the script
-# to be run. This allows us to stagger script start times in cron so all the
-# scripts don't hit the database at the same time. 
-# example: bin/run -d 12 script
-# Will delay starting the script between 0 - 12 minutes
-while getopts ":d:" opt; do
-  case $opt in
-    d)
-      DELAY=$(($RANDOM % $OPTARG))
-      sleep $(($DELAY * 60))
-      # Fix parameter order for rest of script.
-      shift
-      shift
+THIS_SCRIPTS_NAME="$(basename $0)"
+
+function display_help () {
+  local help_text=''
+  IFS='' read -r -d '' help_text <<EOF
+
+Usage: $THIS_SCRIPTS_NAME [<OPTIONS>] <script-to-execute>
+
+Purpose: Runs a given script if (and only if) it is not running already.
+
+Options:  -h|--help         Display this message and exit.
+
+          -d|--delay <INT>  Delay the start of the <script-to-execute> by
+                            up to <INT> minutes. The actual delay is
+                            random, between 0 and <INT> minutes.
+
+Notes:
+
+    * The <script-to-execute> parameter should be a path relative to
+      either the bin directory of the Circulation Manager, or the bin
+      directory of the core checkout within the Circulation Manager.
+
+    * The script will be executed in the Python virtualenv which is
+      rooted in 
+
+EOF
+
+  print "$help_text"
+}
+
+DELAY_MINUTES=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      display_help; exit 0; ;;
+    -d|--delay)
+      arg_name="$1"
+      shift;
+      [ "$1" -eq "$1" ] 2>/dev/null || (echo "$0 called with $arg_name, but non-integer arg value" && exit 1)
+      DELAY_MINUTES="$1";            
+      shift;
       ;;
-    :)
-      echo "Option -$OPTARG requires an argument."
-      exit 127
-      ;;
+    *)
+      break; ;;
   esac
 done
 
@@ -40,23 +57,18 @@ if [[ -z "$SCRIPT_PATH" ]]; then
   exit 126
 fi
 
-# Grab the script name for logging purposes.
+# Grab the script name for logging purposes, shift it off
 SCRIPT_NAME=$(basename $SCRIPT_PATH)
-
-# Shift so any remaining arguments can be passed to the script itself.
 shift
 
-piddir=/var/run/simplified
-pidfile=$piddir/$SCRIPT_NAME.pid
-logdir=/var/log/simplified
-logfile=$logdir/$SCRIPT_NAME.log
-
-# Assume this run file is the Library Simplified directory/core/bin
-# unless the Library Simplified directory has been set as an environment
-# variable $LIBSIMPLE_DIR
-if [[ -z "$LIBSIMPLE_DIR" ]]; then
-  LIBSIMPLE_DIR=$(dirname $(dirname $(dirname $0)))
-fi
+CORE_BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd)"
+CM_REPO_ROOT="$( cd $CORE_BIN_DIR/../.. >/dev/null 2>&1 && pwd)"
+CM_BIN_DIR="${CM_REPO_ROOT}/bin"
+SIMPLIFIED_VENV="${SIMPLIFIED_VENV:-/simplified_venv}"
+PID_DIR=/var/run/simplified
+PID_FILE=${PID_DIR}/${SCRIPT_NAME}.pid
+LOG_DIR=/var/log/simplified
+LOG_FILE=${LOG_DIR}/${SCRIPT_NAME}.log
 
 create_dir () {
   local dir="$1"
@@ -85,29 +97,29 @@ create_pidfile () {
 }
 
 # Create a directory for Library Simplified PID files
-create_dir $piddir
+create_dir $PID_DIR
 
 # Check that the script exists.
-FULL_SCRIPT_PATH=$LIBSIMPLE_DIR/bin/$SCRIPT_PATH
-if [[ ! -f $FULL_SCRIPT_PATH ]]; then
+FULL_SCRIPT_PATH=$CM_BIN_DIR/$SCRIPT_PATH
 
+if [[ ! -f $FULL_SCRIPT_PATH ]]; then
   # The script isn't in the main app bin. Try core.
-  FULL_SCRIPT_PATH=$LIBSIMPLE_DIR/core/bin/$SCRIPT_PATH
+  FULL_SCRIPT_PATH=$CORE_BIN_DIR/$SCRIPT_PATH
   if [[ ! -f $FULL_SCRIPT_PATH ]]; then
-    echo "$SCRIPT_PATH wasn't found in $LIBSIMPLE_DIR/bin or $LIBSIMPLE_DIR/core/bin"
+    echo "$SCRIPT_PATH wasn't found in $CM_BIN_DIR or $CORE_BIN_DIR"
     exit 1
   else
     # This script is in core. Update the log- and pidfiles to reflect this.
     core_prefix='core-'
     new_filename="$core_prefix$SCRIPT_NAME"
-    pidfile="${pidfile/$SCRIPT_NAME/$new_filename}"
-    logfile="${logfile/$SCRIPT_NAME/$new_filename}"
+    PID_FILE="${PID_FILE/$SCRIPT_NAME/$new_filename}"
+    LOG_FILE="${LOG_FILE/$SCRIPT_NAME/$new_filename}"
   fi
 fi
 
 # Confirm that process isn't still running && create PID file
-if [[ -f $pidfile ]]; then
-  pid=$(cat $pidfile)
+if [[ -f ${PID_FILE} ]]; then
+  pid=$(cat $PID_FILE)
   ps -p $pid > /dev/null 2>&1
   if [[ $? -eq 0 ]]; then
     # Last recorded PID was found in running processes
@@ -115,17 +127,17 @@ if [[ -f $pidfile ]]; then
     exit 1
   else
     # Last recorded PID not running
-    create_pidfile $$ $pidfile
+    create_pidfile $$ $PID_FILE
   fi
 else
   # No PID file; assume script not running
-  create_pidfile $$ $pidfile
+  create_pidfile $$ $PID_FILE
 fi
 
 # Create a log file for this script if one doesn't exist
-create_dir $logdir
-if [[ ! -f $logfile ]]; then
-    touch $logfile
+create_dir $LOG_DIR
+if [[ ! -f $LOG_FILE ]]; then
+  touch $LOG_FILE
 fi
 
 # Force Python scripts not to write .pyc files
@@ -133,9 +145,8 @@ export PYTHONDONTWRITEBYTECODE=1
 
 # Run the script and append its output to its log file.
 echo "Running $SCRIPT_NAME (PID: $$)"
-source $LIBSIMPLE_DIR/env/bin/activate && \
-  $FULL_SCRIPT_PATH "$@" >> $logfile 2>&1
+source $SIMPLIFIED_VENV/bin/activate && $FULL_SCRIPT_PATH "$@" >> $LOG_FILE 2>&1
 
 # When it's done, remove the PID file.
-rm $pidfile
+rm $PID_FILE
 exit 0
