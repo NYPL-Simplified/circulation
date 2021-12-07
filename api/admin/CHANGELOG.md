@@ -3,6 +3,11 @@ version number, and is separate from the CHANGELOG at this repository's root.
 
 ## Changelog
 
+### v0.1.8
+
+#### Updated
+
+- Updated simplified-circulation-web version number to v0.5.10.
 ### v0.1.7
 
 #### Updated
