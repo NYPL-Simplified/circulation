@@ -5900,7 +5900,8 @@ class TestStaticFileController(CirculationControllerTest):
             expected_content = f.read()
 
         with self.app.test_request_context("/"):
-            response = self.app.manager.static_files.image(filename)
+            images_dir = f"{app.static_resources_dir}/images"
+            response = self.app.manager.static_files.static_file(images_dir, filename)
 
         assert 200 == response.status_code
         assert expected_content == response.response.file.read()

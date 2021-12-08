@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+
+  database:
+    container_name: cm_active_db
+    build:
+      context: .
+      target: cm_active_db
+    ports:
+      - "5434:5434"
+    environment:
+      - PGPORT=5434
+
+  elasticsearch:
+    # Use the latest version of Elasticsearch supported by Amazon AWS ES.
+    container_name: cm_active_es
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.7.2
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    command: >
+      /bin/sh -c "./bin/elasticsearch-plugin list | grep -q analysis-icu 
+      || ./bin/elasticsearch-plugin install analysis-icu; tail -f /dev/null"
+
+  scripts:
+    container_name: cm_active_scripts
+    depends_on:
+      - database
+      - elasticsearch
+    build:
+      context: .
+      target: cm_scripts_active
+    environment:
+      SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:simplified@cm_active_db:5434/simplified_circulation_dev
+      SIMPLIFIED_TEST_DATABASE: postgres://simplified_test:simplified_test@cm_active_db:5434/simplified_circulation_test
+
+  webapp:
+    container_name: cm_active_webapp
+    depends_on:
+      - database
+      - elasticsearch
+    build:
+      context: .
+      target: cm_webapp_active
+    environment:
+      SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:simplified@cm_active_db:5434/simplified_circulation_dev
+      SIMPLIFIED_TEST_DATABASE: postgres://simplified_test:simplified_test@cm_active_db:5434/simplified_circulation_test
+    ports:
+      - 80:80

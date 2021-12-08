@@ -13,8 +13,12 @@ from sqlalchemy.orm import sessionmaker
 from .config import Configuration
 from core.model import (
     ConfigurationSetting,
+    ExternalIntegration,
+    Library,
     SessionManager,
+    create,
 )
+from core.external_search import ExternalSearchIndex
 from core.log import LogConfiguration
 from core.util import LanguageCodes
 from flask_babel import Babel
@@ -22,6 +26,7 @@ from flask_babel import Babel
 
 app = Flask(__name__)
 app._db = None
+app.static_resources_dir = Configuration.static_resources_dir()
 app.config['BABEL_DEFAULT_LOCALE'] = LanguageCodes.three_to_two[Configuration.localization_languages()[0]]
 app.config['BABEL_TRANSLATION_DIRECTORIES'] = "../translations"
 babel = Babel(app)
@@ -42,6 +47,30 @@ def initialize_database(autoinitialize=True):
     app.config['DEBUG'] = debug
     app.debug = debug
     _db.commit()
+
+    # If no global ElasticSearch integration exists in the database, and an ES URL
+    # is provided in the environment, create an integration based on that.    
+    es_integrations = _db.query(ExternalIntegration).filter(
+        ExternalIntegration.protocol==ExternalIntegration.ELASTICSEARCH,
+        ExternalIntegration.goal==ExternalIntegration.SEARCH_GOAL
+    ).filter(Library.id==None).all()
+    es_url_from_env = os.environ.get('SIMPLIFIED_ELASTICSEARCH_URL')
+
+    if not es_integrations and not testing and es_url_from_env:        
+        (es_integration, _) = create(
+            _db,
+            ExternalIntegration,
+            name="LocalDevElasticSearch",
+            goal=ExternalIntegration.SEARCH_GOAL,
+            protocol=ExternalIntegration.ELASTICSEARCH
+        )
+        es_integration.set_setting("url", es_url_from_env)
+        es_integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY,
+                                   ExternalSearchIndex.DEFAULT_WORKS_INDEX_PREFIX)
+        es_integration.set_setting(ExternalSearchIndex.TEST_SEARCH_TERM_KEY,
+                                   ExternalSearchIndex.DEFAULT_TEST_SEARCH_TERM)
+        _db.commit()
+
     logging.getLogger().info("Application debug mode==%r" % app.debug)
 
 from . import routes
