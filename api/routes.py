@@ -18,6 +18,7 @@ from .app import app, babel
 # we never want werkzeug's merge_slashes feature.
 app.url_map.merge_slashes = False
 
+from .authenticator import BearerTokenSigner
 from .config import Configuration
 from core.app_server import (
     ErrorHandler,
@@ -48,6 +49,20 @@ def initialize_circulation_manager():
             # Make sure that any changes to the database (as might happen
             # on initial setup) are committed before continuing.
             app.manager._db.commit()
+
+@app.before_first_request
+def initialize_app_settings():
+    _db = app.manager._db
+
+    bearer_token_signing_secrets = [
+        token.value for token in
+        _db.query(ConfigurationSetting).filter(
+            ConfigurationSetting.key==Configuration.BEARER_TOKEN_SIGNING_SECRET
+        ).all()
+    ] or os.environ.get('SIMPLIFIED_BEARER_TOKEN_SECRET')
+
+    if not bearer_token_signing_secrets:
+        BearerTokenSigner.bearer_token_signing_secret(_db)
 
 @babel.localeselector
 def get_locale():
