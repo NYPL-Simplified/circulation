@@ -52,17 +52,8 @@ def initialize_circulation_manager():
 
 @app.before_first_request
 def initialize_app_settings():
-    _db = app.manager._db
-
-    bearer_token_signing_secrets = [
-        token.value for token in
-        _db.query(ConfigurationSetting).filter(
-            ConfigurationSetting.key==Configuration.BEARER_TOKEN_SIGNING_SECRET
-        ).all()
-    ] or os.environ.get('SIMPLIFIED_BEARER_TOKEN_SECRET')
-
-    if not bearer_token_signing_secrets:
-        BearerTokenSigner.bearer_token_signing_secret(_db)
+    # Finds or generates a site-wide bearer token signing secret
+    BearerTokenSigner.bearer_token_signing_secret(app.manager._db)
 
 @babel.localeselector
 def get_locale():
