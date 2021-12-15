@@ -37,4 +37,6 @@ jobs:
           pip install tox tox-gh-actions tox-docker
           
       - name: Run Tests
-        run: tox
+        run: |
+          export SIMPLIFIED_STATIC_DIR="$(pwd)/resources"
+          tox
