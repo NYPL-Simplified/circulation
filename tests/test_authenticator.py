@@ -603,7 +603,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         assert auth.basic_auth_provider != None
         assert isinstance(auth.basic_auth_provider, MilleniumPatronAPI)
-        assert {} == auth.oauth_providers_by_name
+        assert {} == auth.providers_by_name
 
     def test_from_config_basic_auth_and_oauth(self):
         library = self._default_library
@@ -630,8 +630,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
                           FirstBookAuthenticationAPI)
         assert analytics == auth.basic_auth_provider.analytics
 
-        assert 1 == len(auth.oauth_providers_by_name)
-        clever = auth.oauth_providers_by_name[
+        assert 1 == len(auth.providers_by_name)
+        clever = auth.providers_by_name[
             CleverAuthenticationAPI.NAME
         ]
         assert isinstance(clever, CleverAuthenticationAPI)
@@ -692,7 +692,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         # The LibraryAuthenticator exists but has no AuthenticationProviders.
         assert None == auth.basic_auth_provider
-        assert {} == auth.oauth_providers_by_name
+        assert {} == auth.providers_by_name
 
         # Both integrations have left their trace in
         # initialization_exceptions.
@@ -772,8 +772,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         self._default_library.integrations.append(oauth)
         auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
         auth.register_provider(oauth)
-        assert 1 == len(auth.oauth_providers_by_name)
-        clever = auth.oauth_providers_by_name[
+        assert 1 == len(auth.providers_by_name)
+        clever = auth.providers_by_name[
             CleverAuthenticationAPI.NAME
         ]
         assert isinstance(clever, CleverAuthenticationAPI)
@@ -808,7 +808,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # without providing a secret.
         with pytest.raises(CannotLoadConfiguration) as excinfo:
             LibraryAuthenticator(_db=self._db, library=self._default_library, oauth_providers=[oauth])
-        assert "OAuth providers are configured, but secret for signing bearer tokens is not." in str(excinfo.value)
+        assert "The secret for signing bearer tokens is not configured." in str(excinfo.value)
 
     def test_supports_patron_authentication(self):
         authenticator = LibraryAuthenticator.from_config(
@@ -829,7 +829,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         authenticator.basic_auth_provider = None
 
         # So will adding an OAuth provider.
-        authenticator.oauth_providers_by_name[object()] = object()
+        authenticator.providers_by_name[object()] = object()
         assert True == authenticator.supports_patron_authentication
 
     def test_identifies_individuals(self):
@@ -987,7 +987,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         problem = authenticator.authenticated_patron(
             self._db, "Bearer abcd"
         )
-        assert UNSUPPORTED_AUTHENTICATION_MECHANISM == problem
+        assert INVALID_OAUTH_BEARER_TOKEN == problem
 
     def test_authenticated_patron_oauth(self):
         patron1 = self._patron()
