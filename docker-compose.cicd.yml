@@ -35,6 +35,8 @@ services:
     build:
       context: .
       target: cm_scripts_active
+      labels:
+        - "com.nypl.docker.imagename=circ_manager_scripts"
     environment:
       SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:simplified@cm_active_db:5434/simplified_circulation_dev
       SIMPLIFIED_TEST_DATABASE: postgres://simplified_test:simplified_test@cm_active_db:5434/simplified_circulation_test
@@ -47,6 +49,8 @@ services:
     build:
       context: .
       target: cm_webapp_active
+      labels:
+        - "com.nypl.docker.imagename=circ_manager_webapp"
     environment:
       SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:simplified@cm_active_db:5434/simplified_circulation_dev
       SIMPLIFIED_TEST_DATABASE: postgres://simplified_test:simplified_test@cm_active_db:5434/simplified_circulation_test
