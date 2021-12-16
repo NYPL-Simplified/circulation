@@ -543,7 +543,7 @@ class TestAuthenticator(ControllerTest):
                 return "credential for %s" % self.name
             def create_bearer_token(self, *args, **kwargs):
                 return "bearer token for %s" % self.name
-            def oauth_provider_lookup(self, *args, **kwargs):
+            def bearer_token_provider_lookup(self, *args, **kwargs):
                 return "oauth provider for %s" % self.name
             def decode_bearer_token(self, *args, **kwargs):
                 return "decoded bearer token for %s" % self.name
@@ -566,7 +566,7 @@ class TestAuthenticator(ControllerTest):
             assert LIBRARY_NOT_FOUND == auth.create_authentication_headers()
             assert LIBRARY_NOT_FOUND == auth.get_credential_from_header({})
             assert LIBRARY_NOT_FOUND == auth.create_bearer_token()
-            assert LIBRARY_NOT_FOUND == auth.oauth_provider_lookup()
+            assert LIBRARY_NOT_FOUND == auth.bearer_token_provider_lookup()
 
         # The other libraries are in the authenticator.
         with self.app.test_request_context("/"):
@@ -576,7 +576,7 @@ class TestAuthenticator(ControllerTest):
             assert "authentication headers for l1" == auth.create_authentication_headers()
             assert "credential for l1" == auth.get_credential_from_header({})
             assert "bearer token for l1" == auth.create_bearer_token()
-            assert "oauth provider for l1" == auth.oauth_provider_lookup()
+            assert "oauth provider for l1" == auth.bearer_token_provider_lookup()
             assert "decoded bearer token for l1" == auth.decode_bearer_token()
 
         with self.app.test_request_context("/"):
@@ -586,7 +586,7 @@ class TestAuthenticator(ControllerTest):
             assert "authentication headers for l2" == auth.create_authentication_headers()
             assert "credential for l2" == auth.get_credential_from_header({})
             assert "bearer token for l2" == auth.create_bearer_token()
-            assert "oauth provider for l2" == auth.oauth_provider_lookup()
+            assert "oauth provider for l2" == auth.bearer_token_provider_lookup()
             assert "decoded bearer token for l2" == auth.decode_bearer_token()
 
 
@@ -763,7 +763,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             auth.basic_auth_provider, FirstBookAuthenticationAPI
         )
 
-    def test_register_oauth_provider(self):
+    def test_register_bearer_token_auth_provider(self):
         oauth = self._external_integration(
             "api.clever", ExternalIntegration.PATRON_AUTH_GOAL,
         )
@@ -910,15 +910,15 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             authenticator.register_basic_auth_provider(basic2)
         assert "Two basic auth providers configured" in str(excinfo.value)
 
-        authenticator.register_oauth_provider(oauth1)
-        authenticator.register_oauth_provider(oauth1)
-        authenticator.register_oauth_provider(oauth2)
+        authenticator.register_bearer_token_auth_provider(oauth1)
+        authenticator.register_bearer_token_auth_provider(oauth1)
+        authenticator.register_bearer_token_auth_provider(oauth2)
 
         with pytest.raises(CannotLoadConfiguration) as excinfo:
-            authenticator.register_oauth_provider(oauth1_dupe)
+            authenticator.register_bearer_token_auth_provider(oauth1_dupe)
         assert 'Two different OAuth providers claim the name "provider1"' in str(excinfo.value)
 
-    def test_oauth_provider_lookup(self):
+    def test_bearer_token_provider_lookup(self):
 
         # If there are no OAuth providers we cannot look one up.
         integration = self._external_integration(self._str)
@@ -930,9 +930,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             library=self._default_library,
             basic_auth_provider=basic
         )
-        problem = authenticator.oauth_provider_lookup("provider1")
+        problem = authenticator.bearer_token_provider_lookup("provider1")
         assert problem.uri == UNKNOWN_OAUTH_PROVIDER.uri
-        assert _("No OAuth providers are configured.") == problem.detail
+        assert _("No relevant providers are configured.") == problem.detail
 
         # We can look up registered providers but not unregistered providers.
         oauth1 = MockOAuthAuthenticationProvider(self._default_library, "provider1")
@@ -945,10 +945,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             bearer_token_signing_secret='foo'
         )
 
-        provider = authenticator.oauth_provider_lookup("provider1")
+        provider = authenticator.bearer_token_provider_lookup("provider1")
         assert oauth1 == provider
 
-        problem = authenticator.oauth_provider_lookup("provider3")
+        problem = authenticator.bearer_token_provider_lookup("provider3")
         assert problem.uri == UNKNOWN_OAUTH_PROVIDER.uri
         assert (
             _("The specified OAuth provider name isn't one of the known providers. The known providers are: provider1, provider2") ==

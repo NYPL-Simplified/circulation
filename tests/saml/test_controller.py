@@ -196,7 +196,7 @@ class TestSAMLController(ControllerTest):
         provider.library = MagicMock(return_value=self._default_library)
         authenticator = Authenticator(self._db)
 
-        authenticator.library_authenticators["default"].register_saml_provider(provider)
+        authenticator.library_authenticators["default"].register_bearer_token_auth_provider(provider)
 
         controller = SAMLController(self.app.manager, authenticator)
         params = {}
@@ -384,7 +384,7 @@ class TestSAMLController(ControllerTest):
         provider.saml_callback = MagicMock(return_value=saml_callback_result)
         authenticator = Authenticator(self._db)
 
-        authenticator.library_authenticators["default"].register_saml_provider(provider)
+        authenticator.library_authenticators["default"].register_bearer_token_auth_provider(provider)
         authenticator.bearer_token_signing_secret = "test"
         authenticator.library_authenticators[
             "default"

@@ -562,14 +562,9 @@ class Authenticator(object):
             "create_bearer_token", *args, **kwargs
         )
 
-    def oauth_provider_lookup(self, *args, **kwargs):
+    def bearer_token_provider_lookup(self, *args, **kwargs):
         return self.invoke_authenticator_method(
-            "oauth_provider_lookup", *args, **kwargs
-        )
-
-    def saml_provider_lookup(self, *args, **kwargs):
-        return self.invoke_authenticator_method(
-            "saml_provider_lookup", *args, **kwargs
+            "bearer_token_provider_lookup", *args, **kwargs
         )
 
     def decode_bearer_token(self, *args, **kwargs):
@@ -770,10 +765,8 @@ class LibraryAuthenticator(object):
             self.register_basic_auth_provider(provider)
             # TODO: Run a self-test, or at least check that we have
             # the ability to run one.
-        elif issubclass(provider_class, OAuthAuthenticationProvider):
-            self.register_oauth_provider(provider)
-        elif issubclass(provider_class, BaseSAMLAuthenticationProvider):
-            self.register_saml_provider(provider)
+        elif issubclass(provider_class, (OAuthAuthenticationProvider, BaseSAMLAuthenticationProvider)):
+            self.register_bearer_token_auth_provider(provider)
         else:
             raise CannotLoadConfiguration(
                 "Authentication provider %s is neither a BasicAuthenticationProvider nor an OAuthAuthenticationProvider. I can create it, but not sure where to put it." % provider_class
@@ -787,25 +780,13 @@ class LibraryAuthenticator(object):
             )
         self.basic_auth_provider = provider
 
-    def register_oauth_provider(self, provider):
+    def register_bearer_token_auth_provider(self, provider):
         already_registered = self.providers_by_name.get(
             provider.NAME
         )
         if already_registered and already_registered != provider:
             raise CannotLoadConfiguration(
                 'Two different OAuth providers claim the name "%s"' % (
-                    provider.NAME
-                )
-            )
-        self.providers_by_name[provider.NAME] = provider
-
-    def register_saml_provider(self, provider):
-        already_registered = self.providers_by_name.get(
-            provider.NAME
-        )
-        if already_registered and already_registered != provider:
-            raise CannotLoadConfiguration(
-                'Two different SAML providers claim the name "%s"' % (
                     provider.NAME
                 )
             )
@@ -892,48 +873,6 @@ class LibraryAuthenticator(object):
             possibilities = ", ".join(list(self.providers_by_name.keys()))
             return UNKNOWN_OAUTH_PROVIDER.detailed(
                 UNKNOWN_OAUTH_PROVIDER.detail +
-                _(" The known providers are: %s") % possibilities
-            )
-        return self.providers_by_name[provider_name]
-
-    def oauth_provider_lookup(self, provider_name):
-        """Look up the OAuthAuthenticationProvider with the given name. If that
-        doesn't work, return an appropriate ProblemDetail.
-        """
-        if not self.providers_by_name:
-            # We don't support OAuth at all.
-            return UNKNOWN_OAUTH_PROVIDER.detailed(
-                _("No OAuth providers are configured.")
-            )
-
-        if (not provider_name
-            or not provider_name in self.providers_by_name):
-            # The patron neglected to specify a provider, or specified
-            # one we don't support.
-            possibilities = ", ".join(list(self.providers_by_name.keys()))
-            return UNKNOWN_OAUTH_PROVIDER.detailed(
-                UNKNOWN_OAUTH_PROVIDER.detail +
-                _(" The known providers are: %s") % possibilities
-            )
-        return self.providers_by_name[provider_name]
-
-    def saml_provider_lookup(self, provider_name):
-        """Look up the SAMLAuthenticationProvider with the given name. If that
-        doesn't work, return an appropriate ProblemDetail.
-        """
-        if not self.providers_by_name:
-            # We don't support OAuth at all.
-            return UNKNOWN_SAML_PROVIDER.detailed(
-                _("No SAML providers are configured.")
-            )
-
-        if (not provider_name
-            or not provider_name in self.providers_by_name):
-            # The patron neglected to specify a provider, or specified
-            # one we don't support.
-            possibilities = ", ".join(list(self.providers_by_name.keys()))
-            return UNKNOWN_SAML_PROVIDER.detailed(
-                UNKNOWN_SAML_PROVIDER.detail +
                 _(" The known providers are: %s") % possibilities
             )
         return self.providers_by_name[provider_name]
@@ -2541,7 +2480,7 @@ class OAuthController(object):
         """
         redirect_uri = params.get('redirect_uri', '')
         provider_name = params.get('provider')
-        provider = self.authenticator.oauth_provider_lookup(provider_name)
+        provider = self.authenticator.bearer_token_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):
             return self._redirect_with_error(redirect_uri, provider)
         state = dict(
@@ -2579,7 +2518,7 @@ class OAuthController(object):
         state = json.loads(urllib.parse.unquote(state))
         client_redirect_uri = state.get('redirect_uri') or ""
         provider_name = state.get('provider')
-        provider = self.authenticator.oauth_provider_lookup(provider_name)
+        provider = self.authenticator.bearer_token_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):
             return self._redirect_with_error(client_redirect_uri, provider)
 
