@@ -39,6 +39,7 @@ services:
     environment:
       SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:simplified@cm_local_db:5434/simplified_circulation_dev
       SIMPLIFIED_TEST_DATABASE: postgres://simplified_test:simplified_test@cm_local_db:5434/simplified_circulation_test
+      SIMPLIFIED_ELASTICSEARCH_URL: http://cm_local_es:9200
     volumes:
       - "cm_local_script_logs:/var/log/simplified"
       - type: bind
@@ -72,3 +73,4 @@ volumes:
   cm_local_gunicorn_log:
   cm_local_script_logs:
   es_data:
+
