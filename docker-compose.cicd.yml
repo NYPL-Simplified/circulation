@@ -6,7 +6,7 @@ services:
     container_name: cm_active_db
     build:
       context: .
-      target: cm_active_db
+      target: cm_local_db
     ports:
       - "5434:5434"
     environment:
