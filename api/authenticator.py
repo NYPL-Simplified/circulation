@@ -615,7 +615,7 @@ class LibraryAuthenticator(object):
                 )
                 authenticator.initialization_exceptions[integration.id] = e
 
-        if authenticator.providers_by_name:
+        if authenticator.providers_by_name or authenticator.basic_auth_provider:
             # NOTE: this will immediately commit the database session,
             # which may not be what you want during a test. To avoid
             # this, you can create the bearer token signing secret as
@@ -2587,3 +2587,37 @@ class BaseSAMLAuthenticationProvider(AuthenticationProvider, BearerTokenSigner, 
     SETTINGS = SAMLSettings()
 
     LIBRARY_SETTINGS = []
+
+
+class BasicAuthTempTokenController(object):
+    """A controller that handles requests for issuing temporary tokens
+    to HTTP Basic Auth credentials.
+    """
+
+    def __init__(self, authenticator):
+        self.authenticator = authenticator
+
+    def basic_auth_temp_token(self, params, _db):
+        """Generate and return a temporary token from HTTP Basic Auth credentials.
+        """
+        patron = self.authenticator.authenticated_patron(_db, flask.request.authorization)
+
+        if isinstance(patron, ProblemDetail):
+            # There was a problem turning the authorization header
+            # into a valid patron.
+            return patron
+
+        if isinstance(patron, Patron):
+            # Create a temporary inner token with a lifetime of 1 hour
+            duration = datetime.timedelta(seconds=3600)
+            data_source = None
+            provider = params.get('provider')
+            token_type = 'HTTP Basic'
+            inner_token, _ = Credential.temporary_token_create(
+                _db, data_source, token_type, patron, duration
+            )
+
+            # Wrap the inner token with the provider name
+            outer_token = self.authenticator.create_bearer_token(provider, inner_token.credential)
+
+        return outer_token
