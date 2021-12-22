@@ -37,6 +37,7 @@ from api.rbdigital import (
 from api.saml.controller import SAMLController
 from .authenticator import (
     Authenticator,
+    BasicAuthTempTokenController,
     CirculationPatronProfileStorage,
     OAuthController,
 )
@@ -452,6 +453,7 @@ class CirculationManager(object):
         This method will be called fresh every time the site
         configuration changes.
         """
+        self.basic_auth_controller = BasicAuthTempTokenController(self.auth)
         self.oauth_controller = OAuthController(self.auth)
         self.saml_controller = SAMLController(self, self.auth)
 

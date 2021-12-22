@@ -621,6 +621,15 @@ def adobe_drm_devices():
 def adobe_drm_device(device_id):
     return app.manager.adobe_device_management.device_id_handler(device_id)
 
+# Route that issues temporary tokens for Basic HTTP Auth
+@library_route('/http_basic_auth_token')
+@has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
+@requires_auth
+@returns_problem_detail
+def http_basic_auth_token():
+    return app.manager.basic_auth_controller.basic_auth_temp_token(flask.request.args, app.manager._db)
+
 # Route that redirects to the authentication URL for an OAuth provider
 @library_route('/oauth_authenticate')
 @has_library
