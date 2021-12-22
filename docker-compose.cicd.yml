@@ -56,3 +56,4 @@ services:
       SIMPLIFIED_TEST_DATABASE: postgres://simplified_test:simplified_test@cm_active_db:5434/simplified_circulation_test
     ports:
       - 80:80
+
