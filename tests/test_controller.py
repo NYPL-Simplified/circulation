@@ -26,6 +26,7 @@ from api.adobe_vendor_id import AuthdataUtility, DeviceManagementProtocolControl
 from api.annotations import AnnotationWriter
 from api.app import app, initialize_database
 from api.authenticator import (
+    BearerTokenSigner,
     CirculationPatronProfileStorage,
     LibraryAuthenticator,
     OAuthController,
@@ -5791,6 +5792,10 @@ class TestScopedSession(ControllerTest):
 
     def test_scoped_session(self):
         # Start a simulated request to the Flask app server.
+
+        # This sets up a bearer token signing secret outside the
+        # transaction rollbacks that is needed to avoid ResourceClosedError
+        BearerTokenSigner.bearer_token_signing_secret(self.app._db)
 
         with self.test_request_context_and_transaction("/"):
             # Each request is given its own database session distinct
