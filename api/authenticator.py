@@ -812,14 +812,11 @@ class LibraryAuthenticator(object):
             credentials do not authenticate any particular patron. A
             ProblemDetail if an error occurs.
         """
-        if (self.basic_auth_provider
-            and isinstance(header, dict) and 'username' in header):
-            # The patron wants to authenticate with the
-            # BasicAuthenticationProvider.
-            return self.basic_auth_provider.authenticated_patron(_db, header)
+        # Set provider_name and provider_token so it can be referenced
+        # in the basic auth provider check.
+        provider_name, provider_token = None, None
 
-        elif isinstance(header, (bytes, str)) and 'bearer' in header.lower():
-            # The patron wants to authenticate with a bearer token
+        if isinstance(header, (bytes, str)):
             try:
                 provider_name, provider_token = self.decode_bearer_token_from_header(
                     header
@@ -827,6 +824,19 @@ class LibraryAuthenticator(object):
             except jwt.exceptions.InvalidTokenError:
                 return INVALID_OAUTH_BEARER_TOKEN
 
+        if (self.basic_auth_provider
+            and (
+                    (isinstance(header, dict) and 'username' in header)
+                    or provider_name == BasicAuthenticationProvider.BEARER_TOKEN_PROVIDER_NAME
+                )
+            ):
+            # The patron wants to authenticate with the BasicAuthenticationProvider.
+            if provider_token:
+                header = provider_token
+            return self.basic_auth_provider.authenticated_patron(_db, header)
+
+        elif isinstance(header, (bytes, str)) and 'bearer' in header.lower():
+            # The patron wants to authenticate with a bearer token
             provider = self.bearer_token_provider_lookup(provider_name)
             if isinstance(provider, ProblemDetail):
                 # There was a problem turning the provider name into
@@ -1875,11 +1885,45 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     def authenticate(self, _db, credentials):
         """Turn a set of credentials into a Patron object.
 
-        :param credentials: A dictionary with keys `username` and `password`.
+        :param credentials:
+            A dictionary with keys `username` and `password`
+            or a bearer token string.
 
         :return: A Patron if one can be authenticated; a ProblemDetail
             if an error occurs; None if the credentials are missing or wrong.
         """
+        if isinstance(credentials, str):
+            return self._authenticate_from_token(_db, credentials)
+
+        elif isinstance(credentials, dict):
+            return self._authenticate_from_credentials(_db, credentials)
+
+    def _authenticate_from_token(self, _db, credentials):
+        """Turn a bearer token into a Patron object.
+
+        :param credentials: A bearer token string
+
+        :return: A Patron if one can be looked up; a ProblemDetail
+            if an error occurs.
+        """
+        credential = Credential.lookup_by_token(
+            _db, None, BasicAuthenticationProvider.TOKEN_TYPE, credentials
+        )
+
+        if isinstance(credential, Credential):
+            return credential.patron
+        else:
+            return EXPIRED_HTTP_BASIC_BEARER_TOKEN
+
+    def _authenticate_from_credentials(self, _db, credentials):
+        """Turn a dict of credentials into a Patron object.
+
+        :param credentials: A dictionary with keys 'username' and 'password'.
+
+        "return: A Patron if one can be authenticated; a ProblemDetail
+            if an error occurs; None if the credentials are missing or wrong.
+        """
+
         username = self.scrub_credential(credentials.get('username'))
         password = self.scrub_credential(credentials.get('password'))
         server_side_validation_result = self.server_side_validation(
