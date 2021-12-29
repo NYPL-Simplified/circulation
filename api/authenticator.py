@@ -1589,6 +1589,8 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     AUTHENTICATION_REALM = _("Library card")
     FLOW_TYPE = "http://opds-spec.org/auth/basic"
     NAME = 'Generic Basic Authentication provider'
+    BEARER_TOKEN_PROVIDER_NAME = 'HTTPBasicBearerToken'
+    TOKEN_TYPE = 'HTTP Basic'
 
     # By default, patron identifiers can only contain alphanumerics and
     # a few other characters. By default, there are no restrictions on
@@ -2655,8 +2657,8 @@ class BasicAuthTempTokenController(object):
             # Create a temporary inner token with a lifetime of 1 hour
             duration = datetime.timedelta(seconds=3600)
             data_source = None
-            provider = params.get('provider')
-            token_type = 'HTTP Basic'
+            provider = BasicAuthenticationProvider.BEARER_TOKEN_PROVIDER_NAME
+            token_type = BasicAuthenticationProvider.TOKEN_TYPE
             inner_token, _ = Credential.temporary_token_create(
                 _db, data_source, token_type, patron, duration
             )
