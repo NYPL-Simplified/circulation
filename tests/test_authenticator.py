@@ -49,6 +49,7 @@ from api.authenticator import (
     LibraryAuthenticator,
     AuthenticationProvider,
     BasicAuthenticationProvider,
+    BasicAuthTempTokenController,
     OAuthController,
     OAuthAuthenticationProvider,
     PatronData,
@@ -2836,3 +2837,53 @@ class TestOAuthController(AuthenticatorTest):
             self._db, "Bearer - this is a bad token"
         )
         assert INVALID_OAUTH_BEARER_TOKEN == problem
+
+
+class TestBasicAuthTempTokenController(AuthenticatorTest):
+
+    def setup_method(self):
+        super(TestBasicAuthTempTokenController, self).setup_method()
+
+        patron = self._patron()
+        patrondata = PatronData(
+            permanent_id=patron.external_identifier,
+            authorization_identifier=patron.authorization_identifier,
+            username=patron.username, neighborhood="Achewood"
+        )
+        integration = self._external_integration(self._str)
+        basic = MockBasicAuthenticationProvider(
+            self._default_library, integration, patron=patron,
+            patrondata=patrondata
+        )
+
+        self.auth = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
+            basic_auth_provider=basic,
+            bearer_token_signing_secret="a secret"
+        )
+
+        self.controller = BasicAuthTempTokenController(self.auth)
+
+    def test_basic_auth_temp_token(self):
+        # Move these when done
+        import base64
+        from api.app import app
+
+        # Get a token from user/pass
+        valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
+        headers_basic = dict(Authorization=f"Basic {valid_credentials}")
+        with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
+            response = self.controller.basic_auth_temp_token({}, self._db)
+            assert 200 == response.status_code
+            token = response.data.decode('utf-8')
+
+            assert token
+            headers_bearer = dict(Authorization=f"Bearer {token}")
+
+        # Use the token to auth
+        with app.test_client() as client:
+            with app.app_context():
+                # This hangs
+                resp = client.get('/patron/me', headers=headers_bearer)
+                assert resp
