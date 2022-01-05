@@ -3,6 +3,7 @@ don't interact with any particular source of truth.
 """
 import pytest
 from flask_babel import lazy_gettext as _
+import base64
 import datetime
 from decimal import Decimal
 import json
@@ -37,6 +38,7 @@ from core.util.authentication_for_opds import (
 from core.util.http import IntegrationException
 from core.mock_analytics_provider import MockAnalyticsProvider
 
+from api.app import app
 from api.announcements import Announcements
 from api.millenium_patron import MilleniumPatronAPI
 from api.firstbook import FirstBookAuthenticationAPI
@@ -2870,10 +2872,6 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
         Test that a patron can authenticate with the generated
         HTTP Basic token.
         """
-        # Move these when done
-        import base64
-        import requests
-        from api.app import app
 
         # Get a token from user/pass
         valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
@@ -2886,9 +2884,8 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
             token = response.data.decode('utf-8')
             assert token
 
+            # Ensure the token is valid
+            # TODO test this with app.test_client or something that can hit an authed route
             headers_bearer = f"Bearer {token}"
             patron = self.controller.authenticator.authenticated_patron(self._db, headers_bearer)
             assert 'unittestuser' == patron.username
-
-            resp = requests.get(url_for('patron_profile', _external=True), headers={'Authorization': headers_bearer})
-            assert 200 == resp.status_code
