@@ -128,7 +128,7 @@ def allows_cors(allowed_domain_type):
 
             if web_domains:
                 options = get_cors_options(
-                    app, dict(origins=" ,".join(web_domains),
+                    app, dict(origins=", ".join(web_domains),
                             supports_credentials=True)
                 )
                 set_cors_headers(resp, options)
