@@ -2848,7 +2848,7 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
         patrondata = PatronData(
             permanent_id=patron.external_identifier,
             authorization_identifier=patron.authorization_identifier,
-            username=patron.username, neighborhood="Achewood"
+            username='unittestuser', neighborhood="Achewood"
         )
         integration = self._external_integration(self._str)
         basic = MockBasicAuthenticationProvider(
@@ -2856,34 +2856,39 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
             patrondata=patrondata
         )
 
-        self.auth = LibraryAuthenticator(
+        authenticator = LibraryAuthenticator(
             _db=self._db,
             library=self._default_library,
             basic_auth_provider=basic,
             bearer_token_signing_secret="a secret"
         )
 
-        self.controller = BasicAuthTempTokenController(self.auth)
+        self.controller = BasicAuthTempTokenController(authenticator)
 
     def test_basic_auth_temp_token(self):
+        """
+        Test that a patron can authenticate with the generated
+        HTTP Basic token.
+        """
         # Move these when done
         import base64
+        import requests
         from api.app import app
 
         # Get a token from user/pass
         valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
         headers_basic = dict(Authorization=f"Basic {valid_credentials}")
+
         with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
             response = self.controller.basic_auth_temp_token({}, self._db)
             assert 200 == response.status_code
+
             token = response.data.decode('utf-8')
-
             assert token
-            headers_bearer = dict(Authorization=f"Bearer {token}")
 
-        # Use the token to auth
-        with app.test_client() as client:
-            with app.app_context():
-                # This hangs
-                resp = client.get('/patron/me', headers=headers_bearer)
-                assert resp
+            headers_bearer = f"Bearer {token}"
+            patron = self.controller.authenticator.authenticated_patron(self._db, headers_bearer)
+            assert 'unittestuser' == patron.username
+
+            resp = requests.get(url_for('patron_profile', _external=True), headers={'Authorization': headers_bearer})
+            assert 200 == resp.status_code
