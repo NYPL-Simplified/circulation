@@ -453,7 +453,7 @@ class CirculationManager(object):
         This method will be called fresh every time the site
         configuration changes.
         """
-        self.basic_auth_controller = BasicAuthTempTokenController(self.auth)
+        self.basic_auth_token_controller = BasicAuthTempTokenController(self.auth)
         self.oauth_controller = OAuthController(self.auth)
         self.saml_controller = SAMLController(self, self.auth)
 

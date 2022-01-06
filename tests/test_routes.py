@@ -732,7 +732,7 @@ class TestAdobeDeviceManagement(RouteTest):
 
 
 class TestBasicAuthTempTokenController(RouteTest):
-    CONTROLLER_NAME = "basic_auth_controller"
+    CONTROLLER_NAME = "basic_auth_token_controller"
 
     def test_http_basic_auth_token(self):
         url = '/http_basic_auth_token'

@@ -628,7 +628,7 @@ def adobe_drm_device(device_id):
 @requires_auth
 @returns_problem_detail
 def http_basic_auth_token():
-    return app.manager.basic_auth_controller.basic_auth_temp_token(flask.request.args, app.manager._db)
+    return app.manager.basic_auth_token_controller.basic_auth_temp_token(flask.request.args, app.manager._db)
 
 # Route that redirects to the authentication URL for an OAuth provider
 @library_route('/oauth_authenticate')
