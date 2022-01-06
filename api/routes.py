@@ -624,7 +624,7 @@ def adobe_drm_device(device_id):
 # Route that issues temporary tokens for Basic HTTP Auth
 @library_route('/http_basic_auth_token')
 @has_library
-@allows_cors(allowed_domain_type=set({"admin"}))
+@allows_cors(allowed_domain_type=set({"admin", "patron"}))
 @requires_auth
 @returns_problem_detail
 def http_basic_auth_token():
