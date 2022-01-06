@@ -26,6 +26,8 @@ from api.adobe_vendor_id import AuthdataUtility, DeviceManagementProtocolControl
 from api.annotations import AnnotationWriter
 from api.app import app, initialize_database
 from api.authenticator import (
+    BasicAuthTempTokenController,
+    BearerTokenSigner,
     CirculationPatronProfileStorage,
     LibraryAuthenticator,
     OAuthController,
@@ -373,6 +375,7 @@ class TestCirculationManager(CirculationControllerTest):
         # which are about to be reloaded.
         manager._external_search = object()
         manager.adobe_device_management = object()
+        manager.basic_auth_token_controller = object()
         manager.oauth_controller = object()
         manager.auth = object()
         manager.shared_collection_api = object()
@@ -458,6 +461,9 @@ class TestCirculationManager(CirculationControllerTest):
 
         # The ExternalSearch object has been reset.
         assert isinstance(manager.external_search, MockExternalSearchIndex)
+
+        # The Basic Auth token controller has been recreated.
+        assert isinstance(manager.basic_auth_token_controller, BasicAuthTempTokenController)
 
         # The OAuth controller has been recreated.
         assert isinstance(manager.oauth_controller, OAuthController)
@@ -5791,6 +5797,10 @@ class TestScopedSession(ControllerTest):
 
     def test_scoped_session(self):
         # Start a simulated request to the Flask app server.
+
+        # This sets up a bearer token signing secret outside the
+        # transaction rollbacks that is needed to avoid ResourceClosedError
+        BearerTokenSigner.bearer_token_signing_secret(self.app._db)
 
         with self.test_request_context_and_transaction("/"):
             # Each request is given its own database session distinct
