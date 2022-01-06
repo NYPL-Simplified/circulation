@@ -221,11 +221,11 @@ CANNOT_RELEASE_HOLD = pd(
     _("Could not release hold."),
 )
 
-EXPIRED_HTTP_BASIC_BEARER_TOKEN = pd(
+INVALID_HTTP_BASIC_BEARER_TOKEN = pd(
     "http://librarysimplified.org/terms/problem/expired-http-basic-bearer-token",
     status_code=401,
     title=_("Expired HTTP Basic bearer token."),
-    detail=_("This HTTP Basic Auth bearer token has expired."),
+    detail=_("The provided HTTP Basic Auth bearer token couldn't be verified."),
 )
 
 INVALID_OAUTH_CALLBACK_PARAMETERS = pd(

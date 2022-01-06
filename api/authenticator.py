@@ -1915,7 +1915,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         if isinstance(credential, Credential):
             return credential.patron
         else:
-            return EXPIRED_HTTP_BASIC_BEARER_TOKEN
+            return INVALID_HTTP_BASIC_BEARER_TOKEN
 
     def _authenticate_from_credentials(self, _db, credentials):
         """Turn a dict of credentials into a Patron object.
