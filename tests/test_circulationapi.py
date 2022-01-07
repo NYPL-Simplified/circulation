@@ -1443,7 +1443,7 @@ class TestBaseCirculationAPI(DatabaseTest):
                 self.called_with = patron
                 raise NotImplementedError()
         mock_oauth = MockOAuth()
-        authenticator.register_oauth_provider(mock_oauth)
+        authenticator.register_bearer_token_auth_provider(mock_oauth)
         assert (
             None ==
             api.patron_email_address(

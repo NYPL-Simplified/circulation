@@ -562,14 +562,9 @@ class Authenticator(object):
             "create_bearer_token", *args, **kwargs
         )
 
-    def oauth_provider_lookup(self, *args, **kwargs):
+    def bearer_token_provider_lookup(self, *args, **kwargs):
         return self.invoke_authenticator_method(
-            "oauth_provider_lookup", *args, **kwargs
-        )
-
-    def saml_provider_lookup(self, *args, **kwargs):
-        return self.invoke_authenticator_method(
-            "saml_provider_lookup", *args, **kwargs
+            "bearer_token_provider_lookup", *args, **kwargs
         )
 
     def decode_bearer_token(self, *args, **kwargs):
@@ -620,7 +615,7 @@ class LibraryAuthenticator(object):
                 )
                 authenticator.initialization_exceptions[integration.id] = e
 
-        if authenticator.oauth_providers_by_name or authenticator.saml_providers_by_name:
+        if authenticator.providers_by_name or authenticator.basic_auth_provider:
             # NOTE: this will immediately commit the database session,
             # which may not be what you want during a test. To avoid
             # this, you can create the bearer token signing secret as
@@ -668,8 +663,7 @@ class LibraryAuthenticator(object):
         self.authentication_document_annotator=authentication_document_annotator
 
         self.basic_auth_provider = basic_auth_provider
-        self.oauth_providers_by_name = dict()
-        self.saml_providers_by_name = dict()
+        self.providers_by_name = dict()
         self.bearer_token_signing_secret = bearer_token_signing_secret
         self.initialization_exceptions = dict()
 
@@ -681,18 +675,18 @@ class LibraryAuthenticator(object):
 
         if oauth_providers:
             for provider in oauth_providers:
-                self.oauth_providers_by_name[provider.NAME] = provider
+                self.providers_by_name[provider.NAME] = provider
 
         if saml_providers:
             for provider in saml_providers:
-                self.saml_providers_by_name[provider.NAME] = provider
+                self.providers_by_name[provider.NAME] = provider
 
         self.assert_ready_for_token_signing()
 
     @property
     def supports_patron_authentication(self):
         """Does this library have any way of authenticating patrons at all?"""
-        if self.basic_auth_provider or self.oauth_providers_by_name or self.saml_providers_by_name:
+        if self.basic_auth_provider or self.providers_by_name:
             return True
         return False
 
@@ -723,14 +717,9 @@ class LibraryAuthenticator(object):
         """If this LibraryAuthenticator has OAuth providers, ensure that it
         also has a secret it can use to sign bearer tokens.
         """
-        if self.oauth_providers_by_name and not self.bearer_token_signing_secret:
+        if self.providers_by_name and not self.bearer_token_signing_secret:
             raise CannotLoadConfiguration(
-                _("OAuth providers are configured, but secret for signing bearer tokens is not.")
-            )
-
-        if self.saml_providers_by_name and not self.bearer_token_signing_secret:
-            raise CannotLoadConfiguration(
-                _("SAML providers are configured, but secret for signing bearer tokens is not.")
+                _("The secret for signing bearer tokens is not configured.")
             )
 
     def register_provider(self, integration, analytics=None):
@@ -776,10 +765,8 @@ class LibraryAuthenticator(object):
             self.register_basic_auth_provider(provider)
             # TODO: Run a self-test, or at least check that we have
             # the ability to run one.
-        elif issubclass(provider_class, OAuthAuthenticationProvider):
-            self.register_oauth_provider(provider)
-        elif issubclass(provider_class, BaseSAMLAuthenticationProvider):
-            self.register_saml_provider(provider)
+        elif issubclass(provider_class, (OAuthAuthenticationProvider, BaseSAMLAuthenticationProvider)):
+            self.register_bearer_token_auth_provider(provider)
         else:
             raise CannotLoadConfiguration(
                 "Authentication provider %s is neither a BasicAuthenticationProvider nor an OAuthAuthenticationProvider. I can create it, but not sure where to put it." % provider_class
@@ -793,8 +780,8 @@ class LibraryAuthenticator(object):
             )
         self.basic_auth_provider = provider
 
-    def register_oauth_provider(self, provider):
-        already_registered = self.oauth_providers_by_name.get(
+    def register_bearer_token_auth_provider(self, provider):
+        already_registered = self.providers_by_name.get(
             provider.NAME
         )
         if already_registered and already_registered != provider:
@@ -803,28 +790,14 @@ class LibraryAuthenticator(object):
                     provider.NAME
                 )
             )
-        self.oauth_providers_by_name[provider.NAME] = provider
-
-    def register_saml_provider(self, provider):
-        already_registered = self.saml_providers_by_name.get(
-            provider.NAME
-        )
-        if already_registered and already_registered != provider:
-            raise CannotLoadConfiguration(
-                'Two different SAML providers claim the name "%s"' % (
-                    provider.NAME
-                )
-            )
-        self.saml_providers_by_name[provider.NAME] = provider
+        self.providers_by_name[provider.NAME] = provider
 
     @property
     def providers(self):
         """An iterator over all registered AuthenticationProviders."""
         if self.basic_auth_provider:
             yield self.basic_auth_provider
-        for provider in list(self.oauth_providers_by_name.values()):
-            yield provider
-        for provider in list(self.saml_providers_by_name.values()):
+        for provider in list(self.providers_by_name.values()):
             yield provider
 
     def authenticated_patron(self, _db, header):
@@ -839,51 +812,38 @@ class LibraryAuthenticator(object):
             credentials do not authenticate any particular patron. A
             ProblemDetail if an error occurs.
         """
-        if (self.basic_auth_provider
-            and isinstance(header, dict) and 'username' in header):
-            # The patron wants to authenticate with the
-            # BasicAuthenticationProvider.
-            return self.basic_auth_provider.authenticated_patron(_db, header)
-        elif (self.oauth_providers_by_name
-              and isinstance(header, (bytes, str))
-              and 'bearer' in header.lower()):
+        # Set provider_name and provider_token so it can be referenced
+        # in the basic auth provider check.
+        provider_name, provider_token = None, None
 
-            # The patron wants to use an
-            # OAuthAuthenticationProvider. Figure out which one.
+        if isinstance(header, (bytes, str)):
             try:
                 provider_name, provider_token = self.decode_bearer_token_from_header(
                     header
                 )
-            except jwt.exceptions.InvalidTokenError as e:
+            except jwt.exceptions.InvalidTokenError:
                 return INVALID_OAUTH_BEARER_TOKEN
-            provider = self.oauth_provider_lookup(provider_name)
-            if isinstance(provider, ProblemDetail):
-                # There was a problem turning the provider name into
-                # a registered OAuthAuthenticationProvider.
-                return provider
 
-            # Ask the OAuthAuthenticationProvider to turn its token
-            # into a Patron.
-            return provider.authenticated_patron(_db, provider_token)
-        elif (self.saml_providers_by_name
-              and isinstance(header, (bytes, str))
-              and 'bearer' in header.lower()):
-
-            # The patron wants to use an
-            # SAMLAuthenticationProvider. Figure out which one.
-            try:
-                provider_name, provider_token = self.decode_bearer_token_from_header(
-                    header
+        if (self.basic_auth_provider
+            and (
+                    (isinstance(header, dict) and 'username' in header)
+                    or provider_name == BasicAuthenticationProvider.BEARER_TOKEN_PROVIDER_NAME
                 )
-            except jwt.exceptions.InvalidTokenError as e:
-                return INVALID_SAML_BEARER_TOKEN
-            provider = self.saml_provider_lookup(provider_name)
+            ):
+            # The patron wants to authenticate with the BasicAuthenticationProvider.
+            if provider_token:
+                header = provider_token
+            return self.basic_auth_provider.authenticated_patron(_db, header)
+
+        elif isinstance(header, (bytes, str)) and 'bearer' in header.lower():
+            # The patron wants to authenticate with a bearer token
+            provider = self.bearer_token_provider_lookup(provider_name)
             if isinstance(provider, ProblemDetail):
                 # There was a problem turning the provider name into
-                # a registered SAMLAuthenticationProvider.
+                # a registered authentication provider.
                 return provider
 
-            # Ask the SAMLAuthenticationProvider to turn its token
+            # Ask the authentication provider to turn its token
             # into a Patron.
             return provider.authenticated_patron(_db, provider_token)
 
@@ -909,47 +869,23 @@ class LibraryAuthenticator(object):
 
         return credential
 
-    def oauth_provider_lookup(self, provider_name):
-        """Look up the OAuthAuthenticationProvider with the given name. If that
-        doesn't work, return an appropriate ProblemDetail.
+    def bearer_token_provider_lookup(self, provider_name):
+        """Look up the relevant bearer token authentication provider with
+        the given name. If that doesn't work, return an appropriate ProblemDetai.
         """
-        if not self.oauth_providers_by_name:
-            # We don't support OAuth at all.
+        if not self.providers_by_name:
             return UNKNOWN_OAUTH_PROVIDER.detailed(
-                _("No OAuth providers are configured.")
+                _("No relevant providers are configured.")
             )
 
         if (not provider_name
-            or not provider_name in self.oauth_providers_by_name):
-            # The patron neglected to specify a provider, or specified
-            # one we don't support.
-            possibilities = ", ".join(list(self.oauth_providers_by_name.keys()))
+            or not provider_name in self.providers_by_name):
+            possibilities = ", ".join(list(self.providers_by_name.keys()))
             return UNKNOWN_OAUTH_PROVIDER.detailed(
                 UNKNOWN_OAUTH_PROVIDER.detail +
                 _(" The known providers are: %s") % possibilities
             )
-        return self.oauth_providers_by_name[provider_name]
-
-    def saml_provider_lookup(self, provider_name):
-        """Look up the SAMLAuthenticationProvider with the given name. If that
-        doesn't work, return an appropriate ProblemDetail.
-        """
-        if not self.saml_providers_by_name:
-            # We don't support OAuth at all.
-            return UNKNOWN_SAML_PROVIDER.detailed(
-                _("No SAML providers are configured.")
-            )
-
-        if (not provider_name
-            or not provider_name in self.saml_providers_by_name):
-            # The patron neglected to specify a provider, or specified
-            # one we don't support.
-            possibilities = ", ".join(list(self.saml_providers_by_name.keys()))
-            return UNKNOWN_SAML_PROVIDER.detailed(
-                UNKNOWN_SAML_PROVIDER.detail +
-                _(" The known providers are: %s") % possibilities
-            )
-        return self.saml_providers_by_name[provider_name]
+        return self.providers_by_name[provider_name]
 
     def create_bearer_token(self, provider_name, provider_token):
         """Create a JSON web token with the given provider name and access
@@ -1653,6 +1589,8 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     AUTHENTICATION_REALM = _("Library card")
     FLOW_TYPE = "http://opds-spec.org/auth/basic"
     NAME = 'Generic Basic Authentication provider'
+    BEARER_TOKEN_PROVIDER_NAME = 'HTTPBasicBearerToken'
+    TOKEN_TYPE = 'HTTP Basic'
 
     # By default, patron identifiers can only contain alphanumerics and
     # a few other characters. By default, there are no restrictions on
@@ -1949,11 +1887,45 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     def authenticate(self, _db, credentials):
         """Turn a set of credentials into a Patron object.
 
-        :param credentials: A dictionary with keys `username` and `password`.
+        :param credentials:
+            A dictionary with keys `username` and `password`
+            or a bearer token string.
 
         :return: A Patron if one can be authenticated; a ProblemDetail
             if an error occurs; None if the credentials are missing or wrong.
         """
+        if isinstance(credentials, str):
+            return self._authenticate_from_token(_db, credentials)
+
+        elif isinstance(credentials, dict):
+            return self._authenticate_from_credentials(_db, credentials)
+
+    def _authenticate_from_token(self, _db, credentials):
+        """Turn a bearer token into a Patron object.
+
+        :param credentials: A bearer token string
+
+        :return: A Patron if one can be looked up; a ProblemDetail
+            if an error occurs.
+        """
+        credential = Credential.lookup_by_token(
+            _db, None, BasicAuthenticationProvider.TOKEN_TYPE, credentials
+        )
+
+        if isinstance(credential, Credential):
+            return credential.patron
+        else:
+            return INVALID_HTTP_BASIC_BEARER_TOKEN
+
+    def _authenticate_from_credentials(self, _db, credentials):
+        """Turn a dict of credentials into a Patron object.
+
+        :param credentials: A dictionary with keys 'username' and 'password'.
+
+        "return: A Patron if one can be authenticated; a ProblemDetail
+            if an error occurs; None if the credentials are missing or wrong.
+        """
+
         username = self.scrub_credential(credentials.get('username'))
         password = self.scrub_credential(credentials.get('password'))
         server_side_validation_result = self.server_side_validation(
@@ -2554,7 +2526,7 @@ class OAuthController(object):
         """
         redirect_uri = params.get('redirect_uri', '')
         provider_name = params.get('provider')
-        provider = self.authenticator.oauth_provider_lookup(provider_name)
+        provider = self.authenticator.bearer_token_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):
             return self._redirect_with_error(redirect_uri, provider)
         state = dict(
@@ -2592,7 +2564,7 @@ class OAuthController(object):
         state = json.loads(urllib.parse.unquote(state))
         client_redirect_uri = state.get('redirect_uri') or ""
         provider_name = state.get('provider')
-        provider = self.authenticator.oauth_provider_lookup(provider_name)
+        provider = self.authenticator.bearer_token_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):
             return self._redirect_with_error(client_redirect_uri, provider)
 
@@ -2661,3 +2633,37 @@ class BaseSAMLAuthenticationProvider(AuthenticationProvider, BearerTokenSigner, 
     SETTINGS = SAMLSettings()
 
     LIBRARY_SETTINGS = []
+
+
+class BasicAuthTempTokenController(object):
+    """A controller that handles requests for issuing temporary tokens
+    to HTTP Basic Auth credentials.
+    """
+
+    def __init__(self, authenticator):
+        self.authenticator = authenticator
+
+    def basic_auth_temp_token(self, params, _db):
+        """Generate and return a temporary token from HTTP Basic Auth credentials.
+        """
+        patron = self.authenticator.authenticated_patron(_db, flask.request.authorization)
+
+        if isinstance(patron, ProblemDetail):
+            # There was a problem turning the authorization header
+            # into a valid patron.
+            return patron
+
+        if isinstance(patron, Patron):
+            # Create a temporary inner token with a lifetime of 1 hour
+            duration = datetime.timedelta(seconds=3600)
+            data_source = None
+            provider = BasicAuthenticationProvider.BEARER_TOKEN_PROVIDER_NAME
+            token_type = BasicAuthenticationProvider.TOKEN_TYPE
+            inner_token, _ = Credential.temporary_token_create(
+                _db, data_source, token_type, patron, duration
+            )
+
+            # Wrap the inner token with the provider name
+            outer_token = self.authenticator.create_bearer_token(provider, inner_token.credential)
+
+            return flask.Response(outer_token, 200, {"Content-Type": "text/plain"})

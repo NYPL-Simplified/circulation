@@ -237,12 +237,10 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         # The publication of a NYT best-seller list is treated as
         # midnight Eastern time on the publication date.
         jan_17 = self._midnight(2015, 1, 17)
-        assert (True ==
-            all([x.first_appearance == jan_17 for x in custom.entries]))
+        assert all([x.first_appearance.timestamp() == jan_17.timestamp() for x in custom.entries]) is True
 
         feb_1 = self._midnight(2015, 2, 1)
-        assert (True ==
-            all([x.most_recent_appearance == feb_1 for x in custom.entries]))
+        assert all([x.most_recent_appearance.timestamp() == feb_1.timestamp() for x in custom.entries]) is True
 
         # Now replace this list's entries with the entries from a
         # different list. We wouldn't do this in real life, but it's
