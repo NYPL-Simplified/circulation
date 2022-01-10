@@ -2666,4 +2666,10 @@ class BasicAuthTempTokenController(object):
             # Wrap the inner token with the provider name
             outer_token = self.authenticator.create_bearer_token(provider, inner_token.credential)
 
-            return flask.Response(outer_token, 200, {"Content-Type": "text/plain"})
+            data = dict(
+                access_token=outer_token,
+                token_type="bearer",
+                expires_in=duration.seconds
+            )
+
+            return flask.jsonify(data)
