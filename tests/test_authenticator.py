@@ -2881,7 +2881,7 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
             response = self.controller.basic_auth_temp_token({}, self._db)
             assert 200 == response.status_code
 
-            token = response.data.decode('utf-8')
+            token = response.json.get('access_token')
             assert token
 
             # Ensure the token is valid
