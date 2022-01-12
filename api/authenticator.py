@@ -1174,9 +1174,10 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
     # the authentication provider.
     DESCRIPTION = ""
 
-    # Each subclass MUST define a value for FLOW_TYPE. This is used in the
+    # Each subclass MAY define a value for FLOW_TYPE. This is used in the
     # Authentication for OPDS document to distinguish between
-    # different types of authentication.
+    # different types of authentication. If you don't do this you need to
+    # explicitly set the flow type when you create your Authentication Object.
     FLOW_TYPE = None
 
     # If an AuthenticationProvider authenticates patrons without identifying
@@ -1587,7 +1588,6 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
 
     DISPLAY_NAME = _("Library Barcode")
     AUTHENTICATION_REALM = _("Library card")
-    FLOW_TYPE = "http://opds-spec.org/auth/basic"
     NAME = 'Generic Basic Authentication provider'
     BEARER_TOKEN_PROVIDER_NAME = 'HTTPBasicBearerToken'
     TOKEN_TYPE = 'HTTP Basic'
@@ -2174,6 +2174,19 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         OPDS document.
         """
 
+        basic_doc = self._generate_authentication_flow_document(_db, type="http://opds-spec.org/auth/basic")
+        oauth_doc = self._generate_authentication_flow_document(_db, type="http://librarysimplified.org/authtype/OAuth-Client-Credentials")
+        oauth_doc.update(dict(
+            links=dict(
+                rel="authenticate",
+                href=url_for("http_basic_auth_token", _external=True)
+            )
+        ))
+
+        return [basic_doc, oauth_doc]
+
+    def _generate_authentication_flow_document(self, _db, type):
+
         login_inputs = dict(keyboard=self.identifier_keyboard)
         if self.identifier_maximum_length:
             login_inputs['maximum_length'] = self.identifier_maximum_length
@@ -2205,6 +2218,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             # with the logo on it rather than a plain logo. Perhaps we should use plain
             # logos instead.
             flow_doc["links"] = [dict(rel="logo", href=url_for("static_image", filename=self.LOGIN_BUTTON_IMAGE, _external=True))]
+        flow_doc["type"] = type
         return flow_doc
 
 
