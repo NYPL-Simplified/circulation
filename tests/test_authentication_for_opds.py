@@ -29,7 +29,7 @@ class MockMultipleFlows(Flow):
                 'type': 'http://mock2/',
                 'links': {
                     'rel': 'authenticate',
-                    'href': f'http://{argument}/'
+                    'href': 'http://mock/'
                 }
             }
         ]
