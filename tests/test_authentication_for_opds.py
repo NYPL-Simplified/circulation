@@ -15,6 +15,26 @@ class MockFlow(Flow):
                  "type" : "http://mock1/"}
 
 
+class MockMultipleFlows(Flow):
+    """A mock of OPDSAuthenticationFlow that returns a list of dictionaries."""
+
+    def _authentication_flow_document(self, argument):
+        return [
+            {
+                'description': 'one',
+                'type': 'http://mock1/'
+            },
+            {
+                'description': 'two',
+                'type': 'http://mock2/',
+                'links': {
+                    'rel': 'authenticate',
+                    'href': 'http://mock/'
+                }
+            }
+        ]
+
+
 class MockFlowWithURI(Flow):
     """A mock OPDSAuthenticationFlow that sets URI."""
     FLOW_TYPE = "http://mock2/"
@@ -44,6 +64,22 @@ class TestOPDSAuthenticationFlow(object):
             {'type': 'http://mock1/', 'description': 'description',
              'arg': 'argument'} ==
             doc)
+
+    def test_flow_returns_two_documents(self):
+        """An OPDSAuthenticationFlow object can
+        return multiple flow documents that differ.
+        """
+        flow = MockMultipleFlows()
+        docs = flow.authentication_flow_document("mock")
+
+        assert len(docs) == 2
+        assert isinstance(docs, list)
+        assert isinstance(docs[0], dict)
+        assert isinstance(docs[1], dict)
+
+        [doc] = list(filter(lambda d: d.get('links'), docs))
+        assert 'authenticate' in doc.get('links').values()
+        assert 'http://mock/' == doc.get('links').get('href')
 
     def test_flow_gets_type_from_uri(self):
         """An OPDSAuthenticationFlow object can define the class variableURI
