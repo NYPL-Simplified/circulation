@@ -1241,7 +1241,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # authentication sub-documents are assembled properly and
             # placed in the right position.
             flows = doc['authentication']
-            oauth_doc, basic_doc = sorted(flows, key=lambda x: x['type'])
+            [oauth_doc] = list(filter(lambda x: isinstance(x, dict), flows))
+            [basic_doc] = list(filter(lambda x: isinstance(x, list), flows))
 
             expect_basic = basic.authentication_flow_document(self._db)
             assert expect_basic == basic_doc
@@ -2166,6 +2167,8 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         provider.identifier_maximum_length=22
         provider.password_maximum_length=7
         provider.identifier_barcode_format = provider.BARCODE_FORMAT_CODABAR
+        FLOW_TYPE_BASIC = 'http://opds-spec.org/auth/basic'
+        FLOW_TYPE_OAUTH = 'http://librarysimplified.org/authtype/OAuth-Client-Credentials'
 
         # We're about to call url_for, so we must create an
         # application context.
@@ -2174,30 +2177,38 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         self.app = app
         del os.environ['AUTOINITIALIZE']
         with self.app.test_request_context("/"):
-            doc = provider.authentication_flow_document(self._db)
-            assert _(provider.DISPLAY_NAME) == doc['description']
-            assert provider.FLOW_TYPE == doc['type']
+            # This will start returning 2 documents, check both of them.
+            docs = provider.authentication_flow_document(self._db)
+            for doc in docs:
+                assert _(provider.DISPLAY_NAME) == doc['description']
+                assert doc['type'] in [FLOW_TYPE_BASIC, FLOW_TYPE_OAUTH]
 
-            labels = doc['labels']
-            assert provider.identifier_label == labels['login']
-            assert provider.password_label == labels['password']
+                labels = doc['labels']
+                assert provider.identifier_label == labels['login']
+                assert provider.password_label == labels['password']
 
-            inputs = doc['inputs']
-            assert (provider.identifier_keyboard ==
-                inputs['login']['keyboard'])
-            assert (provider.password_keyboard ==
-                inputs['password']['keyboard'])
+                inputs = doc['inputs']
+                assert (provider.identifier_keyboard ==
+                    inputs['login']['keyboard'])
+                assert (provider.password_keyboard ==
+                    inputs['password']['keyboard'])
 
-            assert provider.BARCODE_FORMAT_CODABAR == inputs['login']['barcode_format']
+                assert provider.BARCODE_FORMAT_CODABAR == inputs['login']['barcode_format']
 
-            assert (provider.identifier_maximum_length ==
-                inputs['login']['maximum_length'])
-            assert (provider.password_maximum_length ==
-                inputs['password']['maximum_length'])
+                assert (provider.identifier_maximum_length ==
+                    inputs['login']['maximum_length'])
+                assert (provider.password_maximum_length ==
+                    inputs['password']['maximum_length'])
 
-            [logo_link] = doc['links']
-            assert "logo" == logo_link["rel"]
-            assert "http://localhost/images/" + MockBasic.LOGIN_BUTTON_IMAGE == logo_link["href"]
+                if doc.get('type') == FLOW_TYPE_BASIC:
+                    [logo_link] = doc['links']
+                    assert "logo" == logo_link["rel"]
+                    assert "http://localhost/images/" + MockBasic.LOGIN_BUTTON_IMAGE == logo_link["href"]
+
+                if doc.get('type') == FLOW_TYPE_OAUTH:
+                    [links] = doc['links']
+                    assert 'authenticate' == links['rel']
+                    assert url_for('http_basic_auth_token', _external=True) == links['href']
 
     def test_remote_patron_lookup(self):
         #remote_patron_lookup does the lookup by calling _remote_patron_lookup,
