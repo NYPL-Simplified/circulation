@@ -8,8 +8,9 @@ class OPDSAuthenticationFlow(object):
     FLOW_TYPE = None
 
     def authentication_flow_document(self, _db):
-        """Convert this object into a dictionary that can be used in the
-        `authentication` list of an Authentication For OPDS document.
+        """Convert this object into a dictionary or a
+        list of dictionaries that can be used in the
+        `authentication` list of an AuthenticationFor OPDS document.
         """
         data = self._authentication_flow_document(_db)
         if isinstance(data, list):
