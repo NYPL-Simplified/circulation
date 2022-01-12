@@ -12,13 +12,21 @@ class OPDSAuthenticationFlow(object):
         `authentication` list of an Authentication For OPDS document.
         """
         data = self._authentication_flow_document(_db)
+        if isinstance(data, list):
+            for entry in data:
+                self._get_type(entry)
+        else:
+            self._get_type(data)
+
+        return data
+
+    def _get_type(self, data):
         if not data.get('type'):
             data['type'] = self.FLOW_TYPE
         if not data.get('type'):
             raise ValueError(
                 "Authentication flow document for %r does not include required field 'type'" % self
             )
-        return data
 
     def _authentication_flow_document(self, _db):
         raise NotImplementedError()
