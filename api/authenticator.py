@@ -2177,10 +2177,12 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         basic_doc = self._generate_authentication_flow_document(_db, type="http://opds-spec.org/auth/basic")
         oauth_doc = self._generate_authentication_flow_document(_db, type="http://librarysimplified.org/authtype/OAuth-Client-Credentials")
         oauth_doc.update(dict(
-            links=dict(
-                rel="authenticate",
-                href=url_for("http_basic_auth_token", _external=True)
-            )
+            links=[
+                dict(
+                    rel="authenticate",
+                    href=url_for("http_basic_auth_token", _external=True)
+                )
+            ]
         ))
 
         return [basic_doc, oauth_doc]
