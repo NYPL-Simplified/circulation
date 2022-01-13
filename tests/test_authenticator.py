@@ -2177,7 +2177,8 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         self.app = app
         del os.environ['AUTOINITIALIZE']
         with self.app.test_request_context("/"):
-            # This will start returning 2 documents, check both of them.
+            # BasicAuthenticationProvider returns 2 authentication flow documents.
+            # One is for Basic Auth and one is for OAuth, we need to check both.
             docs = provider.authentication_flow_document(self._db)
             assert len(docs) == 2
 
