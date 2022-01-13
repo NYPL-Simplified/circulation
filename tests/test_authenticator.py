@@ -2179,6 +2179,8 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         with self.app.test_request_context("/"):
             # This will start returning 2 documents, check both of them.
             docs = provider.authentication_flow_document(self._db)
+            assert len(docs) == 2
+
             for doc in docs:
                 assert _(provider.DISPLAY_NAME) == doc['description']
                 assert doc['type'] in [FLOW_TYPE_BASIC, FLOW_TYPE_OAUTH]
