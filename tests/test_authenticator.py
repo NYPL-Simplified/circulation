@@ -2167,8 +2167,6 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         provider.identifier_maximum_length=22
         provider.password_maximum_length=7
         provider.identifier_barcode_format = provider.BARCODE_FORMAT_CODABAR
-        FLOW_TYPE_BASIC = 'http://opds-spec.org/auth/basic'
-        FLOW_TYPE_OAUTH = 'http://librarysimplified.org/authtype/OAuth-Client-Credentials'
 
         # We're about to call url_for, so we must create an
         # application context.
@@ -2184,7 +2182,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
 
             for doc in docs:
                 assert _(provider.DISPLAY_NAME) == doc['description']
-                assert doc['type'] in [FLOW_TYPE_BASIC, FLOW_TYPE_OAUTH]
+                assert doc['type'] in [provider.FLOW_TYPE_BASIC, provider.FLOW_TYPE_OAUTH]
 
                 labels = doc['labels']
                 assert provider.identifier_label == labels['login']
@@ -2203,12 +2201,12 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
                 assert (provider.password_maximum_length ==
                     inputs['password']['maximum_length'])
 
-                if doc.get('type') == FLOW_TYPE_BASIC:
+                if doc.get('type') == provider.FLOW_TYPE_BASIC:
                     [logo_link] = doc['links']
                     assert "logo" == logo_link["rel"]
                     assert "http://localhost/images/" + MockBasic.LOGIN_BUTTON_IMAGE == logo_link["href"]
 
-                if doc.get('type') == FLOW_TYPE_OAUTH:
+                if doc.get('type') == provider.FLOW_TYPE_OAUTH:
                     [links] = doc['links']
                     assert 'authenticate' == links['rel']
                     assert url_for('http_basic_auth_token', _external=True) == links['href']

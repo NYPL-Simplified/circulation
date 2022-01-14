@@ -103,8 +103,6 @@ class TestFirstBook(DatabaseTest):
         del os.environ['AUTOINITIALIZE']
         with self.app.test_request_context("/"):
             docs = self.api.authentication_flow_document(self._db)
-            FLOW_TYPE_BASIC = 'http://opds-spec.org/auth/basic'
-            FLOW_TYPE_OAUTH = 'http://librarysimplified.org/authtype/OAuth-Client-Credentials'
             for doc in docs:
                 assert self.api.DISPLAY_NAME == doc['description']
-                assert doc['type'] in [FLOW_TYPE_BASIC, FLOW_TYPE_OAUTH]
+                assert doc['type'] in [self.api.FLOW_TYPE_BASIC, self.api.FLOW_TYPE_OAUTH]
