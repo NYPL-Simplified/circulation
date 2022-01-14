@@ -1241,7 +1241,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # authentication sub-documents are assembled properly and
             # placed in the right position.
             flows = doc['authentication']
-            oauth_doc, basic_doc = sorted(flows, key=lambda x: x['type'])
+            [oauth_doc] = list(filter(lambda x: isinstance(x, dict), flows))
+            [basic_doc] = list(filter(lambda x: isinstance(x, list), flows))
 
             expect_basic = basic.authentication_flow_document(self._db)
             assert expect_basic == basic_doc
@@ -2174,30 +2175,41 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         self.app = app
         del os.environ['AUTOINITIALIZE']
         with self.app.test_request_context("/"):
-            doc = provider.authentication_flow_document(self._db)
-            assert _(provider.DISPLAY_NAME) == doc['description']
-            assert provider.FLOW_TYPE == doc['type']
+            # BasicAuthenticationProvider returns 2 authentication flow documents.
+            # One is for Basic Auth and one is for OAuth, we need to check both.
+            docs = provider.authentication_flow_document(self._db)
+            assert len(docs) == 2
 
-            labels = doc['labels']
-            assert provider.identifier_label == labels['login']
-            assert provider.password_label == labels['password']
+            for doc in docs:
+                assert _(provider.DISPLAY_NAME) == doc['description']
+                assert doc['type'] in [provider.FLOW_TYPE_BASIC, provider.FLOW_TYPE_OAUTH]
 
-            inputs = doc['inputs']
-            assert (provider.identifier_keyboard ==
-                inputs['login']['keyboard'])
-            assert (provider.password_keyboard ==
-                inputs['password']['keyboard'])
+                labels = doc['labels']
+                assert provider.identifier_label == labels['login']
+                assert provider.password_label == labels['password']
 
-            assert provider.BARCODE_FORMAT_CODABAR == inputs['login']['barcode_format']
+                inputs = doc['inputs']
+                assert (provider.identifier_keyboard ==
+                    inputs['login']['keyboard'])
+                assert (provider.password_keyboard ==
+                    inputs['password']['keyboard'])
 
-            assert (provider.identifier_maximum_length ==
-                inputs['login']['maximum_length'])
-            assert (provider.password_maximum_length ==
-                inputs['password']['maximum_length'])
+                assert provider.BARCODE_FORMAT_CODABAR == inputs['login']['barcode_format']
 
-            [logo_link] = doc['links']
-            assert "logo" == logo_link["rel"]
-            assert "http://localhost/images/" + MockBasic.LOGIN_BUTTON_IMAGE == logo_link["href"]
+                assert (provider.identifier_maximum_length ==
+                    inputs['login']['maximum_length'])
+                assert (provider.password_maximum_length ==
+                    inputs['password']['maximum_length'])
+
+                if doc.get('type') == provider.FLOW_TYPE_BASIC:
+                    [logo_link] = doc['links']
+                    assert "logo" == logo_link["rel"]
+                    assert "http://localhost/images/" + MockBasic.LOGIN_BUTTON_IMAGE == logo_link["href"]
+
+                if doc.get('type') == provider.FLOW_TYPE_OAUTH:
+                    [links] = doc['links']
+                    assert 'authenticate' == links['rel']
+                    assert url_for('http_basic_auth_token', _external=True) == links['href']
 
     def test_remote_patron_lookup(self):
         #remote_patron_lookup does the lookup by calling _remote_patron_lookup,
@@ -2881,7 +2893,7 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
             response = self.controller.basic_auth_temp_token({}, self._db)
             assert 200 == response.status_code
 
-            token = response.data.decode('utf-8')
+            token = response.json.get('access_token')
             assert token
 
             # Ensure the token is valid
