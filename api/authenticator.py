@@ -1591,6 +1591,8 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     NAME = 'Generic Basic Authentication provider'
     BEARER_TOKEN_PROVIDER_NAME = 'HTTPBasicBearerToken'
     TOKEN_TYPE = 'HTTP Basic'
+    FLOW_TYPE_BASIC = 'http://opds-spec.org/auth/basic'
+    FLOW_TYPE_OAUTH = 'http://librarysimplified.org/authtype/OAuth-Client-Credentials'
 
     # By default, patron identifiers can only contain alphanumerics and
     # a few other characters. By default, there are no restrictions on
@@ -2174,8 +2176,8 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         OPDS document.
         """
 
-        basic_doc = self._generate_authentication_flow_document(_db, type="http://opds-spec.org/auth/basic")
-        oauth_doc = self._generate_authentication_flow_document(_db, type="http://librarysimplified.org/authtype/OAuth-Client-Credentials")
+        basic_doc = self._generate_authentication_flow_document(_db, type=self.FLOW_TYPE_BASIC)
+        oauth_doc = self._generate_authentication_flow_document(_db, type=self.FLOW_TYPE_OAUTH)
         oauth_doc.update(dict(
             links=[
                 dict(
