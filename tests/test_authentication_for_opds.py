@@ -139,7 +139,7 @@ class TestAuthenticationForOPDSDocument(object):
         )
 
         doc = doc_obj.to_dict("arg")
-        assert len(doc['authenticatoin']) == 3
+        assert len(doc['authentication']) == 3
         assert (
             {'id': 'id',
              'title': 'title',
