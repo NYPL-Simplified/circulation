@@ -253,7 +253,7 @@ class SAMLController(object):
         if isinstance(redirect_uri, ProblemDetail):
             return redirect_uri
 
-        provider = self._authenticator.saml_provider_lookup(provider_name)
+        provider = self._authenticator.bearer_token_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):
             return self._redirect_with_error(redirect_uri, provider)
 
@@ -346,7 +346,7 @@ class SAMLController(object):
         if isinstance(library, ProblemDetail):
             return self._redirect_with_error(redirect_uri, library)
 
-        provider = self._authenticator.saml_provider_lookup(provider_name)
+        provider = self._authenticator.bearer_token_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):
             return self._redirect_with_error(redirect_uri, provider)
 

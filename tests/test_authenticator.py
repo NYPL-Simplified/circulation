@@ -3,6 +3,7 @@ don't interact with any particular source of truth.
 """
 import pytest
 from flask_babel import lazy_gettext as _
+import base64
 import datetime
 from decimal import Decimal
 import json
@@ -37,6 +38,7 @@ from core.util.authentication_for_opds import (
 from core.util.http import IntegrationException
 from core.mock_analytics_provider import MockAnalyticsProvider
 
+from api.app import app
 from api.announcements import Announcements
 from api.millenium_patron import MilleniumPatronAPI
 from api.firstbook import FirstBookAuthenticationAPI
@@ -49,6 +51,7 @@ from api.authenticator import (
     LibraryAuthenticator,
     AuthenticationProvider,
     BasicAuthenticationProvider,
+    BasicAuthTempTokenController,
     OAuthController,
     OAuthAuthenticationProvider,
     PatronData,
@@ -543,7 +546,7 @@ class TestAuthenticator(ControllerTest):
                 return "credential for %s" % self.name
             def create_bearer_token(self, *args, **kwargs):
                 return "bearer token for %s" % self.name
-            def oauth_provider_lookup(self, *args, **kwargs):
+            def bearer_token_provider_lookup(self, *args, **kwargs):
                 return "oauth provider for %s" % self.name
             def decode_bearer_token(self, *args, **kwargs):
                 return "decoded bearer token for %s" % self.name
@@ -566,7 +569,7 @@ class TestAuthenticator(ControllerTest):
             assert LIBRARY_NOT_FOUND == auth.create_authentication_headers()
             assert LIBRARY_NOT_FOUND == auth.get_credential_from_header({})
             assert LIBRARY_NOT_FOUND == auth.create_bearer_token()
-            assert LIBRARY_NOT_FOUND == auth.oauth_provider_lookup()
+            assert LIBRARY_NOT_FOUND == auth.bearer_token_provider_lookup()
 
         # The other libraries are in the authenticator.
         with self.app.test_request_context("/"):
@@ -576,7 +579,7 @@ class TestAuthenticator(ControllerTest):
             assert "authentication headers for l1" == auth.create_authentication_headers()
             assert "credential for l1" == auth.get_credential_from_header({})
             assert "bearer token for l1" == auth.create_bearer_token()
-            assert "oauth provider for l1" == auth.oauth_provider_lookup()
+            assert "oauth provider for l1" == auth.bearer_token_provider_lookup()
             assert "decoded bearer token for l1" == auth.decode_bearer_token()
 
         with self.app.test_request_context("/"):
@@ -586,7 +589,7 @@ class TestAuthenticator(ControllerTest):
             assert "authentication headers for l2" == auth.create_authentication_headers()
             assert "credential for l2" == auth.get_credential_from_header({})
             assert "bearer token for l2" == auth.create_bearer_token()
-            assert "oauth provider for l2" == auth.oauth_provider_lookup()
+            assert "oauth provider for l2" == auth.bearer_token_provider_lookup()
             assert "decoded bearer token for l2" == auth.decode_bearer_token()
 
 
@@ -603,7 +606,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         assert auth.basic_auth_provider != None
         assert isinstance(auth.basic_auth_provider, MilleniumPatronAPI)
-        assert {} == auth.oauth_providers_by_name
+        assert {} == auth.providers_by_name
 
     def test_from_config_basic_auth_and_oauth(self):
         library = self._default_library
@@ -630,8 +633,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
                           FirstBookAuthenticationAPI)
         assert analytics == auth.basic_auth_provider.analytics
 
-        assert 1 == len(auth.oauth_providers_by_name)
-        clever = auth.oauth_providers_by_name[
+        assert 1 == len(auth.providers_by_name)
+        clever = auth.providers_by_name[
             CleverAuthenticationAPI.NAME
         ]
         assert isinstance(clever, CleverAuthenticationAPI)
@@ -692,7 +695,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         # The LibraryAuthenticator exists but has no AuthenticationProviders.
         assert None == auth.basic_auth_provider
-        assert {} == auth.oauth_providers_by_name
+        assert {} == auth.providers_by_name
 
         # Both integrations have left their trace in
         # initialization_exceptions.
@@ -763,7 +766,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             auth.basic_auth_provider, FirstBookAuthenticationAPI
         )
 
-    def test_register_oauth_provider(self):
+    def test_register_bearer_token_auth_provider(self):
         oauth = self._external_integration(
             "api.clever", ExternalIntegration.PATRON_AUTH_GOAL,
         )
@@ -772,8 +775,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         self._default_library.integrations.append(oauth)
         auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
         auth.register_provider(oauth)
-        assert 1 == len(auth.oauth_providers_by_name)
-        clever = auth.oauth_providers_by_name[
+        assert 1 == len(auth.providers_by_name)
+        clever = auth.providers_by_name[
             CleverAuthenticationAPI.NAME
         ]
         assert isinstance(clever, CleverAuthenticationAPI)
@@ -808,7 +811,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # without providing a secret.
         with pytest.raises(CannotLoadConfiguration) as excinfo:
             LibraryAuthenticator(_db=self._db, library=self._default_library, oauth_providers=[oauth])
-        assert "OAuth providers are configured, but secret for signing bearer tokens is not." in str(excinfo.value)
+        assert "The secret for signing bearer tokens is not configured." in str(excinfo.value)
 
     def test_supports_patron_authentication(self):
         authenticator = LibraryAuthenticator.from_config(
@@ -829,7 +832,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         authenticator.basic_auth_provider = None
 
         # So will adding an OAuth provider.
-        authenticator.oauth_providers_by_name[object()] = object()
+        authenticator.providers_by_name[object()] = object()
         assert True == authenticator.supports_patron_authentication
 
     def test_identifies_individuals(self):
@@ -910,15 +913,15 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             authenticator.register_basic_auth_provider(basic2)
         assert "Two basic auth providers configured" in str(excinfo.value)
 
-        authenticator.register_oauth_provider(oauth1)
-        authenticator.register_oauth_provider(oauth1)
-        authenticator.register_oauth_provider(oauth2)
+        authenticator.register_bearer_token_auth_provider(oauth1)
+        authenticator.register_bearer_token_auth_provider(oauth1)
+        authenticator.register_bearer_token_auth_provider(oauth2)
 
         with pytest.raises(CannotLoadConfiguration) as excinfo:
-            authenticator.register_oauth_provider(oauth1_dupe)
+            authenticator.register_bearer_token_auth_provider(oauth1_dupe)
         assert 'Two different OAuth providers claim the name "provider1"' in str(excinfo.value)
 
-    def test_oauth_provider_lookup(self):
+    def test_bearer_token_provider_lookup(self):
 
         # If there are no OAuth providers we cannot look one up.
         integration = self._external_integration(self._str)
@@ -930,9 +933,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             library=self._default_library,
             basic_auth_provider=basic
         )
-        problem = authenticator.oauth_provider_lookup("provider1")
+        problem = authenticator.bearer_token_provider_lookup("provider1")
         assert problem.uri == UNKNOWN_OAUTH_PROVIDER.uri
-        assert _("No OAuth providers are configured.") == problem.detail
+        assert _("No relevant providers are configured.") == problem.detail
 
         # We can look up registered providers but not unregistered providers.
         oauth1 = MockOAuthAuthenticationProvider(self._default_library, "provider1")
@@ -945,10 +948,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             bearer_token_signing_secret='foo'
         )
 
-        provider = authenticator.oauth_provider_lookup("provider1")
+        provider = authenticator.bearer_token_provider_lookup("provider1")
         assert oauth1 == provider
 
-        problem = authenticator.oauth_provider_lookup("provider3")
+        problem = authenticator.bearer_token_provider_lookup("provider3")
         assert problem.uri == UNKNOWN_OAUTH_PROVIDER.uri
         assert (
             _("The specified OAuth provider name isn't one of the known providers. The known providers are: provider1, provider2") ==
@@ -987,7 +990,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         problem = authenticator.authenticated_patron(
             self._db, "Bearer abcd"
         )
-        assert UNSUPPORTED_AUTHENTICATION_MECHANISM == problem
+        assert INVALID_OAUTH_BEARER_TOKEN == problem
 
     def test_authenticated_patron_oauth(self):
         patron1 = self._patron()
@@ -1238,7 +1241,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # authentication sub-documents are assembled properly and
             # placed in the right position.
             flows = doc['authentication']
-            oauth_doc, basic_doc = sorted(flows, key=lambda x: x['type'])
+            [oauth_doc] = list(filter(lambda x: isinstance(x, dict), flows))
+            [basic_doc] = list(filter(lambda x: isinstance(x, list), flows))
 
             expect_basic = basic.authentication_flow_document(self._db)
             assert expect_basic == basic_doc
@@ -2171,30 +2175,41 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         self.app = app
         del os.environ['AUTOINITIALIZE']
         with self.app.test_request_context("/"):
-            doc = provider.authentication_flow_document(self._db)
-            assert _(provider.DISPLAY_NAME) == doc['description']
-            assert provider.FLOW_TYPE == doc['type']
+            # BasicAuthenticationProvider returns 2 authentication flow documents.
+            # One is for Basic Auth and one is for OAuth, we need to check both.
+            docs = provider.authentication_flow_document(self._db)
+            assert len(docs) == 2
 
-            labels = doc['labels']
-            assert provider.identifier_label == labels['login']
-            assert provider.password_label == labels['password']
+            for doc in docs:
+                assert _(provider.DISPLAY_NAME) == doc['description']
+                assert doc['type'] in [provider.FLOW_TYPE_BASIC, provider.FLOW_TYPE_OAUTH]
 
-            inputs = doc['inputs']
-            assert (provider.identifier_keyboard ==
-                inputs['login']['keyboard'])
-            assert (provider.password_keyboard ==
-                inputs['password']['keyboard'])
+                labels = doc['labels']
+                assert provider.identifier_label == labels['login']
+                assert provider.password_label == labels['password']
 
-            assert provider.BARCODE_FORMAT_CODABAR == inputs['login']['barcode_format']
+                inputs = doc['inputs']
+                assert (provider.identifier_keyboard ==
+                    inputs['login']['keyboard'])
+                assert (provider.password_keyboard ==
+                    inputs['password']['keyboard'])
 
-            assert (provider.identifier_maximum_length ==
-                inputs['login']['maximum_length'])
-            assert (provider.password_maximum_length ==
-                inputs['password']['maximum_length'])
+                assert provider.BARCODE_FORMAT_CODABAR == inputs['login']['barcode_format']
 
-            [logo_link] = doc['links']
-            assert "logo" == logo_link["rel"]
-            assert "http://localhost/images/" + MockBasic.LOGIN_BUTTON_IMAGE == logo_link["href"]
+                assert (provider.identifier_maximum_length ==
+                    inputs['login']['maximum_length'])
+                assert (provider.password_maximum_length ==
+                    inputs['password']['maximum_length'])
+
+                if doc.get('type') == provider.FLOW_TYPE_BASIC:
+                    [logo_link] = doc['links']
+                    assert "logo" == logo_link["rel"]
+                    assert "http://localhost/images/" + MockBasic.LOGIN_BUTTON_IMAGE == logo_link["href"]
+
+                if doc.get('type') == provider.FLOW_TYPE_OAUTH:
+                    [links] = doc['links']
+                    assert 'authenticate' == links['rel']
+                    assert url_for('http_basic_auth_token', _external=True) == links['href']
 
     def test_remote_patron_lookup(self):
         #remote_patron_lookup does the lookup by calling _remote_patron_lookup,
@@ -2836,3 +2851,53 @@ class TestOAuthController(AuthenticatorTest):
             self._db, "Bearer - this is a bad token"
         )
         assert INVALID_OAUTH_BEARER_TOKEN == problem
+
+
+class TestBasicAuthTempTokenController(AuthenticatorTest):
+
+    def setup_method(self):
+        super(TestBasicAuthTempTokenController, self).setup_method()
+
+        patron = self._patron()
+        patrondata = PatronData(
+            permanent_id=patron.external_identifier,
+            authorization_identifier=patron.authorization_identifier,
+            username='unittestuser', neighborhood="Achewood"
+        )
+        integration = self._external_integration(self._str)
+        basic = MockBasicAuthenticationProvider(
+            self._default_library, integration, patron=patron,
+            patrondata=patrondata
+        )
+
+        authenticator = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
+            basic_auth_provider=basic,
+            bearer_token_signing_secret="a secret"
+        )
+
+        self.controller = BasicAuthTempTokenController(authenticator)
+
+    def test_basic_auth_temp_token(self):
+        """
+        Test that a patron can authenticate with the generated
+        HTTP Basic token.
+        """
+
+        # Get a token from user/pass
+        valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
+        headers_basic = dict(Authorization=f"Basic {valid_credentials}")
+
+        with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
+            response = self.controller.basic_auth_temp_token({}, self._db)
+            assert 200 == response.status_code
+
+            token = response.json.get('access_token')
+            assert token
+
+            # Ensure the token is valid
+            # TODO test this with app.test_client or something that can hit an authed route
+            headers_bearer = f"Bearer {token}"
+            patron = self.controller.authenticator.authenticated_patron(self._db, headers_bearer)
+            assert 'unittestuser' == patron.username

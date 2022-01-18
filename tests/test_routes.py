@@ -731,6 +731,17 @@ class TestAdobeDeviceManagement(RouteTest):
         self.assert_supported_methods(url, 'DELETE')
 
 
+class TestBasicAuthTempTokenController(RouteTest):
+    CONTROLLER_NAME = "basic_auth_token_controller"
+
+    def test_http_basic_auth_token(self):
+        url = '/http_basic_auth_token'
+        _db = self.manager._db
+        self.assert_authenticated_request_calls(
+            url, self.controller.basic_auth_temp_token, {}, _db
+        )
+
+
 class TestOAuthController(RouteTest):
     # TODO: We might be able to do a better job of checking that
     # flask.request.args are propagated through, instead of checking

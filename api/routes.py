@@ -18,6 +18,7 @@ from .app import app, babel
 # we never want werkzeug's merge_slashes feature.
 app.url_map.merge_slashes = False
 
+from .authenticator import BearerTokenSigner
 from .config import Configuration
 from core.app_server import (
     ErrorHandler,
@@ -48,6 +49,11 @@ def initialize_circulation_manager():
             # Make sure that any changes to the database (as might happen
             # on initial setup) are committed before continuing.
             app.manager._db.commit()
+
+@app.before_first_request
+def initialize_app_settings():
+    # Finds or generates a site-wide bearer token signing secret
+    BearerTokenSigner.bearer_token_signing_secret(app.manager._db)
 
 @babel.localeselector
 def get_locale():
@@ -128,7 +134,7 @@ def allows_cors(allowed_domain_type):
 
             if web_domains:
                 options = get_cors_options(
-                    app, dict(origins=" ,".join(web_domains),
+                    app, dict(origins=", ".join(web_domains),
                             supports_credentials=True)
                 )
                 set_cors_headers(resp, options)
@@ -614,6 +620,15 @@ def adobe_drm_devices():
 @returns_problem_detail
 def adobe_drm_device(device_id):
     return app.manager.adobe_device_management.device_id_handler(device_id)
+
+# Route that issues temporary tokens for Basic HTTP Auth
+@library_route('/http_basic_auth_token')
+@has_library
+@allows_cors(allowed_domain_type=set({"admin", "patron"}))
+@requires_auth
+@returns_problem_detail
+def http_basic_auth_token():
+    return app.manager.basic_auth_token_controller.basic_auth_temp_token(flask.request.args, app.manager._db)
 
 # Route that redirects to the authentication URL for an OAuth provider
 @library_route('/oauth_authenticate')
