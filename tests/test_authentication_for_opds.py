@@ -126,6 +126,40 @@ class TestAuthenticationForOPDSDocument(object):
             } ==
             doc)
 
+    def test_mutliple_flows(self):
+        """Verify that to_dict() works with multiple flows.
+        """
+        doc_obj = Doc(
+            id="id",
+            title="title",
+            authentication_flows=[MockMultipleFlows(), MockFlow("three")],
+            links=[
+                dict(rel="register", href="http://registration")
+            ]
+        )
+
+        doc = doc_obj.to_dict("arg")
+        assert len(doc['authentication']) == 3
+        assert (
+            {'id': 'id',
+             'title': 'title',
+             'authentication': [
+                    {'description': 'one',
+                     'type': 'http://mock1/'},
+                    {'description': 'two',
+                     'type': 'http://mock2/',
+                     'links': {'rel': 'authenticate',
+                               'href': 'http://mock/'}
+                    },
+                    {'description': 'three',
+                     'arg': 'arg',
+                     'type': 'http://mock1/'}
+                ],
+                'links': [
+                    {'rel': 'register', 'href': 'http://registration'}]
+            } ==
+            doc)
+
     def test_bad_document(self):
         """Test that to_dict() raises ValueError when something is
         wrong with the data.

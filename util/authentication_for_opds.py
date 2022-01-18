@@ -81,7 +81,12 @@ class AuthenticationForOPDSDocument(object):
         document = dict(id=self.id, title=self.title)
         flow_documents = document.setdefault('authentication', [])
         for flow in self.authentication_flows:
-            flow_documents.append(flow.authentication_flow_document(_db))
+            docs = flow.authentication_flow_document(_db)
+            if isinstance(docs, list):
+                for doc in docs:
+                    flow_documents.append(doc)
+            else:
+                flow_documents.append(docs)
         if self.links:
             doc_links = document.setdefault('links', [])
             for link in self.links:
