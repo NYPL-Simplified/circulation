@@ -2195,17 +2195,12 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         """
 
         basic_doc = self._generate_authentication_flow_document(_db, type=self.FLOW_TYPE_BASIC)
-        oauth_doc = self._generate_authentication_flow_document(_db, type=self.FLOW_TYPE_OAUTH)
-        oauth_doc.update(dict(
-            links=[
-                dict(
-                    rel="authenticate",
-                    href=url_for("http_basic_auth_token", _external=True)
-                )
-            ]
-        ))
+        docs = [basic_doc, ]
+        if self.oauth_enabled:
+            oauth_doc = self._generate_authentication_flow_document(_db, type=self.FLOW_TYPE_OAUTH)
+            docs.append(oauth_doc)
 
-        return [basic_doc, oauth_doc]
+        return docs
 
     def _generate_authentication_flow_document(self, _db, type):
 
@@ -2241,6 +2236,9 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             # logos instead.
             flow_doc["links"] = [dict(rel="logo", href=url_for("static_image", filename=self.LOGIN_BUTTON_IMAGE, _external=True))]
         flow_doc["type"] = type
+        if type == self.FLOW_TYPE_OAUTH:
+            flow_doc["links"] = [dict(rel="authenticate", href=url_for("http_basic_auth_token", _external=True))]
+
         return flow_doc
 
 
