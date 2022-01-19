@@ -1130,6 +1130,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         integration = self._external_integration(self._str)
         library = self._default_library
+
+        # Enable Basic Auth OAuth before passing into authenticators
+        ConfigurationSetting.for_library(
+            BasicAuthenticationProvider.HTTP_BASIC_OAUTH_ENABLED, library).value = "true"
+
         basic = MockBasicAuthenticationProvider(library, integration)
         oauth = MockOAuthAuthenticationProvider(library, "oauth")
         oauth.URI = "http://example.org/"
@@ -2166,6 +2171,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         provider.identifier_maximum_length=22
         provider.password_maximum_length=7
         provider.identifier_barcode_format = provider.BARCODE_FORMAT_CODABAR
+        provider.oauth_enabled = True
 
         # We're about to call url_for, so we must create an
         # application context.
