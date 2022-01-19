@@ -1589,10 +1589,6 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     DISPLAY_NAME = _("Library Barcode")
     AUTHENTICATION_REALM = _("Library card")
     NAME = 'Generic Basic Authentication provider'
-    BEARER_TOKEN_PROVIDER_NAME = 'HTTPBasicBearerToken'
-    TOKEN_TYPE = 'HTTP Basic'
-    FLOW_TYPE_BASIC = 'http://opds-spec.org/auth/basic'
-    FLOW_TYPE_OAUTH = 'http://librarysimplified.org/authtype/OAuth-Client-Credentials'
 
     # By default, patron identifiers can only contain alphanumerics and
     # a few other characters. By default, there are no restrictions on
@@ -1604,6 +1600,15 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     # Configuration settings that are common to all Basic Auth-type
     # authentication techniques.
     #
+
+    # Settings for basic auth bearer tokens
+    BEARER_TOKEN_PROVIDER_NAME = 'HTTPBasicBearerToken'
+    TOKEN_TYPE = 'HTTP Basic'
+    HTTP_BASIC_OAUTH_ENABLED = "http_basic_oauth_enabled"
+    HTTP_BASIC_OAUTH_ENABLED_DEFAULT = False
+    FLOW_TYPE_BASIC = 'http://opds-spec.org/auth/basic'
+    FLOW_TYPE_OAUTH = 'http://librarysimplified.org/authtype/OAuth-Client-Credentials'
+
 
     # Identifiers can be presumed invalid if they don't match
     # this regular expression.
