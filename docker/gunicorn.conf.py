@@ -32,3 +32,4 @@ if os.environ.get('FLASK_ENV', None) == 'development':
     reload = True       # restart workers when app code changes
     loglevel = "debug"  # default loglevel is 'info'
     workers = 1         # single worker for local dev
+    threads = 1         # single thread for local dev
