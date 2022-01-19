@@ -1679,6 +1679,19 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     TEST_PASSWORD_DESCRIPTION_REQUIRED = _("The password for the Test Identifier.")
     TEST_PASSWORD_DESCRIPTION_OPTIONAL = _("The password for the Test Identifier (above, in previous section).")
 
+    LIBRARY_SETTINGS = [
+        { "key": HTTP_BASIC_OAUTH_ENABLED,
+          "label": _("Enable OAuth for HTTP Basic Auth"),
+          "description": _("Enable authentication with bearer tokens generated via basic auth credentials"),
+          "type": "select",
+          "options": [
+              { "key": "false", "label": _("Disabled") },
+              { "key": "true", "label": _("Enabled") },
+          ],
+          "default": "false",
+        },
+    ] + AuthenticationProvider.LIBRARY_SETTINGS
+
     SETTINGS = [
         { "key": TEST_IDENTIFIER,
           "label": _("Test Identifier"),
