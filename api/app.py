@@ -17,6 +17,7 @@ from core.model import (
     Library,
     SessionManager,
     create,
+    get_one_or_create,
 )
 from core.external_search import ExternalSearchIndex
 from core.log import LogConfiguration
@@ -56,8 +57,8 @@ def initialize_database(autoinitialize=True):
     ).filter(Library.id==None).all()
     es_url_from_env = os.environ.get('SIMPLIFIED_ELASTICSEARCH_URL')
 
-    if not es_integrations and not testing and es_url_from_env:        
-        (es_integration, _) = create(
+    if not es_integrations and not testing and es_url_from_env:
+        (es_integration, _) = get_one_or_create(
             _db,
             ExternalIntegration,
             name="LocalDevElasticSearch",
