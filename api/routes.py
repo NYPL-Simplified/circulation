@@ -1,6 +1,7 @@
 from functools import wraps, update_wrapper
 import logging
 import os
+from urllib.parse import urlparse
 
 import flask
 from flask import (
@@ -126,15 +127,32 @@ def allows_cors(allowed_domain_type):
             patron_web_domains = app.manager.patron_web_domains
             admin_web_domains = app.manager.admin_web_domains
             
-            web_domains = set();
+            allowed_urls = set();
             if "patron" in allowed_domain_type:
-                web_domains.update(patron_web_domains)
+                allowed_urls.update(patron_web_domains)
             if "admin" in allowed_domain_type:
-                web_domains.update(admin_web_domains)
+                allowed_urls.update(admin_web_domains)
 
-            if web_domains:
+            origin_value = request.headers["origin"]
+
+            try:
+                origin_parsed = urlparse(origin_value)
+            except Exception:
+                origin_parsed = None
+
+            def compare_url_to_origin(other_url):
+                try:
+                    url_parsed = urlparse(other_url)
+                    return bool(
+                        origin_parsed.scheme == url_parsed.scheme
+                        and origin_parsed.netloc == url_parsed.netloc
+                    )
+                except Exception:
+                    return False
+
+            if any(filter(compare_url_to_origin, allowed_urls)):
                 options = get_cors_options(
-                    app, dict(origins=", ".join(web_domains),
+                    app, dict(origins=origin_value,
                             supports_credentials=True)
                 )
                 set_cors_headers(resp, options)
