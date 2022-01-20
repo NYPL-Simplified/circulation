@@ -1241,11 +1241,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # authentication sub-documents are assembled properly and
             # placed in the right position.
             flows = doc['authentication']
-            [oauth_doc] = list(filter(lambda x: isinstance(x, dict), flows))
-            [basic_doc] = list(filter(lambda x: isinstance(x, list), flows))
+            basic_oauth_doc, oauth_doc, basic_doc = sorted(flows, key=lambda x: x['type'])
 
             expect_basic = basic.authentication_flow_document(self._db)
-            assert expect_basic == basic_doc
+            assert expect_basic == [basic_doc, basic_oauth_doc]
 
             expect_oauth = oauth.authentication_flow_document(self._db)
             assert expect_oauth == oauth_doc
