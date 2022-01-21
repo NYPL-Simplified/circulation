@@ -198,14 +198,14 @@ class Configuration(CoreConfiguration):
             "label": _("Hostnames for patron web application access"),
             "type": "string",
             "required": True,
-            "description": _("Only web applications from these hosts can access this circulation manager. This can be a single hostname (http://catalog.library.org) or a pipe-separated list of hostnames (http://catalog.library.org|https://beta.library.org). You must include the scheme part of the URI (http:// or https://). You can also set this to '*' to allow access from any host, but you must not do this in a production environment -- only during development.")
+            "description": _("Only web applications from these hosts can access this circulation manager. You may set a value which includes a wildcard for subdomains, such as https://*.somedomain.com or https://*.somesub.somedomain.com. Note that such a wildcard will NOT match the root domain alone; that must be included separately.")
         },
         {
             "key": ADMIN_WEB_HOSTNAMES,
             "label": _("Hostnames for admin web application access"),
             "required": True,
             "type": "string",
-            "description": _("Only admin web applications from these hosts can access this circulation manager. This can be a single hostname (http://catalog.library.org) or a pipe-separated list of hostnames (http://catalog.library.org|https://beta.library.org). You must include the scheme part of the URI (http:// or https://). You can also set this to '*' to allow access from any host, but you must not do this in a production environment -- only during development.")
+            "description": _("Only admin web applications from these hosts can access this circulation manager. This can be a single hostname (http://catalog.library.org) or a pipe-separated list of hostnames (http://catalog.library.org|https://beta.library.org).  You may set a value which includes a wildcard for subdomains, such as https://*.somedomain.com or https://*.somesub.somedomain.com. Note that such a wildcard will NOT match the root domain alone; that must be included separately.")
         },
         {
             "key": STATIC_FILE_CACHE_TIME,
