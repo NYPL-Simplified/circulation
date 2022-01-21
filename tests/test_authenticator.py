@@ -1167,8 +1167,12 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         library = self._default_library
 
         # Enable Basic Auth OAuth before passing into authenticators
-        ConfigurationSetting.for_library(
-            BasicAuthenticationProvider.HTTP_BASIC_OAUTH_ENABLED, library).value = "true"
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db,
+            BasicAuthenticationProvider.HTTP_BASIC_OAUTH_ENABLED,
+            library,
+            integration
+        ).value = "true"
 
         basic = MockBasicAuthenticationProvider(library, integration)
         oauth = MockOAuthAuthenticationProvider(library, "oauth")
