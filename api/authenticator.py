@@ -1822,12 +1822,10 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             or self.DEFAULT_PASSWORD_LABEL
         )
 
-        self.oauth_enabled = self.HTTP_BASIC_OAUTH_ENABLED_DEFAULT
-        oauth_enabled = list(
-            filter(lambda setting: setting.key == self.HTTP_BASIC_OAUTH_ENABLED, library.settings)) \
-            or self.HTTP_BASIC_OAUTH_ENABLED_DEFAULT
-        if oauth_enabled:
-            self.oauth_enabled = oauth_enabled[0].bool_value or self.HTTP_BASIC_OAUTH_ENABLED_DEFAULT
+        _db = Session.object_session(library)
+        self.oauth_enabled = ConfigurationSetting.for_library_and_externalintegration(
+            _db, self.HTTP_BASIC_OAUTH_ENABLED, library, integration
+        ).bool_value or self.HTTP_BASIC_OAUTH_ENABLED_DEFAULT
 
     def remote_patron_lookup(self, patron_or_patrondata):
         """Ask the remote for information about this patron, and then make sure
