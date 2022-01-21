@@ -1,6 +1,7 @@
 from functools import wraps, update_wrapper
 import logging
 import os
+from urllib.parse import urlparse
 
 import flask
 from flask import (
@@ -29,6 +30,7 @@ from core.model import ConfigurationSetting
 from core.util.problem_detail import ProblemDetail
 from .controller import CirculationManager
 from .problem_details import REMOTE_INTEGRATION_FAILED
+from .util.url import URLUtility
 from flask_babel import lazy_gettext as _
 
 @app.before_first_request
@@ -122,22 +124,20 @@ def allows_cors(allowed_domain_type):
                 resp = app.make_default_options_response()
             else:
                 resp = make_response(func(*args, **kwargs))
-            
-            patron_web_domains = app.manager.patron_web_domains
-            admin_web_domains = app.manager.admin_web_domains
-            
-            web_domains = set();
-            if "patron" in allowed_domain_type:
-                web_domains.update(patron_web_domains)
-            if "admin" in allowed_domain_type:
-                web_domains.update(admin_web_domains)
 
-            if web_domains:
-                options = get_cors_options(
-                    app, dict(origins=", ".join(web_domains),
-                            supports_credentials=True)
-                )
-                set_cors_headers(resp, options)
+            origin_value = request.headers.get("origin", "")
+
+            if origin_value:
+                allowed_url_patterns = set()
+                if "patron" in allowed_domain_type:
+                    allowed_url_patterns.update(app.manager.patron_web_domains)
+
+                if "admin" in allowed_domain_type:
+                    allowed_url_patterns.update(app.manager.admin_web_domains)
+
+                if allowed_url_patterns and URLUtility.url_match_in_domain_list(origin_value, allowed_url_patterns):
+                    options = get_cors_options(app, {"origins": origin_value, "supports_credentials": True})
+                    set_cors_headers(resp, options)
 
             return resp
 
