@@ -114,11 +114,19 @@ def allows_cors(allowed_domain_type):
     # Override Flask's default behavior and intercept the OPTIONS method for
     # every request so CORS headers can be added.
     def decorator(func):
+        # These lines need to be here rather than inside `wrapper()`, because otherwise
+        # the default behavior of Flask means that OPTIONS calls will be handled automatically,
+        # and never get inside the wrapper function here.
+        # 
+        # The alternative to making this modification here would be to make each call to app.route()
+        # carry 'provide_automatic_options=False', to turn off that behavior when the Werkzeug
+        # URL Rule object is initially created and put into the Flask url_map.
+        func.required_methods = getattr(func, 'required_methods', set())
+        func.required_methods.add("OPTIONS")
+        func.provide_automatic_options = False
+
         @wraps(func)
         def wrapper(*args, **kwargs):
-            func.required_methods = getattr(func, 'required_methods', set())
-            func.required_methods.add("OPTIONS")
-            func.provide_automatic_options = False
 
             if request.method == "OPTIONS":
                 resp = app.make_default_options_response()
