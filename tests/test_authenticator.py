@@ -1118,6 +1118,41 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         )
         assert token_value == decoded
 
+    def test_create_authentication_document_no_basic_oauth(self):
+        class MockAuthenticator(LibraryAuthenticator):
+            pass
+
+        integration = self._external_integration(self._str)
+        library = self._default_library
+
+        basic = MockBasicAuthenticationProvider(library, integration)
+        oauth = MockOAuthAuthenticationProvider(library, "oauth")
+        authenticator = MockAuthenticator(
+            _db=self._db,
+            library = library,
+            basic_auth_provider=basic, oauth_providers=[oauth],
+            bearer_token_signing_secret='secret'
+        )
+
+        # We're about to call url_for, so we must create an application context.
+        os.environ['AUTOINITIALIZE'] = "False"
+        from api.app import app
+        self.app = app
+        del os.environ['AUTOINITIALIZE']
+        with self.app.test_request_context("/"):
+
+            doc = json.loads(authenticator.create_authentication_document())
+            # The main thing we need to test is that there is no basic_oauth_doc
+            flows = doc['authentication']
+            assert len(flows) == 2
+            oauth_doc, basic_doc = sorted(flows, key=lambda x: x['type'])
+
+            expect_basic = basic.authentication_flow_document(self._db)
+            assert expect_basic == [basic_doc]
+
+            expect_oauth = oauth.authentication_flow_document(self._db)
+            assert expect_oauth == oauth_doc
+
     def test_create_authentication_document(self):
 
         class MockAuthenticator(LibraryAuthenticator):
@@ -1130,6 +1165,15 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         integration = self._external_integration(self._str)
         library = self._default_library
+
+        # Enable Basic Auth OAuth before passing into authenticators
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db,
+            BasicAuthenticationProvider.HTTP_BASIC_OAUTH_ENABLED,
+            library,
+            integration
+        ).value = "true"
+
         basic = MockBasicAuthenticationProvider(library, integration)
         oauth = MockOAuthAuthenticationProvider(library, "oauth")
         oauth.URI = "http://example.org/"
@@ -2166,6 +2210,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         provider.identifier_maximum_length=22
         provider.password_maximum_length=7
         provider.identifier_barcode_format = provider.BARCODE_FORMAT_CODABAR
+        provider.oauth_enabled = True
 
         # We're about to call url_for, so we must create an
         # application context.
