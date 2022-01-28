@@ -24,7 +24,8 @@ from .templates import (
 from api.routes import (
     has_library,
     library_route,
-    allows_library
+    allows_library,
+    allows_cors
 )
 
 import urllib.request, urllib.parse, urllib.error
@@ -106,27 +107,32 @@ def returns_json_or_response_or_problem_detail(f):
     return decorated
 
 @app.route('/admin/GoogleAuth/callback')
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 def google_auth_callback():
     return app.manager.admin_sign_in_controller.redirect_after_google_sign_in()
 
 @app.route("/admin/sign_in_with_password", methods=["POST"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 def password_auth():
     return app.manager.admin_sign_in_controller.password_sign_in()
 
 @app.route('/admin/sign_in')
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 def admin_sign_in():
     return app.manager.admin_sign_in_controller.sign_in()
 
 @app.route('/admin/sign_out')
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 @requires_admin
 def admin_sign_out():
     return app.manager.admin_sign_in_controller.sign_out()
 
 @app.route('/admin/change_password', methods=["POST"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 @requires_admin
 def admin_change_password():
@@ -134,6 +140,7 @@ def admin_change_password():
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>', methods=['GET'])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 @requires_admin
 def work_details(identifier_type, identifier):
@@ -141,6 +148,7 @@ def work_details(identifier_type, identifier):
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>/classifications', methods=['GET'])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 def work_classifications(identifier_type, identifier):
@@ -148,6 +156,7 @@ def work_classifications(identifier_type, identifier):
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>/preview_book_cover', methods=['POST'])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 @requires_admin
 def work_preview_book_cover(identifier_type, identifier):
@@ -155,6 +164,7 @@ def work_preview_book_cover(identifier_type, identifier):
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>/change_book_cover', methods=['POST'])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 @requires_admin
 def work_change_book_cover(identifier_type, identifier):
@@ -162,6 +172,7 @@ def work_change_book_cover(identifier_type, identifier):
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>/complaints', methods=['GET'])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 def work_complaints(identifier_type, identifier):
@@ -169,6 +180,7 @@ def work_complaints(identifier_type, identifier):
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>/lists', methods=['GET', 'POST'])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -177,6 +189,7 @@ def work_custom_lists(identifier_type, identifier):
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>/edit', methods=['POST'])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -185,6 +198,7 @@ def edit(identifier_type, identifier):
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>/suppress', methods=['POST'])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -193,6 +207,7 @@ def suppress(identifier_type, identifier):
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>/unsuppress', methods=['POST'])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -209,6 +224,7 @@ def refresh(identifier_type, identifier):
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>/resolve_complaints', methods=['POST'])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -217,6 +233,7 @@ def resolve_complaints(identifier_type, identifier):
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>/edit_classifications', methods=['POST'])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -224,27 +241,32 @@ def edit_classifications(identifier_type, identifier):
     return app.manager.admin_work_controller.edit_classifications(identifier_type, identifier)
 
 @app.route('/admin/roles')
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 def roles():
     return app.manager.admin_work_controller.roles()
 
 @app.route('/admin/languages')
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 def languages():
     return app.manager.admin_work_controller.languages()
 
 @app.route('/admin/media')
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 def media():
     return app.manager.admin_work_controller.media()
 
 @app.route('/admin/rights_status')
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 def rights_status():
     return app.manager.admin_work_controller.rights_status()
 
 @library_route('/admin/complaints')
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 @requires_admin
 def complaints():
@@ -252,6 +274,7 @@ def complaints():
 
 @library_route('/admin/suppressed')
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 @requires_admin
 def suppressed():
@@ -259,6 +282,7 @@ def suppressed():
     return app.manager.admin_feed_controller.suppressed()
 
 @app.route('/admin/genres')
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 def genres():
@@ -266,6 +290,7 @@ def genres():
     return app.manager.admin_feed_controller.genres()
 
 @library_route('/admin/bulk_circulation_events')
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 @allows_library
 @requires_admin
@@ -288,6 +313,7 @@ def bulk_circulation_events():
 
 @library_route('/admin/circulation_events')
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 def circulation_events():
@@ -295,12 +321,14 @@ def circulation_events():
     return app.manager.admin_dashboard_controller.circulation_events()
 
 @app.route('/admin/stats')
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 def stats():
     return app.manager.admin_dashboard_controller.stats()
 
 @app.route('/admin/libraries', methods=['GET', 'POST'])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -308,6 +336,7 @@ def libraries():
     return app.manager.admin_library_settings_controller.process_libraries()
 
 @app.route("/admin/library/<library_uuid>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -315,6 +344,7 @@ def library(library_uuid):
     return app.manager.admin_library_settings_controller.process_delete(library_uuid)
 
 @app.route("/admin/collections", methods=['GET', 'POST'])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -322,6 +352,7 @@ def collections():
     return app.manager.admin_collection_settings_controller.process_collections()
 
 @app.route("/admin/collection/<collection_id>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -329,6 +360,7 @@ def collection(collection_id):
     return app.manager.admin_collection_settings_controller.process_delete(collection_id)
 
 @app.route("/admin/collection_self_tests/<identifier>", methods=["GET", "POST"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -336,6 +368,7 @@ def collection_self_tests(identifier):
     return app.manager.admin_collection_self_tests_controller.process_collection_self_tests(identifier)
 
 @app.route("/admin/collection_library_registrations", methods=['GET', 'POST'])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -343,6 +376,7 @@ def collection_library_registrations():
     return app.manager.admin_collection_library_registrations_controller.process_collection_library_registrations()
 
 @app.route("/admin/admin_auth_services", methods=['GET', 'POST'])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -350,6 +384,7 @@ def admin_auth_services():
     return app.manager.admin_auth_services_controller.process_admin_auth_services()
 
 @app.route("/admin/admin_auth_service/<protocol>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -357,6 +392,7 @@ def admin_auth_service(protocol):
     return app.manager.admin_auth_services_controller.process_delete(protocol)
 
 @app.route("/admin/individual_admins", methods=['GET', 'POST'])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @allows_admin_auth_setup
 @requires_admin
@@ -365,6 +401,7 @@ def individual_admins():
     return app.manager.admin_individual_admin_settings_controller.process_individual_admins()
 
 @app.route("/admin/individual_admin/<email>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -372,6 +409,7 @@ def individual_admin(email):
     return app.manager.admin_individual_admin_settings_controller.process_delete(email)
 
 @app.route("/admin/patron_auth_services", methods=['GET', 'POST'])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -379,6 +417,7 @@ def patron_auth_services():
     return app.manager.admin_patron_auth_services_controller.process_patron_auth_services()
 
 @app.route("/admin/patron_auth_service/<service_id>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -386,6 +425,7 @@ def patron_auth_service(service_id):
     return app.manager.admin_patron_auth_services_controller.process_delete(service_id)
 
 @app.route("/admin/patron_auth_service_self_tests/<identifier>", methods=["GET", "POST"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -394,6 +434,7 @@ def patron_auth_self_tests(identifier):
 
 @library_route("/admin/manage_patrons", methods=['POST'])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -402,6 +443,7 @@ def lookup_patron():
 
 @library_route("/admin/manage_patrons/reset_adobe_id", methods=['POST'])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -409,6 +451,7 @@ def reset_adobe_id():
     return app.manager.admin_patron_controller.reset_adobe_id()
 
 @app.route("/admin/metadata_services", methods=['GET', 'POST'])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -416,6 +459,7 @@ def metadata_services():
     return app.manager.admin_metadata_services_controller.process_metadata_services()
 
 @app.route("/admin/metadata_service/<service_id>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -423,6 +467,7 @@ def metadata_service(service_id):
     return app.manager.admin_metadata_services_controller.process_delete(service_id)
 
 @app.route("/admin/metadata_service_self_tests/<identifier>", methods=["GET", "POST"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -430,6 +475,7 @@ def metadata_service_self_tests(identifier):
     return app.manager.admin_metadata_service_self_tests_controller.process_metadata_service_self_tests(identifier)
 
 @app.route("/admin/analytics_services", methods=['GET', 'POST'])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -437,6 +483,7 @@ def analytics_services():
     return app.manager.admin_analytics_services_controller.process_analytics_services()
 
 @app.route("/admin/analytics_service/<service_id>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -444,6 +491,7 @@ def analytics_service(service_id):
     return app.manager.admin_analytics_services_controller.process_delete(service_id)
 
 @app.route("/admin/cdn_services", methods=["GET", "POST"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -451,6 +499,7 @@ def cdn_services():
     return app.manager.admin_cdn_services_controller.process_cdn_services()
 
 @app.route("/admin/cdn_service/<service_id>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -458,6 +507,7 @@ def cdn_service(service_id):
     return app.manager.admin_cdn_services_controller.process_delete(service_id)
 
 @app.route("/admin/search_services", methods=["GET", "POST"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -465,6 +515,7 @@ def search_services():
     return app.manager.admin_search_services_controller.process_services()
 
 @app.route("/admin/search_service/<service_id>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -472,6 +523,7 @@ def search_service(service_id):
     return app.manager.admin_search_services_controller.process_delete(service_id)
 
 @app.route("/admin/search_service_self_tests/<identifier>", methods=["GET", "POST"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -480,6 +532,7 @@ def search_service_self_tests(identifier):
 
 
 @app.route("/admin/storage_services", methods=["GET", "POST"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -487,6 +540,7 @@ def storage_services():
     return app.manager.admin_storage_services_controller.process_services()
 
 @app.route("/admin/storage_service/<service_id>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -494,6 +548,7 @@ def storage_service(service_id):
     return app.manager.admin_storage_services_controller.process_delete(service_id)
 
 @app.route("/admin/catalog_services", methods=['GET', 'POST'])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -501,6 +556,7 @@ def catalog_services():
     return app.manager.admin_catalog_services_controller.process_catalog_services()
 
 @app.route("/admin/catalog_service/<service_id>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -508,6 +564,7 @@ def catalog_service(service_id):
     return app.manager.admin_catalog_services_controller.process_delete(service_id)
 
 @app.route("/admin/discovery_services", methods=["GET", "POST"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -515,6 +572,7 @@ def discovery_services():
     return app.manager.admin_discovery_services_controller.process_discovery_services()
 
 @app.route("/admin/discovery_service/<service_id>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -522,6 +580,7 @@ def discovery_service(service_id):
     return app.manager.admin_discovery_services_controller.process_delete(service_id)
 
 @app.route("/admin/sitewide_settings", methods=['GET', 'POST'])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -529,6 +588,7 @@ def sitewide_settings():
     return app.manager.admin_sitewide_configuration_settings_controller.process_services()
 
 @app.route("/admin/sitewide_setting/<key>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -536,6 +596,7 @@ def sitewide_setting(key):
     return app.manager.admin_sitewide_configuration_settings_controller.process_delete(key)
 
 @app.route("/admin/logging_services", methods=['GET', 'POST'])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -543,6 +604,7 @@ def logging_services():
     return app.manager.admin_logging_services_controller.process_services()
 
 @app.route("/admin/logging_service/<key>", methods=["DELETE"])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -550,6 +612,7 @@ def logging_service(key):
     return app.manager.admin_logging_services_controller.process_delete(key)
 
 @app.route("/admin/discovery_service_library_registrations", methods=['GET', 'POST'])
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -558,6 +621,7 @@ def discovery_service_library_registrations():
 
 @library_route("/admin/custom_lists", methods=["GET", "POST"])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -566,6 +630,7 @@ def custom_lists():
 
 @library_route("/admin/custom_list/<list_id>", methods=["GET", "POST", "DELETE"])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -574,6 +639,7 @@ def custom_list(list_id):
 
 @library_route("/admin/lanes", methods=["GET", "POST"])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -582,6 +648,7 @@ def lanes():
 
 @library_route("/admin/lane/<lane_identifier>", methods=["DELETE"])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -590,6 +657,7 @@ def lane(lane_identifier):
 
 @library_route("/admin/lane/<lane_identifier>/show", methods=["POST"])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -598,6 +666,7 @@ def lane_show(lane_identifier):
 
 @library_route("/admin/lane/<lane_identifier>/hide", methods=["POST"])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -606,6 +675,7 @@ def lane_hide(lane_identifier):
 
 @library_route("/admin/lanes/reset", methods=["POST"])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -614,6 +684,7 @@ def reset_lanes():
 
 @library_route("/admin/lanes/change_order", methods=["POST"])
 @has_library
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -622,11 +693,13 @@ def change_lane_order():
 
 @app.route("/admin/diagnostics")
 @requires_admin
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 def diagnostics():
     return app.manager.timestamps_controller.diagnostics()
 
 @app.route('/admin/sign_in_again')
+@allows_cors(allowed_domain_type=set({"admin"}))
 def admin_sign_in_again():
     """Allows an  admin with expired credentials to sign back in
     from a new browser tab so they won't lose changes.
@@ -643,10 +716,12 @@ def admin_sign_in_again():
 @app.route('/admin/web/collection/<path:collection>')
 @app.route('/admin/web/book/<path:book>')
 @app.route('/admin/web/<path:etc>') # catchall for single-page URLs
+@allows_cors(allowed_domain_type=set({"admin"}))
 def admin_view(collection=None, book=None, etc=None, **kwargs):
     return app.manager.admin_view_controller(collection, book, path=etc)
 
 @app.route('/admin/', strict_slashes=False)
+@allows_cors(allowed_domain_type=set({"admin"}))
 def admin_base(**kwargs):
     return redirect(app.manager.url_for('admin_view'))
 
