@@ -726,11 +726,13 @@ def admin_base(**kwargs):
     return redirect(app.manager.url_for('admin_view'))
 
 @app.route('/admin/static/circulation-web.js')
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 def admin_js():
     return app.manager.static_files.static_file(app.static_resources_dir, "circulation-web.js")
 
 @app.route('/admin/static/circulation-web.css')
+@allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 def admin_css():
     return app.manager.static_files.static_file(app.static_resources_dir, "circulation-web.css")
