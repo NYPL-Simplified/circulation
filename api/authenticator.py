@@ -1589,10 +1589,6 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     DISPLAY_NAME = _("Library Barcode")
     AUTHENTICATION_REALM = _("Library card")
     NAME = 'Generic Basic Authentication provider'
-    BEARER_TOKEN_PROVIDER_NAME = 'HTTPBasicBearerToken'
-    TOKEN_TYPE = 'HTTP Basic'
-    FLOW_TYPE_BASIC = 'http://opds-spec.org/auth/basic'
-    FLOW_TYPE_OAUTH = 'http://librarysimplified.org/authtype/OAuth-Client-Credentials'
 
     # By default, patron identifiers can only contain alphanumerics and
     # a few other characters. By default, there are no restrictions on
@@ -1604,6 +1600,15 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     # Configuration settings that are common to all Basic Auth-type
     # authentication techniques.
     #
+
+    # Settings for basic auth bearer tokens
+    BEARER_TOKEN_PROVIDER_NAME = 'HTTPBasicBearerToken'
+    TOKEN_TYPE = 'HTTP Basic'
+    HTTP_BASIC_OAUTH_ENABLED = "http_basic_oauth_enabled"
+    HTTP_BASIC_OAUTH_ENABLED_DEFAULT = False
+    FLOW_TYPE_BASIC = 'http://opds-spec.org/auth/basic'
+    FLOW_TYPE_OAUTH = 'http://librarysimplified.org/authtype/OAuth-Client-Credentials'
+
 
     # Identifiers can be presumed invalid if they don't match
     # this regular expression.
@@ -1673,6 +1678,19 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     ))
     TEST_PASSWORD_DESCRIPTION_REQUIRED = _("The password for the Test Identifier.")
     TEST_PASSWORD_DESCRIPTION_OPTIONAL = _("The password for the Test Identifier (above, in previous section).")
+
+    LIBRARY_SETTINGS = [
+        { "key": HTTP_BASIC_OAUTH_ENABLED,
+          "label": _("Enable OAuth for HTTP Basic Auth"),
+          "description": _("Enable authentication with bearer tokens generated via basic auth credentials"),
+          "type": "select",
+          "options": [
+              { "key": "false", "label": _("Disabled") },
+              { "key": "true", "label": _("Enabled") },
+          ],
+          "default": "false",
+        },
+    ] + AuthenticationProvider.LIBRARY_SETTINGS
 
     SETTINGS = [
         { "key": TEST_IDENTIFIER,
@@ -1803,6 +1821,11 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             integration.setting(self.PASSWORD_LABEL).value
             or self.DEFAULT_PASSWORD_LABEL
         )
+
+        _db = Session.object_session(library)
+        self.oauth_enabled = ConfigurationSetting.for_library_and_externalintegration(
+            _db, self.HTTP_BASIC_OAUTH_ENABLED, library, integration
+        ).bool_value or self.HTTP_BASIC_OAUTH_ENABLED_DEFAULT
 
     def remote_patron_lookup(self, patron_or_patrondata):
         """Ask the remote for information about this patron, and then make sure
@@ -2177,17 +2200,12 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         """
 
         basic_doc = self._generate_authentication_flow_document(_db, type=self.FLOW_TYPE_BASIC)
-        oauth_doc = self._generate_authentication_flow_document(_db, type=self.FLOW_TYPE_OAUTH)
-        oauth_doc.update(dict(
-            links=[
-                dict(
-                    rel="authenticate",
-                    href=url_for("http_basic_auth_token", _external=True)
-                )
-            ]
-        ))
+        docs = [basic_doc, ]
+        if self.oauth_enabled:
+            oauth_doc = self._generate_authentication_flow_document(_db, type=self.FLOW_TYPE_OAUTH)
+            docs.append(oauth_doc)
 
-        return [basic_doc, oauth_doc]
+        return docs
 
     def _generate_authentication_flow_document(self, _db, type):
 
@@ -2223,6 +2241,9 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             # logos instead.
             flow_doc["links"] = [dict(rel="logo", href=url_for("static_image", filename=self.LOGIN_BUTTON_IMAGE, _external=True))]
         flow_doc["type"] = type
+        if type == self.FLOW_TYPE_OAUTH:
+            flow_doc["links"] = [dict(rel="authenticate", href=url_for("http_basic_auth_token", _external=True))]
+
         return flow_doc
 
 
