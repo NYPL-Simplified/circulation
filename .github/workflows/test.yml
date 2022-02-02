@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.6, 3.7, 3.8]
+        python-version: [3.6]
     # We want to run on external PRs, but not on our own internal PRs as they'll be run
     # by the push to the branch. This prevents duplicated runs on internal PRs.
     # Some discussion of this here: 
@@ -35,6 +35,8 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install tox tox-gh-actions tox-docker
-
+          
       - name: Run Tests
-        run: tox
+        run: |
+          export SIMPLIFIED_STATIC_DIR="$(pwd)/resources"
+          tox

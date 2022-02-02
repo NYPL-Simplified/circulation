@@ -34,7 +34,9 @@ class MockManager(object):
         self._cache = {}
 
         # This is used by the allows_patron_web annotator.
-        self.patron_web_domains = set(["http://patron/web"])
+        self.patron_web_domains = set(["http://patron.librarysimplified.org", "http://*.patron.librarysimplified.org"])
+
+        self.admin_web_domains = set(["http://admin.librarysimplified.org", "http://*.admin.librarysimplified.org"])
 
     def __getattr__(self, controller_name):
         return self._cache.setdefault(
@@ -713,6 +715,17 @@ class TestAdobeDeviceManagement(RouteTest):
             http_method='DELETE'
         )
         self.assert_supported_methods(url, 'DELETE')
+
+
+class TestBasicAuthTempTokenController(RouteTest):
+    CONTROLLER_NAME = "basic_auth_token_controller"
+
+    def test_http_basic_auth_token(self):
+        url = '/http_basic_auth_token'
+        _db = self.manager._db
+        self.assert_authenticated_request_calls(
+            url, self.controller.basic_auth_temp_token, {}, _db
+        )
 
 
 class TestOAuthController(RouteTest):

@@ -329,6 +329,7 @@ class TestPatronAuth(SettingsControllerTest):
                     "short_name": library.short_name,
                     AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE,
                     AuthenticationProvider.LIBRARY_IDENTIFIER_FIELD: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE,
+                    BasicAuthenticationProvider.HTTP_BASIC_OAUTH_ENABLED: "false",
                 }])),
             ] + common_args)
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
@@ -343,6 +344,7 @@ class TestPatronAuth(SettingsControllerTest):
                     AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE,
                     AuthenticationProvider.LIBRARY_IDENTIFIER_FIELD: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "(invalid re",
+                    BasicAuthenticationProvider.HTTP_BASIC_OAUTH_ENABLED: "false",
                 }])),
             ] + common_args)
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
@@ -356,6 +358,7 @@ class TestPatronAuth(SettingsControllerTest):
                     AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX,
                     AuthenticationProvider.LIBRARY_IDENTIFIER_FIELD: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE,
                     AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION: "(invalid re",
+                    BasicAuthenticationProvider.HTTP_BASIC_OAUTH_ENABLED: "false",
                 }])),
             ] + common_args)
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
@@ -401,6 +404,7 @@ class TestPatronAuth(SettingsControllerTest):
                     AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX,
                     AuthenticationProvider.LIBRARY_IDENTIFIER_FIELD: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE,
                     AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION: "^1234",
+                    BasicAuthenticationProvider.HTTP_BASIC_OAUTH_ENABLED: "false",
                 }])),
             ] + self._common_basic_auth_arguments())
 
@@ -472,6 +476,7 @@ class TestPatronAuth(SettingsControllerTest):
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "^(.)",
                     AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE,
                     AuthenticationProvider.LIBRARY_IDENTIFIER_FIELD: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE,
+                    BasicAuthenticationProvider.HTTP_BASIC_OAUTH_ENABLED: "false",
                 }])),
             ] + self._common_basic_auth_arguments())
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()

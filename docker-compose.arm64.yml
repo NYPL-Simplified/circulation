@@ -1,0 +1,75 @@
+version: '3.7'
+
+services:
+
+  database:
+    container_name: cm_local_db
+    build:
+      context: .
+      target: cm_local_db
+    volumes:
+      - cm_local_dbdata:/var/lib/postgresql/data
+    ports:
+      - "5434:5434"
+    environment:
+      - PGPORT=5434
+
+  elasticsearch:
+    # Use the latest version of Elasticsearch supported by Amazon AWS ES.
+    container_name: cm_local_es
+    image: cm_local_es_arm64:latest
+    build:
+      context: ./docker
+      dockerfile: Dockerfile-es654.arm64
+      target: es_arm_64
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    
+  scripts:
+    container_name: cm_local_scripts
+    depends_on:
+      - database
+      - elasticsearch
+    build:
+      context: .
+      target: cm_scripts_local
+    environment:
+      SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:simplified@cm_local_db:5434/simplified_circulation_dev
+      SIMPLIFIED_TEST_DATABASE: postgres://simplified_test:simplified_test@cm_local_db:5434/simplified_circulation_test
+      SIMPLIFIED_ELASTICSEARCH_URL: http://cm_local_es:9200
+    volumes:
+      - "cm_local_script_logs:/var/log/simplified"
+      - type: bind
+        source: .
+        target: /home/simplified/circulation
+        read_only: true
+
+  webapp:
+    container_name: cm_local_webapp
+    depends_on:
+      - database
+      - elasticsearch
+    build:
+      context: .
+      target: cm_webapp_local
+    environment:
+      SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:simplified@cm_local_db:5434/simplified_circulation_dev
+      SIMPLIFIED_TEST_DATABASE: postgres://simplified_test:simplified_test@cm_local_db:5434/simplified_circulation_test
+      SIMPLIFIED_ELASTICSEARCH_URL: http://cm_local_es:9200
+    ports:
+      - 80:80
+    volumes:
+      - "cm_local_gunicorn_log:/var/log/gunicorn"
+      - type: bind
+        source: .
+        target: /home/simplified/circulation
+        read_only: true
+
+volumes:
+  cm_local_dbdata:
+  cm_local_gunicorn_log:
+  cm_local_script_logs:
+  es_data:

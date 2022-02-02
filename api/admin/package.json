@@ -1,6 +1,6 @@
 {
   "name": "simplified-circulation",
-  "version": "0.1.4",
+  "version": "0.1.12",
   "description": "Library Simplified Circulation Manager",
   "repository": {
     "type": "git",
@@ -13,6 +13,6 @@
     "npm": ">=5.0.0"
   },
   "dependencies": {
-    "simplified-circulation-web": "0.5.6"
+    "simplified-circulation-web": "0.5.14"
   }
 }
