@@ -1,4 +1,0 @@
-#!/bin/bash
-set -e
-
-source ~/circulation/env/bin/activate && uwsgi --ini ~/circulation/uwsgi.ini

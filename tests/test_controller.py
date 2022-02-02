@@ -26,6 +26,8 @@ from api.adobe_vendor_id import AuthdataUtility, DeviceManagementProtocolControl
 from api.annotations import AnnotationWriter
 from api.app import app, initialize_database
 from api.authenticator import (
+    BasicAuthTempTokenController,
+    BearerTokenSigner,
     CirculationPatronProfileStorage,
     LibraryAuthenticator,
     OAuthController,
@@ -373,11 +375,13 @@ class TestCirculationManager(CirculationControllerTest):
         # which are about to be reloaded.
         manager._external_search = object()
         manager.adobe_device_management = object()
+        manager.basic_auth_token_controller = object()
         manager.oauth_controller = object()
         manager.auth = object()
         manager.shared_collection_api = object()
         manager.new_custom_index_views = object()
         manager.patron_web_domains = object()
+        manager.admin_web_domains = object()
 
         # But some fields are _not_ about to be reloaded
         index_controller = manager.index_controller
@@ -423,6 +427,9 @@ class TestCirculationManager(CirculationControllerTest):
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, Registration.LIBRARY_REGISTRATION_WEB_CLIENT,
             library, registry).value = "http://registration"
+        
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.ADMIN_WEB_HOSTNAMES).value = "http://admin/1234"
 
         ConfigurationSetting.sitewide(
             self._db, Configuration.AUTHENTICATION_DOCUMENT_CACHE_TIME
@@ -455,6 +462,9 @@ class TestCirculationManager(CirculationControllerTest):
         # The ExternalSearch object has been reset.
         assert isinstance(manager.external_search, MockExternalSearchIndex)
 
+        # The Basic Auth token controller has been recreated.
+        assert isinstance(manager.basic_auth_token_controller, BasicAuthTempTokenController)
+
         # The OAuth controller has been recreated.
         assert isinstance(manager.oauth_controller, OAuthController)
 
@@ -469,6 +479,8 @@ class TestCirculationManager(CirculationControllerTest):
         # So have the patron web domains, and their paths have been
         # removed.
         assert set(["http://sitewide", "http://registration"]) == manager.patron_web_domains
+
+        assert set(["http://admin"]) == manager.admin_web_domains
 
         # The authentication document cache has been rebuilt with a
         # new max_age.
@@ -492,6 +504,18 @@ class TestCirculationManager(CirculationControllerTest):
             self._db, Configuration.PATRON_WEB_HOSTNAMES).value = "https://1.com|http://2.com |  http://subdomain.3.com|4.com"
         self.manager.load_settings()
         assert set(["https://1.com", "http://2.com",  "http://subdomain.3.com", "http://registration"]) == manager.patron_web_domains
+
+        # The sitewide admin web domain can also be set to *.
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.ADMIN_WEB_HOSTNAMES).value = "*"
+        self.manager.load_settings()
+        assert set(["*"]) == manager.admin_web_domains
+
+        # The admin web domain can have pipe separated domains, and will get spaces stripped
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.ADMIN_WEB_HOSTNAMES).value = "https://1.com|http://2.com |  http://subdomain.3.com|4.com"
+        self.manager.load_settings()
+        assert set(["https://1.com", "http://2.com",  "http://subdomain.3.com"]) == manager.admin_web_domains
 
         # Restore the CustomIndexView.for_library implementation
         CustomIndexView.for_library = old_for_library
@@ -5774,6 +5798,10 @@ class TestScopedSession(ControllerTest):
     def test_scoped_session(self):
         # Start a simulated request to the Flask app server.
 
+        # This sets up a bearer token signing secret outside the
+        # transaction rollbacks that is needed to avoid ResourceClosedError
+        BearerTokenSigner.bearer_token_signing_secret(self.app._db)
+
         with self.test_request_context_and_transaction("/"):
             # Each request is given its own database session distinct
             # from the one used by most unit tests or the one
@@ -5882,7 +5910,8 @@ class TestStaticFileController(CirculationControllerTest):
             expected_content = f.read()
 
         with self.app.test_request_context("/"):
-            response = self.app.manager.static_files.image(filename)
+            images_dir = f"{app.static_resources_dir}/images"
+            response = self.app.manager.static_files.static_file(images_dir, filename)
 
         assert 200 == response.status_code
         assert expected_content == response.response.file.read()
