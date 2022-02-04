@@ -40,6 +40,7 @@ from core.model import (
     CirculationEvent,
     Classification,
     Collection,
+    ConfigurationSetting,
     Contributor,
     DataSource,
     DeliveryMechanism,
@@ -134,10 +135,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
           "format": "url",
           "allowed": list(SERVER_NICKNAMES.keys()),
         },
-    ] + BaseCirculationAPI.SETTINGS
 
-    LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
-        BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING,
         {
             "key": ALLOW_ANONYMOUS_ACCESS_SETTING,
             "label": _("Allow anonymous access"),
@@ -146,10 +144,12 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
                 { "key": "true", "label": _("Allow anonymous access to this collection's titles") },
                 { "key": "false", "label": _("Allow only authenticated access to this collection's titles") },
             ],
-
-            "type" : "boolean",
-            "default" : "false"
+            "default": "false"
         }
+    ] + BaseCirculationAPI.SETTINGS
+
+    LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
+        BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING,
     ]
 
     access_token_endpoint = 'accesstoken'
@@ -192,6 +192,12 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
 
+        # Anonymous access is only allowed a) for libraries that don't
+        # authenticate patrons, b) if this setting is set to True.
+        self.allow_anonymous_access = collection.external_integration.setting(
+            self.ALLOW_ANONYMOUS_ACCESS_SETTING
+        ).bool_value or False
+
         # Convert the nickname for a server into an actual URL.
         base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
         if base_url in self.SERVER_NICKNAMES:
@@ -233,20 +239,11 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
     def external_integration(self, _db):
         return self.collection.external_integration
 
-    @property
-    def allow_anonymous_access(self):
-        """Is this collection configured for anonymous access?
-
-        This will only be used in situations where the library
-        does not identify its patrons, making it function largely
-        as a safety catch.
-        """
-        return ConfigurationSetting.for_library_and_externalintegration(
-            self._db, self.ALLOW_ANONYMOUS_ACCESS_SETTING, self.library,
-            self.external_integration
-        ).bool_value or False
-
     def can_fulfill_without_loan(self, patron, pool, lpdm):
+        """A LicensePool can be fulfilled without a loan
+        if a) the library allows for it, and b) the delivery mechanism
+        is either AxisNow or unspecified (in which case AxisNow is an option).
+        """
         return (
             patron is None and self.allow_anonymous_access
             and (lpdm is None or lpdm.delivery_mechanism is None or
