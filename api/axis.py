@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import urllib
+import uuid
 
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -39,6 +40,7 @@ from core.model import (
     CirculationEvent,
     Classification,
     Collection,
+    ConfigurationSetting,
     Contributor,
     DataSource,
     DeliveryMechanism,
@@ -52,6 +54,7 @@ from core.model import (
     LicensePool,
     LinkRelations,
     MediaTypes,
+    Patron,
     Representation,
     Session,
     Subject,
@@ -110,6 +113,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
+    ALLOW_ANONYMOUS_ACCESS_SETTING = "allow_anonymous_access"
+
     SERVICE_NAME = "Axis 360"
     PRODUCTION_BASE_URL = "https://axis360api.baker-taylor.com/Services/VendorAPI/"
     QA_BASE_URL = "http://axis360apiqa.baker-taylor.com/Services/VendorAPI/"
@@ -130,10 +135,21 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
           "format": "url",
           "allowed": list(SERVER_NICKNAMES.keys()),
         },
+
+        {
+            "key": ALLOW_ANONYMOUS_ACCESS_SETTING,
+            "label": _("Allow anonymous access"),
+            "type": "select",
+            "options": [
+                { "key": "true", "label": _("Allow anonymous access to this collection's titles") },
+                { "key": "false", "label": _("Allow only authenticated access to this collection's titles") },
+            ],
+            "default": "false"
+        }
     ] + BaseCirculationAPI.SETTINGS
 
     LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
-        BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING
+        BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING,
     ]
 
     access_token_endpoint = 'accesstoken'
@@ -176,6 +192,12 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
 
+        # Anonymous access is only allowed a) for libraries that don't
+        # authenticate patrons, b) if this setting is set to True.
+        self.allow_anonymous_access = collection.external_integration.setting(
+            self.ALLOW_ANONYMOUS_ACCESS_SETTING
+        ).bool_value or False
+
         # Convert the nickname for a server into an actual URL.
         base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
         if base_url in self.SERVER_NICKNAMES:
@@ -216,6 +238,17 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
 
     def external_integration(self, _db):
         return self.collection.external_integration
+
+    def can_fulfill_without_loan(self, patron, pool, lpdm):
+        """A LicensePool can be fulfilled without a loan
+        if a) the library allows for it, and b) the delivery mechanism
+        is either AxisNow or unspecified (in which case AxisNow is an option).
+        """
+        return (
+            patron is None and self.allow_anonymous_access
+            and (lpdm is None or lpdm.delivery_mechanism is None or
+                 lpdm.delivery_mechanism.drm_scheme == self.axisnow_drm)
+        )
 
     def _run_self_tests(self, _db):
         result = self.run_test(
@@ -355,7 +388,13 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
 
     def checkout(self, patron, pin, licensepool, internal_format):
         title_id = licensepool.identifier.identifier
-        patron_id = patron.authorization_identifier
+        if isinstance(patron, Patron):
+            # Patron object was provided; this is the normal path.
+            patron_id = patron.authorization_identifier
+        else:
+            # patron ID was provided directly, perhaps by
+            # _fulfill_anonymously.
+            patron_id = patron
         response = self._checkout(title_id, patron_id, internal_format)
         try:
             return CheckoutResponseParser(
@@ -380,6 +419,14 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
 
         :return: a FulfillmentInfo object.
         """
+        if self.can_fulfill_without_loan(patron, licensepool, None):
+            # Make up a throwaway patron ID and check out the book
+            # under that ID.
+            patron = str(uuid.uuid4())
+            checkout_result = self.checkout(
+                patron, None, licensepool, internal_format
+            )
+
         identifier = licensepool.identifier
         # This should include only one 'activity'.
         activities = self.patron_activity(patron, pin, licensepool.identifier, internal_format)
@@ -439,12 +486,19 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         return True
 
     def patron_activity(self, patron, pin, identifier=None, internal_format=None):
+        if isinstance(patron, Patron):
+            # This is the normal path.
+            patron_id = patron.authorization_identifier
+        else:
+            # This is the path of anonymous fulfillment; the "patron"
+            # is a UUID corresponding to a throwaway account.
+            patron_id = patron
         if identifier:
             title_ids = [identifier.identifier]
         else:
             title_ids = None
         availability = self.availability(
-            patron_id=patron.authorization_identifier,
+            patron_id=patron_id,
             title_ids=title_ids)
         return list(AvailabilityResponseParser(self, internal_format).process_all(
             availability.content))
