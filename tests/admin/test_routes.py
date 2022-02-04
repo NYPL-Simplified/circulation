@@ -188,7 +188,7 @@ class AdminRouteTest(ControllerTest, RouteTestFixtures):
         response = self.request(url, http_method)
 
         # A Flask template string is returned.
-        assert "You are now logged in" in response
+        assert "You are now logged in" in response.get_data(as_text=True)
 
         # Even if the admin is authenticated but there is no
         # csrf token, a redirect will occur to sign the admin in.
