@@ -326,7 +326,7 @@ class TestAxis360API(Axis360Test):
         # The fourth request never got made.
         assert [301] == [x.status_code for x in self.api.responses]
 
-    def test_can_fulfill_Without_loan(self):
+    def test_can_fulfill_without_loan(self):
         m = self.api.can_fulfill_without_loan
 
         # Make a LicensePool with two delivery mechanisms.
