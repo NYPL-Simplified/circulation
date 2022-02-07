@@ -143,9 +143,7 @@ If you're using Docker for Mac, keep an eye on the size of your /Users/[your-mac
 
 ## Contributing
 
-We welcome your contributions to new features, fixes, or updates, large or small; we are always thrilled to receive pull requests, and do our best to process them as fast as we can.
-
-Before you start to code, we recommend discussing your plans through a [GitHub issue](https://github.com/NYPL-Simplified/circulation-docker/issues/new), especially for more ambitious contributions. This gives other contributors a chance to point you in the right direction, give you feedback on your design, and help you find out if someone else is working on the same thing.
+Our contribution guidelines are currently under construction. Please see https://librarysimplified.org/community/ for more information.
 
 
 (**Note:** This README is intended to directly reflect [the documentation on Docker Hub](https://hub.docker.com/r/nypl/circ-webapp/).)

@@ -251,7 +251,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         """
         bearer_headers = {'Authorization': 'Bearer %s' % token}
-        result = self._get(self.CLEVER_API_VERSIONED_URL + '/me', bearer_headers)
+        result = self._get(self.CLEVER_API_BASE_URL + '/me', bearer_headers)
         data = result.get('data', {}) or {}
 
         identifier = data.get('id', None)
@@ -270,8 +270,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         user_data = user['data']
         school_id = user_data['school']
-        school = self._get(f"{self.CLEVER_API_VERSIONED_URL}/schools/{school_id}", bearer_headers)
-
+        school = self._get(f"{self.CLEVER_API_BASE_URL}/v1.1/schools/{school_id}", bearer_headers)
         school_nces_id = school['data'].get('nces_id')
 
         # TODO: check student free and reduced lunch status as well

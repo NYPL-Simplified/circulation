@@ -102,6 +102,7 @@ class TestFirstBook(DatabaseTest):
         self.app = app
         del os.environ['AUTOINITIALIZE']
         with self.app.test_request_context("/"):
-            doc = self.api.authentication_flow_document(self._db)
-            assert self.api.DISPLAY_NAME == doc['description']
-            assert self.api.FLOW_TYPE == doc['type']
+            docs = self.api.authentication_flow_document(self._db)
+            for doc in docs:
+                assert self.api.DISPLAY_NAME == doc['description']
+                assert doc['type'] in [self.api.FLOW_TYPE_BASIC, self.api.FLOW_TYPE_OAUTH]

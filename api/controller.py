@@ -37,6 +37,7 @@ from api.rbdigital import (
 from api.saml.controller import SAMLController
 from .authenticator import (
     Authenticator,
+    BasicAuthTempTokenController,
     CirculationPatronProfileStorage,
     OAuthController,
 )
@@ -277,6 +278,7 @@ class CirculationManager(object):
         # Assemble the list of patron web client domains from individual
         # library registration settings as well as a sitewide setting.
         patron_web_domains = set()
+        admin_web_domains = set()
 
         def get_domain(url):
             url = url.strip()
@@ -295,6 +297,14 @@ class CirculationManager(object):
                 domain = get_domain(url)
                 if domain:
                     patron_web_domains.add(domain)
+                
+        sitewide_admin_web_client_urls = ConfigurationSetting.sitewide(
+            self._db, Configuration.ADMIN_WEB_HOSTNAMES).value
+        if sitewide_admin_web_client_urls:
+            for url in sitewide_admin_web_client_urls.split('|'):
+                domain = get_domain(url)
+                if domain:
+                    admin_web_domains.add(domain)
 
         from .registry import Registration
         for setting in self._db.query(
@@ -304,6 +314,7 @@ class CirculationManager(object):
                 patron_web_domains.add(get_domain(setting.value))
 
         self.patron_web_domains = patron_web_domains
+        self.admin_web_domains = admin_web_domains
         self.setup_configuration_dependent_controllers()
         authentication_document_cache_time = int(
             ConfigurationSetting.sitewide(
@@ -442,6 +453,7 @@ class CirculationManager(object):
         This method will be called fresh every time the site
         configuration changes.
         """
+        self.basic_auth_token_controller = BasicAuthTempTokenController(self.auth)
         self.oauth_controller = OAuthController(self.auth)
         self.saml_controller = SAMLController(self, self.auth)
 
@@ -1510,13 +1522,12 @@ class LoanController(CirculationManagerController):
             result = HOLD_FAILED
         return result, is_new
 
-    def best_lendable_pool(self, library, patron, identifier_type, identifier,
-                           mechanism_id):
-        """Of the available LicensePools for the given Identifier, return the
+    def best_lendable_pool(self, library, patron, identifier_type, identifier, mechanism_id):
+        """
+        Of the available LicensePools for the given Identifier, return the
         one that's the best candidate for loaning out right now.
 
-        :return: A Loan if this patron already has an active loan, otherwise
-        a LicensePool.
+        :return: A Loan if this patron already has an active loan, otherwise a LicensePool.
         """
         # Turn source + identifier into a set of LicensePools
         pools = self.load_licensepools(
@@ -2502,6 +2513,7 @@ class SharedCollectionController(CirculationManagerController):
             return CANNOT_RELEASE_HOLD.detailed(str(e))
         return Response(_("Success"), 200)
 
+
 class StaticFileController(CirculationManagerController):
     def static_file(self, directory, filename):
         cache_timeout = ConfigurationSetting.sitewide(
@@ -2509,9 +2521,6 @@ class StaticFileController(CirculationManagerController):
         ).int_value
         return flask.send_from_directory(directory, filename, cache_timeout=cache_timeout)
 
-    def image(self, filename):
-        directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
-        return self.static_file(directory, filename)
 
 class RBDFulfillmentProxyController(CirculationManagerController):
 
