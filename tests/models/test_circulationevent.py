@@ -14,9 +14,13 @@ from ...model.licensing import LicensePool
 from ...util.datetime_helpers import (
     datetime_utc,
     strptime_utc,
-    to_utc,
     utc_now,
 )
+
+
+def test_new_title(db_session):
+    pass
+
 
 class TestCirculationEvent(DatabaseTest):
 

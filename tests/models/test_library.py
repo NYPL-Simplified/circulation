@@ -1,173 +1,187 @@
 # encoding: utf-8
 import pytest
-from ...testing import DatabaseTest
 from ...model.configuration import ConfigurationSetting
 from ...model.hasfulltablecache import HasFullTableCache
 from ...model.library import Library
 
-class TestLibrary(DatabaseTest):
 
-    def test_library_registry_short_name(self):
-        library = self._default_library
+def test_library_registry_short_name(db_session, create_library):
+    # GIVEN: A Library
+    # WHEN:  The short name is set to "foo"
+    # THEN:  The short name should be set to "FOO"
+    library = create_library(db_session)
 
-        # Short name is always uppercased.
-        library.library_registry_short_name = "foo"
-        assert "FOO" == library.library_registry_short_name
+    # Short name is always uppercased.
+    library.library_registry_short_name = "foo"
+    assert "FOO" == library.library_registry_short_name
 
-        # Short name cannot contain a pipe character.
-        def set_to_pipe():
-            library.library_registry_short_name = "foo|bar"
-        pytest.raises(ValueError, set_to_pipe)
+    # Short name cannot contain a pipe character.
+    with pytest.raises(ValueError):
+        library.library_registry_short_name = "foo|bar"
 
-        # You can set the short name to None. This isn't
-        # recommended, but it's not an error.
-        library.library_registry_short_name = None
+    # You can set the short name to None. This isn't
+    # recommended, but it's not an error.
+    library.library_registry_short_name = None
+    assert None == library.library_registry_short_name # Do we need this assert?
 
-    def test_lookup(self):
-        library = self._default_library
-        name = library.short_name
-        assert name == library.cache_key()
+def test_library_lookup(db_session, create_library):
+    # GIVEN: A Library
+    # WHEN:  Checking the Library's cache
+    # THEN:  Ensure the cache is populated after looking up the Library by name
+    library = create_library(db_session)
+    name = library.short_name
+    assert name == library.cache_key()
 
-        # Cache is empty.
-        assert HasFullTableCache.RESET == Library._cache
+    # Cache is empty.
+    assert HasFullTableCache.RESET == Library._cache
 
-        assert library == Library.lookup(self._db, name)
+    assert library == Library.lookup(db_session, name)
 
-        # Cache is populated.
-        assert library == Library._cache[name]
+    # Cache is populated.
+    assert library == Library._cache[name]
 
-    def test_default(self):
-        # We start off with no libraries.
-        assert None == Library.default(self._db)
+def test_library_default(db_session, create_library):
+    # GIVEN: Two Libraries
+    # WHEN:  Changing the default status
+    # THEN:  Ensure the correct Library has the correct default status
 
-        # Let's make a couple libraries.
-        l1 = self._default_library
-        l2 = self._library()
+    # Start off with no libraries
+    assert None == Library.default(db_session)
 
-        # None of them are the default according to the database.
-        assert False == l1.is_default
-        assert False == l2.is_default
+    # Let's make a couple libraries.
+    library1 = create_library(db_session, short_name="First", name="First")
+    library2 = create_library(db_session, short_name="Second", name="Second")
 
-        # If we call Library.default, the library with the lowest database
-        # ID is made the default.
-        assert l1 == Library.default(self._db)
-        assert True == l1.is_default
-        assert False == l2.is_default
+    # None of them are the default according to the database.
+    assert False == library1.is_default
+    assert False == library2.is_default
 
-        # We can set is_default to change the default library.
-        l2.is_default = True
-        assert False == l1.is_default
-        assert True == l2.is_default
+    # If we call Library.default, the library with the lowest database
+    # ID is made the defualt.
+    assert library1 == Library.default(db_session)
+    assert True == library1.is_default
+    assert False == library2.is_default
 
-        # If ever there are multiple default libraries, calling default()
-        # will set the one with the lowest database ID to the default.
-        l1._is_default = True
-        l2._is_default = True
-        assert l1 == Library.default(self._db)
-        assert True == l1.is_default
-        assert False == l2.is_default
-        with pytest.raises(ValueError) as excinfo:
-            l1.is_default = False
-        assert "You cannot stop a library from being the default library; you must designate a different library as the default."  \
-          in str(excinfo.value)
+    # We can set is_default to change the default library.
+    library2.is_default = True
+    assert False == library1.is_default
+    assert True == library2.is_default
 
-    def test_has_root_lanes(self):
-        # A library has root lanes if any of its lanes are the root for any
-        # patron type(s).
-        library = self._default_library
-        lane = self._lane()
-        assert False == library.has_root_lanes
+    # If ever there are multiple default libraries, calling default()
+    # will set the one with the lowest database ID to the default.
+    library1._is_default = True
+    library2._is_default = True
+    assert library1 == Library.default(db_session)
+    assert True == library1.is_default
+    assert False == library2.is_default
+    with pytest.raises(ValueError) as excinfo:
+        library1.is_default = False
+    assert "You cannot stop a library from being the default library; you must designate a different library as the default." \
+        in str(excinfo.value)
 
-        # If a library goes back and forth between 'has root lanes'
-        # and 'doesn't have root lanes', has_root_lanes continues to
-        # give the correct result so long as there was a database
-        # flush in between.
-        #
-        # (This is because there's a listener that resets
-        # Library._has_default_lane_cache whenever lane configuration
-        # changes.)
-        lane.root_for_patron_type = ["1","2"]
-        self._db.flush()
-        assert True == library.has_root_lanes
+def test_has_root_lanes(db_session, create_lane, create_library):
+    # GIVEN: A Library and Lane
+    # WHEN:  Checking for the Library's root lane
+    # THEN:  Ensure the Library has root lanes if it has root_for_patron_type
+    library = create_library(db_session)
+    lane = create_lane(db_session, library=library)
+    assert False == library.has_root_lanes
 
-        lane.root_for_patron_type = None
-        self._db.flush()
-        assert False == library.has_root_lanes
+    # If a library goes back and forth between 'has root lanes'
+    # and 'doesn't have root lanes', has_root_lanes continues to
+    # give the correct result so long as there was a database
+    # flush in between.
+    #
+    # (This is because there's a listener that resets
+    # Library._has_default_lane_cache whenever lane configuration
+    # changes.)
+    lane.root_for_patron_type = ["1","2"]
+    db_session.flush()
+    assert True == library.has_root_lanes
 
-    def test_all_collections(self):
-        library = self._default_library
+    lane.root_for_patron_type = None
+    db_session.flush()
+    assert False == library.has_root_lanes
 
-        parent = self._collection()
-        self._default_collection.parent_id = parent.id
+def test_all_collections(db_session, create_library, create_collection):
+    # GIVEN: A Library with a Collection
+    # WHEN:  Adding a child collection to a parent collection
+    # THEN:  Ensure the correct collections are associated with the Library
+    library = create_library(db_session)
+    default_collection = create_collection(db_session, name="defaut")
+    library.collections.append(default_collection)
 
-        assert [self._default_collection] == library.collections
-        assert (set([self._default_collection, parent]) ==
-            set(library.all_collections))
+    parent = create_collection(db_session, name="parent")
+    default_collection.parent_id = parent.id
 
-    def test_estimated_holdings_by_language(self):
-        library = self._default_library
+    assert [default_collection] == library.collections
+    assert (set([default_collection, parent]) ==
+        set(library.all_collections))
 
-        # Here's an open-access English book.
-        english = self._work(language="eng", with_open_access_download=True)
+def test_estimated_holdings_by_language(db_session, create_collection, create_licensepooldeliverymechanism, create_library, create_work):
+    # GIVEN: Works with a variety of languages
+    # WHEN:  Estimating holdings by language
+    # THEN:  Ensure the correct count of holdings by language
+    library = create_library(db_session)
+    collection = create_collection(db_session)
+    library.collections.append(collection)
 
-        # Here's a non-open-access Tagalog book with a delivery mechanism.
-        tagalog = self._work(language="tgl", with_license_pool=True)
-        [pool] = tagalog.license_pools
-        self._add_generic_delivery_mechanism(pool)
+    # Here's an open-access English book.
+    english = create_work(db_session, language="eng", with_open_access_download=True, collection=collection)
 
-        # Here's an open-access book that improperly has no language set.
-        no_language = self._work(with_open_access_download=True)
-        no_language.presentation_edition.language = None
+    # Here's a non-open-access Tagalog book with a delivery mechanism.
+    tagalog = create_work(db_session, language="tgl", with_license_pool=True, collection=collection)
+    [pool] = tagalog.license_pools
+    create_licensepooldeliverymechanism(pool)
 
-        # estimated_holdings_by_language counts the English and the
-        # Tagalog works. The work with no language is ignored.
-        estimate = library.estimated_holdings_by_language()
-        assert dict(eng=1, tgl=1) == estimate
+    # Here's an open-access book that improperly has no language set.
+    no_language = create_work(db_session, with_open_access_download=True, collection=collection)
+    no_language.presentation_edition.language = None
 
-        # If we disqualify open-access works, it only counts the Tagalog.
-        estimate = library.estimated_holdings_by_language(
-            include_open_access=False)
-        assert dict(tgl=1) == estimate
+    # estimated_holdings_by_language counts the English and the
+    # Tagalog works. The work with no language is ignored.
+    estimate = library.estimated_holdings_by_language()
+    assert dict(eng=1, tgl=1) == estimate
 
-        # If we remove the default collection from the default library,
-        # it loses all its works.
-        self._default_library.collections = []
-        estimate = library.estimated_holdings_by_language(
-            include_open_access=False)
-        assert dict() == estimate
+    # If we disqualify open-access works, it only counts the Tagalog.
+    estimate = library.estimated_holdings_by_language(include_open_access=False)
+    assert dict(tgl=1) == estimate
 
-    def test_explain(self):
-        """Test that Library.explain gives all relevant information
-        about a Library.
-        """
-        library = self._default_library
-        library.uuid = "uuid"
-        library.name = "The Library"
-        library.short_name = "Short"
-        library.library_registry_short_name = "SHORT"
-        library.library_registry_shared_secret = "secret"
+    # If we remove the default collection from the default library,
+    # it loses all its works.
+    library.collections = []
+    estimate = library.estimated_holdings_by_language(include_open_access=False)
+    assert dict() == estimate
 
-        integration = self._external_integration(
-            "protocol", "goal"
-        )
-        integration.url = "http://url/"
-        integration.username = "someuser"
-        integration.password = "somepass"
-        integration.setting("somesetting").value = "somevalue"
+def test_explain(db_session, create_library, create_externalintegration):
+    # GIVEN: Two Libraries and an External Integration
+    # WHEN:  Setting a ConfigurationSetting for a library and external integration
+    # THEN:  Ensure the Library's settings are correctly configured
+    library = create_library(db_session)
+    library.uuid = "uuid"
+    library.name = "The Library"
+    library.short_name = "Short"
+    library.library_registry_short_name = "SHORT"
+    library.library_registry_shared_secret = "secret"
+    
+    integration = create_externalintegration(db_session, protocol="protocol", goal="goal")
+    integration.url = "http://url/"
+    integration.username = "someuser"
+    integration.password = "somepass"
+    integration.setting("somesetting").value = "somevalue"
 
-        # Different libraries specialize this integration differently.
-        ConfigurationSetting.for_library_and_externalintegration(
-            self._db, "library-specific", library, integration
-        ).value = "value for library1"
+    # Different libraries specialize this integration differently.
+    ConfigurationSetting.for_library_and_externalintegration(
+        db_session, "library-specific", library, integration
+    ).value = "value for library1"
 
-        library2 = self._library()
-        ConfigurationSetting.for_library_and_externalintegration(
-            self._db, "library-specific", library2, integration
-        ).value = "value for library2"
+    library2 = create_library(db_session, name="library2")
+    ConfigurationSetting.for_library_and_externalintegration(
+        db_session, "library-specific", library2, integration
+    ).value = "value for library2"
 
-        library.integrations.append(integration)
-
-        expect = """Library UUID: "uuid"
+    library.integrations.append(integration)
+    expect = """Library UUID: "uuid"
 Name: "The Library"
 Short name: "Short"
 Short name (for library registry): "SHORT"
@@ -181,9 +195,9 @@ somesetting='somevalue'
 url='http://url/'
 username='someuser'
 """ % integration.id
-        actual = library.explain()
-        assert expect == "\n".join(actual)
+    actual = library.explain()
+    assert expect == "\n".join(actual)
 
-        with_secrets = library.explain(True)
-        assert 'Shared secret (for library registry): "secret"' in with_secrets
-        assert "password='somepass'" in with_secrets
+    with_secrets = library.explain(True)
+    assert 'Shared secret (for library registry): "secret"' in with_secrets
+    assert "password='somepass'" in with_secrets
