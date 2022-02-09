@@ -1535,8 +1535,8 @@ def session_fixture():
 
     # Drop any existing schema. It will be recreated when
     # SessionManager.initialize() runs.
-    engine = SessionManager.engine()
-    Base.metadata.drop_all(engine)
+    # engine = SessionManager.engine()
+    # Base.metadata.drop_all(engine)
 
     yield
 
