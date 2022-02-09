@@ -13,8 +13,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm.session import Session
 
-from api.config import Configuration
 from core.classifier import Classifier
+from core.config import Configuration
 from core.lane import Lane
 
 from core.model import Base, classifier, get_one_or_create
