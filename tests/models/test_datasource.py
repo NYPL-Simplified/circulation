@@ -96,7 +96,7 @@ class TestDataSource:
         WHEN:
         THEN:
         """
-        identifier = create_identifier(identifier_type=Identifier.OVERDRIVE_ID)
+        identifier = create_identifier(db_session, identifier_type=Identifier.OVERDRIVE_ID)
         source = DataSource.license_source_for(db_session, identifier)
         assert DataSource.OVERDRIVE == source.name
         
@@ -115,6 +115,6 @@ class TestDataSource:
         WHEN:
         THEN:
         """
-        identifier = create_identifier(DataSource.MANUAL)
+        identifier = create_identifier(db_session, DataSource.MANUAL)
         pytest.raises(
             NoResultFound, DataSource.license_source_for, db_session, identifier)

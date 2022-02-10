@@ -235,8 +235,8 @@ def create_externalintegration():
 
 
 @pytest.fixture
-def create_identifier(db_session):
-    def _create_identifier(identifier_type=Identifier.GUTENBERG_ID, foreign_id=None):
+def create_identifier():
+    def _create_identifier(db_session, identifier_type=Identifier.GUTENBERG_ID, foreign_id=None):
         if foreign_id:
             id = foreign_id
         else:
