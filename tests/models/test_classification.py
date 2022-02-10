@@ -163,7 +163,7 @@ class TestGenre:
         class Factory:
             def __init__(self):
                 self.called = False
-            
+
             def call_me(self):
                 self.called = True
                 genre, is_new = get_one_or_create(db_session, Genre, name="Drama")
