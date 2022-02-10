@@ -18,10 +18,6 @@ from ...util.datetime_helpers import (
 )
 
 
-def test_new_title(db_session):
-    pass
-
-
 class TestCirculationEvent(DatabaseTest):
 
     def _event_data(self, **kwargs):
