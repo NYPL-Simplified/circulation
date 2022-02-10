@@ -106,7 +106,7 @@ def create_collection():
     """
     Returns a constructor function for creating a Collection.
     """
-    def _create_collection(db_session, name=None, protocol=ExternalIntegration.OPDS2_IMPORT,
+    def _create_collection(db_session, name=None, protocol=ExternalIntegration.OPDS_IMPORT,
                            external_account_id=None, url=None, username=None,
                            password=None, data_source_name=None):
         name = name or f"Good Reads #{random.randint(1, 9999)}"
