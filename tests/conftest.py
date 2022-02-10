@@ -73,7 +73,7 @@ def db_session(db_engine):
 
 
 @pytest.fixture
-def initialize_datasource_and_genres(db_session):
+def init_datasource_and_genres(db_session):
     # This probably needs a better name
     # This was lifted from core/model/__init__.py::SessionManager::initialize_data
     list(DataSource.well_known_sources(db_session))
