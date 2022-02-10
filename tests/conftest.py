@@ -243,6 +243,9 @@ def create_externalintegration():
 
 @pytest.fixture
 def create_identifier():
+    """
+    Returns a constructor function for creating an Identifier
+    """
     def _create_identifier(db_session, identifier_type=Identifier.GUTENBERG_ID, foreign_id=None):
         if foreign_id:
             id = foreign_id
