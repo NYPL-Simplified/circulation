@@ -27,6 +27,7 @@ from core.model.contributor import Contributor
 from core.model.datasource import DataSource
 from core.model.edition import Edition
 from core.model.identifier import Identifier
+from core.model.integrationclient import IntegrationClient
 from core.model.library import Library
 from core.model.licensing import DeliveryMechanism, LicensePool, LicensePoolDeliveryMechanism, RightsStatus
 from core.model.resource import Hyperlink, Representation
@@ -256,6 +257,24 @@ def create_identifier():
         return identifier
 
     return _create_identifier
+
+
+@pytest.fixture
+def create_integration_client():
+    """
+    Returns a constructor function for creating an IntegrationClient.
+    """
+    def _create_integration_client(db_session, url=None, shared_secret=None):
+        url = url or f"http://foo.com/{random.randint(1,9999)}"
+        secret = shared_secret or "secret"
+        integration_client, _ = get_one_or_create(
+            db_session, IntegrationClient, shared_secret=secret,
+            create_method_kwargs=dict(url=url)
+        )
+
+        return integration_client
+    
+    return _create_integration_client
 
 
 @pytest.fixture
