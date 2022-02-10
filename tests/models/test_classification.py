@@ -103,7 +103,7 @@ class TestSubject:
 
 
 class TestGenre:
-    def test_genre_full_table_cache(self, db_session, populate_genres):
+    def test_genre_full_table_cache(self, db_session, init_datasource_and_genres):
         """
         GIVEN:
         WHEN:
@@ -131,7 +131,7 @@ class TestGenre:
         drama2 = Genre.by_id(db_session, drama.id)
         assert drama2 == drama
 
-    def test_genre_by_id(self, db_session, populate_genres):
+    def test_genre_by_id(self, db_session, init_datasource_and_genres):
         """
         GIVEN: A Genre from get_one() db lookup
         WHEN: Looking up the genre by id
@@ -153,7 +153,7 @@ class TestGenre:
         assert drama == Genre._id_cache[drama.id]
         assert len(Genre._id_cache) > 1
 
-    def test_genre_by_cache_key_miss_triggers_create_function(self, db_session, populate_genres):
+    def test_genre_by_cache_key_miss_triggers_create_function(self, db_session, init_datasource_and_genres):
         """
         GIVEN: A Genre lookup
         WHEN: There is a cache miss
@@ -185,7 +185,7 @@ class TestGenre:
         # The cache by ID has been similarly populated.
         assert genre == Genre._id_cache[genre.id]
 
-    def test_genre_by_cache_key_miss_when_cache_is_reset_populates_cache(self, db_session, populate_genres):
+    def test_genre_by_cache_key_miss_when_cache_is_reset_populates_cache(self, db_session, init_datasource_and_genres):
         """
         GIVEN:
         WHEN:
@@ -241,7 +241,7 @@ class TestGenre:
 
         pytest.raises(IntegrityError, create, db_session, Genre, name="A Genre")
 
-    def test_genre_default_fiction(self, db_session, populate_genres):
+    def test_genre_default_fiction(self, db_session, init_datasource_and_genres):
         """
         GIVEN:
         WHEN:
