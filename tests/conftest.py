@@ -150,23 +150,30 @@ def create_edition(create_licensepool):
                         self_hosted=False, unlimited_access=False):
         id = identifier_id or random.randint(1, 9999)
         id = str(id)
+
         source = DataSource.lookup(db_session, data_source_name)
         if not source:
             # source can't be None, so for now this is the sensible default
             source, _ = get_one_or_create(db_session, DataSource, name=data_source_name)
+
         wr = Edition.for_foreign_id(db_session, source, identifier_type, id)[0]
         if not title:
             title = "Test Book"
         wr.title = str(title)
         wr.medium = Edition.BOOK_MEDIUM
+
         if series:
             wr.series = series
+
         if language:
             wr.language = language
+
         if authors is None:
             authors = "Test Author"
+
         if isinstance(authors, str):
             authors = [authors]
+
         if authors:
             primary_author_name = str(authors[0])
             contributor = wr.add_contributor(primary_author_name, Contributor.PRIMARY_AUTHOR_ROLE)
