@@ -108,7 +108,7 @@ def create_collection():
     def _create_collection(db_session, name=None, protocol=ExternalIntegration.OPDS2_IMPORT,
                            external_account_id=None, url=None, username=None,
                            password=None, data_source_name=None):
-        name = name or "Good Reads"
+        name = name or f"Good Reads #{random.randint(1, 9999)}"
         collection, _ = get_one_or_create(db_session, Collection, name=name)
         collection.external_account_id = external_account_id
         integration = collection.create_external_integration(protocol)
