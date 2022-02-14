@@ -105,9 +105,9 @@ class TestSubject:
 class TestGenre:
     def test_genre_full_table_cache(self, db_session, init_datasource_and_genres):
         """
-        GIVEN:
-        WHEN:
-        THEN:
+        GIVEN: Genres
+        WHEN: Populating the Genre cache
+        THEN: Genres can be looked up by a cache key
         """
         # We use Genre as a convenient way of testing
         # HasFullTableCache.populate_cache, which requires a real
@@ -187,15 +187,15 @@ class TestGenre:
 
     def test_genre_by_cache_key_miss_when_cache_is_reset_populates_cache(self, db_session, init_datasource_and_genres):
         """
-        GIVEN:
-        WHEN:
-        THEN:
+        GIVEN: Genre cache in the RESET state
+        WHEN: Looking up a Genre by cache key
+        THEN: A new Genre is not created and the cache is repopulated
         """
 
         # The cache is not in a state to be used.
         assert Genre._cache == Genre.RESET
 
-        # Call Genreby_cache_key...
+        # Call Genre by_cache_key...
         drama, is_new = Genre.by_cache_key(
             db_session, "Drama",
             lambda: get_one_or_create(db_session, Genre, name="Drama")
@@ -209,16 +209,17 @@ class TestGenre:
 
     def test_genre_by_cache_key_hit_returns_cached_object(self, db_session):
         """
-        GIVEN:
-        WHEN:
-        THEN:
+        GIVEN: A Genre database lookup
+        WHEN: Looking up the Genre by cache key
+        THEN: Cached object is returned
         """
 
         # If the object we ask for is not already in the cache, this
         # function will be called and raise an exception.
         def exploding_create_hook():
             raise Exception("Kaboom")
-        drama, ignore = get_one_or_create(db_session, Genre, name="Drama")
+
+        drama, _ = get_one_or_create(db_session, Genre, name="Drama")
         Genre._cache = { "Drama": drama }
         drama2, is_new = Genre.by_cache_key(
             db_session, "Drama", exploding_create_hook
@@ -231,9 +232,9 @@ class TestGenre:
 
     def test_genre_name_is_unique(self, db_session):
         """
-        GIVEN:
-        WHEN:
-        THEN:
+        GIVEN: Two Genre lookups with autocreate=True
+        WHEN: Creating a new Genre with a previously used name
+        THEN: An IntegrityError is raised
         """
         genre1, _ = Genre.lookup(db_session, "A Genre", autocreate=True)
         genre2, _ = Genre.lookup(db_session, "A Genre", autocreate=True)
@@ -243,9 +244,9 @@ class TestGenre:
 
     def test_genre_default_fiction(self, db_session, init_datasource_and_genres):
         """
-        GIVEN:
-        WHEN:
-        THEN:
+        GIVEN: Three Genre lookups, two known and one unnkown
+        WHEN: Verifying the fiction status
+        THEN: Ensure the correct fiction status is set
         """
         science_fiction, _ = Genre.lookup(db_session, "Science Fiction")
         nonfiction, _ = Genre.lookup(db_session, "History")

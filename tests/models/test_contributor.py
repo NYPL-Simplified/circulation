@@ -7,14 +7,13 @@ from ...model.identifier import Identifier
 
 
 class TestContributor:
+
     def test_marc_code_for_every_role_constant(self):
-        """We have determined the MARC Role Code for every role
-        that's important enough we gave it a constant in the Contributor
-        class.
         """
-        # GIVEN:
-        # WHEN:
-        # THEN:
+        GIVEN: The Contributor class
+        WHEN:  Iterating through the class attributes
+        THEN:  The *_ROLE constant is a valid MARC Role Code
+        """
         for constant, value in list(Contributor.__dict__.items()):
             if not constant.endswith("_ROLE"):
                 # Not a constant
@@ -23,12 +22,10 @@ class TestContributor:
 
     def test_lookup_by_viaf(self, db_session):
         """
-        GIVEN:
-        WHEN:
-        THEN:
+        GIVEN: Two Contributors named Bob with different VIAFs 
+        WHEN:  Looking up a Contributor by VIAF
+        THEN:  The correct Contributor is returned
         """
-
-        # Two contributors named Bob.
         bob1, _ = Contributor.lookup(db_session, sort_name="Bob", viaf="foo")
         bob2, _ = Contributor.lookup(db_session, sort_name="Bob", viaf="bar")
 
@@ -38,14 +35,12 @@ class TestContributor:
 
     def test_lookup_by_lc(self, db_session):
         """
-        GIVEN:
-        WHEN:
-        THEN:
+        GIVEN: Two Contributors named Bob with different LCs
+        WHEN:  Looking up a Contributor by LC
+        THEN:  The correct Contributor is returned
         """
-
-        # Two contributors named Bob.
-        bob1, new = Contributor.lookup(db_session, sort_name="Bob", lc="foo")
-        bob2, new = Contributor.lookup(db_session, sort_name="Bob", lc="bar")
+        bob1, _ = Contributor.lookup(db_session, sort_name="Bob", lc="foo")
+        bob2, _ = Contributor.lookup(db_session, sort_name="Bob", lc="bar")
 
         assert bob1 != bob2
 
@@ -53,9 +48,9 @@ class TestContributor:
 
     def test_lookup_by_viaf_interchangeable(self, db_session, create_contributor):
         """
-        GIVEN:
-        WHEN:
-        THEN:
+        GIVEN: Two Contributors with the same LC
+        WHEN:  Looking up a Contributor by LC
+        THEN:  The returned Contributor is one of the two with the same LC
         """
 
         # Two contributors with the same lc. This shouldn't happen, but
@@ -65,7 +60,7 @@ class TestContributor:
         bob2 = create_contributor(db_session)
         bob2.sort_name = "Bob"
         bob2.lc = "foo"
-        #db_session.commit()
+
         assert bob1 != bob2
         [some_bob], new = Contributor.lookup(db_session, sort_name="Bob", lc="foo")
 
@@ -74,9 +69,9 @@ class TestContributor:
 
     def test_create_by_lookup(self, db_session):
         """
-        GIVEN:
-        WHEN:
-        THEN:
+        GIVEN: A Contributor
+        WHEN:  Looking up the Contributor by sort_name
+        THEN:  The correct Contributor is pulled from the database
         """
 
         [bob1], new = Contributor.lookup(db_session, sort_name="Bob")
@@ -89,9 +84,9 @@ class TestContributor:
 
     def test_merge(self, db_session):
         """
-        GIVEN:
-        WHEN:
-        THEN:
+        GIVEN: Two Contributors
+        WHEN:  Merging the two Contributors
+        THEN:  The correct Contributor is returned from a lookup
         """
 
         # Here's Robert.
@@ -110,11 +105,11 @@ class TestContributor:
         # Each is a contributor to a Edition.
         data_source = DataSource.lookup(db_session, DataSource.GUTENBERG)
 
-        roberts_book, ignore = Edition.for_foreign_id(
+        roberts_book, _ = Edition.for_foreign_id(
             db_session, data_source, Identifier.GUTENBERG_ID, "1")
         roberts_book.add_contributor(robert, Contributor.AUTHOR_ROLE)
 
-        bobs_book, ignore = Edition.for_foreign_id(
+        bobs_book, _ = Edition.for_foreign_id(
             db_session, data_source, Identifier.GUTENBERG_ID, "10")
         bobs_book.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
@@ -187,9 +182,9 @@ class TestContributor:
     )
     def test_default_names(self, in_name, out_family, out_display, default_display_name):
         """
-        GIVEN:
-        WHEN:
-        THEN:
+        GIVEN: A tuple containing catalog name, family name, display name, and default display name
+        WHEN:  Deriving the family name and display name from the catalog name
+        THEN:  The correct family name and display name are returned
         """
         f, d = Contributor._default_names(in_name, default_display_name)
         assert f == out_family
@@ -197,9 +192,9 @@ class TestContributor:
 
     def test_sort_name(self, db_session, create_contributor):
         """
-        GIVEN:
-        WHEN:
-        THEN:
+        GIVEN: A Contributor
+        WHEN:  Checking the sort_name
+        THEN:  The sort_name is correctly set
         """
         bob = create_contributor(db_session, sort_name=None)
         assert None == bob.sort_name
