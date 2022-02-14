@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+import re
 
 import pytest
 from lxml import etree
@@ -19,6 +20,7 @@ from core.model import (
     Hyperlink,
     Identifier,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     LinkRelations,
     MediaTypes,
     Representation,
@@ -247,6 +249,19 @@ class TestAxis360API(Axis360Test):
         assert False == failure.success
         assert "no way" == failure.exception.args[0]
 
+    def test_configuration_settings(self):
+        # The default value for allow_anonymous_access is False.
+        assert self.api.allow_anonymous_access == False
+
+        # It's controlled by the ALLOW_ANONYMOUS_ACCESS_SETTING.
+        ConfigurationSetting.for_externalintegration(
+            Axis360API.ALLOW_ANONYMOUS_ACCESS_SETTING,
+            self.api.external_integration(self._db)
+        ).value = "true"
+        api = MockAxis360API(self._db, self.collection, with_token=False)
+        assert api.allow_anonymous_access == True
+
+
     def test_create_identifier_strings(self):
         identifier = self._identifier()
         values = Axis360API.create_identifier_strings(["foo", identifier])
@@ -311,6 +326,51 @@ class TestAxis360API(Axis360Test):
         # The fourth request never got made.
         assert [301] == [x.status_code for x in self.api.responses]
 
+    def test_can_fulfill_without_loan(self):
+        m = self.api.can_fulfill_without_loan
+
+        # Make a LicensePool with two delivery mechanisms.
+        edition, pool = self._edition(
+            identifier_type=Identifier.AXIS_360_ID,
+            data_source_name=DataSource.AXIS_360,
+            with_license_pool=True,
+            collection=self.collection
+        )
+        adobe = pool.set_delivery_mechanism(
+            MediaTypes.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM,
+            None,
+        )
+        axis = pool.set_delivery_mechanism(
+            None, DeliveryMechanism.AXISNOW_DRM, None
+        )
+
+        # Anonymous access is allowed only if these preconditions are met:
+
+        # patron must be None
+        patron = None
+
+        # anonymous access must be allowed on the collection level.
+        self.api.allow_anonymous_access = True
+
+        # It's allowed in these two cases:
+
+        # 1. No delivery mechanism has been chosen yet.
+        assert m(patron, pool, None) == True
+
+        # 2. The AxisNow DRM system has been chosen.
+        assert m(patron, pool, axis) == True
+
+        # If the method is somehow called with an authenticated
+        # patron, the answer is no -- you have to take out a loan
+        # first.
+        patron = object()
+        assert m(patron, pool, axis) == False
+
+        # If anonymous acccess is not allowed on the collection level,
+        # the answer is always no.
+        self.api.allow_anonymous_access = False
+        assert m(None, pool, axis) == False
+
     def test_update_availability(self):
         # Test the Axis 360 implementation of the update_availability method
         # defined by the CirculationAPI interface.
@@ -337,7 +397,9 @@ class TestAxis360API(Axis360Test):
         # Modify the data so that it appears to be talking about the
         # book we just created.
         new_identifier = pool.identifier.identifier
-        data = data.replace(b"0012533119", new_identifier.encode("utf8"))
+        data = data.replace(
+            b"0012533119", new_identifier.encode("utf8")
+        )
 
         self.api.queue_response(200, content=data)
 
@@ -480,6 +542,81 @@ class TestAxis360API(Axis360Test):
         self.api.queue_response(200, content=data)
         fulfillment = fulfill(internal_format="irrelevant")
         assert isinstance(fulfillment, Axis360FulfillmentInfo)
+
+    def test_fulfill_anonymously(self):
+        # Normally, an attempt to fulfill a book with no authenticated
+        # patron ends in failure.
+        edition, pool = self._edition(
+            identifier_type=Identifier.AXIS_360_ID,
+            identifier_id='0015176429',
+            data_source_name=DataSource.AXIS_360,
+            with_license_pool=True
+        )
+
+        with pytest.raises(NoActiveLoan) as excinfo:
+            self.api.fulfill(
+                None, None, licensepool=pool,
+                internal_format=Axis360API.AXISNOW
+            )
+
+        # However, the story is different if the API is set up to
+        # allow anonymous access.
+        self.api.allow_anonymous_access = True
+
+        checkout_success = self.sample_data(
+            "availability_with_audiobook_fulfillment.xml"
+        )
+        self.api.queue_response(200, content=checkout_success)
+
+        availability = self.sample_data(
+            "availability_with_axisnow_fulfillment.xml"
+        )
+        availability = availability.replace(
+            b"0016820953", pool.identifier.identifier.encode("utf8")
+        )
+        self.api.queue_response(200, content=availability)
+
+        result = self.api.fulfill(None, None, licensepool=pool,
+            internal_format=Axis360API.AXISNOW
+        )
+
+        # We were able to fulfill the book... but how, with no patron
+        # and no loan?
+        assert isinstance(result, Axis360FulfillmentInfo)
+
+        # It's because we made a checkout request before making
+        # the usual fulfillment request.
+        checkout_request, fulfill_request = self.api.requests
+
+        url, args, kwargs = checkout_request
+        assert "checkout/v2" in url
+
+        # The patron ID associated with the checkout request was a
+        # randomly generated UUID.
+        uuid_regex = re.compile(
+            "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+        )
+        data = kwargs['data']
+        patron_id = data.pop('patronId')
+        assert uuid_regex.match(patron_id)
+        assert pool.identifier.identifier == data['titleId']
+
+        # When we made the fulfillment request, we asked for
+        # information about that UUID and the book ID.
+        url, args, kwargs = fulfill_request
+        assert self.api.availability_endpoint in url
+        data = kwargs['params']
+        assert data['patronId'] == patron_id
+        assert data['titleIds'] == pool.identifier.identifier
+
+        # The result was turned into an Axis360FulfillmentInfo for the
+        # book based on the information in
+        # availability_with_axisnow_fulfillment.xml
+        assert result.identifier == pool.identifier.identifier
+        assert result.key == '1670D97A-D264-48BA-8D17-E44B822CB93C'
+
+        # And that's the last time we'll ever do anything with that
+        # UUID.
 
     def test_patron_activity(self):
         """Test the method that locates all current activity
