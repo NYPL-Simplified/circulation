@@ -103,6 +103,20 @@ def init_datasource_and_genres(db_session):
 
 
 @pytest.fixture
+def init_delivery_mechanism(db_session):
+    for content_type, drm_scheme in DeliveryMechanism.default_client_can_fulfill_lookup:
+        try:
+            mechanism, _ = DeliveryMechanism.lookup(
+                db_session, content_type, drm_scheme
+            )
+            mechanism.default_client_can_fulfill = True
+        except:
+            pass
+    yield
+    DeliveryMechanism.reset_cache()
+
+
+@pytest.fixture
 def create_admin_user():
     """
     Returns a constructor function for creating an Admin user.
@@ -153,6 +167,36 @@ def create_contributor():
         return contributor
     
     return _create_contributor
+
+
+@pytest.fixture
+def create_coverage_record():
+    """
+    Returns a constructor function for creating a CoverageRecord.
+    """
+    def _create_coverage_record(db_session, edition, coverage_source, operation=None,
+                                status=CoverageRecord.SUCCESS, collection=None, exception=None):
+        if isinstance(edition, Identifier):
+            identifier = edition
+        else:
+            identifier = edition.primary_identifier
+
+        record, _ = get_one_or_create(
+            db_session, CoverageRecord,
+            identifier=identifier,
+            data_source=coverage_source,
+            operation=operation,
+            collection=collection,
+            create_method_kwargs = dict(
+                timestamp=utc_now(),
+                status=status,
+                exception=exception
+            )
+        )
+
+        return record
+
+    return _create_coverage_record
 
 
 @pytest.fixture
@@ -347,6 +391,30 @@ def create_library():
 
 
 @pytest.fixture
+def create_license():
+    """
+    Returns a constructor function for creating a License.
+    """
+    def _create_license(db_session, pool, identifier=None, checkout_url=None, status_url=None,
+                        expires=None, remaining_checkouts=None, concurrent_checkouts=None):
+        identifier = identifier or str(random.randint(1, 9999))
+        checkout_url = checkout_url or str(random.randint(1, 9999))
+        status_url = status_url or str(random.randint(1, 9999))
+        
+        license, _ = get_one_or_create(
+            db_session, License, identifier=identifier, license_pool=pool,
+            checkout_url=checkout_url,
+            status_url=status_url, expires=expires,
+            remaining_checkouts=remaining_checkouts,
+            concurrent_checkouts=concurrent_checkouts,
+        )
+
+        return license
+    
+    return _create_license
+
+
+@pytest.fixture
 def create_licensepool(create_collection, create_representation):
     """
     Returns a constructor function for creating a LicensePool.
@@ -422,6 +490,25 @@ def create_licensepooldeliverymechanism():
 
     return _create_licensepooldeliverymechanism
 
+
+@pytest.fixture
+def create_patron(create_library):
+    """
+    Constructor function for creating a Patron.
+    """
+    def _create_patron(db_session, external_identifier=None, library=None):
+        external_identifier = external_identifier or str(random.randint(1, 9999))
+        library = library or create_library(db_session)
+
+        patron, _ = get_one_or_create(
+            db_session, Patron,
+            external_identifier=external_identifier,
+            library=library
+        )
+
+        return patron
+
+    return _create_patron
 
 @pytest.fixture
 def create_representation():
