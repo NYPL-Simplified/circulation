@@ -13,26 +13,41 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm.session import Session
 
-from core.classifier import Classifier
-from core.config import Configuration
-from core.lane import Lane
+from ..classifier import Classifier
+from ..config import Configuration
+from ..lane import Lane
 
-from core.model import Base, classifier, get_one_or_create
-from core.model.admin import Admin
-from core.model.classification import Genre, Subject
-from core.model.collection import Collection
-from core.model.configuration import ExternalIntegration
-from core.model.constants import MediaTypes
-from core.model.contributor import Contributor
-from core.model.datasource import DataSource
-from core.model.edition import Edition
-from core.model.identifier import Identifier
-from core.model.integrationclient import IntegrationClient
-from core.model.library import Library
-from core.model.licensing import DeliveryMechanism, LicensePool, LicensePoolDeliveryMechanism, RightsStatus
-from core.model.resource import Hyperlink, Representation
-from core.model.work import Work
-from core.util.datetime_helpers import utc_now
+from ..model import (
+    Base,
+    classifier,
+    get_one_or_create
+)
+from ..model.admin import Admin
+from ..model.classification import Genre, Subject
+from ..model.collection import Collection
+from ..model.configuration import ExternalIntegration
+from ..model.constants import MediaTypes
+from ..model.contributor import Contributor
+from ..model.coverage import CoverageRecord
+from ..model.datasource import DataSource
+from ..model.edition import Edition
+from ..model.identifier import Identifier
+from ..model.integrationclient import IntegrationClient
+from ..model.library import Library
+from ..model.licensing import (
+    DeliveryMechanism,
+    License,
+    LicensePool,
+    LicensePoolDeliveryMechanism,
+    RightsStatus
+)
+from ..model.patron import Patron
+from ..model.resource import (
+    Hyperlink,
+    Representation
+)
+from ..model.work import Work
+from ..util.datetime_helpers import utc_now
 
 # Pull in the session_fixture defined in core/testing.py
 # which does the database setup and initialization
