@@ -1,8 +1,9 @@
 # encoding: utf-8
+from dbm.ndbm import library
+from isbnlib import editions
 import pytest
 import datetime
 from sqlalchemy.exc import IntegrityError
-from ...testing import DatabaseTest
 from ...model import (
     create,
     get_one_or_create
@@ -18,7 +19,7 @@ from ...util.datetime_helpers import (
 )
 
 
-class TestCirculationEvent(DatabaseTest):
+class TestCirculationEvent:
 
     def _event_data(self, **kwargs):
         for k, default in (
@@ -48,12 +49,10 @@ class TestCirculationEvent(DatabaseTest):
         else:
             return int(value)
 
-    def from_dict(self, data):
-        _db = self._db
-
+    def from_dict(self, data, db_session):
         # Identify the source of the event.
         source_name = data['source']
-        source = DataSource.lookup(_db, source_name)
+        source = DataSource.lookup(db_session, source_name)
 
         # Identify which LicensePool the event is talking about.
         foreign_id = data['id']
@@ -61,7 +60,7 @@ class TestCirculationEvent(DatabaseTest):
         collection = data['collection']
 
         license_pool, was_new = LicensePool.for_foreign_id(
-            _db, source, identifier_type, foreign_id, collection=collection
+            db_session, source, identifier_type, foreign_id, collection=collection
         )
 
         # Finally, gather some information about the event itself.
@@ -72,7 +71,7 @@ class TestCirculationEvent(DatabaseTest):
         new_value = self._get_int(data, 'new_value')
         delta = self._get_int(data, 'delta')
         event, was_new = get_one_or_create(
-            _db, CirculationEvent, license_pool=license_pool,
+            db_session, CirculationEvent, license_pool=license_pool,
             type=type, start=start,
             create_method_kwargs=dict(
                 old_value=old_value,
@@ -82,10 +81,14 @@ class TestCirculationEvent(DatabaseTest):
             )
         return event, was_new
 
-    def test_new_title(self):
-
+    def test_new_title(self, db_session, create_collection, init_datasource_and_genres):
+        """
+        GIVEN: A dictionary
+        WHEN:  Creating a CirculationEvent with the dictionary data
+        THEN:  A CirculationEvent is succesfully created
+        """
         # Here's a new title.
-        collection = self._collection()
+        collection = create_collection(db_session)
         data = self._event_data(
             source=DataSource.OVERDRIVE,
             id="{1-2-3}",
@@ -97,7 +100,7 @@ class TestCirculationEvent(DatabaseTest):
         )
 
         # Turn it into an event and see what happens.
-        event, ignore = self.from_dict(data)
+        event, _ = self.from_dict(data, db_session)
 
         # The event is associated with the correct data source.
         assert DataSource.OVERDRIVE == event.license_pool.data_source.name
@@ -113,11 +116,16 @@ class TestCirculationEvent(DatabaseTest):
         # updating the dataset.
         assert 0 == event.license_pool.licenses_owned
 
-    def test_log(self):
+    def test_log(self, db_session, create_edition, create_library, create_licensepool):
+        """
+        GIVEN: Data to populate a CirculationEvent
+        WHEN:  Logging a CirculationEvent
+        THEN:  A CirculationEvent is correctly retrieved or created
+        """
         # Basic test of CirculationEvent.log.
-
-        pool = self._licensepool(edition=None)
-        library = self._default_library
+        edition = create_edition(db_session)
+        pool = create_licensepool(db_session, edition=edition)
+        library = create_library(db_session)
         event_name = CirculationEvent.DISTRIBUTOR_CHECKOUT
         old_value = 10
         new_value = 8
@@ -127,7 +135,7 @@ class TestCirculationEvent(DatabaseTest):
 
         m = CirculationEvent.log
         event, is_new = m(
-            self._db, license_pool=pool, event_name=event_name,
+            db_session, license_pool=pool, event_name=event_name,
             library=library, old_value=old_value, new_value=new_value,
             start=start, end=end, location=location
         )
@@ -143,7 +151,7 @@ class TestCirculationEvent(DatabaseTest):
         # library, event name, and start date, that event is returned
         # unchanged.
         event, is_new = m(
-            self._db, license_pool=pool, event_name=event_name,
+            db_session, license_pool=pool, event_name=event_name,
             library=library, start=start,
 
             # These values will be ignored.
@@ -163,7 +171,7 @@ class TestCirculationEvent(DatabaseTest):
         # is the most common case, so basically a new event will be
         # created each time you call log().
         event, is_new = m(
-            self._db, license_pool=pool, event_name=event_name,
+            db_session, license_pool=pool, event_name=event_name,
             library=library, old_value=old_value, new_value=new_value,
             end=end, location=location
         )
@@ -175,50 +183,61 @@ class TestCirculationEvent(DatabaseTest):
         assert end == event.end
         assert location == event.location
 
-    def test_uniqueness_constraints_no_library(self):
+    def test_uniqueness_constraints_no_library(self, db_session, create_edition, create_licensepool):
+        """
+        GIVEN: An Edition and LicensePool
+        WHEN:  Creating a CirculationEvent with a duplicate timeestamps
+        THEN:  An IntegrityError is raised 
+        """
         # If library is null, then license_pool + type + start must be
         # unique.
-        pool = self._licensepool(edition=None)
+        edition = create_edition(db_session)
+        pool = create_licensepool(db_session, edition=edition)
         now = utc_now()
         kwargs = dict(
             license_pool=pool, type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
         )
-        event = create(self._db, CirculationEvent, start=now, **kwargs)
+        event = create(db_session, CirculationEvent, start=now, **kwargs)
 
         # Different timestamp -- no problem.
         now2 = utc_now()
-        event2 = create(self._db, CirculationEvent, start=now2, **kwargs)
+        event2 = create(db_session, CirculationEvent, start=now2, **kwargs)
         assert event != event2
 
         # Reuse the timestamp and you get an IntegrityError which ruins the
         # entire transaction.
         pytest.raises(
-            IntegrityError, create, self._db, CirculationEvent, start=now,
+            IntegrityError, create, db_session, CirculationEvent, start=now,
             **kwargs
         )
-        self._db.rollback()
 
-    def test_uniqueness_constraints_with_library(self):
+    def test_uniqueness_constraints_with_library(self, db_session, create_edition, create_library, create_licensepool):
+        """
+        GIVEN: An Edition, Library, and LicensePool
+        WHEN:  Creating a CirculationEvent with a duplicate timestamp
+        THEN:  An IntegrityError is raised
+        """
         # If library is provided, then license_pool + library + type +
         # start must be unique.
-        pool = self._licensepool(edition=None)
+        library = create_library(db_session)
+        edition = create_edition(db_session)
+        pool = create_licensepool(db_session, edition=edition)
         now = utc_now()
         kwargs = dict(
             license_pool=pool,
-            library=self._default_library,
+            library=library,
             type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
         )
-        event = create(self._db, CirculationEvent, start=now, **kwargs)
+        event = create(db_session, CirculationEvent, start=now, **kwargs)
 
         # Different timestamp -- no problem.
         now2 = utc_now()
-        event2 = create(self._db, CirculationEvent, start=now2, **kwargs)
+        event2 = create(db_session, CirculationEvent, start=now2, **kwargs)
         assert event != event2
 
         # Reuse the timestamp and you get an IntegrityError which ruins the
         # entire transaction.
         pytest.raises(
-            IntegrityError, create, self._db, CirculationEvent, start=now,
+            IntegrityError, create, db_session, CirculationEvent, start=now,
             **kwargs
         )
-        self._db.rollback()
