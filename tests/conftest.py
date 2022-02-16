@@ -174,7 +174,7 @@ def create_edition(create_licensepool):
 
         wr = Edition.for_foreign_id(db_session, source, identifier_type, id)[0]
         if not title:
-            title = "Test Book"
+            title = f"Test Book {random.randint(1, 9999)}"
         wr.title = str(title)
         wr.medium = Edition.BOOK_MEDIUM
 
@@ -185,7 +185,7 @@ def create_edition(create_licensepool):
             wr.language = language
 
         if authors is None:
-            authors = "Test Author"
+            authors = f"Test Author {random.randint(1, 9999)}"
 
         if isinstance(authors, str):
             authors = [authors]
@@ -473,7 +473,7 @@ def create_work(create_edition):
             with_license_pool = True
         language = language or "eng"
         if not title:
-            title = "Test Book"
+            title = f"Test Book {random.randint(1, 9999)}"
         title = str(title)
         audience = audience or Classifier.AUDIENCE_ADULT
 
