@@ -342,7 +342,7 @@ def create_integration_client():
     Returns a constructor function for creating an IntegrationClient.
     """
     def _create_integration_client(db_session, url=None, shared_secret=None):
-        url = url or f"http://foo.com/{random.randint(1,9999)}"
+        url = url or f"http://example.com/{random.randint(1,9999)}"
         secret = shared_secret or "secret"
         integration_client, _ = get_one_or_create(
             db_session, IntegrationClient, shared_secret=secret,
@@ -458,7 +458,7 @@ def create_licensepool(create_collection, create_representation):
 
         if with_open_access_download:
             pool.open_access = True
-            url = "http://foo.com/" + str(random.randint(1, 999))
+            url = "http://example.com/" + str(random.randint(1, 999))
             media_type = MediaTypes.EPUB_MEDIA_TYPE
             link, _ = pool.identifier.add_link(
                 Hyperlink.OPEN_ACCESS_DOWNLOAD, url, source, media_type
@@ -534,7 +534,7 @@ def create_representation():
     Returns a constructor function for creating a Representation.
     """
     def _create_representation(db_session, url=None, media_type=None, content=None, mirrored=False):
-        url = url or "http://foo.com/" + str(random.randint(1, 9999))
+        url = url or "http://example.com/" + str(random.randint(1, 9999))
         repr, _ = get_one_or_create(db_session, Representation, url=url)
         repr.media_type = media_type
         if media_type and content:
@@ -543,7 +543,7 @@ def create_representation():
             repr.content = content
             repr.fetched_at = utc_now()
             if mirrored:
-                repr.mirror_url = "http://foo.com/" + str(random.randint(1, 9999))
+                repr.mirror_url = "http://example.com/" + str(random.randint(1, 9999))
                 repr.mirrored_at = utc_now()
 
             return repr
