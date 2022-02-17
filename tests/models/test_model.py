@@ -1,18 +1,13 @@
 # encoding: utf-8
 import pytest
-import datetime
 from psycopg2.extras import NumericRange
 from sqlalchemy import not_
 from sqlalchemy.orm.exc import MultipleResultsFound
 
-from ...testing import DatabaseTest
-from ... import classifier
 from ...external_search import mock_search_index
 from ...config import Configuration
 from ...model import (
-    DataSource,
     Edition,
-    Genre,
     get_one,
     SessionManager,
     Timestamp,
@@ -21,30 +16,35 @@ from ...model import (
 )
 
 
-class TestDatabaseInterface(DatabaseTest):
+class TestDatabaseInterface:
 
-    def test_get_one(self):
+    def test_get_one(self, db_session, create_edition):
+        """
+        GIVEN: A database query to retrieve a single row
+        WHEN:  Querying the database
+        THEN:  One result is returned or an exception is raised
+        """
 
         # When a matching object isn't found, None is returned.
-        result = get_one(self._db, Edition)
+        result = get_one(db_session, Edition)
         assert None == result
 
         # When a single item is found, it is returned.
-        edition = self._edition()
-        result = get_one(self._db, Edition)
+        edition = create_edition(db_session, title="Default Title")
+        result = get_one(db_session, Edition)
         assert edition == result
 
         # When multiple items are found, an error is raised.
-        other_edition = self._edition()
-        pytest.raises(MultipleResultsFound, get_one, self._db, Edition)
+        other_edition = create_edition(db_session, title="Default Title")
+        pytest.raises(MultipleResultsFound, get_one, db_session, Edition)
 
         # Unless they're interchangeable.
-        result = get_one(self._db, Edition, on_multiple='interchangeable')
-        assert result in self._db.query(Edition)
+        result = get_one(db_session, Edition, on_multiple='interchangeable')
+        assert result in db_session.query(Edition)
 
         # Or specific attributes are passed that limit the results to one.
         result = get_one(
-            self._db, Edition,
+            db_session, Edition,
             title=other_edition.title,
             author=other_edition.author)
         assert other_edition == result
@@ -52,19 +52,24 @@ class TestDatabaseInterface(DatabaseTest):
         # A particular constraint clause can also be passed in.
         titles = [ed.title for ed in (edition, other_edition)]
         constraint = not_(Edition.title.in_(titles))
-        result = get_one(self._db, Edition, constraint=constraint)
+        result = get_one(db_session, Edition, constraint=constraint)
         assert None == result
 
-    def test_initialize_data_does_not_reset_timestamp(self):
+    def test_initialize_data_does_not_reset_timestamp(self, db_session, initalize_data):
+        """
+        GIVEN: An initialized database with data
+        WHEN:  Re-initializing data
+        THEN:  The Timestamp is unchanged from the first initialization
+        """
         # initialize_data() has already been called, so the database is
         # initialized and the 'site configuration changed' Timestamp has
         # been set. Calling initialize_data() again won't change the
         # date on the timestamp.
-        timestamp = get_one(self._db, Timestamp,
+        timestamp = get_one(db_session, Timestamp,
                             collection=None,
                             service=Configuration.SITE_CONFIGURATION_CHANGED)
         old_timestamp = timestamp.finish
-        SessionManager.initialize_data(self._db)
+        SessionManager.initialize_data(db_session)
         assert old_timestamp == timestamp.finish
 
 
@@ -73,31 +78,52 @@ class TestNumericRangeConversion(object):
     objects.
     """
 
-    def test_tuple_to_numericrange(self):
+    @pytest.mark.parametrize(
+        'lower,upper,upper_inc',
+        [
+            (1, 10, True),
+            (None, 10, True),
+            (10, None, False),
+        ],
+        ids=[
+            "one_to_ten",
+            "up_to_ten",
+            "ten_and_up"
+        ]
+    )
+    def test_tuple_to_numericrange(self, lower, upper, upper_inc):
+        """
+        GIVEN: A lower and upper bound of numbers or None
+        WHEN:  Converting a tuple to a NumericRange
+        THEN:  The bounds are correctly set
+        """
         f = tuple_to_numericrange
         assert None == f(None)
 
-        one_to_ten = f((1,10))
-        assert isinstance(one_to_ten, NumericRange)
-        assert 1 == one_to_ten.lower
-        assert 10 == one_to_ten.upper
-        assert True == one_to_ten.upper_inc
+        range = f((lower, upper))
+        assert isinstance(range, NumericRange)
+        assert lower == range.lower
+        assert upper == range.upper
+        assert upper_inc == range.upper_inc
 
-        up_to_ten = f((None, 10))
-        assert isinstance(up_to_ten, NumericRange)
-        assert None == up_to_ten.lower
-        assert 10 == up_to_ten.upper
-        assert True == up_to_ten.upper_inc
-
-        ten_and_up = f((10,None))
-        assert isinstance(ten_and_up, NumericRange)
-        assert 10 == ten_and_up.lower
-        assert None == ten_and_up.upper
-        assert False == ten_and_up.upper_inc
-
-    def test_numericrange_to_tuple(self):
+    @pytest.mark.parametrize(
+        'lower,upper,clusivity,tuple_lower,tuple_upper',
+        [
+            (2, 6, '[]', 2, 6),
+            (2, 6, '()', 3, 5)
+        ],
+        ids=[
+            "two_to_six_inclusive",
+            "two_to_six_exclusive"
+        ]
+    )
+    def test_numericrange_to_tuple(self, lower, upper, clusivity, tuple_lower, tuple_upper):
+        """
+        GIVEN: A NumericRange
+        WHEN:  Converting a NumeriRange to a tuple inclusively or exclusively
+        THEN:  Correct tuple range is returned
+        """
         m = numericrange_to_tuple
-        two_to_six_inclusive = NumericRange(2,6, '[]')
-        assert (2,6) == m(two_to_six_inclusive)
-        two_to_six_exclusive = NumericRange(2,6, '()')
-        assert (3,5) == m(two_to_six_exclusive)
+        range = NumericRange(lower, upper, clusivity)
+
+        assert (tuple_lower, tuple_upper) == m(range)
