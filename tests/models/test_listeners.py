@@ -1,8 +1,7 @@
 # encoding: utf-8
 import functools
-from parameterized import parameterized
+import pytest
 
-from ...testing import DatabaseTest
 from ... import lane
 from ... import model
 from ...config import Configuration
@@ -17,7 +16,7 @@ from ...model import (
 from ...util.datetime_helpers import utc_now
 
 
-class TestSiteConfigurationHasChanged(DatabaseTest):
+class TestSiteConfigurationHasChanged:
 
     class MockSiteConfigurationHasChanged(object):
         """Keep track of whether site_configuration_has_changed was
@@ -39,8 +38,6 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
             assert not self.was_called
 
     def setup_method(self):
-        super(TestSiteConfigurationHasChanged, self).setup_method()
-
         # Mock model.site_configuration_has_changed
         self.old_site_configuration_has_changed = model.listeners.site_configuration_has_changed
         self.mock = self.MockSiteConfigurationHasChanged()
@@ -48,22 +45,23 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
             module.site_configuration_has_changed = self.mock.run
 
     def teardown_method(self):
-        super(TestSiteConfigurationHasChanged, self).teardown_method()
         for module in model.listeners, lane:
             module.site_configuration_has_changed = self.old_site_configuration_has_changed
 
-    def test_site_configuration_has_changed(self):
-        """Test the site_configuration_has_changed() function and its
-        effects on the Configuration object.
+    def test_site_configuration_has_changed(self, db_session, initalize_data):
+        """
+        GIVEN: A site configuration
+        WHEN:  Changing the configuration
+        THEN:  TGhe last updated Timestamp is accurate
         """
         # The database configuration timestamp is initialized as part
         # of the default data. In that case, it happened during the
         # package_setup() for this test run.
-        last_update = Configuration.site_configuration_last_update(self._db)
+        last_update = Configuration.site_configuration_last_update(db_session)
 
         def ts():
             return Timestamp.value(
-                self._db, Configuration.SITE_CONFIGURATION_CHANGED,
+                db_session, Configuration.SITE_CONFIGURATION_CHANGED,
                 service_type=None, collection=None
             )
         timestamp_value = ts()
@@ -74,14 +72,14 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         # Sending cooldown=0 ensures we can change the timestamp value
         # even though it changed less than one second ago.
         time_of_update = utc_now()
-        site_configuration_has_changed(self._db, cooldown=0)
+        site_configuration_has_changed(db_session, cooldown=0)
 
         # The Timestamp has changed in the database.
         assert ts() > timestamp_value
 
         # The locally-stored last update value has been updated.
         new_last_update_time = Configuration.site_configuration_last_update(
-            self._db, timeout=0
+            db_session, timeout=0
         )
         assert new_last_update_time > last_update
         assert (new_last_update_time - time_of_update).total_seconds() < 1
@@ -92,20 +90,20 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         # site_configuration_has_changed() -- they will know about the
         # change but we won't be informed.
         timestamp = Timestamp.stamp(
-            self._db, Configuration.SITE_CONFIGURATION_CHANGED,
+            db_session, Configuration.SITE_CONFIGURATION_CHANGED,
             service_type=None, collection=None
         )
 
         # Calling Configuration.check_for_site_configuration_update
         # with a timeout doesn't detect the change.
         assert (new_last_update_time ==
-            Configuration.site_configuration_last_update(self._db, timeout=60))
+            Configuration.site_configuration_last_update(db_session, timeout=60))
 
         # But the default behavior -- a timeout of zero -- forces
         # the method to go to the database and find the correct
         # answer.
         newer_update = Configuration.site_configuration_last_update(
-            self._db
+            db_session
         )
         assert newer_update > last_update
 
@@ -127,54 +125,59 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         # Verify that the Timestamp has not changed (how could it,
         # with no database connection to modify the Timestamp?)
         assert (newer_update ==
-            Configuration.site_configuration_last_update(self._db))
+            Configuration.site_configuration_last_update(db_session))
 
     # We don't test every event listener, but we do test one of each type.
-    def test_configuration_relevant_lifecycle_event_updates_configuration(self):
-        """When you create or modify a relevant item such as a
-        ConfigurationSetting, site_configuration_has_changed is called.
+    def test_configuration_relevant_lifecycle_event_updates_configuration(self, db_session, init_datasource_and_genres):
         """
-        ConfigurationSetting.sitewide(self._db, "setting").value = "value"
+        GIVEN: A sitewide ConfigurationSetting
+        WHEN:  Creating or modifying a relevant item
+        THEN:  site_configuration_has_changed is called
+        """
+        ConfigurationSetting.sitewide(db_session, "setting").value = "value"
         self.mock.assert_was_called()
 
-        ConfigurationSetting.sitewide(self._db, "setting").value = "value2"
+        ConfigurationSetting.sitewide(db_session, "setting").value = "value2"
         self.mock.assert_was_called()
 
-    def test_lane_change_updates_configuration(self):
-        """Verify that configuration-relevant changes work the same way
-        in the lane module as they do in the model module.
+    def test_lane_change_updates_configuration(self, db_session, create_lane, init_datasource_and_genres):
         """
-        lane = self._lane()
+        GIVEN: A Lane
+        WHEN:  Configuration-relevant changes are made
+        THEN:  Changes work the same way in the lane module as they do in the model module
+        """
+        lane = create_lane(db_session)
         self.mock.assert_was_called()
 
         lane.add_genre("Science Fiction")
         self.mock.assert_was_called()
 
-    def test_configuration_relevant_collection_change_updates_configuration(self):
-        """When you add a relevant item to a SQLAlchemy collection, such as
-        adding a Collection to library.collections,
-        site_configuration_has_changed is called.
+    def test_configuration_relevant_collection_change_updates_configuration(
+            self, db_session, create_collection,  create_library):
         """
-
+        GIVEN: A Library
+        WHEN:  Adding a Collection to the Library
+        THEN:  site_configuration_has_changed is called
+        """
         # Creating a collection calls the method via an 'after_insert'
         # event on Collection.
-        library = self._default_library
-        collection = self._collection()
-        self._db.commit()
+        library = create_library(db_session)
+        collection = create_collection(db_session)
+        db_session.commit()
         self.mock.assert_was_called()
 
         # Adding the collection to the library calls the method via
         # an 'append' event on Collection.libraries.
         library.collections.append(collection)
-        self._db.commit()
+        db_session.commit()
         self.mock.assert_was_called()
 
         # Associating a CachedFeed with the library does _not_ call
         # the method, because nothing changed on the Library object and
         # we don't listen for 'append' events on Library.cachedfeeds.
-        create(self._db, CachedFeed, type='page', pagination='',
+        create(db_session, CachedFeed, type='page', pagination='',
                facets='', library=library)
-        self._db.commit()
+        db_session.commit()
         self.mock.assert_was_not_called()
 
         # NOTE: test_work.py:TestWork.test_reindex_on_availability_change
@@ -187,14 +190,27 @@ def _set_property(object, value, property_name):
     setattr(object, property_name, value)
 
 
-class TestListeners(DatabaseTest):
-    @parameterized.expand([
-        ('works_when_open_access_property_changes', functools.partial(_set_property, property_name='open_access')),
-        ('works_when_self_hosted_property_changes', functools.partial(_set_property, property_name='self_hosted'))
-    ])
-    def test_licensepool_storage_status_change(self, name, status_property_setter):
+class TestListeners:
+
+    @pytest.mark.parametrize(
+        'status_property_setter',
+        [
+            (functools.partial(_set_property, property_name="open_access")),
+            (functools.partial(_set_property, property_name="self_hosted"))
+        ],
+        ids=[
+            'works_when_open_access_property_changes',
+            'works_when_self_hosted_property_changes'  
+        ]
+    )
+    def test_licensepool_storage_status_change(self, status_property_setter, db_session, create_work):
+        """
+        GIVEN: A Work that has a LicensePool
+        WHEN:  Changing the LicensePool's open_access and self_hosted settings
+        THEN:  A WorkCoverageRecord is created
+        """
         # Arrange
-        work = self._work(with_license_pool=True)
+        work = create_work(db_session, with_license_pool=True)
         [pool] = work.license_pools
 
         # Clear out any WorkCoverageRecords created as the work was initialized.
