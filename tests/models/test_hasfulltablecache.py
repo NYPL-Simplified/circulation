@@ -1,5 +1,5 @@
 # encoding: utf-8
-from ...testing import DatabaseTest
+import pytest
 from ...model.hasfulltablecache import HasFullTableCache
 
 class MockHasTableCache(HasFullTableCache):
@@ -21,15 +21,21 @@ class MockHasTableCache(HasFullTableCache):
     def cache_key(self):
         return self.KEY
 
-class TestHasFullTableCache(DatabaseTest):
 
+class TestHasFullTableCache:
+
+    @pytest.fixture(autouse=True)
     def setup_method(self):
-        super(TestHasFullTableCache, self).setup_method()
         self.mock_class = MockHasTableCache
         self.mock = MockHasTableCache()
         self.mock._cache = HasFullTableCache.RESET
 
     def test_reset_cache(self):
+        """
+        GIVEN: A class that has an in-memory cache
+        WHEN:  Resetting the class's cache
+        THEN:  The class's cache is reset
+        """
         self.mock_class._cache = object()
         self.mock_class._id_cache = object()
         self.mock_class.reset_cache()
@@ -37,6 +43,11 @@ class TestHasFullTableCache(DatabaseTest):
         assert HasFullTableCache.RESET == self.mock_class._id_cache
 
     def test_cache_insert(self):
+        """
+        GIVEN: A class that has an in-memory cache
+        WHEN:  Caching an object
+        THEN:  Object is retrieved from cache
+        """
         temp_cache = {}
         temp_id_cache = {}
         self.mock_class._cache_insert(self.mock, temp_cache, temp_id_cache)
