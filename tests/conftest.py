@@ -20,7 +20,8 @@ from ..lane import Lane
 from ..model import (
     Base,
     classifier,
-    get_one_or_create
+    get_one_or_create,
+    site_configuration_has_changed
 )
 from ..model.admin import Admin
 from ..model.classification import Genre, Subject
@@ -28,7 +29,10 @@ from ..model.collection import Collection
 from ..model.configuration import ExternalIntegration
 from ..model.constants import MediaTypes
 from ..model.contributor import Contributor
-from ..model.coverage import CoverageRecord
+from ..model.coverage import (
+    CoverageRecord,
+    Timestamp
+)
 from ..model.datasource import DataSource
 from ..model.edition import Edition
 from ..model.identifier import Identifier
@@ -86,6 +90,20 @@ def db_session(db_engine):
         yield session
         transaction.rollback()
         session.close()
+
+
+@pytest.fixture
+def initalize_data(db_session):
+    # Should all of core/model/__init__.py::SessionManager::initialize_data
+    # be in here instead of splitting out DeliveryMechanisms from DataSource & Genres?
+    _, is_new = get_one_or_create(
+        db_session, Timestamp, collection=None,
+        service=Configuration.SITE_CONFIGURATION_CHANGED,
+        create_method_kwargs=dict(finish=utc_now())
+    )
+    if is_new:
+        site_configuration_has_changed(db_session)
+    db_session.commit()
 
 
 @pytest.fixture
