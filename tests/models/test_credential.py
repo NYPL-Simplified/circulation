@@ -3,8 +3,6 @@ import pytest
 import datetime
 from sqlalchemy.exc import IntegrityError
 
-from core.model.configuration import ExternalIntegration
-
 from ...model.credential import (
     Credential,
     DelegatedPatronIdentifier,
@@ -295,7 +293,6 @@ class TestUniquenessConstraints:
         self.library = create_library(db_session, name="default", short_name="default")
         self.patron = create_patron(db_session, library=self.library)
         collection= create_collection(db_session, name="Default Collection")
-        collection.create_external_integration(ExternalIntegration.OPDS_IMPORT)
         self.library.collections.append(collection)
 
         self.col1 = collection
