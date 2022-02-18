@@ -34,9 +34,9 @@ class MockManager(object):
         self._cache = {}
 
         # This is used by the allows_patron_web annotator.
-        self.patron_web_domains = set(["http://patron/web"])
+        self.patron_web_domains = set(["http://patron.librarysimplified.org", "http://*.patron.librarysimplified.org"])
 
-        self.admin_web_domains = set(["http://admin/web"])
+        self.admin_web_domains = set(["http://admin.librarysimplified.org", "http://*.admin.librarysimplified.org"])
 
     def __getattr__(self, controller_name):
         return self._cache.setdefault(
@@ -224,18 +224,6 @@ class RouteTestFixtures(object):
             logging.debug("MethodNotAllowed should be raised on %s", method)
             pytest.raises(MethodNotAllowed, self.request, url, method)
             logging.debug("And it was.")
-    
-    def assert_cors_headers_patron_and_admin(self, url, manager):
-        response = self.request(url)
-        cors_headers = response.headers.pop('Access-Control-Allow-Origin')
-        assert " ".join(manager.patron_web_domains) in cors_headers
-        assert " ".join(manager.admin_web_domains) in cors_headers
-
-    def assert_cors_headers_admin_only(self, url, manager):
-        response = self.request(url)
-        cors_headers = response.headers.pop('Access-Control-Allow-Origin')
-        assert " ".join(manager.patron_web_domains) not in cors_headers
-        assert " ".join(manager.admin_web_domains) in cors_headers
 
 
 class RouteTest(ControllerTest, RouteTestFixtures):
@@ -311,12 +299,10 @@ class TestIndex(RouteTest):
     def test_index(self):
         for url in '/', '':
             self.assert_request_calls(url, self.controller)
-            self.assert_cors_headers_patron_and_admin(url, self.manager)
 
     def test_authentication_document(self):
         url = '/authentication_document'
         self.assert_request_calls(url, self.controller.authentication_document)
-        self.assert_cors_headers_admin_only(url, self.manager)
 
     def test_public_key_document(self):
         url = '/public_key_document'

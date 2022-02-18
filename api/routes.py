@@ -1,6 +1,7 @@
 from functools import wraps, update_wrapper
 import logging
 import os
+from urllib.parse import urlparse
 
 import flask
 from flask import (
@@ -29,6 +30,7 @@ from core.model import ConfigurationSetting
 from core.util.problem_detail import ProblemDetail
 from .controller import CirculationManager
 from .problem_details import REMOTE_INTEGRATION_FAILED
+from .util.url import URLUtility
 from flask_babel import lazy_gettext as _
 
 @app.before_first_request
@@ -112,32 +114,38 @@ def allows_cors(allowed_domain_type):
     # Override Flask's default behavior and intercept the OPTIONS method for
     # every request so CORS headers can be added.
     def decorator(func):
+        # These lines need to be here rather than inside `wrapper()`, because otherwise
+        # the default behavior of Flask means that OPTIONS calls will be handled automatically,
+        # and never get inside the wrapper function here.
+        # 
+        # The alternative to making this modification here would be to make each call to app.route()
+        # carry 'provide_automatic_options=False', to turn off that behavior when the Werkzeug
+        # URL Rule object is initially created and put into the Flask url_map.
+        func.required_methods = getattr(func, 'required_methods', set())
+        func.required_methods.add("OPTIONS")
+        func.provide_automatic_options = False
+
         @wraps(func)
         def wrapper(*args, **kwargs):
-            func.required_methods = getattr(func, 'required_methods', set())
-            func.required_methods.add("OPTIONS")
-            func.provide_automatic_options = False
 
             if request.method == "OPTIONS":
                 resp = app.make_default_options_response()
             else:
                 resp = make_response(func(*args, **kwargs))
-            
-            patron_web_domains = app.manager.patron_web_domains
-            admin_web_domains = app.manager.admin_web_domains
-            
-            web_domains = set();
-            if "patron" in allowed_domain_type:
-                web_domains.update(patron_web_domains)
-            if "admin" in allowed_domain_type:
-                web_domains.update(admin_web_domains)
 
-            if web_domains:
-                options = get_cors_options(
-                    app, dict(origins=", ".join(web_domains),
-                            supports_credentials=True)
-                )
-                set_cors_headers(resp, options)
+            origin_value = request.headers.get("origin", "")
+
+            if origin_value:
+                allowed_url_patterns = set()
+                if "patron" in allowed_domain_type:
+                    allowed_url_patterns.update(app.manager.patron_web_domains)
+
+                if "admin" in allowed_domain_type:
+                    allowed_url_patterns.update(app.manager.admin_web_domains)
+
+                if allowed_url_patterns and URLUtility.url_match_in_domain_list(origin_value, allowed_url_patterns):
+                    options = get_cors_options(app, {"origins": origin_value, "supports_credentials": True})
+                    set_cors_headers(resp, options)
 
             return resp
 
