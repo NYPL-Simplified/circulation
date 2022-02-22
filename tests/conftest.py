@@ -220,7 +220,7 @@ def create_coverage_record():
             data_source=coverage_source,
             operation=operation,
             collection=collection,
-            create_method_kwargs = dict(
+            create_method_kwargs=dict(
                 timestamp=utc_now(),
                 status=status,
                 exception=exception
@@ -238,8 +238,8 @@ def create_customlist(create_edition, create_work):
     Returns a constructor function for creating a CustomList.
     """
     def _create_customlist(db_session, foreign_identifier=None, name=None,
-                    data_source_name=DataSource.NYT, num_entries=1,
-                    entries_exist_as_works=True):
+                           data_source_name=DataSource.NYT, num_entries=1,
+                           entries_exist_as_works=True):
         data_source = DataSource.lookup(db_session, data_source_name)
         foreign_identifier = foreign_identifier or str(random.randint(1, 9999))
         name = name or str(random.randint(1, 9999))
@@ -264,11 +264,10 @@ def create_customlist(create_edition, create_work):
                 edition = work.presentation_edition
                 db_session.commit()
             else:
-                edition = create_edition(db_session,
-                    data_source_name, title="Item %s" % i)
-                edition.permanent_work_id=f"Permanent work ID {random.randint(1, 9999)}"
-            customlist.add_entry(
-                edition, "Annotation %s" % i, first_appearance=now)
+                edition = create_edition(db_session, data_source_name, title="Item %s" % i)
+                edition.permanent_work_id = f"Permanent work ID {random.randint(1, 9999)}"
+
+            customlist.add_entry(edition, "Annotation %s" % i, first_appearance=now)
             editions.append(edition)
 
         return customlist, editions
@@ -352,14 +351,14 @@ def create_externalintegration():
         else:
             if not isinstance(libraries, list):
                 libraries = [libraries]
-            
+
             for library in libraries:
                 integration = ExternalIntegration.lookup(
                     db_session, protocol, goal, library=library
                 )
                 if integration:
                     break
-            
+
             if not integration:
                 integration = ExternalIntegration(
                     protocol=protocol, goal=goal,
@@ -368,13 +367,13 @@ def create_externalintegration():
 
         for attr, value in list(kwargs.items()):
             setattr(integration, attr, value)
-        
+
         settings = settings or dict()
         for key, value in list(settings.items()):
             integration.set_setting(key, value)
-        
+
         return integration
-    
+
     return _create_externalintegration
 
 
@@ -409,7 +408,7 @@ def create_integration_client():
         )
 
         return integration_client
-    
+
     return _create_integration_client
 
 
@@ -423,12 +422,13 @@ def create_lane(create_library):
 
         display_name = display_name
         library = library or create_library(db_session)
-        lane, is_new = get_one_or_create(db_session, Lane,
-                                    library=library,
-                                    parent=parent, display_name=display_name,
-                                    fiction=fiction,
-                                    inherit_parent_restrictions=inherit_parent_restrictions
-        )
+        lane, is_new = get_one_or_create(
+            db_session, Lane,
+            library=library,
+            parent=parent, display_name=display_name,
+            fiction=fiction,
+            inherit_parent_restrictions=inherit_parent_restrictions
+            )
         if is_new and parent:
             lane.priority = len(parent.sublanes) - 1
 
@@ -444,9 +444,9 @@ def create_lane(create_library):
             if not isinstance(languages, list):
                 languages = [languages]
             lane.languages = languages
-        
+
         return lane
-    
+
     return _create_lane
 
 
@@ -477,7 +477,7 @@ def create_license():
         identifier = identifier or str(random.randint(1, 9999))
         checkout_url = checkout_url or str(random.randint(1, 9999))
         status_url = status_url or str(random.randint(1, 9999))
-        
+
         license, _ = get_one_or_create(
             db_session, License, identifier=identifier, license_pool=pool,
             checkout_url=checkout_url,
@@ -487,7 +487,7 @@ def create_license():
         )
 
         return license
-    
+
     return _create_license
 
 
