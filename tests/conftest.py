@@ -6,6 +6,7 @@
 # todo: reorg core file structure so we have a reliable package name
 from os.path import abspath, dirname, basename
 import random
+import os
 import uuid
 
 import pytest
@@ -16,6 +17,7 @@ from sqlalchemy.orm.session import Session
 from ..classifier import Classifier
 from ..config import Configuration
 from ..lane import Lane
+from ..log import LogConfiguration
 
 from ..model import (
     Base,
@@ -62,6 +64,13 @@ pytest_plugins = ["{}.testing".format(basename(dirname(dirname(abspath(__file__)
 def init_test_db():
     db_url = Configuration.database_url()
     engine = create_engine(db_url)
+
+    # This will make sure we always connect to the test database.
+    os.environ['TESTING'] = 'true'
+
+    # Ensure that the log configuration starts in a known state.
+    LogConfiguration.initialize(None, testing=True)
+
     for table in reversed(Base.metadata.sorted_tables):
         try:
             engine.execute(table.delete())
@@ -72,6 +81,11 @@ def init_test_db():
         Base.metadata.create_all(conn)
 
     engine.dispose()
+
+    yield
+
+    if 'TESTING' in os.environ:
+        del os.environ['TESTING']
 
 
 @pytest.fixture
