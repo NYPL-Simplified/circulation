@@ -35,6 +35,7 @@ from ..model.coverage import (
     CoverageRecord,
     Timestamp
 )
+from ..model.customlist import CustomList
 from ..model.datasource import DataSource
 from ..model.edition import Edition
 from ..model.identifier import Identifier
@@ -229,6 +230,50 @@ def create_coverage_record():
         return record
 
     return _create_coverage_record
+
+
+@pytest.fixture
+def create_customlist(create_edition, create_work):
+    """
+    Returns a constructor function for creating a CustomList.
+    """
+    def _create_customlist(db_session, foreign_identifier=None, name=None,
+                    data_source_name=DataSource.NYT, num_entries=1,
+                    entries_exist_as_works=True):
+        data_source = DataSource.lookup(db_session, data_source_name)
+        foreign_identifier = foreign_identifier or str(random.randint(1, 9999))
+        name = name or str(random.randint(1, 9999))
+        now = utc_now()
+
+        customlist, _ = get_one_or_create(
+            db_session, CustomList,
+            create_method_kwargs=dict(
+                created=now,
+                updated=now,
+                name=name,
+                description=str(random.randint(1, 9999)),
+            ),
+            data_source=data_source,
+            foreign_identifier=foreign_identifier
+        )
+
+        editions = []
+        for i in range(num_entries):
+            if entries_exist_as_works:
+                work = create_work(db_session, with_open_access_download=True)
+                edition = work.presentation_edition
+                db_session.commit()
+            else:
+                edition = create_edition(db_session,
+                    data_source_name, title="Item %s" % i)
+                edition.permanent_work_id=f"Permanent work ID {random.randint(1, 9999)}"
+            customlist.add_entry(
+                edition, "Annotation %s" % i, first_appearance=now)
+            editions.append(edition)
+
+        return customlist, editions
+
+    return _create_customlist
 
 
 @pytest.fixture
