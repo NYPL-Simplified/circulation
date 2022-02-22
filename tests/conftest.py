@@ -33,7 +33,8 @@ from ..model.constants import MediaTypes
 from ..model.contributor import Contributor
 from ..model.coverage import (
     CoverageRecord,
-    Timestamp
+    Timestamp,
+    WorkCoverageRecord
 )
 from ..model.customlist import CustomList
 from ..model.datasource import DataSource
@@ -707,3 +708,24 @@ def create_work(create_edition):
         return work
 
     return _create_work
+
+
+@pytest.fixture
+def create_work_coverage_record():
+    """
+    Returns a constructor function for creating a WorkCoverageRecord.
+    """
+    def _create_work_coverage_record(db_session, work, operation=None, status=CoverageRecord.SUCCESS):
+        record, _ = get_one_or_create(
+            db_session, WorkCoverageRecord,
+            work=work,
+            operation=operation,
+            create_method_kwargs = dict(
+                timestamp=utc_now(),
+                status=status,
+            )
+        )
+
+        return record
+
+    return _create_work_coverage_record
