@@ -198,7 +198,7 @@ def create_contributor():
         contributor, _ = get_one_or_create(db_session, Contributor, sort_name=name, **kwargs)
 
         return contributor
-    
+
     return _create_contributor
 
 
@@ -543,7 +543,7 @@ def create_licensepool(create_collection, create_representation):
 
             if not unlimited_access:
                 pool.licenses_owned = pool.licenses_available = 1
-        
+
         return pool
 
     return _create_licensepool
@@ -587,6 +587,7 @@ def create_patron(create_library):
 
     return _create_patron
 
+
 @pytest.fixture
 def create_representation():
     """
@@ -622,6 +623,7 @@ def create_subject():
         return subject
 
     return _create_subject
+
 
 @pytest.fixture
 def create_work(create_edition):
@@ -674,12 +676,13 @@ def create_work(create_edition):
                 if unlimited_access:
                     pool.open_access = False
                     pool.unlimited_access = True
-                
+
                 pools = [pool]
         else:
             pools = presentation_edition.license_pools
 
-        work, _ = get_one_or_create(db_session, Work,
+        work, _ = get_one_or_create(
+            db_session, Work,
             create_method_kwargs=dict(audience=audience, fiction=fiction, quality=quality),
             id=random.randint(1, 9999)
         )
@@ -700,7 +703,7 @@ def create_work(create_edition):
 
             work.presentation_ready = True
             work.calculate_opds_entries(verbose=False)
-        
+
         return work
 
     return _create_work
