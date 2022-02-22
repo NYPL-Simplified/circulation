@@ -67,9 +67,6 @@ def init_test_db():
     db_url = Configuration.database_url()
     engine = create_engine(db_url)
 
-    # This will make sure we always connect to the test database.
-    os.environ['TESTING'] = 'true'
-
     for table in reversed(Base.metadata.sorted_tables):
         try:
             engine.execute(table.delete())
@@ -79,15 +76,7 @@ def init_test_db():
     with engine.connect() as conn:
         Base.metadata.create_all(conn)
 
-    # Ensure that the log configuration starts in a known state.
-    LogConfiguration.initialize(None, testing=True)
-
     engine.dispose()
-
-    yield
-
-    if 'TESTING' in os.environ:
-        del os.environ['TESTING']
 
 
 @pytest.fixture
