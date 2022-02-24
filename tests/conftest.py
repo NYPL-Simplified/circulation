@@ -31,7 +31,10 @@ from ..model.classification import (
     Subject
 )
 from ..model.collection import Collection
-from ..model.configuration import ExternalIntegration
+from ..model.configuration import (
+    ExternalIntegration,
+    ExternalIntegrationLink
+)
 from ..model.constants import MediaTypes
 from ..model.contributor import Contributor
 from ..model.coverage import (
@@ -368,6 +371,32 @@ def create_externalintegration():
         return integration
 
     return _create_externalintegration
+
+
+@pytest.fixture
+def create_external_integration_link(create_externalintegration):
+    """
+    Returns a constructor function for creating an ExternalIntegrationLink
+    """
+    def _external_integration_link(db_session, integration=None, library=None,
+                                   other_integration=None, purpose="covers_mirror"):
+
+        integration = integration or create_externalintegration(db_session, "some protocol")
+        other_integration = other_integration or create_externalintegration(db_session, "some other protocol")
+
+        library_id = library.id if library else None
+
+        external_integration_link, _ = get_one_or_create(
+            db_session, ExternalIntegrationLink,
+            library_id=library_id,
+            external_integration_id=integration.id,
+            other_integration_id=other_integration.id,
+            purpose=purpose
+        )
+
+        return external_integration_link
+
+    return _external_integration_link
 
 
 @pytest.fixture
