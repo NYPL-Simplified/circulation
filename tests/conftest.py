@@ -750,3 +750,16 @@ def create_work_coverage_record():
         return record
 
     return _create_work_coverage_record
+
+
+@pytest.fixture
+def default_library(db_session, create_collection, create_library):
+    library = create_library(db_session, name="default", short_name="default")
+    collection = create_collection(db_session, name="Default Collection")
+    integration = collection.create_external_integration(ExternalIntegration.OPDS_IMPORT    )
+    integration.goal = ExternalIntegration.LICENSE_GOAL
+
+    if collection not in library.collections:
+        library.collections.append(collection)
+
+    return library
