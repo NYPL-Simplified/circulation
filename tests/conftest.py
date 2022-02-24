@@ -26,7 +26,10 @@ from ..model import (
     site_configuration_has_changed
 )
 from ..model.admin import Admin
-from ..model.classification import Genre, Subject
+from ..model.classification import (
+    Genre,
+    Subject
+)
 from ..model.collection import Collection
 from ..model.configuration import ExternalIntegration
 from ..model.constants import MediaTypes
