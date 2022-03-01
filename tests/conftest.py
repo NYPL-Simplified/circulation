@@ -320,7 +320,9 @@ def create_edition(create_licensepool):
 
         if with_license_pool or with_open_access_download:
             pool = create_licensepool(
-                db_session, wr, data_source_name=data_source_name,
+                db_session,
+                wr,
+                data_source_name=data_source_name,
                 with_open_access_download=with_open_access_download,
                 collection=collection, self_hosted=self_hosted,
                 unlimited_access=unlimited_access
@@ -659,10 +661,11 @@ def create_work(create_edition):
         pools = []
         if with_open_access_download:
             with_license_pool = True
-        language = language or "eng"
+
         if not title:
             title = f"Test Book {random.randint(1, 9999)}"
-        title = str(title)
+
+        language = language or "eng"
         audience = audience or Classifier.AUDIENCE_ADULT
 
         if audience == Classifier.AUDIENCE_CHILDREN and not data_source_name:
@@ -756,7 +759,7 @@ def create_work_coverage_record():
 def default_library(db_session, create_collection, create_library):
     library = create_library(db_session, name="default", short_name="default")
     collection = create_collection(db_session, name="Default Collection")
-    integration = collection.create_external_integration(ExternalIntegration.OPDS_IMPORT    )
+    integration = collection.create_external_integration(ExternalIntegration.OPDS_IMPORT)
     integration.goal = ExternalIntegration.LICENSE_GOAL
 
     if collection not in library.collections:
