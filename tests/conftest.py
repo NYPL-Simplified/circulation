@@ -31,6 +31,7 @@ from ..model.classification import (
     Subject
 )
 from ..model.collection import Collection
+from ..model.complaint import Complaint
 from ..model.configuration import (
     ExternalIntegration,
     ExternalIntegrationLink
@@ -182,6 +183,21 @@ def create_collection():
         return collection
 
     return _create_collection
+
+
+@pytest.fixture
+def create_complaint():
+    """
+    Returns a constructor function for creating a Complaint.
+    """
+    def _create_complaint(db_session, license_pool, type, source, detail, resolved=None):
+        complaint, _ = Complaint.register(
+            license_pool, type, source, detail, resolved
+        )
+
+        return complaint
+
+    return _create_complaint
 
 
 @pytest.fixture
