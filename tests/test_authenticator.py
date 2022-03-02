@@ -2251,9 +2251,11 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
                     assert "http://localhost/images/" + MockBasic.LOGIN_BUTTON_IMAGE == logo_link["href"]
 
                 if doc.get('type') == provider.FLOW_TYPE_OAUTH:
-                    [links] = doc['links']
-                    assert 'authenticate' == links['rel']
-                    assert url_for('http_basic_auth_token', _external=True) == links['href']
+                    logo_link, authenticate_link = doc['links']
+                    assert 'authenticate' == authenticate_link['rel']
+                    assert url_for('http_basic_auth_token', _external=True) == authenticate_link['href']
+                    assert "logo" == logo_link["rel"]
+                    assert "http://localhost/images/" + MockBasic.LOGIN_BUTTON_IMAGE == logo_link["href"]
 
     def test_remote_patron_lookup(self):
         #remote_patron_lookup does the lookup by calling _remote_patron_lookup,
