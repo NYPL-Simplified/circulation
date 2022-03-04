@@ -2235,14 +2235,21 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             inputs = dict(login=login_inputs,
                           password=password_inputs)
         )
+
+        flow_doc["links"] = []
         if self.LOGIN_BUTTON_IMAGE:
             # TODO: I'm not sure if logo is appropriate for this, since it's a button
             # with the logo on it rather than a plain logo. Perhaps we should use plain
             # logos instead.
-            flow_doc["links"] = [dict(rel="logo", href=url_for("static_image", filename=self.LOGIN_BUTTON_IMAGE, _external=True))]
+            flow_doc["links"].append(
+                dict(rel="logo", href=url_for("static_image", filename=self.LOGIN_BUTTON_IMAGE, _external=True))
+            )
+
         flow_doc["type"] = type
         if type == self.FLOW_TYPE_OAUTH:
-            flow_doc["links"] = [dict(rel="authenticate", href=url_for("http_basic_auth_token", _external=True))]
+            flow_doc["links"].append(
+                dict(rel="authenticate", href=url_for("http_basic_auth_token", _external=True))
+            )
 
         return flow_doc
 
