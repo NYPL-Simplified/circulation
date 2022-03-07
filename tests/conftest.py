@@ -27,6 +27,7 @@ from ..model import (
 )
 from ..model.admin import Admin
 from ..model.classification import (
+    Classification,
     Genre,
     Subject
 )
@@ -158,6 +159,22 @@ def create_admin_user():
         return admin
 
     return _create_admin_user
+
+
+@pytest.fixture
+def create_classification():
+    """
+    Returns a constructor function for creating a Classification.
+    """
+    def _create_classification(db_session, identifier, subject, data_source, weight=1):
+        classification, _ = get_one_or_create(
+            db_session, Classification, identifier=identifier, subject=subject,
+            data_source=data_source, weight=weight
+        )
+
+        return classification
+
+    return _create_classification
 
 
 @pytest.fixture
