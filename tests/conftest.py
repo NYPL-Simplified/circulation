@@ -646,7 +646,7 @@ def create_representation():
                 repr.mirror_url = "http://example.com/" + str(random.randint(1, 9999))
                 repr.mirrored_at = utc_now()
 
-            return repr
+        return repr
 
     return _create_representation
 
@@ -760,7 +760,7 @@ def create_work_coverage_record():
             db_session, WorkCoverageRecord,
             work=work,
             operation=operation,
-            create_method_kwargs = dict(
+            create_method_kwargs=dict(
                 timestamp=utc_now(),
                 status=status,
             )
