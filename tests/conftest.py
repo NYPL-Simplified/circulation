@@ -808,3 +808,50 @@ def get_sample_cover_representation(db_session, create_representation, get_sampl
 
     return _get_sample_cover_representation
 
+
+@pytest.fixture
+def get_sample_ecosystem(create_edition, create_work, init_datasource_and_genres):
+    """ Creates an ecosystem of some sample work, pool, edition, and author
+    objects that all know each other.
+    """
+    def _get_sample_ecosystem(db_session):
+        # make some authors
+        [bob], _ = Contributor.lookup(db_session, "Bitshifter, Bob")
+        bob.family_name, bob.display_name = bob.default_names()
+        [alice], _ = Contributor.lookup(db_session, "Adder, Alice")
+        alice.family_name, alice.display_name = alice.default_names()
+
+        edition_std_ebooks, pool_std_ebooks = create_edition(
+            db_session,
+            DataSource.STANDARD_EBOOKS, Identifier.URI,
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_std_ebooks.title = "The Standard Ebooks Title"
+        edition_std_ebooks.subtitle = "The Standard Ebooks Subtitle"
+        edition_std_ebooks.add_contributor(alice, Contributor.AUTHOR_ROLE)
+
+        edition_git, pool_git = create_edition(
+            db_session, DataSource.PROJECT_GITENBERG, Identifier.GUTENBERG_ID,
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_git.title = "The GItenberg Title"
+        edition_git.subtitle = "The GItenberg Subtitle"
+        edition_git.add_contributor(bob, Contributor.AUTHOR_ROLE)
+        edition_git.add_contributor(alice, Contributor.AUTHOR_ROLE)
+
+        edition_gut, pool_gut = create_edition(
+            db_session, DataSource.GUTENBERG, Identifier.GUTENBERG_ID,
+            with_license_pool=True, with_open_access_download=True, authors=[])
+        edition_gut.title = "The GUtenberg Title"
+        edition_gut.subtitle = "The GUtenberg Subtitle"
+        edition_gut.add_contributor(bob, Contributor.AUTHOR_ROLE)
+
+        work = create_work(db_session, presentation_edition=edition_git)
+
+        for p in pool_gut, pool_std_ebooks:
+            work.license_pools.append(p)
+
+        work.calculate_presentation()
+
+        return (work, pool_std_ebooks, pool_git, pool_gut,
+                edition_std_ebooks, edition_git, edition_gut, alice, bob)
+
+    return _get_sample_ecosystem
