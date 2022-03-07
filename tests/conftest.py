@@ -782,3 +782,29 @@ def default_library(db_session, create_collection, create_library):
         library.collections.append(collection)
 
     return library
+
+
+@pytest.fixture
+def get_sample_cover_path():
+    """The path to the sample cover with the given filename."""
+    def _get_sample_cover_path(name):
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "files", "covers")
+        return os.path.join(resource_path, name)
+
+    return _get_sample_cover_path
+
+
+@pytest.fixture
+def get_sample_cover_representation(db_session, create_representation, get_sample_cover_path):
+    """A Representation of the sample cover with the given filename."""
+    def _get_sample_cover_representation(name):
+        sample_cover_path = get_sample_cover_path(name)
+        return create_representation(
+            db_session,
+            media_type="image/png",
+            content=open(sample_cover_path, 'rb').read()
+        )
+
+    return _get_sample_cover_representation
+
