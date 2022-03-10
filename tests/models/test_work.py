@@ -45,9 +45,9 @@ class TestWork:
 
     def test_complaints(self, db_session, create_edition, create_work, create_licensepool, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A LicensePool with a Work
+        WHEN:  Registering a Complaint against the LicensePool
+        THEN:  Complaints are associated with the Work
         """
         work = create_work(db_session, with_license_pool=True)
 
@@ -73,9 +73,10 @@ class TestWork:
     def test_all_identifier_ids(self, db_session, create_identifier, create_edition,
                                 create_licensepool, create_work, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work associated with two LicensePools, a DataSource,
+               and an Identifier that equivalates the LicensePools to the DataSource
+        WHEN:  Getting all the Identifier IDs for the Work
+        THEN:  Associated Identifier IDs are returned
         """
         work = create_work(db_session, with_license_pool=True)
         lp = work.license_pools[0]
@@ -100,9 +101,9 @@ class TestWork:
 
     def test_from_identifiers(self, db_session, create_identifier, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work associated with a LicensePool that has various Identifiers
+        WHEN:  Getting Works from an Identifier
+        THEN:  The correct Works are returned
         """
         # Prep a work to be identified and a work to be ignored.
         work = create_work(db_session, with_license_pool=True, with_open_access_download=True)
@@ -155,9 +156,9 @@ class TestWork:
     def test_calculate_presentation(self, db_session, create_edition,
                                     create_identifier, create_work, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work
+        WHEN:  Making the Work ready to show to patrons
+        THEN:  A presentation edition is calculated and appropriate WorkCoverageRecords are created
         """
         # Test that:
         # - work coverage records are made on work creation and primary edition selection.
@@ -382,9 +383,9 @@ class TestWork:
 
     def test_calculate_presentation_with_no_presentation_edition(self, db_session, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work with no presentation edtion
+        WHEN:  Calculating the presentation edition
+        THEN:  The Work is not presentation ready and a WorkCoverageRecord was created
         """
         # Calling calculate_presentation() on a work with no
         # presentation edition won't do anything, but at least it doesn't
@@ -405,9 +406,9 @@ class TestWork:
 
     def test_calculate_presentation_sets_presentation_ready_based_on_content(self, db_session, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work that has a presentation edition with no language set
+        WHEN:  Determining if the Work is presentation ready
+        THEN:  The Work is presentation ready when the presentation edition has a language set
         """
         # This work is incorrectly presentation-ready; its presentation
         # edition has no language.
@@ -427,9 +428,9 @@ class TestWork:
     def test_calculate_presentation_uses_default_audience_set_as_collection_setting(
             self, db_session, create_edition, create_work, default_library, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work, an Edition, and a Collection that has a default audience
+        WHEN:  Determining if a Work is ready to show to patrons
+        THEN:  The Work's audience is the same audience as the Collection
         """
         default_audience = Classifier.AUDIENCE_ADULT
         [collection] = default_library.collections
@@ -452,9 +453,9 @@ class TestWork:
 
     def test__choose_summary(self, db_session, create_identifier, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work and multiple Identifiers for summaries
+        WHEN:  Choosing a summary for the presentation edition
+        THEN:  The best summary is chosen accordingly
         """
         # Test the _choose_summary helper method, called by
         # calculate_presentation().
@@ -524,18 +525,15 @@ class TestWork:
 
     def test_set_presentation_ready_based_on_content(self, db_session, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work
+        WHEN:  Setting the Work as presentation ready based on its data
+        THEN:  Work is either presentation ready or not
         """
         work = create_work(db_session, with_license_pool=True)
 
         search = MockExternalSearchIndex()
-        # This is how the work will be represented in the dummy search
-        # index.
-        _ = (search.works_index,
-                     MockExternalSearchIndex.work_document_type,
-                     work.id)
+        # This is how the work will be represented in the dummy search index.
+        _ = (search.works_index, MockExternalSearchIndex.work_document_type, work.id)
 
         presentation = work.presentation_edition
         work.set_presentation_ready_based_on_content(search_index_client=search)
@@ -601,9 +599,9 @@ class TestWork:
 
     def test_assign_genres_from_weights(self, db_session, create_work, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work
+        WHEN:  Assigning genres with weights
+        THEN:  The Work has weighted genres
         """
         work = create_work(db_session)
 
@@ -622,9 +620,9 @@ class TestWork:
     def test_classifications_with_genre(
             self, db_session, create_work, create_classification, create_subject, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work, multiple Subjects, and multiple Classifications
+        WHEN:  Getting a Work's classifications that have genres
+        THEN:  Classifications are returned
         """
         work = create_work(db_session, with_open_access_download=True)
         identifier = work.presentation_edition.primary_identifier
@@ -656,9 +654,9 @@ class TestWork:
     def test_mark_licensepools_as_superceded(
             self, db_session, create_edition, create_licensepool, create_work, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work associated with varying LicensePools
+        WHEN:  Marking LicensePools as superceded
+        THEN:  All but the best pool are superceded
         """
         # A commercial LP that somehow got superceded will be
         # un-superceded.
@@ -757,12 +755,9 @@ class TestWork:
 
     def test_work_remains_viable_on_pools_suppressed(self, db_session, get_sample_ecosystem):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
-        """
-        """ If a work has all of its pools suppressed, the work's author, title,
-        and subtitle still have the last best-known info in them.
+        GIVEN: A Work associated with multiple LicensePools
+        WHEN:  The Work has all of its pools suppressed
+        THEN:  The work's author, title, and subtitle still have the last best-known info in them
         """
         (work, pool_std_ebooks, pool_git, pool_gut,
             edition_std_ebooks, edition_git, edition_gut, alice, bob) = get_sample_ecosystem(db_session)
@@ -816,13 +811,9 @@ class TestWork:
 
     def test_work_updates_info_on_pool_suppressed(self, db_session, get_sample_ecosystem):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
-        """
-        """ If the provider of the work's presentation edition gets suppressed,
-        the work will choose another child license pool's presentation edition as
-        its presentation edition.
+        GIVEN: A Work associated with multiple LicensePools
+        WHEN:  The provider of the work's presentation edition gets suppressed
+        THEN:  The Work will choose another child license pool's presentation edition as its presentation edition.
         """
         (work, pool_std_ebooks, pool_git, pool_gut,
             edition_std_ebooks, edition_git, edition_gut, alice, bob) = get_sample_ecosystem(db_session)
@@ -874,14 +865,9 @@ class TestWork:
 
     def test_different_language_means_different_work(self, db_session, create_edition):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
-        """
-        """There are two open-access LicensePools for the same book in
-        different languages. The author and title information is the
-        same, so the books have the same permanent work ID, but since
-        they are in different languages they become separate works.
+        GIVEN: Two open-access LicensePools for the same book in different languages
+        WHEN:  Retrieving the Work for a LicensePool
+        THEN:  The Works are treated as separate due to having different languages
         """
         title = 'Siddhartha'
         author = ['Herman Hesse']
@@ -903,9 +889,9 @@ class TestWork:
             self, db_session, create_edition, create_representation, create_work,
             get_sample_cover_path, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A cover Representation, a Work, an Identifier, and multiple Editions
+        WHEN:  Rejecting covers
+        THEN:  The Works and Editions associated with the cover no longer have a cover
         """
         edition, lp = create_edition(db_session, with_open_access_download=True)
 
@@ -996,9 +982,9 @@ class TestWork:
 
     def test_missing_coverage_from(self, db_session, create_work, create_work_coverage_record):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work
+        WHEN:  Finding Works that don't have any WorkCoverageRecords
+        THEN:  Returns Works that are missing coverage records
         """
         operation = 'the_operation'
 
@@ -1022,9 +1008,9 @@ class TestWork:
 
     def test_top_genre(self, db_session, create_work, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work with genres of varying affinities
+        WHEN:  Getting the Work's top genre
+        THEN:  The Work's top genre by affinity score is returned
         """
         work = create_work(db_session)
         genres = db_session.query(Genre).all()
@@ -1046,9 +1032,9 @@ class TestWork:
             self, db_session, create_collection, create_customlist, create_edition, create_identifier,
             create_licensepool, create_work, default_library, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work with a presentation edition that has a license pool associated with a collection
+        WHEN:  Generating search documents
+        THEN:  Returns a document with information about a Work and Edition
         """
         # Set up an edition and work.
         edition, pool1 = create_edition(db_session, authors=["Author 1", "Author 2"], with_license_pool=True)
@@ -1316,9 +1302,9 @@ class TestWork:
 
     def test_age_appropriate_for_patron(self, db_session, create_patron, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Patron and a Work for a target audience and target age range
+        WHEN:  Determining if the Work is age-appropriate for a Patron
+        THEN:  Retruns True or False
         """
         work = create_work(db_session)
         work.audience = Classifier.AUDIENCE_YOUNG_ADULT
@@ -1339,9 +1325,9 @@ class TestWork:
 
     def test_age_appropriate_for_patron_end_to_end(self, db_session, create_lane, create_patron, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Patron and a Work
+        WHEN:  Determining if the Work is age-appropriate for a Patron
+        THEN:  Returns True or False
         """
         # A test of age_appropriate_for_patron without any mocks.
         # More detailed unit tests are in test_patron.py.
@@ -1390,9 +1376,9 @@ class TestWork:
 
     def test_unlimited_access_books_are_available_by_default(self, db_session, create_edition, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work with an Edition and LicensePool with unlimited access
+        WHEN:  Searching the Work's search document
+        THEN:  The unlimited access LicensePool is found in the search document
         """
         # Set up an edition and work.
         edition, pool = create_edition(db_session, authors=["Author 1", "Author 2"], with_license_pool=True)
@@ -1416,9 +1402,9 @@ class TestWork:
 
     def test_self_hosted_books_are_available_by_default(self, db_session, create_edition, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work with an Edition and a LicensePool that is self hosted
+        WHEN:  Searching the Work's search document
+        THEN:  The self hosted LicensePool is found in the search document
         """
         # Set up an edition and work.
         edition, pool = create_edition(db_session, authors=["Author 1", "Author 2"], with_license_pool=True)
@@ -1458,9 +1444,9 @@ class TestWork:
     )
     def test_target_age_string(self, db_session, create_work, lower, upper, bounds, expected_range):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: Numerical range with bounds
+        WHEN:  Getting the target age range as a string
+        THEN:  Age range is returned as a string
         """
         work = create_work(db_session)
         work.target_age = NumericRange(lower, upper, bounds)
@@ -1469,9 +1455,9 @@ class TestWork:
 
     def test_target_age_string_none(self, db_session, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A target age range of None
+        WHEN:  Getting the target age range as a string
+        THEN:  An empty string is returned
         """
         work = create_work(db_session)
         work.target_age = None
@@ -1480,13 +1466,10 @@ class TestWork:
 
     def test_reindex_on_availability_change(self, db_session, create_collection, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work with a LicensePool
+        WHEN:  Changing the LicensePool's availability
+        THEN:  A WorkCoverageRecord is created indicating taht the Work needs to be re-indexed
         """
-        # A change in a LicensePool's availability creates a
-        # WorkCoverageRecord indicating that the work needs to be
-        # re-indexed.
         def find_record(work):
             """Find the Work's 'update search index operation'
             WorkCoverageRecord.
@@ -1565,12 +1548,10 @@ class TestWork:
 
     def test_reset_coverage(self, db_session, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work
+        WHEN:  Resetting coverage for a Work through various methods
+        THEN:  Status indicates that some task needs to be performed again
         """
-        # Test the methods that reset coverage for works, indicating
-        # that some task needs to be performed again.
         WCR = WorkCoverageRecord
         work = create_work(db_session)
         work.presentation_ready = True
@@ -1609,9 +1590,9 @@ class TestWork:
 
     def test_for_unchecked_subjects(self, db_session, create_work, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work with a LicensePool with an Identifier that has unchecked Subjects
+        WHEN:  Searching for Works that have an Identifier for these subjects
+        THEN:  Works are returned that need to be reclassified
         """
         w1 = create_work(db_session, with_license_pool=True)
         w2 = create_work(db_session)
@@ -1639,12 +1620,9 @@ class TestWork:
 
     def test_calculate_opds_entries(self, db_session, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
-        """
-        """Verify that calculate_opds_entries sets both simple and verbose
-        entries.
+        GIVEN: A Work
+        WHEN:  Calculating the Work's OPDS entries based on verbosity
+        THEN:  The Work has simple and verbose entries
         """
         work = create_work(db_session)
         work.simple_opds_entry = None
@@ -1667,9 +1645,9 @@ class TestWork:
 
     def test_calculate_marc_record(self, db_session, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work
+        WHEN:  Calculating the Work's MARC record
+        THEN:  The Work has a MARC record
         """
         work = create_work(db_session, with_license_pool=True)
         work.marc_record = None
@@ -1680,9 +1658,10 @@ class TestWork:
 
     def test_active_licensepool_ignores_superceded_licensepools(self, db_session, create_edition, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work and two LicensePools
+        WHEN:  Determining the Work's active license pool based on if the pool has been superseded
+        THEN:  If a LicensePool hasn't been superseded then it is returned,
+               if both have been superseded None are returned
         """
         work = create_work(db_session, with_license_pool=True, with_open_access_download=True)
         [pool1] = work.license_pools
@@ -1748,13 +1727,14 @@ class TestWork:
 
     def test_delete_work(self, db_session, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work
+        WHEN:  Deleting the Work
+        THEN:  The Work is deleted from the database and search index
         """
         # Search mock
         class MockSearchIndex():
             removed = []
+
             def remove_work(self, work):
                 self.removed.append(work)
 
@@ -1771,20 +1751,20 @@ class TestWorkConsolidation:
 
     def test_calculate_work_success(self, db_session, create_edition):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: An Edition with a LicensePool
+        WHEN:  Finding or creating a Work for this LicensePool
+        THEN:  A Work is created that has the same presentation edition as the license pool
         """
         _, pool = create_edition(db_session, with_license_pool=True)
         work, new = pool.calculate_work()
         assert pool.presentation_edition == work.presentation_edition
-        assert True == new
+        assert new is True
 
     def test_calculate_work_bails_out_if_no_title(self, db_session, create_edition, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: An Edition with a LicensePool
+        WHEN:  Creating a Work from the LicensePool with no title
+        THEN:  A Work is created with no title and no permanent work ID for its presentation edition
         """
         edition, pool = create_edition(db_session, with_license_pool=True)
         edition.title = None
@@ -1801,9 +1781,9 @@ class TestWorkConsolidation:
 
     def test_calculate_work_even_if_no_author(self, db_session, create_edition):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: An Edition, that has no authors, with a LicensePool
+        WHEN:  Finding or creating a Work for this LicensePool
+        THEN:  A Work is created
         """
         title = "Book"
         _, pool = create_edition(db_session, with_license_pool=True, authors=[], title=title)
@@ -1814,9 +1794,9 @@ class TestWorkConsolidation:
     def test_calculate_work_matches_based_on_permanent_work_id(
             self, db_session, create_edition, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: Two Editions that share a permanent work ID
+        WHEN:  Creating a Work from each Edition
+        THEN:  The Work is only created once and is the same for both Editions
         """
         # Here are two Editions with the same permanent work ID,
         # since they have the same title/author.
@@ -1843,12 +1823,11 @@ class TestWorkConsolidation:
         expect = edition1.license_pools + edition2.license_pools
         assert set(expect) == set(work1.license_pools)
 
-
     def test_calculate_work_for_licensepool_creates_new_work(self, db_session, create_edition):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: Two Editions with their own LicensePools and a Work associated with an Edition
+        WHEN:  Creating a Work from the LicensePool
+        THEN:  A new Work is created
         """
         edition1, _ = create_edition(
             db_session,
@@ -1863,7 +1842,7 @@ class TestWorkConsolidation:
         _, pool = create_edition(
             db_session,
             data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID,
-            title="Title 2", authors=["Author 2"], with_license_pool=True)
+            title="Title", authors=["Author"], with_license_pool=True)
 
         # Call calculate_work(), and a new Work is created.
         work, created = pool.calculate_work()
@@ -1874,38 +1853,37 @@ class TestWorkConsolidation:
     def test_calculate_work_does_nothing_unless_edition_has_title(
             self, db_session, create_collection, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: An Edition, a LicensePool associated with a Collection
+        WHEN:  Creating a Work from the LicensePool
+        THEN:  Work is not created unless Edition has a title
         """
         collection = create_collection(db_session)
         edition, _ = Edition.for_foreign_id(
             db_session, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
         )
         pool, _ = LicensePool.for_foreign_id(
-            db_session, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
-            collection=collection
+            db_session, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1", collection=collection
         )
         work, created = pool.calculate_work()
-        assert None == work
+        assert work is None
 
         edition.title = "foo"
         work, created = pool.calculate_work()
         edition.calculate_presentation()
-        assert True == created
-        #
-        # # The edition is the work's presentation edition.
-        assert work == edition.work
-        assert edition == work.presentation_edition
-        assert "foo" == work.title
-        assert "[Unknown]" == work.author
+        assert created is True
+
+        # The edition is the work's presentation edition.
+        assert edition.work == work
+        assert work.presentation_edition == edition
+        assert work.title == "foo"
+        assert work.author == "[Unknown]"
 
     def test_calculate_work_fails_when_presentation_edition_identifier_does_not_match_license_pool(
             self, db_session, create_edition, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: An Edition with no LicensePool, two Editions with their own LicensePools
+        WHEN:  Calculating a Work from a LicensePool that has a different Identifier than presentation edition
+        THEN:  A ValueError is raised
         """
         # Here's a LicensePool with an Edition.
         edition1, pool = create_edition(db_session, data_source_name=DataSource.GUTENBERG, with_license_pool=True)
@@ -1936,9 +1914,9 @@ class TestWorkConsolidation:
 
     def test_open_access_pools_grouped_together(self, db_session, create_edition):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: Four Editions with LicensePools
+        WHEN:  Creating Works from the LicensePools
+        THEN:  The open-access LicensePools have the same Work
         """
         # We have four editions with exactly the same title and author.
         # Two of them are open-access, two are not.
@@ -1972,10 +1950,10 @@ class TestWorkConsolidation:
         restricted3.calculate_work()
         restricted4.calculate_work()
 
-        assert open1.work != None
-        assert open2.work != None
-        assert restricted3.work != None
-        assert restricted4.work != None
+        assert open1.work is not None
+        assert open2.work is not None
+        assert restricted3.work is not None
+        assert restricted4.work is not None
 
         # The two open-access pools are grouped together.
         assert open1.work == open2.work
@@ -1987,9 +1965,9 @@ class TestWorkConsolidation:
     def test_all_licensepools_with_same_identifier_get_same_work(
             self, db_session, create_collection, create_edition, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: Two LicensePools with the same Identifier but different Collections
+        WHEN:  Creating Works from the LicensePools
+        THEN:  THe LicensePools have the same Work
         """
         # Here are two LicensePools for the same Identifier and
         # DataSource, but different Collections.
@@ -2028,9 +2006,9 @@ class TestWorkConsolidation:
     def test_calculate_work_fixes_work_in_invalid_state(
             self, init_datasource_and_genres, init_delivery_mechanism, db_session, create_edition, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work with four varying LicensePools
+        WHEN:  Calculating a Work for a LicensePool
+        THEN:  The mismatched LicensePools create their own Work
         """
         # Here's a Work with a commercial edition of "abcd".
         work = create_work(db_session, with_license_pool=True)
@@ -2106,9 +2084,9 @@ class TestWorkConsolidation:
         assert is_new is False
 
         assert abcd_commercial.work != work
-        assert abcd_commercial.work != None
+        assert abcd_commercial.work is not None
         assert abcd_commercial_2.work != work
-        assert abcd_commercial_2.work != None
+        assert abcd_commercial_2.work is not None
         assert abcd_commercial.work != abcd_commercial_2.work
 
         # Finally, let's test that nothing happens if you call
@@ -2121,9 +2099,9 @@ class TestWorkConsolidation:
 
     def test_calculate_work_fixes_incorrectly_grouped_books(self, db_session, create_edition, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work with multiple incorrect LicensePools
+        WHEN:  Calculating the Work for a LicensePool
+        THEN:  The mismatched LicensePools get their own Work
         """
         # Here's a Work with an open-access edition of "abcd".
         work = create_work(db_session, with_license_pool=True)
@@ -2135,7 +2113,7 @@ class TestWorkConsolidation:
         # open-access _audiobook_ of "abcd".
         _, audiobook = create_edition(db_session, with_license_pool=True)
         audiobook.open_access = True
-        audiobook.presentation_edition.medium=Edition.AUDIO_MEDIUM
+        audiobook.presentation_edition.medium = Edition.AUDIO_MEDIUM
         audiobook.presentation_edition.permanent_work_id = "abcd"
         work.license_pools.append(audiobook)
 
@@ -2143,7 +2121,7 @@ class TestWorkConsolidation:
         # in a different language.
         _, spanish = create_edition(db_session, with_license_pool=True)
         spanish.open_access = True
-        spanish.presentation_edition.language='spa'
+        spanish.presentation_edition.language = 'spa'
         spanish.presentation_edition.permanent_work_id = "abcd"
         work.license_pools.append(spanish)
 
@@ -2196,21 +2174,19 @@ class TestWorkConsolidation:
         assert spanish.work == expect_spanish_work
         assert expect_spanish_work.language == 'spa'
 
-
     def test_calculate_work_detaches_licensepool_with_no_title(
             self, db_session, create_work, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work associated with a LicensePool whose presentation edition has no title
+        WHEN:  Retrieving the Work for the LicensePool
+        THEN:  The Work loses all its LicensePools
         """
         # Here's a Work with an open-access edition of "abcd".
         work = create_work(db_session, with_license_pool=True)
         [book] = work.license_pools
         book.presentation_edition.permanent_work_id = "abcd"
 
-        # But the LicensePool's presentation edition has lost its
-        # title.
+        # But the LicensePool's presentation edition has lost its title.
         book.presentation_edition.title = None
 
         # Calling calculate_work() on the LicensePool will detach the
@@ -2222,9 +2198,9 @@ class TestWorkConsolidation:
 
     def test_calculate_work_detaches_licensepool_with_no_pwid(self, db_session, create_edition, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work with two LicensePools, one of which has an Edition with no title or author
+        WHEN:  Retrieving the Work for the LicensePool
+        THEN:  The LicensePool with the bad Edition is removed from the Work's license pools
         """
         # Here's a Work with an open-access edition of "abcd".
         work = create_work(db_session, with_license_pool=True)
@@ -2235,8 +2211,8 @@ class TestWorkConsolidation:
         # with no title or author, and thus no permanent work ID.
         _, no_title = create_edition(db_session, with_license_pool=True)
 
-        no_title.presentation_edition.title=None
-        no_title.presentation_edition.author=None
+        no_title.presentation_edition.title = None
+        no_title.presentation_edition.author = None
         no_title.presentation_edition.permanent_work_id = None
         work.license_pools.append(no_title)
 
@@ -2265,15 +2241,11 @@ class TestWorkConsolidation:
         no_title.calculate_work()
         assert work.license_pools == [book]
 
-
     def test_pwids(self, db_session, create_edition, create_work, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
-        """
-        """Test the property that finds all permanent work IDs
-        associated with a Work.
+        GIVEN: A Work associated with two LicensePools, one of which has an Edition
+        WHEN:  Finding all permanent work IDs associated with the Work
+        THEN:  All permanent work IDs associated with the Work are found
         """
         # Create a (bad) situation in which LicensePools associated
         # with two different PWIDs are associated with the same work.
@@ -2293,9 +2265,10 @@ class TestWorkConsolidation:
 
     def test_open_access_for_permanent_work_id_no_licensepools(self, db_session, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: An open-access LicensePool
+        WHEN:  Retrieving a Work that encompasses all open-access LicensePools for given
+               permanent work ID, medium, and language
+        THEN:  A corresponding Work is either retrieved or not
         """
         # There are no LicensePools, which short-circuilts
         # open_access_for_permanent_work_id.
@@ -2313,8 +2286,8 @@ class TestWorkConsolidation:
         work.presentation_edition.permanent_work_id = "permid"
         assert (
              Work.open_access_for_permanent_work_id(db_session, "permid", Edition.BOOK_MEDIUM, "eng")
-            ==
-            (work, False)
+             ==
+             (work, False)
         )
 
         # But the language, medium, and permanent ID must all match.
@@ -2336,12 +2309,13 @@ class TestWorkConsolidation:
             (None, False)
         )
 
-    @pytest.mark.skip(reason="Now this test fails like all the time... super frustrating.")
+    #@pytest.mark.skip(reason="Now this test fails like all the time... super frustrating.")
     def test_open_access_for_permanent_work_id(self, db_session, create_edition, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: Three Works with LicensePools
+        WHEN:  Retrieving a Work that encompasses all open-access LicensePools for given
+               permanent work ID, medium, and language
+        THEN:  The open-access license pools share the same Work while the commercial license pool's Work was split off
         """
         # Two different works full of open-access license pools.
         w1 = create_work(db_session, with_license_pool=True, with_open_access_download=True)
@@ -2358,20 +2332,20 @@ class TestWorkConsolidation:
         def mock_pwid(debug=False):
             return "abcd"
         for lp in [lp1, lp2, lp3]:
-            lp.presentation_edition.permanent_work_id="abcd"
+            lp.presentation_edition.permanent_work_id = "abcd"
             lp.presentation_edition.calculate_permanent_work_id = mock_pwid
 
         # We've also got Work #3, which provides a commercial license for that book.
         w3 = create_work(db_session, with_license_pool=True)
         w3_pool = w3.license_pools[0]
-        w3_pool.presentation_edition.permanent_work_id="abcd"
+        w3_pool.presentation_edition.permanent_work_id = "abcd"
         w3_pool.open_access = False
 
         # Work.open_access_for_permanent_work_id can resolve this problem.
         work, is_new = Work.open_access_for_permanent_work_id(db_session, "abcd", Edition.BOOK_MEDIUM, "eng")
 
         # Work #3 still exists and its license pool was not affected.
-        assert db_session.query(Work).filter(Work.id==w3.id).all() == [w3]
+        assert db_session.query(Work).filter(Work.id == w3.id).all() == [w3]
         assert w3_pool.work == w3
 
         # But the other three license pools now have the same work.
@@ -2386,7 +2360,7 @@ class TestWorkConsolidation:
         assert is_new is False
 
         # Work #1 no longer exists.
-        assert db_session.query(Work).filter(Work.id==w1.id).all() == []
+        assert db_session.query(Work).filter(Work.id == w1.id).all() == []
 
         # Calling Work.open_access_for_permanent_work_id again returns the same result.
         Work.open_access_for_permanent_work_id(db_session, "abcd", Edition.BOOK_MEDIUM, "eng")
@@ -2395,14 +2369,15 @@ class TestWorkConsolidation:
     def test_open_access_for_permanent_work_id_can_create_work(
             self, db_session, create_edition, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: An open-access LicensePool
+        WHEN:  Retrieving a Work that encompasses all open-access LicensePools for given
+               permanent work ID, medium, and language
+        THEN:  A Work is created
         """
         # Here's a LicensePool with no corresponding Work.
         edition, lp = create_edition(db_session, with_license_pool=True)
         lp.open_access = True
-        edition.permanent_work_id="abcd"
+        edition.permanent_work_id = "abcd"
 
         # open_access_for_permanent_work_id creates the Work.
         work, is_new = Work.open_access_for_permanent_work_id(
@@ -2414,13 +2389,11 @@ class TestWorkConsolidation:
     def test_potential_open_access_works_for_permanent_work_id(
             self, db_session, create_edition, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: Two Editions with LicensePools that are open-access
+        WHEN:  Finding all Works that might be suitable for use as the canonical
+               open-access Work for the given pwid, medium, and language
+        THEN:  Returns the relevant LicensePools and a count of affected LicensePools by Work
         """
-        # Test of the _potential_open_access_works_for_permanent_work_id
-        # helper method.
-
         # Here are two editions of the same book with the same PWID.
         title = 'Siddhartha'
         author = ['Herman Hesse']
@@ -2453,7 +2426,7 @@ class TestWorkConsolidation:
         # associated with the same Work.
         poolset = set([lp1, lp2])
         assert pools == poolset
-        assert counts == {w1 : 2} 
+        assert counts == {w1: 2}
 
         # Since the work was just created, it has no presentation
         # edition and thus no language. If the presentation edition
@@ -2461,7 +2434,7 @@ class TestWorkConsolidation:
         w1.presentation_edition = e1
         pools, counts = m()
         assert pools == poolset
-        assert counts == {w1 : 2}
+        assert counts == {w1: 2}
 
         # If the Work's presentation edition has information that
         # _conflicts_ with the information passed in to
@@ -2469,7 +2442,7 @@ class TestWorkConsolidation:
         # does not show up in `counts`, indicating that a new Work
         # should to be created to hold those books.
         bad_pe = create_edition(db_session)
-        bad_pe.permanent_work_id='pwid'
+        bad_pe.permanent_work_id = 'pwid'
         w1.presentation_edition = bad_pe
 
         bad_pe.language = 'fin'
@@ -2500,7 +2473,7 @@ class TestWorkConsolidation:
             # LicensePools for its Work.
             pools, counts = m()
             assert set([lp2]) == pools
-            assert {w1 : 1} == counts
+            assert {w1: 1} == counts
 
         # It has to be open-access.
         lp1.open_access = False
@@ -2543,28 +2516,30 @@ class TestWorkConsolidation:
 
     def test_make_exclusive_open_access_for_permanent_work_id(self, db_session, create_edition, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work with open-access and commercial LicensePools, and
+               a Work with an open-access LicensePool wrongly associated with the first Work
+        WHEN:  Ensuring that every open-access LicensePool associated with a given Work has
+               the given permanent work ID and medium
+        THEN:  The commercial LicensePool gets its own Work
         """
         # Here's a work containing an open-access LicensePool for
         # literary work "abcd".
         work1 = create_work(db_session, with_license_pool=True, with_open_access_download=True)
         [abcd_oa] = work1.license_pools
-        abcd_oa.presentation_edition.permanent_work_id="abcd"
+        abcd_oa.presentation_edition.permanent_work_id = "abcd"
 
         # Unfortunately, a commercial LicensePool for the literary
         # work "abcd" has gotten associated with the same work.
         _, abcd_commercial = create_edition(db_session, with_license_pool=True, with_open_access_download=True)
         abcd_commercial.open_access = False
-        abcd_commercial.presentation_edition.permanent_work_id="abcd"
+        abcd_commercial.presentation_edition.permanent_work_id = "abcd"
         abcd_commercial.work = work1
 
         # Here's another Work containing an open-access LicensePool
         # for literary work "efgh".
         work2 = create_work(db_session, with_license_pool=True, with_open_access_download=True)
         [efgh_1] = work2.license_pools
-        efgh_1.presentation_edition.permanent_work_id="efgh"
+        efgh_1.presentation_edition.permanent_work_id = "efgh"
 
         # Unfortunately, there's another open-access LicensePool for
         # "efgh", and it's incorrectly associated with the "abcd"
@@ -2589,9 +2564,10 @@ class TestWorkConsolidation:
     def test_make_exclusive_open_access_for_null_permanent_work_id(
             self, db_session, create_edition, create_work, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A Work with two LicensePools whose presentation edition has no permanent work ID
+        WHEN:  Ensuring that every open-access LicensePool associated with a given Work has
+               the given permanent work ID and medium
+        THEN:  The Work loses both LicensePools
         """
         # Here's a LicensePool that, due to a previous error, has
         # a null PWID in its presentation edition.
@@ -2622,31 +2598,30 @@ class TestWorkConsolidation:
 
     def test_merge_into_success(self, db_session, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: Two Works with LicensePools that have the same permanent work ID
+        WHEN:  Merging one Work into the other
+        THEN:  The merged in Work is deleted along with it's WorkGenres and WorkCoverageRecords
+               leaving the second Work intact
         """
         # Here's a work with an open-access LicensePool.
         work1 = create_work(db_session, with_license_pool=True, with_open_access_download=True)
         [lp1] = work1.license_pools
-        lp1.presentation_edition.permanent_work_id="abcd"
+        lp1.presentation_edition.permanent_work_id = "abcd"
 
         # Let's give it a WorkGenre and a WorkCoverageRecord.
         genre, _ = Genre.lookup(db_session, "Fantasy")
         get_one_or_create(db_session, WorkGenre, work=work1, genre=genre)
         WorkCoverageRecord.add_for(work1, "test")
 
-        # Here's another work with an open-access LicensePool for the
-        # same book.
+        # Here's another work with an open-access LicensePool for the same book.
         work2 = create_work(db_session, with_license_pool=True, with_open_access_download=True)
         [lp2] = work2.license_pools
-        lp2.presentation_edition.permanent_work_id="abcd"
+        lp2.presentation_edition.permanent_work_id = "abcd"
 
         # Let's merge the first work into the second.
         work1.merge_into(work2)
 
-        # The first work has been deleted, as have its WorkGenre and
-        # WorkCoverageRecord.
+        # The first work has been deleted, as have its WorkGenre and WorkCoverageRecord.
         assert db_session.query(Work).filter(Work.id == work1.id).all() == []
         assert db_session.query(WorkGenre).all() == []
         assert db_session.query(WorkCoverageRecord).filter(WorkCoverageRecord.work_id == work1.id).all() == []
@@ -2654,9 +2629,11 @@ class TestWorkConsolidation:
     def test_open_access_for_permanent_work_id_fixes_mismatched_works_incidentally(
             self, db_session, create_edition, create_work, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: Two Work with multiple open-access LicensePools and an additional open-access
+               LicensePool wrongly pointing to a totally separate Edition
+        WHEN:  Retrieving a Work that encompasses all open-access LicensePools for given
+               permanent work ID, medium, and language
+        THEN:  The Works have their correct LicensePools sorted out
         """
         # Here's a work with two open-access LicensePools for the book "abcd".
         work1 = create_work(db_session, with_license_pool=True, with_open_access_download=True)
@@ -2732,11 +2709,12 @@ class TestWorkConsolidation:
 
     def test_open_access_for_permanent_work_untangles_tangled_works(self, db_session, create_edition, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: Two Works with open-access LicensePools pointing to different permanent work IDs
+        WHEN:  Retrieving a Work that encompasses all open-access LicensePools for given
+               permanent work ID, medium, and language
+        THEN:  Relevant Works are consolidated with their respective LicensePools
         """
-        # Here are three works for the books "abcd", "efgh", and "ijkl".
+        # Here are two works for the books "abcd", "efgh".
         abcd_work = create_work(db_session, with_license_pool=True, with_open_access_download=True)
         [abcd_1] = abcd_work.license_pools
 
@@ -2809,21 +2787,21 @@ class TestWorkConsolidation:
     def test_merge_into_raises_exception_if_grouping_rules_violated(
             self, db_session, create_work, init_datasource_and_genres):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: Two Works, one with an open-access LicensePool and one without open-access
+        WHEN:  Merging the Work with the open-access LicensePool into the Work without the open-access LicensePool
+        THEN:  A ValueError is raised outlining open-access limitations
         """
         # Here's a work with an open-access LicensePool.
         work1 = create_work(db_session, with_license_pool=True, with_open_access_download=True)
         [lp1] = work1.license_pools
-        lp1.presentation_edition.permanent_work_id="abcd"
+        lp1.presentation_edition.permanent_work_id = "abcd"
 
         # Here's another work with a commercial LicensePool for the
         # same book.
         work2 = create_work(db_session, with_license_pool=True, with_open_access_download=True)
         [lp2] = work2.license_pools
         lp2.open_access = False
-        lp2.presentation_edition.permanent_work_id="abcd"
+        lp2.presentation_edition.permanent_work_id = "abcd"
 
         # The works cannot be merged.
         with pytest.raises(ValueError) as excinfo:
@@ -2831,20 +2809,19 @@ class TestWorkConsolidation:
         assert "Refusing to merge {} into {} because it would put an open-access LicensePool into the same work as a non-open-access LicensePool.".format(work1, work2) \
                in str(excinfo.value)
 
-
     def test_merge_into_raises_exception_if_pwids_differ(self, db_session, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: Two Works with open-access LicensePools that have presentation editions with disctinct permanent work IDs
+        WHEN:  Merging one Work into the other Work
+        THEN:  A ValueError is raised outlining permanent work ID mismatch
         """
         work1 = create_work(db_session, with_license_pool=True, with_open_access_download=True)
         [abcd_oa] = work1.license_pools
-        abcd_oa.presentation_edition.permanent_work_id="abcd"
+        abcd_oa.presentation_edition.permanent_work_id = "abcd"
 
         work2 = create_work(db_session, with_license_pool=True, with_open_access_download=True)
         [efgh_oa] = work2.license_pools
-        efgh_oa.presentation_edition.permanent_work_id="efgh"
+        efgh_oa.presentation_edition.permanent_work_id = "efgh"
 
         with pytest.raises(ValueError) as excinfo:
             work1.merge_into(work2)
@@ -2853,9 +2830,9 @@ class TestWorkConsolidation:
 
     def test_licensepool_without_identifier_gets_no_work(self, db_session, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A LicensePool with no Identifier
+        WHEN:  Retrieving the Work for a LicensePool
+        THEN:  No work is retrieved or created
         """
         work = create_work(db_session, with_license_pool=True)
         [lp] = work.license_pools
@@ -2868,9 +2845,9 @@ class TestWorkConsolidation:
     @pytest.mark.skip(reason="ValueError: Data source Presentation edition generator not found!")
     def test_licensepool_without_presentation_edition_gets_no_work(self, db_session, create_work):
         """
-        GIVEN: 
-        WHEN:  
-        THEN:  
+        GIVEN: A LicensePool with no presentation edition
+        WHEN:  Retrieving the Work for a LicensePool
+        THEN:  No Work is retrieved or created
         """
         work = create_work(db_session, with_license_pool=True)
         [lp] = work.license_pools
