@@ -152,7 +152,6 @@ class TestWork:
         # Because the work's license_pool isn't suppressed, it isn't returned.
         assert result == []
 
-    @pytest.mark.skip(reason="Requires further debugging.")
     def test_calculate_presentation(self, db_session, create_edition,
                                     create_identifier, create_work, init_datasource_and_genres):
         """
@@ -234,6 +233,8 @@ class TestWork:
         )
 
         work = create_work(db_session, presentation_edition=edition2)
+        work.calculate_presentation_edition()
+        work.calculate_opds_entries(verbose=False)
 
         # The work starts out with no description, even though its
         # presentation was calculated, because a description can only
@@ -1027,7 +1028,6 @@ class TestWork:
         get_one_or_create(db_session, WorkGenre, work=work, genre=genres[1], affinity=0.8)
         assert work.top_genre() == genres[1].name
 
-    @pytest.mark.skip(reason="Requires further debugging.")
     def test_to_search_document(
             self, db_session, create_collection, create_customlist, create_edition, create_identifier,
             create_licensepool, create_work, default_library, init_datasource_and_genres):
@@ -1037,11 +1037,12 @@ class TestWork:
         THEN:  Returns a document with information about a Work and Edition
         """
         # Set up an edition and work.
-        edition, pool1 = create_edition(db_session, authors=["Author 1", "Author 2"], with_license_pool=True)
+        [collection1] = default_library.collections
+        edition, pool1 = create_edition(db_session, authors=["Author 1", "Author 2"], 
+                                        with_license_pool=True, collection=collection1)
         work = create_work(db_session, presentation_edition=edition)
 
         # Create a second Collection that has a different LicensePool for the same Work.
-        [collection1] = default_library.collections
         collection2 = create_collection(db_session)
         default_library.collections.append(collection2)
         pool2 = create_licensepool(db_session, edition=edition, collection=collection2)
@@ -1282,12 +1283,12 @@ class TestWork:
         target_age_doc = search_doc['target_age']
         assert target_age_doc['lower'] == work.target_age.lower
         assert target_age_doc['upper'] == work.target_age.upper
-        import pdb; pdb.set_trace()
+
         # If a book stops being available through a collection
         # (because its LicensePool loses all its licenses or stops
         # being open access), it will no longer be listed
         # in its Work's search document.
-        [pool] = collection1.licensepools  # NOTE: No pools exist in here. Should one exist at creation?
+        [pool] = collection1.licensepools
         pool.licenses_owned = 0
         db_session.commit()
         search_doc = work.to_search_document()
@@ -1374,7 +1375,8 @@ class TestWork:
         work.audience = Classifier.AUDIENCE_ADULT
         assert work.age_appropriate_for_patron(patron) is False
 
-    def test_unlimited_access_books_are_available_by_default(self, db_session, create_edition, create_work):
+    def test_unlimited_access_books_are_available_by_default(
+            self, db_session, create_edition, create_work, init_delivery_mechanism):
         """
         GIVEN: A Work with an Edition and LicensePool with unlimited access
         WHEN:  Searching the Work's search document
@@ -1849,7 +1851,6 @@ class TestWorkConsolidation:
         assert created is True
         assert work != preexisting_work
 
-    @pytest.mark.skip(reason="Debug later. AttributeError: 'NoneType' object has no attribute 'primary_identifier_type'")
     def test_calculate_work_does_nothing_unless_edition_has_title(
             self, db_session, create_collection, init_datasource_and_genres):
         """
@@ -1857,6 +1858,7 @@ class TestWorkConsolidation:
         WHEN:  Creating a Work from the LicensePool
         THEN:  Work is not created unless Edition has a title
         """
+        DataSource.lookup(db_session, DataSource.GUTENBERG, autocreate=True)
         collection = create_collection(db_session)
         edition, _ = Edition.for_foreign_id(
             db_session, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
@@ -2097,7 +2099,8 @@ class TestWorkConsolidation:
         commercial_work = abcd_commercial.work
         assert (commercial_work, False) == abcd_commercial.calculate_work()
 
-    def test_calculate_work_fixes_incorrectly_grouped_books(self, db_session, create_edition, create_work):
+    def test_calculate_work_fixes_incorrectly_grouped_books(
+            self, db_session, create_edition, create_work, init_delivery_mechanism):
         """
         GIVEN: A Work with multiple incorrect LicensePools
         WHEN:  Calculating the Work for a LicensePool
@@ -2842,8 +2845,8 @@ class TestWorkConsolidation:
         assert lp.calculate_work() == (None, False)
         assert lp.work is None
 
-    @pytest.mark.skip(reason="ValueError: Data source Presentation edition generator not found!")
-    def test_licensepool_without_presentation_edition_gets_no_work(self, db_session, create_work):
+    def test_licensepool_without_presentation_edition_gets_no_work(
+            self, db_session, create_work, init_datasource_and_genres):
         """
         GIVEN: A LicensePool with no presentation edition
         WHEN:  Retrieving the Work for a LicensePool
