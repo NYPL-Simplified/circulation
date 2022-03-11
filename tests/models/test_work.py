@@ -2312,7 +2312,6 @@ class TestWorkConsolidation:
             (None, False)
         )
 
-    #@pytest.mark.skip(reason="Now this test fails like all the time... super frustrating.")
     def test_open_access_for_permanent_work_id(self, db_session, create_edition, create_work):
         """
         GIVEN: Three Works with LicensePools
