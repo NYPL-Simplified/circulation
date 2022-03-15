@@ -277,6 +277,13 @@ class TestIdentifier:
         # If we try to parse an ISBN URN in a context that only accepts
         # URNs that can have associated license pools, we get an exception.
         isbn_urn = "urn:isbn:1449358063"
+
+        # Delete all DataSources to force the exception
+        rows = db_session.query(DataSource).all()
+        for row in rows:
+            db_session.delete(row)
+        db_session.flush()
+
         pytest.raises(
             Identifier.UnresolvableIdentifierException,
             Identifier.parse_urn, db_session, isbn_urn,
