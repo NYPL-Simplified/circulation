@@ -148,7 +148,7 @@ def init_delivery_mechanism(db_session):
                 db_session, content_type, drm_scheme
             )
             mechanism.default_client_can_fulfill = True
-        except:
+        except Exception:
             pass
     yield
     DeliveryMechanism.reset_cache()
