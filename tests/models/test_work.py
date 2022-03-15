@@ -2312,7 +2312,7 @@ class TestWorkConsolidation:
             (None, False)
         )
 
-    def test_open_access_for_permanent_work_id(self, db_session, create_edition, create_work):
+    def test_open_access_for_permanent_work_id(self, db_session, create_edition, create_work, init_delivery_mechanism):
         """
         GIVEN: Three Works with LicensePools
         WHEN:  Retrieving a Work that encompasses all open-access LicensePools for given
