@@ -104,8 +104,7 @@ class TestSubject:
 
 class TestGenre:
 
-    @pytest.mark.skip(reason="Fails in CI. Fix later. [Genre.RESET != Genre._cache]")
-    def test_genre_full_table_cache(self, db_session, init_datasource_and_genres):
+    def test_genre_full_table_cache(self, db_session):
         """
         GIVEN: Genres
         WHEN: Populating the Genre cache
@@ -133,8 +132,7 @@ class TestGenre:
         drama2 = Genre.by_id(db_session, drama.id)
         assert drama2 == drama
 
-    @pytest.mark.skip(reason="Fails in CI. Fix later. [Genre.RESET != Genre._id_cache]")
-    def test_genre_by_id(self, db_session, init_datasource_and_genres):
+    def test_genre_by_id(self, db_session):
         """
         GIVEN: A Genre from get_one() db lookup
         WHEN: Looking up the genre by id
@@ -188,8 +186,7 @@ class TestGenre:
         # The cache by ID has been similarly populated.
         assert genre == Genre._id_cache[genre.id]
 
-    @pytest.mark.skip(reason="Fails in CI. Fix later. [Genre._cache != Genre.RESET]")
-    def test_genre_by_cache_key_miss_when_cache_is_reset_populates_cache(self, db_session, init_datasource_and_genres):
+    def test_genre_by_cache_key_miss_when_cache_is_reset_populates_cache(self, db_session):
         """
         GIVEN: Genre cache in the RESET state
         WHEN: Looking up a Genre by cache key
