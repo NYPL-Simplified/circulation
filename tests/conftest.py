@@ -34,6 +34,7 @@ from ..model.classification import (
 from ..model.collection import Collection
 from ..model.complaint import Complaint
 from ..model.configuration import (
+    ConfigurationSetting,
     ExternalIntegration,
     ExternalIntegrationLink
 )
@@ -107,8 +108,26 @@ def db_session(db_engine):
     with db_engine.connect() as connection:
         transaction = connection.begin_nested()
         session = Session(connection)
+
         yield session
+
         transaction.rollback()
+
+        Collection.reset_cache()
+        ConfigurationSetting.reset_cache()
+        DataSource.reset_cache()
+        DeliveryMechanism.reset_cache()
+        ExternalIntegration.reset_cache()
+        Genre.reset_cache()
+        Library.reset_cache()
+
+        for key in [
+                Configuration.SITE_CONFIGURATION_LAST_UPDATE,
+                Configuration.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE
+        ]:
+            if key in Configuration.instance:
+                del(Configuration.instance[key])
+
         session.close()
 
 
@@ -135,9 +154,6 @@ def init_datasource_and_genres(db_session):
     Genre.populate_cache(db_session)
     for genre in list(classifier.genres.values()):
         Genre.lookup(db_session, genre, autocreate=True)
-    yield
-    Genre.reset_cache()
-    DataSource.reset_cache()
 
 
 @pytest.fixture
@@ -150,8 +166,6 @@ def init_delivery_mechanism(db_session):
             mechanism.default_client_can_fulfill = True
         except Exception:
             pass
-    yield
-    DeliveryMechanism.reset_cache()
 
 
 @pytest.fixture
