@@ -27,7 +27,7 @@
 
 FROM golang AS lcpencrypt
 LABEL maintainer="Library Simplified <info@librarysimplified.org>"
-RUN go get -v github.com/readium/readium-lcp-server/lcpencrypt
+RUN go install -v github.com/readium/readium-lcp-server/lcpencrypt@latest
 
 ###############################################################################
 ## cm_local_db - standalone stage to build a postgres server for local dev
