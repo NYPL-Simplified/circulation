@@ -1,0 +1,138 @@
+{
+    "creators": [
+        {
+            "bioText": "<p><b>Andreas R&#252;ping</b> is a member of the patterns think-tank, Hillside Europe, and has acted as the chairman of several EuroPLoP Conferences. He has 12 years industry experience of software development, most recently as a software engineer and consultant at sd&m software design & management AG in Germany.",
+            "fileAs": "R\u00fcping, Andreas",
+            "name": "Andreas R&#252;ping",
+            "role": "Author"
+        }
+    ],
+    "formats": [
+        {
+            "fileName": "AgileDocumentation",
+            "fileSize": 2900097,
+            "id": "ebook-pdf-adobe",
+            "identifiers": [
+                {
+                    "type": "ISBN",
+                    "value": "9780470856246"
+                }
+            ],
+            "name": "Adobe PDF eBook",
+            "onSaleDate": "01/14/2005",
+            "partCount": 0,
+            "rights": [
+                {
+                    "type": "CopyingTimesPerDays",
+                    "value": 7
+                },
+                {
+                    "type": "Printing",
+                    "value": -1
+                },
+                {
+                    "type": "Lending",
+                    "value": 0
+                },
+                {
+                    "type": "ReadAloud",
+                    "value": 1
+                },
+                {
+                    "type": "ExpirationRights",
+                    "value": 0
+                }
+            ]
+        },
+        {
+            "fileName": "AgileDocumentation",
+            "fileSize": 0,
+            "id": "ebook-kindle",
+            "identifiers": [
+                {
+                    "type": "ASIN",
+                    "value": "B000VI88N2"
+                },
+                {
+                    "type": "ASIN",
+                    "value": ""
+                },
+                {
+                    "type": "ISBN",
+                    "value": "n/a"
+                },
+                {
+                    "type": "ISBN",
+                    "value": "0971089750"
+                },
+                {
+                    "type": "ISBN",
+                    "value": "07613911R2"
+                }
+            ],
+            "name": "Kindle Book",
+            "onSaleDate": "01/14/2005",
+            "partCount": 0
+        }
+    ],
+    "fullDescription": "<p>Software documentation forms the basis for all communication relating to a software project. To be truly effective and usable, it should be based on what needs to be known. <i>Agile Documentation</i> provides sound advice on how to produce lean and lightweight software documentation. It will be welcomed by all project team members who want to cut out the fat from this time consuming task. Guidance given in pattern form, easily digested and cross-referenced, provides solutions to common problems.<BR><p><BR>Straightforward advice will help you to judge:<BR><ul><BR><li>What details should be left in and what left out<BR><li>When communication face-to-face would be better than paper or online<BR><li>How to adapt the documentation process to the requirements of individual projects and build in change<BR><li>How to organise documents and make them easily accessible<BR><li>When to use diagrams rather than text<BR><li>How to choose the right tools and techniques<BR><li>How documentation impacts the customer<BR></ul><BR><p><BR>Better than offering pat answers or prescriptions, this book will help you to understand the elements and processes that can be found repeatedly in good project documentation and which can be shaped and designed to address your individual circumstance. The author uses real-world examples and utilises agile principles to provide an accessible, practical pattern-based guide which shows how to produce necessary and high quality documentation.",
+    "id": "3896665d-9d81-4cac-bd43-ffc5066de1f5",
+    "images": {
+        "cover": {
+            "href": "http://images.contentreserve.com/ImageType-100/0128-1/{3896665D-9D81-4CAC-BD43-FFC5066DE1F5}Img100.jpg",
+            "type": "image/jpeg"
+        },
+        "thumbnail": {
+            "href": "http://images.contentreserve.com/ImageType-200/0128-1/{3896665D-9D81-4CAC-BD43-FFC5066DE1F5}Img200.jpg",
+            "type": "image/jpeg"
+        }
+    },
+    "imprint": "John Wiley & Sons, Inc.",
+    "isOwnedByCollections": true,
+    "isPublicDomain": false,
+    "isPublicPerformanceAllowed": false,
+    "keywords": [
+        {
+            "value": "Object Technologies - Miscellaneous"
+        }
+    ],
+    "languages": [
+        {
+            "code": "en",
+            "name": "English"
+        }
+    ],
+    "links": {
+        "self": {
+            "href": "http://api.overdrive.com/v1/collections/v1L1BCgAAAA2C/products/3896665d-9d81-4cac-bd43-ffc5066de1f5/metadata",
+            "type": "application/vnd.overdrive.api+json"
+        }
+    },
+    "mediaType": "eBook",
+    "popularity": 2,
+    "publishDate": "2005-01-31T00:00:00-05:00",
+    "publishDateText": "01/31/2005",
+    "publisher": "Wiley",
+    "reviews": [
+        {
+            "content": "??many (Test Documents) would benefit from this treatment??",
+            "premium": false,
+            "source": "Professional Tester, October 03"
+        }
+    ],
+    "series": "Wiley Software Patterns",
+    "shortDescription": "<p>Software documentation forms the basis for all communication relating to a software project. To be truly effective and usable, it should be based on what needs to be known. <i>Agile Documentation</i> provides sound advice on how to produce lean and lightweight software documentation. It will be welcomed by all project team members who want to cut out the fat from this time consuming task. Guidance given in pattern form, easily digested and cross-referenced, provides solutions to common problems.  <BR><p> <BR>Straightforward advice will help you to judge:<BR>  <BR><ul><BR>  <BR><li>What details should be left in and what left out<BR>  <BR><li>When communication face-to-face would be better than paper or online<BR>  <BR><li>How to adapt the documentation process to the requirements of individual projects and build in change<BR>  <BR><li>How to organise documents and make them easily accessible<BR>  <BR><li>When to use diagrams rather than text<BR>  <BR><li>How to choose the right t...",
+    "sortTitle": "Agile Documentation A Pattern Guide to Producing Lightweight Documents for Software Projects",
+    "starRating": 1.0,
+    "subjects": [
+        {
+            "value": "Computer Technology"
+        },
+        {
+            "value": "Nonfiction"
+        }
+    ],
+    "subtitle": "A Pattern Guide to Producing Lightweight Documents for Software Projects",
+    "tableOfContents": "<p>Foreword.<p>Preface.<p>Acknowledgements.<p>Introduction.<p>Project Background.<p>1. Finding the Right Topics.<p>2. Structuring Individual Documents.<p>3. Layout and Typography.<p>4. Infrastructure and Technical Organisation.<p>5. Management and Quality Assurance.<p>Final Remarks.<p>Pattern Thumbnails.<p>Glossary.<p>References.<p>Index.",
+    "title": "Agile Documentation"
+}

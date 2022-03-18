@@ -1,0 +1,12 @@
+<feed xmlns:simplified="http://librarysimplified.org/terms/" xmlns:app="http://www.w3.org/2007/app" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:schema="http://schema.org/" xmlns="http://www.w3.org/2005/Atom">
+  <id>http://localhost:5000/lookup?urn=urn%3Alibrarysimplified.org%2Fterms%2Fid%2FGutenberg+ID%2F100</id>
+  <title>Lookup results</title>
+  <updated>2015-01-08T14:55:59Z</updated>
+  <link href="http://localhost:5000/lookup?urn=urn%3Alibrarysimplified.org%2Fterms%2Fid%2FGutenberg+ID%2F100"/>
+  <link href="http://localhost:5000/lookup?urn=urn%3Alibrarysimplified.org%2Fterms%2Fid%2FGutenberg+ID%2F100" rel="self"/>
+  <simplified:message>
+    <id>urn:librarysimplified.org/terms/id/Gutenberg ID/100</id>
+    <simplified:status_code>404</simplified:status_code>
+    <schema:description>I've never heard of this work.</schema:description>
+  </simplified:message>
+</feed>

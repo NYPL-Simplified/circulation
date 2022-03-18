@@ -1,0 +1,25 @@
+<feed xmlns:simplified="http://librarysimplified.org/terms/" xmlns:app="http://www.w3.org/2007/app" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:schema="http://schema.org/" xmlns="http://www.w3.org/2005/Atom" xmlns:bibframe="http://bibframe.org/vocab/">
+  <id>http://localhost:5000/</id>
+  <title>Open-Access Content</title>
+  <updated>2015-01-02T16:56:40Z</updated>
+  <link href="http://localhost:5000/"/>
+  <link href="http://localhost:5000/" rel="self"/>
+  <entry schema:additionalType="http://schema.org/PublicationIssue">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441</id>
+    <bibframe:distribution bibframe:ProviderName="Unknown Source"/>
+    <title>The Green Mouse</title>
+    <schema:alternativeHeadline>A Tale of Mousy Terror</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Chambers, Robert W. (Robert William)</simplified:sort_name>
+    </author>
+    <summary>This is a summary!</summary>
+    <link href="http://www.gutenberg.org/ebooks/10441.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <published>2014-01-02T16:56:40Z</published>
+    <simplified:pwid>6db4cf90-0129-0eaf-410a-502b20a45e67</simplified:pwid>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10441.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+</feed>

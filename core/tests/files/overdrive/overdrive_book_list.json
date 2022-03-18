@@ -1,0 +1,197 @@
+{
+    "id": "v1L1BCgAAAA2C",
+    "limit": 300,
+    "links": {
+        "first": {
+            "href": "http://api.overdrive.com/v1/collections/collection-id/products?limit=300&offset=0&lastupdatetime=2014-04-28%2009:25:09&sort=popularity:desc&formats=ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open",
+            "type": "application/vnd.overdrive.api+json"
+        },
+        "last": {
+            "href": "http://api.overdrive.com/v1/collections/collection-id/products?limit=300&offset=0&lastupdatetime=2014-04-28%2009:25:09&sort=popularity:desc&formats=ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open",
+            "type": "application/vnd.overdrive.api+json"
+        },
+        "self": {
+            "href": "http://api.overdrive.com/v1/collections/collection-id/products?limit=300&offset=0&lastupdatetime=2014-04-28%2009:25:09&sort=popularity:desc&formats=ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open",
+            "type": "application/vnd.overdrive.api+json"
+        }
+    },
+    "offset": 0,
+    "products": [
+        {
+            "contentDetails": [
+                {
+                    "account": {
+                        "id": 100,
+                        "name": "New York Public Library (NY)"
+                    },
+                    "href": "http://ebooks.nypl.org/ContentDetails.htm?ID=210bdcad-29b7-445f-8d05-cdbb40abc03a",
+                    "type": "text/html"
+                }
+            ],
+            "dateAdded": "2013-11-12T14:13:00-05:00",
+            "formats": [
+                {
+                    "id": "ebook-epub-adobe",
+                    "name": "Adobe EPUB eBook"
+                },
+                {
+                    "id": "ebook-kindle",
+                    "name": "Kindle Book"
+                },
+                {
+                    "id": "ebook-overdrive",
+                    "name": "OverDrive Read"
+                }
+            ],
+            "id": "210bdcad-29b7-445f-8d05-cdbb40abc03a",
+            "images": {
+                "thumbnail": {
+                    "href": "http://images.contentreserve.com/ImageType-200/0017-1/{210BDCAD-29B7-445F-8D05-CDBB40ABC03A}Img200.jpg",
+                    "type": "image/jpeg"
+                }
+            },
+            "links": {
+                "availability": {
+                    "href": "http://api.overdrive.com/v1/collections/collection-id/products/210bdcad-29b7-445f-8d05-cdbb40abc03a/availability",
+                    "type": "application/vnd.overdrive.api+json"
+                },
+                "metadata": {
+                    "href": "http://api.overdrive.com/v1/collections/collection-id/products/210bdcad-29b7-445f-8d05-cdbb40abc03a/metadata",
+                    "type": "application/vnd.overdrive.api+json"
+                },
+                "self": {
+                    "href": "http://api.overdrive.com/v1/collections/collection-id/products/210bdcad-29b7-445f-8d05-cdbb40abc03a",
+                    "type": "application/vnd.overdrive.api+json"
+                }
+            },
+            "mediaType": "eBook",
+            "primaryCreator": {
+                "name": "David Baldacci",
+                "role": "Author"
+            },
+            "series": "Sean King and Michelle Maxwell",
+            "sortTitle": "King and Maxwell Sean King and Michelle Maxwell Series Book 06",
+            "starRating": 0.0,
+            "subtitle": "Sean King and Michelle Maxwell Series, Book 6",
+            "title": "King and Maxwell"
+        },
+        {
+            "contentDetails": [
+                {
+                    "account": {
+                        "id": 100,
+                        "name": "New York Public Library (NY)"
+                    },
+                    "href": "http://ebooks.nypl.org/ContentDetails.htm?ID=75db2454-bde5-435a-84d4-c7a4d1699174",
+                    "type": "text/html"
+                }
+            ],
+            "dateAdded": "2011-09-19T11:49:10.617-04:00",
+            "formats": [
+                {
+                    "id": "ebook-epub-adobe",
+                    "name": "Adobe EPUB eBook"
+                },
+                {
+                    "id": "ebook-kindle",
+                    "name": "Kindle Book"
+                },
+                {
+                    "id": "ebook-overdrive",
+                    "name": "OverDrive Read"
+                }
+            ],
+            "id": "75db2454-bde5-435a-84d4-c7a4d1699174",
+            "images": {
+                "thumbnail": {
+                    "href": "http://images.contentreserve.com/ImageType-200/0111-1/{75DB2454-BDE5-435A-84D4-C7A4D1699174}Img200.jpg",
+                    "type": "image/jpeg"
+                }
+            },
+            "links": {
+                "availability": {
+                    "href": "http://api.overdrive.com/v1/collections/collection-id/products/75db2454-bde5-435a-84d4-c7a4d1699174/availability",
+                    "type": "application/vnd.overdrive.api+json"
+                },
+                "metadata": {
+                    "href": "http://api.overdrive.com/v1/collections/collection-id/products/75db2454-bde5-435a-84d4-c7a4d1699174/metadata",
+                    "type": "application/vnd.overdrive.api+json"
+                },
+                "self": {
+                    "href": "http://api.overdrive.com/v1/collections/collection-id/products/75db2454-bde5-435a-84d4-c7a4d1699174",
+                    "type": "application/vnd.overdrive.api+json"
+                }
+            },
+            "mediaType": "eBook",
+            "primaryCreator": {
+                "name": "George R.R. Martin",
+                "role": "Author"
+            },
+            "series": "A Song of Ice and Fire",
+            "sortTitle": "Game of Thrones 4Book Bundle A Game of Thrones; A Clash of Kings; A Storm of Swords; A Feast for Crows",
+            "starRating": 4.0,
+            "subtitle": "A Game of Thrones; A Clash of Kings; A Storm of Swords; A Feast for Crows",
+            "title": "A Game of Thrones 4-Book Bundle"
+        },
+        {
+            "contentDetails": [
+                {
+                    "account": {
+                        "id": 100,
+                        "name": "New York Public Library (NY)"
+                    },
+                    "href": "http://ebooks.nypl.org/ContentDetails.htm?ID=aaa02d57-376c-4834-a670-0e4793cc9aa0",
+                    "type": "text/html"
+                }
+            ],
+            "dateAdded": "2011-09-19T11:49:10.617-04:00",
+            "formats": [
+                {
+                    "id": "ebook-pdf-adobe",
+                    "name": "Adobe PDF eBook"
+                },
+                {
+                    "id": "ebook-epub-adobe",
+                    "name": "Adobe EPUB eBook"
+                },
+                {
+                    "id": "ebook-kindle",
+                    "name": "Kindle Book"
+                },
+                {
+                    "id": "ebook-overdrive",
+                    "name": "OverDrive Read"
+                }
+            ],
+            "id": "aaa02d57-376c-4834-a670-0e4793cc9aa0",
+            "images": {
+                "thumbnail": {
+                    "href": "http://images.contentreserve.com/ImageType-200/1523-1/{AAA02D57-376C-4834-A670-0E4793CC9AA0}Img200.jpg",
+                    "type": "image/jpeg"
+                }
+            },
+            "links": {
+                "availability": {
+                    "href": "http://api.overdrive.com/v1/collections/collection-id/products/aaa02d57-376c-4834-a670-0e4793cc9aa0/availability",
+                    "type": "application/vnd.overdrive.api+json"
+                },
+                "metadata": {
+                    "href": "http://api.overdrive.com/v1/collections/collection-id/products/aaa02d57-376c-4834-a670-0e4793cc9aa0/metadata",
+                    "type": "application/vnd.overdrive.api+json"
+                },
+                "self": {
+                    "href": "http://api.overdrive.com/v1/collections/collection-id/products/aaa02d57-376c-4834-a670-0e4793cc9aa0",
+                    "type": "application/vnd.overdrive.api+json"
+                }
+            },
+            "mediaType": "eBook",
+            "primaryCreator": {
+                "name": "Liane Moriarty",
+                "role": "Author"
+            },
+            "sortTitle": "What Alice Forgot",
+            "starRating": 3.0,
+            "title": "What Alice Forgot"
+        }
+    ]
+}
