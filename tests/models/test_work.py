@@ -2312,7 +2312,8 @@ class TestWorkConsolidation:
             (None, False)
         )
 
-    def test_open_access_for_permanent_work_id(self, db_session, create_edition, create_work, init_delivery_mechanism):
+    def test_open_access_for_permanent_work_id(self, db_session, create_edition, create_work,
+                                               init_delivery_mechanism, monkeypatch):
         """
         GIVEN: Three Works with LicensePools
         WHEN:  Retrieving a Work that encompasses all open-access LicensePools for given
@@ -2336,6 +2337,7 @@ class TestWorkConsolidation:
         for lp in [lp1, lp2, lp3]:
             lp.presentation_edition.permanent_work_id = "abcd"
             lp.presentation_edition.calculate_permanent_work_id = mock_pwid
+        monkeypatch.setattr(Edition, "calculate_permanent_work_id", mock_pwid)
 
         # We've also got Work #3, which provides a commercial license for that book.
         w3 = create_work(db_session, with_license_pool=True)
