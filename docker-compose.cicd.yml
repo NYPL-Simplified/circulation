@@ -54,5 +54,6 @@ services:
     environment:
       SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:simplified@cm_active_db:5434/simplified_circulation_dev
       SIMPLIFIED_TEST_DATABASE: postgres://simplified_test:simplified_test@cm_active_db:5434/simplified_circulation_test
+      SIMPLIFIED_TEST_ELASTICSEARCH: http://cm_local_es:9200
     ports:
       - 80:80
