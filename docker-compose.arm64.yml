@@ -37,8 +37,6 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
-    volumes:
-      - cm_local_minio:/data
 
   scripts:
     container_name: cm_local_scripts
@@ -90,4 +88,3 @@ volumes:
   cm_local_gunicorn_log:
   cm_local_script_logs:
   es_data:
-  cm_local_minio:
