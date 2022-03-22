@@ -27,6 +27,16 @@ services:
       /bin/sh -c "./bin/elasticsearch-plugin list | grep -q analysis-icu 
       || ./bin/elasticsearch-plugin install analysis-icu; tail -f /dev/null"
 
+  minio:
+    container_name: minio
+    image: bitnami/minio:latest
+    environment:
+      MINIO_ROOT_USER: simplified
+      MINIO_ROOT_PASSWORD: 12345678901234567890
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
   scripts:
     container_name: cm_active_scripts
     depends_on:
@@ -46,6 +56,7 @@ services:
     depends_on:
       - database
       - elasticsearch
+      - minio
     build:
       context: .
       target: cm_webapp_active
@@ -55,5 +66,8 @@ services:
       SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:simplified@cm_active_db:5434/simplified_circulation_dev
       SIMPLIFIED_TEST_DATABASE: postgres://simplified_test:simplified_test@cm_active_db:5434/simplified_circulation_test
       SIMPLIFIED_TEST_ELASTICSEARCH: http://cm_local_es:9200
+      SIMPLIFIED_TEST_MINIO_ENDPOINT_URL: http://minio:9000
+      SIMPLIFIED_TEST_MINIO_USER: simplified
+      SIMPLIFIED_TEST_MINIO_PASSWORD: 12345678901234567890
     ports:
       - 80:80
