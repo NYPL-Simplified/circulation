@@ -84,14 +84,6 @@ def init_test_db():
 
     with engine.connect() as conn:
         Base.metadata.create_all(conn)
-
-    # Avoid CannotLoadConfiguration errors related to CDN integrations.
-    Configuration.instance[Configuration.INTEGRATIONS] = Configuration.instance.get(
-        Configuration.INTEGRATIONS, {}
-    )
-    Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {}
-    Configuration.instance[Configuration.CDNS_LOADED_FROM_DATABASE] = True
-
     with engine.connect() as connection:
         db_session = Session(connection)
 
