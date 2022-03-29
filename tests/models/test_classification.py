@@ -1,8 +1,8 @@
 # encoding: utf-8
+import random
 import pytest
 from psycopg2.extras import NumericRange
 from sqlalchemy.exc import IntegrityError
-from ...testing import DatabaseTest
 from ...classifier import Classifier
 from ...model import (
     create,
@@ -14,130 +14,167 @@ from ...model.classification import (
     Genre,
 )
 
-class TestSubject(DatabaseTest):
 
-    def test_lookup_errors(self):
-        """Subject.lookup will complain if you don't give it
-        enough information to find a Subject.
+class TestSubject:
+
+    def test_subject_lookup_errors(self, db_session):
+        """
+        GIVEN: A Subject
+        WHEN:  Looking up the subject with missing parameters
+        THEN:  The correct error is raised
         """
         with pytest.raises(ValueError) as excinfo:
-            Subject.lookup(self._db, None, "identifier", "name")
+            Subject.lookup(db_session, None, "identifier", "name")
         assert "Cannot look up Subject with no type." in str(excinfo.value)
+
         with pytest.raises(ValueError) as excinfo:
-            Subject.lookup(self._db, Subject.TAG, None, None)
+            Subject.lookup(db_session, Subject.TAG, None, None)
         assert "Cannot look up Subject when neither identifier nor name is provided." in str(excinfo.value)
 
-    def test_lookup_autocreate(self):
+    def test_subject_lookup_autocreate(self, db_session):
+        """
+        GIVEN: A Subject
+        WHEN:  Looking up a subject that doesn't exist
+        THEN:  The subject is created
+        """
+
         # By default, Subject.lookup creates a Subject that doesn't exist.
-        identifier = self._str
-        name = self._str
-        subject, was_new = Subject.lookup(
-            self._db, Subject.TAG, identifier, name
+        identifier = str(random.randint(1, 9999))
+        name = str(random.randint(1, 9999))
+        subject, is_new = Subject.lookup(
+            db_session, Subject.TAG, identifier, name
         )
-        assert True == was_new
+        assert True == is_new
         assert identifier == subject.identifier
         assert name == subject.name
 
         # But you can tell it not to autocreate.
-        identifier2 = self._str
-        subject, was_new = Subject.lookup(
-            self._db, Subject.TAG, identifier2, None, autocreate=False
+        identifier2 = str(random.randint(1, 9999))
+        subject, is_new = Subject.lookup(
+            db_session, Subject.TAG, identifier2, None, autocreate=False
         )
-        assert False == was_new
+        assert False == is_new
         assert None == subject
 
-    def test_lookup_by_name(self):
-        """We can look up a subject by its name, without providing an
-        identifier."""
-        s1 = self._subject(Subject.TAG, "i1")
-        s1.name = "A tag"
-        assert (s1, False) == Subject.lookup(self._db, Subject.TAG, None, "A tag")
+    def test_subject_lookup_by_name(self, db_session, create_subject):
+        """
+        GIVEN: A Subject
+        WHEN:  Looking up a subject and there are two subjects with the same name
+        THEN:  Subject.lookup treats the subject as interchangeable
+        """
+
+        # We can look up a subject by its name, without providing an identifier.
+        subject1 = create_subject(db_session, Subject.TAG, "integration1")
+        subject1.name = "A tag"
+        assert (subject1, False)  == Subject.lookup(db_session, Subject.TAG, None, "A tag")
 
         # If we somehow get into a state where there are two Subjects
         # with the same name, Subject.lookup treats them as interchangeable.
-        s2 = self._subject(Subject.TAG, "i2")
-        s2.name = "A tag"
+        subject2 = create_subject(db_session, Subject.TAG, "integration2")
+        subject2.name = "A tag"
 
-        subject, is_new = Subject.lookup(self._db, Subject.TAG, None, "A tag")
-        assert subject in [s1, s2]
+        subject, is_new = Subject.lookup(db_session, Subject.TAG, None, "A tag")
+        assert subject in [subject1, subject2]
         assert False == is_new
 
-    def test_assign_to_genre_can_remove_genre(self):
+    def test_subject_assing_to_genre_can_remove_genre(self, db_session):
+        """
+        GIVEN: A Subject
+        WHEN:  The genre and audience data for this subject is totally wrong
+        THEN:  Calling assing_to_genre() will fix it
+        """
+
         # Here's a Subject that identifies children's books.
-        subject, was_new = Subject.lookup(self._db, Subject.TAG, "Children's books", None)
+        subject, _ = Subject.lookup(db_session, Subject.TAG, "Children's books", None)
 
         # The genre and audience data for this Subject is totally wrong.
         subject.audience = Classifier.AUDIENCE_ADULT
-        subject.target_age = NumericRange(1,10)
+        subject.target_age = NumericRange(1, 10)
         subject.fiction = False
-        sf, ignore = Genre.lookup(self._db, "Science Fiction")
-        subject.genre = sf
+        science_fiction, _ = Genre.lookup(db_session, "Science Fiction")
+        subject.genre = science_fiction
 
-        # But calling assign_to_genre() will fix it.
+        # But calling assign_to_genre() will fix it
         subject.assign_to_genre()
         assert Classifier.AUDIENCE_CHILDREN == subject.audience
         assert NumericRange(None, None, '[]') == subject.target_age
         assert None == subject.genre
         assert None == subject.fiction
 
-class TestGenre(DatabaseTest):
 
-    def test_full_table_cache(self):
-        """We use Genre as a convenient way of testing
-        HasFullTableCache.populate_cache, which requires a real
-        SQLAlchemy ORM class to operate on.
+class TestGenre:
+
+    def test_genre_full_table_cache(self, db_session):
         """
+        GIVEN: Genres
+        WHEN: Populating the Genre cache
+        THEN: Genres can be looked up by a cache key
+        """
+        # We use Genre as a convenient way of testing
+        # HasFullTableCache.populate_cache, which requires a real
+        # SQLAlchemy ORM class to operate on.
 
-        # We start with an unusable object as the cache.
+        # We start with an unusable object as the cache
         assert Genre.RESET == Genre._cache
         assert Genre.RESET == Genre._id_cache
 
         # When we call populate_cache()...
-        Genre.populate_cache(self._db)
+        Genre.populate_cache(db_session)
 
         # Every Genre in the database is copied to the cache.
         dont_call_this = object
-        drama, is_new = Genre.by_cache_key(self._db, "Drama", dont_call_this)
+        drama, is_new = Genre.by_cache_key(db_session, "Drama", dont_call_this)
         assert "Drama" == drama.name
         assert False == is_new
 
         # The ID of every genre is copied to the ID cache.
         assert drama == Genre._id_cache[drama.id]
-        drama2 = Genre.by_id(self._db, drama.id)
+        drama2 = Genre.by_id(db_session, drama.id)
         assert drama2 == drama
 
-    def test_by_id(self):
+    def test_genre_by_id(self, db_session):
+        """
+        GIVEN: A Genre from get_one() db lookup
+        WHEN: Looking up the genre by id
+        THEN: The genre is located in the genre _id_cache
+        """
 
         # Get a genre to test with.
-        drama = get_one(self._db, Genre, name="Drama")
+        drama = get_one(db_session, Genre, name="Drama")
 
         # Since we went right to the database, that didn't change the
         # fact that the ID cache is uninitialized.
         assert Genre.RESET == Genre._id_cache
 
         # Look up the same genre using by_id...
-        assert drama == Genre.by_id(self._db, drama.id)
+        Genre.populate_cache(db_session)
+        assert drama == Genre.by_id(db_session, drama.id)
 
         # ... and the ID cache is fully initialized.
         assert drama == Genre._id_cache[drama.id]
         assert len(Genre._id_cache) > 1
 
-    def test_by_cache_key_miss_triggers_create_function(self):
-        _db = self._db
-        class Factory(object):
+    def test_genre_by_cache_key_miss_triggers_create_function(self, db_session):
+        """
+        GIVEN: A Genre lookup
+        WHEN: There is a cache miss
+        THEN: The genre is created
+        """
 
+        class Factory:
             def __init__(self):
                 self.called = False
 
             def call_me(self):
                 self.called = True
-                genre, is_new = get_one_or_create(_db, Genre, name="Drama")
+                genre, is_new = get_one_or_create(db_session, Genre, name="Drama")
                 return genre, is_new
 
         factory = Factory()
         Genre._cache = {}
         Genre._id_cache = {}
-        genre, is_new = Genre.by_cache_key(self._db, "Drama", factory.call_me)
+        genre, is_new = Genre.by_cache_key(db_session, "Drama", factory.call_me)
+
         assert "Drama" == genre.name
         assert False == is_new
         assert True == factory.called
@@ -149,14 +186,20 @@ class TestGenre(DatabaseTest):
         # The cache by ID has been similarly populated.
         assert genre == Genre._id_cache[genre.id]
 
-    def test_by_cache_key_miss_when_cache_is_reset_populates_cache(self):
+    def test_genre_by_cache_key_miss_when_cache_is_reset_populates_cache(self, db_session):
+        """
+        GIVEN: Genre cache in the RESET state
+        WHEN: Looking up a Genre by cache key
+        THEN: A new Genre is not created and the cache is repopulated
+        """
+
         # The cache is not in a state to be used.
         assert Genre._cache == Genre.RESET
 
-        # Call Genreby_cache_key...
+        # Call Genre by_cache_key...
         drama, is_new = Genre.by_cache_key(
-            self._db, "Drama",
-            lambda: get_one_or_create(self._db, Genre, name="Drama")
+            db_session, "Drama",
+            lambda: get_one_or_create(db_session, Genre, name="Drama")
         )
         assert "Drama" == drama.name
         assert False == is_new
@@ -165,16 +208,22 @@ class TestGenre(DatabaseTest):
         assert drama.cache_key() in Genre._cache
         assert drama.id in Genre._id_cache
 
-    def test_by_cache_key_hit_returns_cached_object(self):
+    def test_genre_by_cache_key_hit_returns_cached_object(self, db_session):
+        """
+        GIVEN: A Genre database lookup
+        WHEN: Looking up the Genre by cache key
+        THEN: Cached object is returned
+        """
 
         # If the object we ask for is not already in the cache, this
         # function will be called and raise an exception.
         def exploding_create_hook():
             raise Exception("Kaboom")
-        drama, ignore = get_one_or_create(self._db, Genre, name="Drama")
+
+        drama, _ = get_one_or_create(db_session, Genre, name="Drama")
         Genre._cache = { "Drama": drama }
         drama2, is_new = Genre.by_cache_key(
-            self._db, "Drama", exploding_create_hook
+            db_session, "Drama", exploding_create_hook
         )
 
         # The object was already in the cache, so we just looked it up.
@@ -182,22 +231,32 @@ class TestGenre(DatabaseTest):
         assert drama == drama2
         assert False == is_new
 
-    def test_name_is_unique(self):
-        g1, ignore = Genre.lookup(self._db, "A Genre", autocreate=True)
-        g2, ignore = Genre.lookup(self._db, "A Genre", autocreate=True)
-        assert g1 == g2
+    def test_genre_name_is_unique(self, db_session):
+        """
+        GIVEN: Two Genre lookups with autocreate=True
+        WHEN: Creating a new Genre with a previously used name
+        THEN: An IntegrityError is raised
+        """
+        genre1, _ = Genre.lookup(db_session, "A Genre", autocreate=True)
+        genre2, _ = Genre.lookup(db_session, "A Genre", autocreate=True)
+        assert genre1 == genre2
 
-        pytest.raises(IntegrityError, create, self._db, Genre, name="A Genre")
+        pytest.raises(IntegrityError, create, db_session, Genre, name="A Genre")
 
-    def test_default_fiction(self):
-        sf, ignore = Genre.lookup(self._db, "Science Fiction")
-        nonfiction, ignore = Genre.lookup(self._db, "History")
-        assert True == sf.default_fiction
+    def test_genre_default_fiction(self, db_session):
+        """
+        GIVEN: Three Genre lookups, two known and one unnkown
+        WHEN: Verifying the fiction status
+        THEN: Ensure the correct fiction status is set
+        """
+        science_fiction, _ = Genre.lookup(db_session, "Science Fiction")
+        nonfiction, _ = Genre.lookup(db_session, "History")
+        assert True == science_fiction.default_fiction
         assert False == nonfiction.default_fiction
 
         # Create a previously unknown genre.
-        genre, ignore = Genre.lookup(
-            self._db, "Some Weird Genre", autocreate=True
+        genre, _ = Genre.lookup(
+            db_session, "Some Weird Genre", autocreate=True
         )
 
         # We don't know its default fiction status.

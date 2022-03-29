@@ -1533,11 +1533,6 @@ def session_fixture():
     # Ensure that the log configuration starts in a known state.
     LogConfiguration.initialize(None, testing=True)
 
-    # Drop any existing schema. It will be recreated when
-    # SessionManager.initialize() runs.
-    engine = SessionManager.engine()
-    Base.metadata.drop_all(engine)
-
     yield
 
     if 'TESTING' in os.environ:

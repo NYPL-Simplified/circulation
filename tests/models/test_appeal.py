@@ -1,15 +1,15 @@
-from ...testing import (
-    DatabaseTest,
-)
+from ...model import Work
 
-from ...model import (
-    Work,
-)
 
-class TestAppealAssignment(DatabaseTest):
+class TestAppealsAssignment:
 
-    def test_assign_appeals(self):
-        work = self._work()
+    def test__assign_appeals(self, db_session, create_work):
+        """
+        GIVEN: A Work item
+        WHEN:  Assigning appeals
+        THEN:  Verify that the correct appeals have been assigned
+        """
+        work = create_work(db_session)
         work.assign_appeals(0.50, 0.25, 0.20, 0.05)
         assert 0.50 == work.appeal_character
         assert 0.25 == work.appeal_language
@@ -18,7 +18,8 @@ class TestAppealAssignment(DatabaseTest):
         assert Work.CHARACTER_APPEAL == work.primary_appeal
         assert Work.LANGUAGE_APPEAL == work.secondary_appeal
 
-        # Increase the cutoff point so that there is no secondary appeal.
+        # WHEN: Increasing the cutoff point
+        # THEN: There is no secondary appeal.
         work.assign_appeals(0.50, 0.25, 0.20, 0.05, cutoff=0.30)
         assert 0.50 == work.appeal_character
         assert 0.25 == work.appeal_language

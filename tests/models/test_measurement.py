@@ -1,21 +1,22 @@
+import pytest
+
 from ...model import (
     DataSource,
     Measurement,
     get_one_or_create
 )
-from ...testing import (
-    DatabaseTest,
-)
+
 from ...util.datetime_helpers import datetime_utc
 
-class TestMeasurement(DatabaseTest):
+class TestMeasurement:
 
-    def setup_method(self):
-        super(TestMeasurement, self).setup_method()
+    @pytest.fixture(autouse=True)
+    def setup_method(self, db_session):
+        self._db = db_session
         self.SOURCE_NAME = "Test Data Source"
 
         # Create a test DataSource
-        obj, new = get_one_or_create(
+        obj, _ = get_one_or_create(
                 self._db, DataSource,
                 name=self.SOURCE_NAME,
         )
@@ -43,8 +44,13 @@ class TestMeasurement(DatabaseTest):
         source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         return self._measurement(Measurement.QUALITY, value, source, weight)
 
-    def test_newer_measurement_displaces_earlier_measurement(self):
-        wi = self._identifier()
+    def test_newer_measurement_displaces_earlier_measurement(self, create_identifier):
+        """
+        GIVEN: A Measurement on an Identifier
+        WHEN:  A new Measurement is added to an Identifier
+        THEN:  The newer Measurement is the most recent
+        """
+        wi = create_identifier(self._db)
         m1 = wi.add_measurement(self.source, Measurement.DOWNLOADS, 10)
         assert True == m1.is_most_recent
 
@@ -57,12 +63,17 @@ class TestMeasurement(DatabaseTest):
         assert True == m3.is_most_recent
 
 
-    def test_can_insert_measurement_after_the_fact(self):
+    def test_can_insert_measurement_after_the_fact(self, create_identifier):
+        """
+        GIVEN: A Measurement on an Identifier
+        WHEN:  Adding a Measurement that is older than the first Measurement
+        THEN:  The first Measurement is the most recent
+        """
 
         old = datetime_utc(2011, 1, 1)
         new = datetime_utc(2012, 1, 1)
 
-        wi = self._identifier()
+        wi = create_identifier(self._db)
         m1 = wi.add_measurement(self.source, Measurement.DOWNLOADS, 10,
                                 taken_at=new)
         assert True == m1.is_most_recent
@@ -72,6 +83,11 @@ class TestMeasurement(DatabaseTest):
         assert True == m1.is_most_recent
 
     def test_normalized_popularity(self):
+        """
+        GIVEN: A popularity number
+        WHEN:  Normalizing the popularity numer
+        THEN:  The popularity number is normalized according to PERCENTILE_SCALES
+        """
         # Here's a very popular book on the scale defined in
         # PERCENTILE_SCALES[POPULARITY].
         p = self._popularity(6000)
@@ -112,6 +128,11 @@ class TestMeasurement(DatabaseTest):
         assert None == m.normalized_value
 
     def test_normalized_rating(self):
+        """
+        GIVEN: A rating number
+        WHEN:  Normalizing the rating number
+        THEN:  The rating number is normalized according to RATING_SCALES
+        """
         # Here's a very good book on the scale defined in
         # RATING_SCALES.
         p = self._rating(10)
@@ -126,7 +147,12 @@ class TestMeasurement(DatabaseTest):
         assert 0 == p.normalized_value
 
     def test_neglected_source_cannot_be_normalized(self):
-        obj, new = get_one_or_create(
+        """
+        GIVEN: A DataSource that has no normalization scales
+        WHEN:  Normalizing a number
+        THEN:  None is returned
+        """
+        obj, _ = get_one_or_create(
                 self._db, DataSource,
                 name="Neglected source"
         )
@@ -138,6 +164,11 @@ class TestMeasurement(DatabaseTest):
         assert None == r.normalized_value
 
     def test_overall_quality(self):
+        """
+        GIVEN: A popularity, rating, and irrelevant measurements
+        WHEN:  Measuring overall quality
+        THEN:  Measurement quality is correctly calculated
+        """
         popularity = self._popularity(59)
         rating = self._rating(4)
         irrelevant = self._measurement("Some other quantity", 42, self.source, 1)
@@ -164,10 +195,20 @@ class TestMeasurement(DatabaseTest):
         assert quality != new_quality
 
     def test_overall_quality_based_solely_on_popularity_if_no_rating(self):
+        """
+        GIVEN: Only a popularity number
+        WHEN:  Measuring the overall quality
+        THEN:  Overall quality is correctly calculated
+        """
         pop = self._popularity(59)
         assert 0.5 == Measurement.overall_quality([pop])
 
     def test_overall_quality_with_rating_and_quality_but_not_popularity(self):
+        """
+        GIVEN: A Measurement rating and quality score
+        WHEN:  Measuring the overall quality
+        THEN:  Overall quality is correctly calculated
+        """
         rat = self._rating(4)
         qual = self._quality(0.5)
 
@@ -178,6 +219,11 @@ class TestMeasurement(DatabaseTest):
         assert expect == Measurement.overall_quality([rat, qual], 0.5, 0.5)
 
     def test_overall_quality_with_popularity_and_quality_but_not_rating(self):
+        """
+        GIVEN: A Measurement popularity and quality score
+        WHEN:  Measuring the overall quality
+        THEN:  Overall quality is correctly calculated
+        """
         pop = self._popularity(4)
         qual = self._quality(0.5)
 
@@ -188,6 +234,11 @@ class TestMeasurement(DatabaseTest):
         assert expect == Measurement.overall_quality([pop, qual], 0.5, 0.5)
 
     def test_overall_quality_with_popularity_quality_and_rating(self):
+        """
+        GIVEN: A Measurement with popularity, rating, and quality scor
+        WHEN:  Measuring the overall quality
+        THEN:  Overall quality is correctly calculated
+        """
         pop = self._popularity(4)
         rat = self._rating(4)
         quality_score = 0.66
@@ -203,16 +254,31 @@ class TestMeasurement(DatabaseTest):
         assert expect_total == Measurement.overall_quality([pop, rat, qual], 0.75, 0.25)
 
     def test_overall_quality_takes_weights_into_account(self):
+        """
+        GIVEN: A Measurement with ratings that have weights
+        WHEN:  Measuring the overall quality
+        THEN:  Overall quality is correctly calculated
+        """
         rating1 = self._rating(10, weight=10)
         rating2 = self._rating(1, weight=1)
         assert 0.91 == round(Measurement.overall_quality([rating1, rating2]),2)
 
     def test_overall_quality_is_zero_if_no_relevant_measurements(self):
+        """
+        GIVEN: A Measurement with a number of irrelevant type
+        WHEN:  Measuring the overall quality
+        THEN:  Overall quality is 0
+        """
         irrelevant = self._measurement("Some other quantity", 42, self.source, 1)
         assert 0 == Measurement.overall_quality([irrelevant])
 
-    def test_calculate_quality(self):
-        w = self._work(with_open_access_download=True)
+    def test_calculate_quality(self, create_identifier, create_work):
+        """
+        GIVEN: A Work with with an Identifier that has Measurements
+        WHEN:  Assessing the quality with another DataSource Identifier
+        THEN:  The Work quality accurately reflects the Measurements
+        """
+        w = create_work(self._db, with_open_access_download=True)
 
         # This book used to be incredibly popular.
         identifier = w.presentation_edition.primary_identifier
@@ -242,7 +308,7 @@ class TestMeasurement(DatabaseTest):
         # and it has a number of editions that was obtained from
         # OCLC Classify, which _does_ have a mapping from number
         # of editions to a percentile range.
-        wi = self._identifier()
+        wi = create_identifier(self._db)
         oclc = DataSource.lookup(self._db, DataSource.OCLC)
         wi.add_measurement(oclc, Measurement.PUBLISHED_EDITIONS, 800)
 
@@ -251,10 +317,15 @@ class TestMeasurement(DatabaseTest):
         w.calculate_quality([identifier.id, wi.id])
         assert w.quality > old_quality
 
-    def test_calculate_quality_default_quality(self):
+    def test_calculate_quality_default_quality(self, create_work):
+        """
+        GIVEN: A Work
+        WHEN:  Assessing the quality with a default setting
+        THEN:  The Work quality is the default setting
+        """
 
         # Here's a work with no measurements whatsoever.
-        w = self._work()
+        w = create_work(self._db)
 
         # Its quality is dependent entirely on the default value we
         # pass into calculate_quality
