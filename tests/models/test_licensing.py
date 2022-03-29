@@ -29,7 +29,7 @@ from ...util.datetime_helpers import utc_now
 class TestDeliveryMechanism:
 
     @pytest.fixture
-    def delivery_mechanisms(self, db_session, init_delivery_mechanism):
+    def delivery_mechanisms(self, db_session):
         """
         Fixture to initialize various DeliveryMechanisms:
         - EPUB with no DRM
@@ -102,7 +102,7 @@ class TestDeliveryMechanism:
         assert (Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE + DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_PROFILE ==
             self.audiobook_drm_scheme.content_type_media_type)
 
-    def test_default_fulfillable(self, db_session, init_delivery_mechanism):
+    def test_default_fulfillable(self, db_session):
         """
         GIVEN: A content type and drm scheme
         WHEN:  Creating a new DeliveryMechanism
@@ -439,7 +439,7 @@ class TestLicense:
 
 class TestLicensePool:
 
-    def test_for_foreign_id(self, db_session, create_collection, init_datasource_and_genres):
+    def test_for_foreign_id(self, db_session, create_collection):
         """
         GIVEN: A DataSource, an appropriate work identifier, and a Collection
         WHEN:  Getting the LicensePool for the given above
@@ -494,7 +494,7 @@ class TestLicensePool:
         assert [pool] == qu.all()
 
     def test_no_license_pool_for_non_primary_identifier(
-            self, db_session, create_collection, init_datasource_and_genres):
+            self, db_session, create_collection):
         """
         GIVEN: An OverDrive DataSource, an ISBN Identifier, and a Collection
         WHEN:  Finding/creating a LicensePool for the given foreign ID
@@ -512,7 +512,7 @@ class TestLicensePool:
             in str(excinfo.value)
 
     def test_licensepools_for_same_identifier_have_same_presentation_edition(
-            self, db_session, create_edition, create_identifier, init_datasource_and_genres):
+            self, db_session, create_edition, create_identifier):
         """
         GIVEN: Two LicensePools with the same Identifier
         WHEN:  Setting the presentation edition for the LicensePool
@@ -533,8 +533,7 @@ class TestLicensePool:
         pool2.set_presentation_edition()
         assert pool1.presentation_edition == pool2.presentation_edition
 
-    def test_collection_datasource_identifier_must_be_unique(
-            self, db_session, create_collection, create_identifier, init_datasource_and_genres):
+    def test_collection_datasource_identifier_must_be_unique(self, db_session, create_collection, create_identifier):
         """
         GIVEN: A LicensePool with a DataSource, an Identifier, and a Collection
         WHEN:  Creating a duplicate LicensePool
@@ -561,7 +560,7 @@ class TestLicensePool:
             collection=collection
         )
 
-    def test_with_no_work(self, db_session, create_collection, create_work, init_datasource_and_genres):
+    def test_with_no_work(self, db_session, create_collection, create_work):
         """
         GIVEN: Two LicensePools, one associated with a Work
         WHEN:  Finding LicensePools with no corresponding Work
@@ -700,8 +699,7 @@ class TestLicensePool:
         # Only the two open-access download links show up.
         assert set([oa1, oa2]) == set(pool.open_access_links)
 
-    def test_better_open_access_pool_than(
-            self, db_session, create_edition, create_licensepool, init_datasource_and_genres):
+    def test_better_open_access_pool_than(self, db_session, create_edition, create_licensepool):
         """
         GIVEN: An assortment of LicensePools
         WHEN:  Determining if open-access pool is generall known for better-quality than another pool
@@ -939,7 +937,7 @@ class TestLicensePool:
         library2.collections.extend(library.collections)
         assert 3 == LicensePool.with_complaint(library2, resolved=None).count()
 
-    def test_set_presentation_edition(self, db_session, create_edition, init_datasource_and_genres):
+    def test_set_presentation_edition(self, db_session, create_edition):
         """
         GIVEN: A LicensePool and various Editions
         WHEN:  Setting the presentation edition for the LicensePool

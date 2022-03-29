@@ -81,7 +81,7 @@ class TestCirculationEvent:
             )
         return event, was_new
 
-    def test_new_title(self, db_session, create_collection, init_datasource_and_genres):
+    def test_new_title(self, db_session, create_collection):
         """
         GIVEN: A dictionary
         WHEN:  Creating a CirculationEvent with the dictionary data

@@ -104,7 +104,7 @@ class TestCollection:
         assert ([self.collection] ==
             Collection.by_protocol(db_session, overdrive).all())
 
-    def test_by_datasource(self, db_session, create_collection, init_datasource_and_genres):
+    def test_by_datasource(self, db_session, create_collection):
         """
         GIVEN: A Collection associated with a DataSource
         WHEN:  Querying Collection by data source
@@ -579,7 +579,7 @@ class TestCollection:
         # Now all three identifiers are in the catalog.
         assert sorted([i1, i2, i3]) == sorted(self.collection.catalog)
 
-    def test_unresolved_catalog(self, db_session, create_coverage_record, create_identifier, create_work, init_datasource_and_genres):
+    def test_unresolved_catalog(self, db_session, create_coverage_record, create_identifier, create_work):
         """
         GIVEN: An unresolved Identifier
         WHEN:  Associating the unresolved Identifier with a Collection
@@ -610,7 +610,6 @@ class TestCollection:
         # An identifier with a Work already.
         work = create_work(db_session)
         id_with_work = work.presentation_edition.primary_identifier
-
 
         self.collection.catalog_identifiers([
             pure_id, resolved_id, unresolved_id, id_with_work
@@ -690,7 +689,7 @@ class TestCollection:
             collection.disassociate_library(other_library)
         assert "No known external integration for collection" in str(excinfo.value)
 
-    def test_licensepools_with_works_updated_since(self, db_session, create_collection, create_work, init_delivery_mechanism):
+    def test_licensepools_with_works_updated_since(self, db_session, create_collection, create_work):
         """
         GIVEN: A Collection with Works associated with a LicensePool
         WHEN:  Checking for LicensePools with Works through the Collection
@@ -797,7 +796,7 @@ class TestCollection:
         updated_isbns = self.collection.isbns_updated_since(db_session, timestamp)
         assert_isbns([i1], updated_isbns)
 
-    def test_custom_lists(self, db_session, create_work, init_datasource_and_genres):
+    def test_custom_lists(self, db_session, create_work):
         """
         GIVEN: CustomLists associated with a Collection that has Works
         WHEN:  Deleting a Work from a CustomList's entries
@@ -842,7 +841,7 @@ class TestCollection:
         assert 0 == len(list1.entries)
         assert 1 == len(list2.entries)
 
-    def test_restrict_to_ready_deliverable_works(self, db_session, create_work, init_datasource_and_genres):
+    def test_restrict_to_ready_deliverable_works(self, db_session, create_work):
         """
         GIVEN: A number of Works with some that are AudioBooks
         WHEN: Querying the Work table
@@ -931,7 +930,7 @@ class TestCollection:
         )
 
     def test_delete(self, db_session, create_collection, create_edition, create_library, 
-                    create_license, create_licensepool, create_patron, create_work, init_delivery_mechanism):
+                    create_license, create_licensepool, create_patron, create_work):
         """
         GIVEN: A Collection that a Patron has loans/holds with a Work through a LicensePool
         WHEN:  The Collection is deleted

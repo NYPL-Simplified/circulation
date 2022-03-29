@@ -48,7 +48,7 @@ class TestSiteConfigurationHasChanged:
         for module in model.listeners, lane:
             module.site_configuration_has_changed = self.old_site_configuration_has_changed
 
-    def test_site_configuration_has_changed(self, db_session, initalize_data):
+    def test_site_configuration_has_changed(self, db_session):
         """
         GIVEN: A site configuration
         WHEN:  Changing the configuration
@@ -128,7 +128,7 @@ class TestSiteConfigurationHasChanged:
             Configuration.site_configuration_last_update(db_session))
 
     # We don't test every event listener, but we do test one of each type.
-    def test_configuration_relevant_lifecycle_event_updates_configuration(self, db_session, init_datasource_and_genres):
+    def test_configuration_relevant_lifecycle_event_updates_configuration(self, db_session):
         """
         GIVEN: A sitewide ConfigurationSetting
         WHEN:  Creating or modifying a relevant item
@@ -140,7 +140,7 @@ class TestSiteConfigurationHasChanged:
         ConfigurationSetting.sitewide(db_session, "setting").value = "value2"
         self.mock.assert_was_called()
 
-    def test_lane_change_updates_configuration(self, db_session, create_lane, init_datasource_and_genres):
+    def test_lane_change_updates_configuration(self, db_session, create_lane):
         """
         GIVEN: A Lane
         WHEN:  Configuration-relevant changes are made

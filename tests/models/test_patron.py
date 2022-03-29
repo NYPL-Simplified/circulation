@@ -465,7 +465,7 @@ class TestPatron:
             "<Patron authentication_identifier=None expires=2018-01-02 sync=None>" ==
             repr(patron))
 
-    def test_identifier_to_remote_service(self, db_session, create_patron, init_datasource_and_genres):
+    def test_identifier_to_remote_service(self, db_session, create_patron):
         """
         GIVEN: A Patron and a DataSource
         WHEN:  Getting an Identifier to use when identifying this Patron to a remote service

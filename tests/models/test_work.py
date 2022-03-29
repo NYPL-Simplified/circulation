@@ -43,7 +43,7 @@ from ...util.datetime_helpers import datetime_utc, utc_now
 
 class TestWork:
 
-    def test_complaints(self, db_session, create_edition, create_work, create_licensepool, init_datasource_and_genres):
+    def test_complaints(self, db_session, create_edition, create_work, create_licensepool):
         """
         GIVEN: A LicensePool with a Work
         WHEN:  Registering a Complaint against the LicensePool
@@ -70,8 +70,7 @@ class TestWork:
         # Only the first two complaints show up in work.complaints.
         assert sorted([complaint1.id, complaint2.id]) == sorted([x.id for x in work.complaints])
 
-    def test_all_identifier_ids(self, db_session, create_identifier, create_edition,
-                                create_licensepool, create_work, init_datasource_and_genres):
+    def test_all_identifier_ids(self, db_session, create_identifier, create_edition, create_licensepool, create_work):
         """
         GIVEN: A Work associated with two LicensePools, a DataSource,
                and an Identifier that equivalates the LicensePools to the DataSource
@@ -152,8 +151,7 @@ class TestWork:
         # Because the work's license_pool isn't suppressed, it isn't returned.
         assert result == []
 
-    def test_calculate_presentation(self, db_session, create_edition,
-                                    create_identifier, create_work, init_datasource_and_genres):
+    def test_calculate_presentation(self, db_session, create_edition, create_identifier, create_work):
         """
         GIVEN: A Work
         WHEN:  Making the Work ready to show to patrons
@@ -427,7 +425,7 @@ class TestWork:
         assert work.presentation_ready is True
 
     def test_calculate_presentation_uses_default_audience_set_as_collection_setting(
-            self, db_session, create_edition, create_work, default_library, init_datasource_and_genres):
+            self, db_session, create_edition, create_work, default_library,):
         """
         GIVEN: A Work, an Edition, and a Collection that has a default audience
         WHEN:  Determining if a Work is ready to show to patrons
@@ -452,7 +450,7 @@ class TestWork:
 
         assert default_audience == work.audience
 
-    def test__choose_summary(self, db_session, create_identifier, init_datasource_and_genres):
+    def test__choose_summary(self, db_session, create_identifier):
         """
         GIVEN: A Work and multiple Identifiers for summaries
         WHEN:  Choosing a summary for the presentation edition
@@ -598,7 +596,7 @@ class TestWork:
         work.set_presentation_ready_based_on_content(search_index_client=search)
         assert work.presentation_ready is True
 
-    def test_assign_genres_from_weights(self, db_session, create_work, init_datasource_and_genres):
+    def test_assign_genres_from_weights(self, db_session, create_work):
         """
         GIVEN: A Work
         WHEN:  Assigning genres with weights
@@ -619,7 +617,7 @@ class TestWork:
         assert [('Romance', 0.25), ('Science Fiction', 0.75)] == after
 
     def test_classifications_with_genre(
-            self, db_session, create_work, create_classification, create_subject, init_datasource_and_genres):
+            self, db_session, create_work, create_classification, create_subject):
         """
         GIVEN: A Work, multiple Subjects, and multiple Classifications
         WHEN:  Getting a Work's classifications that have genres
@@ -652,8 +650,7 @@ class TestWork:
 
         assert [classification2, classification1] == results
 
-    def test_mark_licensepools_as_superceded(
-            self, db_session, create_edition, create_licensepool, create_work, init_datasource_and_genres):
+    def test_mark_licensepools_as_superceded(self, db_session, create_edition, create_licensepool, create_work):
         """
         GIVEN: A Work associated with varying LicensePools
         WHEN:  Marking LicensePools as superceded
@@ -886,9 +883,7 @@ class TestWork:
             assert pool.superceded is False
         assert w1 != w2
 
-    def test_reject_covers(
-            self, db_session, create_edition, create_representation, create_work,
-            get_sample_cover_path, init_datasource_and_genres):
+    def test_reject_covers(self, db_session, create_edition, create_representation, create_work, get_sample_cover_path):
         """
         GIVEN: A cover Representation, a Work, an Identifier, and multiple Editions
         WHEN:  Rejecting covers
@@ -1007,7 +1002,7 @@ class TestWork:
 
         assert Work.missing_coverage_from(db_session, operation, count_as_missing_before=cutoff).all() == [work]
 
-    def test_top_genre(self, db_session, create_work, init_datasource_and_genres):
+    def test_top_genre(self, db_session, create_work):
         """
         GIVEN: A Work with genres of varying affinities
         WHEN:  Getting the Work's top genre
@@ -1030,7 +1025,7 @@ class TestWork:
 
     def test_to_search_document(
             self, db_session, create_collection, create_customlist, create_edition, create_identifier,
-            create_licensepool, create_work, default_library, init_datasource_and_genres):
+            create_licensepool, create_work, default_library):
         """
         GIVEN: A Work with a presentation edition that has a license pool associated with a collection
         WHEN:  Generating search documents
@@ -1375,8 +1370,7 @@ class TestWork:
         work.audience = Classifier.AUDIENCE_ADULT
         assert work.age_appropriate_for_patron(patron) is False
 
-    def test_unlimited_access_books_are_available_by_default(
-            self, db_session, create_edition, create_work, init_delivery_mechanism):
+    def test_unlimited_access_books_are_available_by_default(self, db_session, create_edition, create_work):
         """
         GIVEN: A Work with an Edition and LicensePool with unlimited access
         WHEN:  Searching the Work's search document
@@ -1590,7 +1584,7 @@ class TestWork:
         # WorkCoverageRecord is processed.
         assert list(index.docs.values()) == []
 
-    def test_for_unchecked_subjects(self, db_session, create_work, init_datasource_and_genres):
+    def test_for_unchecked_subjects(self, db_session, create_work):
         """
         GIVEN: A Work with a LicensePool with an Identifier that has unchecked Subjects
         WHEN:  Searching for Works that have an Identifier for these subjects
@@ -1762,7 +1756,7 @@ class TestWorkConsolidation:
         assert pool.presentation_edition == work.presentation_edition
         assert new is True
 
-    def test_calculate_work_bails_out_if_no_title(self, db_session, create_edition, init_datasource_and_genres):
+    def test_calculate_work_bails_out_if_no_title(self, db_session, create_edition):
         """
         GIVEN: An Edition with a LicensePool
         WHEN:  Creating a Work from the LicensePool with no title
@@ -1793,8 +1787,7 @@ class TestWorkConsolidation:
         assert work.title == title
         assert new is True
 
-    def test_calculate_work_matches_based_on_permanent_work_id(
-            self, db_session, create_edition, init_datasource_and_genres):
+    def test_calculate_work_matches_based_on_permanent_work_id(self, db_session, create_edition):
         """
         GIVEN: Two Editions that share a permanent work ID
         WHEN:  Creating a Work from each Edition
@@ -1851,8 +1844,7 @@ class TestWorkConsolidation:
         assert created is True
         assert work != preexisting_work
 
-    def test_calculate_work_does_nothing_unless_edition_has_title(
-            self, db_session, create_collection, init_datasource_and_genres):
+    def test_calculate_work_does_nothing_unless_edition_has_title(self, db_session, create_collection):
         """
         GIVEN: An Edition, a LicensePool associated with a Collection
         WHEN:  Creating a Work from the LicensePool
@@ -1881,7 +1873,7 @@ class TestWorkConsolidation:
         assert work.author == "[Unknown]"
 
     def test_calculate_work_fails_when_presentation_edition_identifier_does_not_match_license_pool(
-            self, db_session, create_edition, init_datasource_and_genres):
+            self, db_session, create_edition):
         """
         GIVEN: An Edition with no LicensePool, two Editions with their own LicensePools
         WHEN:  Calculating a Work from a LicensePool that has a different Identifier than presentation edition
@@ -1964,8 +1956,7 @@ class TestWorkConsolidation:
         assert restricted3.work != restricted4.work
         assert restricted3.work != open1.work
 
-    def test_all_licensepools_with_same_identifier_get_same_work(
-            self, db_session, create_collection, create_edition, init_datasource_and_genres):
+    def test_all_licensepools_with_same_identifier_get_same_work(self, db_session, create_collection, create_edition):
         """
         GIVEN: Two LicensePools with the same Identifier but different Collections
         WHEN:  Creating Works from the LicensePools
@@ -2005,8 +1996,7 @@ class TestWorkConsolidation:
         assert is_new_2 is False
         assert work1.presentation_edition == edition1
 
-    def test_calculate_work_fixes_work_in_invalid_state(
-            self, init_datasource_and_genres, init_delivery_mechanism, db_session, create_edition, create_work):
+    def test_calculate_work_fixes_work_in_invalid_state(self, db_session, create_edition, create_work):
         """
         GIVEN: A Work with four varying LicensePools
         WHEN:  Calculating a Work for a LicensePool
@@ -2099,8 +2089,7 @@ class TestWorkConsolidation:
         commercial_work = abcd_commercial.work
         assert (commercial_work, False) == abcd_commercial.calculate_work()
 
-    def test_calculate_work_fixes_incorrectly_grouped_books(
-            self, db_session, create_edition, create_work, init_delivery_mechanism):
+    def test_calculate_work_fixes_incorrectly_grouped_books(self, db_session, create_edition, create_work):
         """
         GIVEN: A Work with multiple incorrect LicensePools
         WHEN:  Calculating the Work for a LicensePool
@@ -2177,8 +2166,7 @@ class TestWorkConsolidation:
         assert spanish.work == expect_spanish_work
         assert expect_spanish_work.language == 'spa'
 
-    def test_calculate_work_detaches_licensepool_with_no_title(
-            self, db_session, create_work, init_datasource_and_genres):
+    def test_calculate_work_detaches_licensepool_with_no_title(self, db_session, create_work):
         """
         GIVEN: A Work associated with a LicensePool whose presentation edition has no title
         WHEN:  Retrieving the Work for the LicensePool
@@ -2244,7 +2232,7 @@ class TestWorkConsolidation:
         no_title.calculate_work()
         assert work.license_pools == [book]
 
-    def test_pwids(self, db_session, create_edition, create_work, init_datasource_and_genres):
+    def test_pwids(self, db_session, create_edition, create_work):
         """
         GIVEN: A Work associated with two LicensePools, one of which has an Edition
         WHEN:  Finding all permanent work IDs associated with the Work
@@ -2312,8 +2300,7 @@ class TestWorkConsolidation:
             (None, False)
         )
 
-    def test_open_access_for_permanent_work_id(self, db_session, create_edition, create_work,
-                                               init_delivery_mechanism, monkeypatch):
+    def test_open_access_for_permanent_work_id(self, db_session, create_edition, create_work, monkeypatch):
         """
         GIVEN: Three Works with LicensePools
         WHEN:  Retrieving a Work that encompasses all open-access LicensePools for given
@@ -2370,8 +2357,7 @@ class TestWorkConsolidation:
         Work.open_access_for_permanent_work_id(db_session, "abcd", Edition.BOOK_MEDIUM, "eng")
         assert Work.open_access_for_permanent_work_id(db_session, "abcd", Edition.BOOK_MEDIUM, "eng") == (w2, False)
 
-    def test_open_access_for_permanent_work_id_can_create_work(
-            self, db_session, create_edition, init_datasource_and_genres):
+    def test_open_access_for_permanent_work_id_can_create_work(self, db_session, create_edition):
         """
         GIVEN: An open-access LicensePool
         WHEN:  Retrieving a Work that encompasses all open-access LicensePools for given
@@ -2390,8 +2376,7 @@ class TestWorkConsolidation:
         assert work.license_pools == [lp]
         assert is_new is True
 
-    def test_potential_open_access_works_for_permanent_work_id(
-            self, db_session, create_edition, init_datasource_and_genres):
+    def test_potential_open_access_works_for_permanent_work_id(self, db_session, create_edition):
         """
         GIVEN: Two Editions with LicensePools that are open-access
         WHEN:  Finding all Works that might be suitable for use as the canonical
@@ -2565,8 +2550,7 @@ class TestWorkConsolidation:
         # A third work has been created for the commercial edition of "abcd".
         assert abcd_commercial.work not in (work1, work2)
 
-    def test_make_exclusive_open_access_for_null_permanent_work_id(
-            self, db_session, create_edition, create_work, init_datasource_and_genres):
+    def test_make_exclusive_open_access_for_null_permanent_work_id(self, db_session, create_edition, create_work):
         """
         GIVEN: A Work with two LicensePools whose presentation edition has no permanent work ID
         WHEN:  Ensuring that every open-access LicensePool associated with a given Work has
@@ -2631,7 +2615,7 @@ class TestWorkConsolidation:
         assert db_session.query(WorkCoverageRecord).filter(WorkCoverageRecord.work_id == work1.id).all() == []
 
     def test_open_access_for_permanent_work_id_fixes_mismatched_works_incidentally(
-            self, db_session, create_edition, create_work, init_datasource_and_genres):
+            self, db_session, create_edition, create_work):
         """
         GIVEN: Two Work with multiple open-access LicensePools and an additional open-access
                LicensePool wrongly pointing to a totally separate Edition
@@ -2788,8 +2772,7 @@ class TestWorkConsolidation:
             other = abcd_work
         assert other.license_pools == []
 
-    def test_merge_into_raises_exception_if_grouping_rules_violated(
-            self, db_session, create_work, init_datasource_and_genres):
+    def test_merge_into_raises_exception_if_grouping_rules_violated(self, db_session, create_work):
         """
         GIVEN: Two Works, one with an open-access LicensePool and one without open-access
         WHEN:  Merging the Work with the open-access LicensePool into the Work without the open-access LicensePool
@@ -2846,8 +2829,7 @@ class TestWorkConsolidation:
         assert lp.calculate_work() == (None, False)
         assert lp.work is None
 
-    def test_licensepool_without_presentation_edition_gets_no_work(
-            self, db_session, create_work, init_datasource_and_genres):
+    def test_licensepool_without_presentation_edition_gets_no_work(self, db_session, create_work):
         """
         GIVEN: A LicensePool with no presentation edition
         WHEN:  Retrieving the Work for a LicensePool

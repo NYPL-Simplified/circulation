@@ -92,6 +92,35 @@ def init_test_db():
     Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {}
     Configuration.instance[Configuration.CDNS_LOADED_FROM_DATABASE] = True
 
+    with engine.connect() as connection:
+        db_session = Session(connection)
+
+        # Populate Genres
+        list(DataSource.well_known_sources(db_session))
+        Genre.populate_cache(db_session)
+        for genre in list(classifier.genres.values()):
+            Genre.lookup(db_session, genre, autocreate=True)
+
+        # Populate DeliveryMechanisms
+        for content_type, drm_scheme in DeliveryMechanism.default_client_can_fulfill_lookup:
+            try:
+                mechanism, _ = DeliveryMechanism.lookup(
+                    db_session, content_type, drm_scheme
+                )
+                mechanism.default_client_can_fulfill = True
+            except Exception:
+                pass
+
+        _, is_new = get_one_or_create(
+            db_session, Timestamp, collection=None,
+            service=Configuration.SITE_CONFIGURATION_CHANGED,
+            create_method_kwargs=dict(finish=utc_now())
+        )
+        if is_new:
+            site_configuration_has_changed(db_session)
+
+        db_session.commit()
+
     engine.dispose()
 
 
@@ -129,43 +158,6 @@ def db_session(db_engine):
                 del(Configuration.instance[key])
 
         session.close()
-
-
-@pytest.fixture
-def initalize_data(db_session):
-    # Should all of core/model/__init__.py::SessionManager::initialize_data
-    # be in here instead of splitting out DeliveryMechanisms from DataSource & Genres?
-    _, is_new = get_one_or_create(
-        db_session, Timestamp, collection=None,
-        service=Configuration.SITE_CONFIGURATION_CHANGED,
-        create_method_kwargs=dict(finish=utc_now())
-    )
-    if is_new:
-        site_configuration_has_changed(db_session)
-    db_session.commit()
-
-
-@pytest.fixture
-def init_datasource_and_genres(db_session):
-    # This probably needs a better name
-    # This was lifted from core/model/__init__.py::SessionManager::initialize_data
-    list(DataSource.well_known_sources(db_session))
-
-    Genre.populate_cache(db_session)
-    for genre in list(classifier.genres.values()):
-        Genre.lookup(db_session, genre, autocreate=True)
-
-
-@pytest.fixture
-def init_delivery_mechanism(db_session):
-    for content_type, drm_scheme in DeliveryMechanism.default_client_can_fulfill_lookup:
-        try:
-            mechanism, _ = DeliveryMechanism.lookup(
-                db_session, content_type, drm_scheme
-            )
-            mechanism.default_client_can_fulfill = True
-        except Exception:
-            pass
 
 
 @pytest.fixture
@@ -848,7 +840,7 @@ def get_sample_cover_representation(db_session, create_representation, get_sampl
 
 
 @pytest.fixture
-def get_sample_ecosystem(create_edition, create_work, init_datasource_and_genres):
+def get_sample_ecosystem(create_edition, create_work):
     """ Creates an ecosystem of some sample work, pool, edition, and author
     objects that all know each other.
     """

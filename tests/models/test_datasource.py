@@ -8,7 +8,7 @@ from ...model.identifier import Identifier
 
 class TestDataSource:
 
-    def test_lookup(self, db_session, init_datasource_and_genres):
+    def test_lookup(self, db_session):
         """
         GIVEN: A DataSource
         WHEN:  Performing a lookup
@@ -43,7 +43,7 @@ class TestDataSource:
 
         assert (new_source, False) == DataSource.by_cache_key(db_session, key, None)
 
-    def test_lookup_by_deprecated_name(self, db_session, init_datasource_and_genres):
+    def test_lookup_by_deprecated_name(self, db_session):
         """
         GIVEN: A DataSource that has been deprecated / renamed
         WHEN:  Looking up the DataSource
@@ -53,7 +53,7 @@ class TestDataSource:
         assert DataSource.BIBLIOTHECA == threem.name
         assert DataSource.BIBLIOTHECA != "3M"
 
-    def test_lookup_returns_none_for_nonexistent_source(self, db_session, init_datasource_and_genres):
+    def test_lookup_returns_none_for_nonexistent_source(self, db_session):
         """
         GIVEN: A DataSource with a made up name
         WHEN:  Performing a DataSource lookup
@@ -61,7 +61,7 @@ class TestDataSource:
         """
         assert None == DataSource.lookup(db_session, "No such data source")
 
-    def test_lookup_with_autocreate(self, db_session, init_datasource_and_genres):
+    def test_lookup_with_autocreate(self, db_session):
         """
         GIVEN: A new DataSource name
         WHEN:  Looking up the new DataSource by name with autocreate enabled
@@ -78,7 +78,7 @@ class TestDataSource:
         )
         assert True == new_source.offers_licenses
 
-    def test_metadata_sources_for(self, db_session, init_datasource_and_genres):
+    def test_metadata_sources_for(self, db_session):
         """
         GIVEN: A DataSource and ISBN Identifier
         WHEN:  Querying DataSource that provide metadata by Identifier type
@@ -90,7 +90,7 @@ class TestDataSource:
         assert 1 == len(isbn_metadata_sources)
         assert [content_cafe] == isbn_metadata_sources
 
-    def test_license_source_for(self, db_session, create_identifier, init_datasource_and_genres):
+    def test_license_source_for(self, db_session, create_identifier):
         """
         GIVEN: An Identifier
         WHEN:  Querying DataSource license by identifier
@@ -100,7 +100,7 @@ class TestDataSource:
         source = DataSource.license_source_for(db_session, identifier)
         assert DataSource.OVERDRIVE == source.name
         
-    def test_license_source_for_string(self, db_session, init_datasource_and_genres):
+    def test_license_source_for_string(self, db_session):
         """
         GIVEN: A string that correlates to an Identifier
         WHEN:  Querying DataSource license by string
@@ -109,7 +109,7 @@ class TestDataSource:
         source = DataSource.license_source_for(db_session, Identifier.THREEM_ID)
         assert DataSource.THREEM == source.name
 
-    def test_license_source_fails_if_identifier_type_does_not_provide_licenses(self, db_session, create_identifier, init_datasource_and_genres):
+    def test_license_source_fails_if_identifier_type_does_not_provide_licenses(self, db_session, create_identifier):
         """
         GIVEN: An Identifier type that does not provide licenses
         WHEN:  Querying DataSource license by identifier

@@ -285,14 +285,14 @@ class TestDelegatedPatronIdentifier:
 class TestUniquenessConstraints:
 
     @pytest.fixture(autouse=True)
-    def setup_method(self, db_session, create_patron, create_collection, create_library, init_datasource_and_genres):
+    def setup_method(self, db_session, create_patron, create_collection, create_library):
         self.data_source = DataSource.lookup(db_session, DataSource.OVERDRIVE)
         self.type = 'a credential type'
 
         # Create a default collection
         self.library = create_library(db_session, name="default", short_name="default")
         self.patron = create_patron(db_session, library=self.library)
-        collection= create_collection(db_session, name="Default Collection")
+        collection = create_collection(db_session, name="Default Collection")
         self.library.collections.append(collection)
 
         self.col1 = collection

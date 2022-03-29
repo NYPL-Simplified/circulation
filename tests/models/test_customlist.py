@@ -13,7 +13,7 @@ from ...util.datetime_helpers import utc_now
 
 class TestCustomList:
 
-    def test_find(self, db_session, create_customlist, create_library, init_datasource_and_genres):
+    def test_find(self, db_session, create_customlist, create_library):
         """
         GIVEN: A CustomList
         WHEN:  Finding a foreign list in the database
@@ -256,8 +256,7 @@ class TestCustomList:
         assert entry3 == entry1
         assert is_new3 is False
 
-    def test_add_entry_work_equivalent_identifier(self, db_session, create_work, create_customlist,
-                                                  init_datasource_and_genres):
+    def test_add_entry_work_equivalent_identifier(self, db_session, create_work, create_customlist):
         """
         GIVEN: Two Works with equivalent identifiers
         WHEN:  Adding a duplicate Work entry to a CustomList
@@ -291,7 +290,7 @@ class TestCustomList:
         assert entry3 == entry1
         assert is_new3 is False
 
-    def test_remove_entry(self, db_session, create_customlist, create_edition, init_datasource_and_genres):
+    def test_remove_entry(self, db_session, create_customlist, create_edition):
         """
         GIVEN: A CustomList with 3 entries
         WHEN:  Removing an entry
@@ -397,8 +396,7 @@ class TestCustomList:
 
 class TestCustomListEntry:
 
-    def test_set_work(self, db_session, create_customlist, create_edition,
-                      init_datasource_and_genres, init_delivery_mechanism):
+    def test_set_work(self, db_session, create_customlist, create_edition):
         """
         GIVEN: A CustomList with an entry
         WHEN:  Adding a Work with a LicensePool through entry.set_work()
@@ -442,7 +440,7 @@ class TestCustomListEntry:
         # associated with the Work.
         assert None is edition.work
 
-    def test_update(self, db_session, create_customlist, create_edition, create_work, init_delivery_mechanism):
+    def test_update(self, db_session, create_customlist, create_edition, create_work):
         """
         GIVEN: A CustomList
         WHEN:  Updating an entry

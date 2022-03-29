@@ -115,7 +115,7 @@ class TestEdition:
         assert identifier == record.primary_identifier
         assert was_new is False
 
-    def test_missing_coverage_from(self, db_session, create_coverage_record, init_datasource_and_genres):
+    def test_missing_coverage_from(self, db_session, create_coverage_record):
         """
         GIVEN: An Edition that has some CoverageRecords with varying associations
         WHEN:  Querying for missing coverages via Edition.missing_coverage_from(...)
@@ -224,7 +224,7 @@ class TestEdition:
         assert (set([edition.primary_identifier]) ==
                set(edition.equivalent_identifiers(policy=policy)))
 
-    def test_recursive_edition_equivalence(self, db_session, create_edition, create_work, init_datasource_and_genres):
+    def test_recursive_edition_equivalence(self, db_session, create_edition, create_work):
         """
         GIVEN: Given a few Editions and a Project Gutenberg identifier that is equivalent to an OCLC Number
         WHEN:  Calling Edition.equivalent_editions
@@ -364,7 +364,7 @@ class TestEdition:
         assert "Kelly Accumulator, Bob A. Bitshifter" == wr.author
         assert "Accumulator, Kelly ; Bitshifter, Bob" == wr.sort_author
 
-    def test_set_summary(self, db_session, create_edition, create_work, init_datasource_and_genres):
+    def test_set_summary(self, db_session, create_edition, create_work):
         """
         GIVEN: A Work with a presentation Edition that has a LicensePool
         WHEN:  Setting the Work's summary
@@ -387,8 +387,7 @@ class TestEdition:
         assert work.summary is None
         assert "" == work.summary_text
 
-    def test_calculate_evaluate_summary_quality_with_privileged_data_sources(
-            self, db_session, create_edition, init_datasource_and_genres):
+    def test_calculate_evaluate_summary_quality_with_privileged_data_sources(self, db_session, create_edition):
         """
         GIVEN: An Edition with a LicensePool with varying linked descriptions
         WHEN:  Evaluating the summary quality with a privileged data source
@@ -451,7 +450,7 @@ class TestEdition:
         assert [staff_resource] == resources5
         assert staff_resource == champ5
 
-    def test_calculate_presentation_cover(self, db_session, create_edition, init_datasource_and_genres):
+    def test_calculate_presentation_cover(self, db_session, create_edition):
         """
         GIVEN: An Edition with varying attributes for cover images and thumbnails
         WHEN:  Calculating the presentation

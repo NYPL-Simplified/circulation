@@ -175,7 +175,7 @@ class TestTimestamp:
 
 class TestBaseCoverageRecord:
 
-    def test_not_covered(self, db_session, create_coverage_record, create_identifier, init_datasource_and_genres):
+    def test_not_covered(self, db_session, create_coverage_record, create_identifier):
         """
         GIVEN: Four Identifiers with four relationships to a certain coverage provider
         WHEN:  Checking the coverage record
@@ -257,8 +257,7 @@ class TestBaseCoverageRecord:
 
 class TestCoverageRecord:
 
-    def test_lookup(self, db_session, create_collection, create_coverage_record, create_edition,
-                    init_datasource_and_genres):
+    def test_lookup(self, db_session, create_collection, create_coverage_record, create_edition):
         """
         GIVEN: A CoverageRecord asssociated with an Edition, DataSource, operation, and Collection
         WHEN:  Looking up the CoverageRecord
@@ -296,7 +295,7 @@ class TestCoverageRecord:
         result = CoverageRecord.lookup(edition, other_source, operation, collection=collection)
         assert result is None
 
-    def test_add_for(self, db_session, create_edition, init_datasource_and_genres):
+    def test_add_for(self, db_session, create_edition):
         """
         GIVEN: An Edition
         WHEN:  Adding a CoverageRecord for the Edition with a DataSource and operation
@@ -338,7 +337,7 @@ class TestCoverageRecord:
         assert record5 == record
         assert CoverageRecord.PERSISTENT_FAILURE == record.status
 
-    def test_bulk_add(self, db_session, create_coverage_record, create_identifier, init_datasource_and_genres):
+    def test_bulk_add(self, db_session, create_coverage_record, create_identifier):
         """
         GIVEN: Multiple Identifiers
         WHEN:  Bulk adding Identifiers for CoverageRecord
@@ -407,8 +406,7 @@ class TestCoverageRecord:
         assert [] == resulting_records
         assert sorted([i2, covered]) == sorted(ignored_identifiers)
 
-    def test_bulk_add_with_collection(self, db_session, create_collection, create_identifier, create_coverage_record,
-                                      init_datasource_and_genres):
+    def test_bulk_add_with_collection(self, db_session, create_collection, create_identifier, create_coverage_record):
         """
         GIVEN: Multiple Collections
         WHEN:  Bulk adding Identifiers for a CoverageRecord associated with a Collection

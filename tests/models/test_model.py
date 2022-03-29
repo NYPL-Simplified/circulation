@@ -55,7 +55,7 @@ class TestDatabaseInterface:
         result = get_one(db_session, Edition, constraint=constraint)
         assert None == result
 
-    def test_initialize_data_does_not_reset_timestamp(self, db_session, initalize_data):
+    def test_initialize_data_does_not_reset_timestamp(self, db_session):
         """
         GIVEN: An initialized database with data
         WHEN:  Re-initializing data

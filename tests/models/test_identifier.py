@@ -560,7 +560,7 @@ class TestIdentifier:
         assert lp2 == identifier.licensed_through_collection(c2)
         assert None is identifier.licensed_through_collection(c3)
 
-    def test_missing_coverage_from(self, db_session, create_coverage_record, init_datasource_and_genres):
+    def test_missing_coverage_from(self, db_session, create_coverage_record):
         """
         GIVEN: Identifiers with various data sources
         WHEN:  Finding Identifiers of a given type which have no CoverageRecord from a given data source
@@ -690,7 +690,7 @@ class TestIdentifier:
                 count_as_missing_before=timestamp+datetime.timedelta(seconds=1)
             ).all())
 
-    def test_opds_entry(self, db_session, create_coverage_record, create_identifier, init_datasource_and_genres):
+    def test_opds_entry(self, db_session, create_coverage_record, create_identifier):
         """
         GIVEN: An Identifier
         WHEN:  Creating an OPDS entry for this Identifier

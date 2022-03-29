@@ -67,7 +67,7 @@ class TestHyperlink:
         """
         assert Hyperlink._default_filename(relation) == default_filename
 
-    def test_unmirrored(self, db_session, create_identifier, create_work, default_library, init_datasource_and_genres):
+    def test_unmirrored(self, db_session, create_identifier, create_work, default_library):
         """
         GIVEN: Hyperlink resources, a Work, and a Collection
         WHEN:  Getting Hyperlinks associated with an item in a Collection that could be mirrored but aren't.
@@ -982,8 +982,7 @@ class TestCoverResource:
         assert jpeg < gif
         assert gif < svg
 
-    def test_best_covers_among(
-            self, db_session, create_edition, get_sample_cover_representation, init_datasource_and_genres):
+    def test_best_covers_among(self, db_session, create_edition, get_sample_cover_representation):
         """
         GIVEN: Multiple cover image Representations
         WHEN:  Choosing the best cover from these representations
@@ -1124,7 +1123,7 @@ class TestCoverResource:
         assert last_votes_for_quality+1 == cover.votes_for_quality
 
     def test_quality_as_thumbnail_image(
-            self, db_session, create_edition, get_sample_cover_representation, init_datasource_and_genres):
+            self, db_session, create_edition, get_sample_cover_representation):
         """
         GIVEN: A Representation for a cover image
         WHEN:  Determining the image's suitability as a thumbnail image

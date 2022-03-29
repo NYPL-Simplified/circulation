@@ -11,7 +11,7 @@ from ...util.datetime_helpers import datetime_utc
 class TestMeasurement:
 
     @pytest.fixture(autouse=True)
-    def setup_method(self, db_session, init_datasource_and_genres):
+    def setup_method(self, db_session):
         self._db = db_session
         self.SOURCE_NAME = "Test Data Source"
 

@@ -154,7 +154,7 @@ class TestGenre:
         assert drama == Genre._id_cache[drama.id]
         assert len(Genre._id_cache) > 1
 
-    def test_genre_by_cache_key_miss_triggers_create_function(self, db_session, init_datasource_and_genres):
+    def test_genre_by_cache_key_miss_triggers_create_function(self, db_session):
         """
         GIVEN: A Genre lookup
         WHEN: There is a cache miss
@@ -243,7 +243,7 @@ class TestGenre:
 
         pytest.raises(IntegrityError, create, db_session, Genre, name="A Genre")
 
-    def test_genre_default_fiction(self, db_session, init_datasource_and_genres):
+    def test_genre_default_fiction(self, db_session):
         """
         GIVEN: Three Genre lookups, two known and one unnkown
         WHEN: Verifying the fiction status
