@@ -1591,13 +1591,9 @@ class TestLicensePoolDeliveryMechanism:
     @pytest.mark.parametrize(
         'data_source,identifier,delivery_mechanism',
         [
-            ('a', 'a', 'a'),
-            ('ą', 'ą', 'ą')
+            pytest.param('a', 'a', 'a', id='ascii_symbol'),
+            pytest.param('ą', 'ą', 'ą', id='non-ascii_symbol'),
         ],
-        ids=[
-            'ascii_symbol',
-            'non-ascii_symbol'
-        ]
     )
     def test_repr(self, data_source, identifier, delivery_mechanism):
         """

@@ -195,13 +195,13 @@ class TestListeners:
     @pytest.mark.parametrize(
         'status_property_setter',
         [
-            (functools.partial(_set_property, property_name="open_access")),
-            (functools.partial(_set_property, property_name="self_hosted"))
+            pytest.param(
+                functools.partial(_set_property, property_name="open_access"),
+                id='works_when_open_access_property_changes'),
+            pytest.param(
+                functools.partial(_set_property, property_name="self_hosted"),
+                id='works_when_self_hosted_property_changes'),
         ],
-        ids=[
-            'works_when_open_access_property_changes',
-            'works_when_self_hosted_property_changes'  
-        ]
     )
     def test_licensepool_storage_status_change(self, status_property_setter, db_session, create_work):
         """

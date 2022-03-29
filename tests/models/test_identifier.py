@@ -772,33 +772,19 @@ class TestIdentifier:
     @pytest.mark.parametrize(
         'identifier_type, identifier, title',
         [
-            ('a', 'a', None),
-            ('a', 'ą', None),
-            ('ą', 'a', None),
-            ('ą', 'ą', None),
-            ('a', 'a', 'a'),
-            ('a', 'ą', 'a'),
-            ('ą', 'a', 'a'),
-            ('ą', 'ą', 'a'),
-            ('a', 'a', 'ą'),
-            ('a', 'ą', 'ą'),
-            ('ą', 'a', 'ą'),
-            ('ą', 'ą', 'ą'),
+            pytest.param('a', 'a', None, id='ascii_type_ascii_identifier_no_title'),
+            pytest.param('a', 'ą', None, id='ascii_type_non_ascii_identifier_no_title'),
+            pytest.param('ą', 'a', None, id='non_ascii_type_ascii_identifier_no_title'),
+            pytest.param('ą', 'ą', None, id='non_ascii_type_non_ascii_identifier_no_title'),
+            pytest.param('a', 'a', 'a', id='ascii_type_ascii_identifier_ascii_title'),
+            pytest.param('a', 'ą', 'a', id='ascii_type_non_ascii_identifier_ascii_title'),
+            pytest.param('ą', 'a', 'a', id='non_ascii_type_ascii_identifier_ascii_title'),
+            pytest.param('ą', 'ą', 'a', id='non_ascii_type_non_ascii_identifier_ascii_title'),
+            pytest.param('a', 'a', 'ą', id='ascii_type_ascii_identifier_non_ascii_title'),
+            pytest.param('a', 'ą', 'ą', id='ascii_type_non_ascii_identifier_non_ascii_title'),
+            pytest.param('ą', 'a', 'ą', id='non_ascii_type_ascii_identifier_non_ascii_title'),
+            pytest.param('ą', 'ą', 'ą', id='non_ascii_type_non_ascii_identifier_non_ascii_title'),
         ],
-        ids=[
-            'ascii_type_ascii_identifier_no_title',
-            'ascii_type_non_ascii_identifier_no_title',
-            'non_ascii_type_ascii_identifier_no_title',
-            'non_ascii_type_non_ascii_identifier_no_title',
-            'ascii_type_ascii_identifier_ascii_title',
-            'ascii_type_non_ascii_identifier_ascii_title',
-            'non_ascii_type_ascii_identifier_ascii_title',
-            'non_ascii_type_non_ascii_identifier_ascii_title',
-            'ascii_type_ascii_identifier_non_ascii_title',
-            'ascii_type_non_ascii_identifier_non_ascii_title',
-            'non_ascii_type_ascii_identifier_non_ascii_title',
-            'non_ascii_type_non_ascii_identifier_non_ascii_title'
-        ]
     )
     def test_repr(self, identifier_type, identifier, title):
         """

@@ -81,15 +81,10 @@ class TestNumericRangeConversion(object):
     @pytest.mark.parametrize(
         'lower,upper,upper_inc',
         [
-            (1, 10, True),
-            (None, 10, True),
-            (10, None, False),
+            pytest.param(1, 10, True, id='one_to_ten'),
+            pytest.param(None, 10, True, id='up_to_ten'),
+            pytest.param(10, None, False, id='ten_and_up'),
         ],
-        ids=[
-            "one_to_ten",
-            "up_to_ten",
-            "ten_and_up"
-        ]
     )
     def test_tuple_to_numericrange(self, lower, upper, upper_inc):
         """
@@ -109,13 +104,9 @@ class TestNumericRangeConversion(object):
     @pytest.mark.parametrize(
         'lower,upper,clusivity,tuple_lower,tuple_upper',
         [
-            (2, 6, '[]', 2, 6),
-            (2, 6, '()', 3, 5)
+            pytest.param(2, 6, '[]', 2, 6, id='two_to_six_inclusive'),
+            pytest.param(2, 6, '()', 3, 5, id='two_to_six_exclusive'),
         ],
-        ids=[
-            "two_to_six_inclusive",
-            "two_to_six_exclusive"
-        ]
     )
     def test_numericrange_to_tuple(self, lower, upper, clusivity, tuple_lower, tuple_upper):
         """

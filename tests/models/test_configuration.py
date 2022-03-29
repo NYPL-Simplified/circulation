@@ -282,17 +282,11 @@ class TestConfigurationSetting:
     @pytest.mark.parametrize(
         'set_to,expect',
         [
-            (None, None),
-            (1, '1'),
-            ('snowman', 'snowman'),
-            ('☃'.encode("utf8"), '☃')
+            pytest.param(None, None, id='no_value'),
+            pytest.param(1, '1', id='stringable_value'),
+            pytest.param('snowman', 'snowman', id='string_value'),
+            pytest.param('☃'.encode("utf8"), '☃', id='bytes_value'),
         ],
-        ids=[
-            'no value',
-            'stringable value',
-            'string value',
-            'bytes value'
-        ]
     )
     def test_setter(self, db_session, set_to, expect):
         """

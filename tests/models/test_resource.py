@@ -54,15 +54,10 @@ class TestHyperlink:
     @pytest.mark.parametrize(
         'relation,default_filename',
         [
-            (Hyperlink.OPEN_ACCESS_DOWNLOAD, "content"),
-            (Hyperlink.IMAGE, "cover"),
-            (Hyperlink.THUMBNAIL_IMAGE, "cover-thumbnail")
+            pytest.param(Hyperlink.OPEN_ACCESS_DOWNLOAD, "content", id='content'),
+            pytest.param(Hyperlink.IMAGE, "cover", id='cover'),
+            pytest.param(Hyperlink.THUMBNAIL_IMAGE, "cover-thumbnail", id='cover-thumbnail'),
         ],
-        ids=[
-            "content",
-            "cover",
-            "cover-thumbnail"
-        ]
     )
     def test_default_filename(self, relation, default_filename):
         """
@@ -178,30 +173,23 @@ class TestRepresentation:
         [
             # If there are no headers or no content-type header, the
             # presumed media type takes precedence.
-            ("http://text/all.about.jpeg", None, "text/plain", "text/plain"),
-            (None, {}, "text/plain", "text/plain"),
-            # Most of the time, the content-type header takes precedence over
-            # the presumed media type.
-            (None, {"content-type": "image/gif"}, "text/plain", "image/gif"),
+            pytest.param("http://text/all.about.jpeg", None, "text/plain", "text/plain", id='no_headers'),
+            pytest.param(None, {}, "text/plain", "text/plain", id='empty_headers'),
+            # Most of the time, the content-type header takes precedence over the presumed media type.
+            pytest.param(None, {"content-type": "image/gif"}, "text/plain", "image/gif", id='image/gif'),
             # Except when the content-type header is so generic as to be uselses.
-            (None, {"content-type": "application/octet-stream;profile=foo"}, "text/plain", "text/plain"),
+            pytest.param(None, {"content-type": "application/octet-stream;profile=foo"},
+                         "text/plain", "text/plain", id='generic_headers'),
             # If no default media type is specified, but one can be derived from
             # the URL, that one is used as the default.
-            ("http://example.com/cover.jpeg",
-                {"content-type": "application/octet-stream;profile=foo"}, None, "image/jpeg"),
+            pytest.param("http://example.com/cover.jpeg", {"content-type": "application/octet-stream;profile=foo"},
+                         None, "image/jpeg", id='no_default_media_type'),
             # But a default media type doesn't override a specific
             # Content-Type from the server, even if it superficially makes
             # more sense.
-            ("http://images-galore/cover.jpeg", {"content-type": "image/png"}, None, "image/png")
+            pytest.param("http://images-galore/cover.jpeg", {"content-type": "image/png"},
+                         None, "image/png", id='specific_content-type'),
         ],
-        ids=[
-            'no headers',
-            'empty headers',
-            'image/gif',
-            'generic headers',
-            'no default media type',
-            'specific content-type'
-        ]
     )
     def test_best_media_type(self, url, headers, default, expected_headers_type):
         """
@@ -280,23 +268,14 @@ class TestRepresentation:
     @pytest.mark.parametrize(
         'url,media_type,extension',
         [
-            ('', 'text/unknown', ''),
-            ('', 'text/plain', '.txt'),
-            ('.jpg', 'image/jpeg', '.jpg'),
-            ('', 'image/jpeg', '.jpg'),
-            ('', 'image/png', '.png'),
-            ('.epub.images', Representation.EPUB_MEDIA_TYPE, '.epub.images'),
-            ('.svg', 'image/svg+xml', '.svg')
+            pytest.param('', 'text/unknown', '', id='unknown_file_at_/foo'),
+            pytest.param('', 'text/plain', '.txt', id='text_file_at_/foo'),
+            pytest.param('.jpg', 'image/jpeg', '.jpg', id='JPEG_at_/foo.jpg'),
+            pytest.param('', 'image/jpeg', '.jpg', id='JPEG_at_/foo'),
+            pytest.param('', 'image/png', '.png', id='PNG_at_/foo'),
+            pytest.param('.epub.images', Representation.EPUB_MEDIA_TYPE, '.epub.images', id='EPUB_at_/foo.epub.images'),
+            pytest.param('.svg', 'image/svg+xml', '.svg', id='SVG_at_/foo.svg'),
         ],
-        ids=[
-            'An unknown file at /foo',
-            'A text file at /foo',
-            'A JPEG at /foo.jpg',
-            'A JPEG at /foo',
-            'A PNG at /foo',
-            'An EPUB at /foo.epub.images',
-            'An SVG at /foo.svg'
-        ]
     )
     def test_external_media_type_and_extension(self, db_session, create_representation, url, media_type, extension):
         """
