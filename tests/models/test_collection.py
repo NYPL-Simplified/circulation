@@ -930,8 +930,8 @@ class TestCollection:
             qu, [overdrive_ebook, self_hosted_lcp_book, unlimited_access_book]
         )
 
-    def test_delete(self, monkeypatch, db_session, create_collection, create_edition, create_library, 
-            create_license, create_licensepool, create_patron, create_work, init_delivery_mechanism):
+    def test_delete(self, db_session, create_collection, create_edition, create_library, 
+                    create_license, create_licensepool, create_patron, create_work, init_delivery_mechanism):
         """
         GIVEN: A Collection that a Patron has loans/holds with a Work through a LicensePool
         WHEN:  The Collection is deleted
