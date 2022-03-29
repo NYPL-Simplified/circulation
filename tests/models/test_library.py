@@ -26,7 +26,7 @@ class TestLibrary:
         # You can set the short name to None. This isn't
         # recommended, but it's not an error.
         library.library_registry_short_name = None
-        assert None == library.library_registry_short_name # Do we need this assert?
+        assert None == library.library_registry_short_name
 
     def test_library_lookup(self, db_session, create_library):
         """
