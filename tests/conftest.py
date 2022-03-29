@@ -158,7 +158,7 @@ def create_admin_user():
     Returns a constructor function for creating an Admin user.
     """
     def _create_admin_user(db_session, email=None):
-        email = email or "admin@nypl.org"
+        email = email or "admin@example.com"
         admin, _ = get_one_or_create(db_session, Admin, email=email)
 
         return admin

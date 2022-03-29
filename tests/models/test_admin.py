@@ -35,7 +35,7 @@ class TestAdmin:
         admin.password = "password"
         assert [admin] == Admin.with_password(db_session).all()
 
-        admin2 = create_admin_user(db_session, email="admin2@nypl.org")
+        admin2 = create_admin_user(db_session, email="admin2@example.com")
         assert [admin] == Admin.with_password(db_session).all()
 
         admin2.password = "password2"
@@ -67,14 +67,14 @@ class TestAdmin:
         WHEN:  Authenticating the Admin users with the password "password"
         THEN:  The Admin user that has the password "password" is authenticated
         """
-        admin = create_admin_user(db_session, email="admin@nypl.org")
+        admin = create_admin_user(db_session, email="admin@example.com")
         admin.password = "password"
-        other_admin = create_admin_user(db_session, email="other@nypl.org")
+        other_admin = create_admin_user(db_session, email="other@example.com")
         other_admin.password = "banana"
 
-        assert admin == Admin.authenticate(db_session, "admin@nypl.org", "password")
-        assert None == Admin.authenticate(db_session, "other@nypl.org", "password")
-        assert None == Admin.authenticate(db_session, "example@nypl.org", "password")
+        assert admin == Admin.authenticate(db_session, "admin@example.com", "password")
+        assert None == Admin.authenticate(db_session, "other@example.com", "password")
+        assert None == Admin.authenticate(db_session, "example@example.com", "password")
 
     def test_roles(self, db_session, create_admin_user, create_library):
         """
