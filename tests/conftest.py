@@ -82,9 +82,8 @@ def init_test_db():
         except ProgrammingError:
             pass
 
-    with engine.connect() as conn:
-        Base.metadata.create_all(conn)
     with engine.connect() as connection:
+        Base.metadata.create_all(connection)
         db_session = Session(connection)
 
         # Populate Genres
