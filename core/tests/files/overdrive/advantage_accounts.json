@@ -1,0 +1,122 @@
+{
+	"id": 1225,
+	"links": {
+		"self": {
+			"href": "https://api.overdrive.com/v1/libraries/1225/advantageAccounts",
+			"type": "application/vnd.overdrive.api+json"
+		}
+	},
+	"advantageAccounts": [{
+		"id": 3,
+		"name": "The Other Side of Town Library",
+		"type": "Library Advantage Account",
+                "collectionToken": "v1L2B2gAAAK8BAAA1x",
+		"links": {
+			"self": {
+				"href": "https://api.overdrive.com/v1/libraries/1225/advantageAccounts/3",
+				"type": "application/vnd.overdrive.api+json"
+			},
+			"products": {
+				"href": "https://api.overdrive.com/v1/collections/v1L2B2gAAAK8BAAA1x/products",
+				"type": "application/vnd.overdrive.api+json"
+			}
+		},
+		"formats": [{
+			"id": "audiobook-wma",
+			"name": "OverDrive WMA Audiobook"
+		},
+		{
+			"id": "music-wma",
+			"name": "OverDrive Music"
+		},
+		{
+			"id": "video-wmv",
+			"name": "OverDrive Video"
+		},
+		{
+			"id": "ebook-pdf-adobe",
+			"name": "Adobe PDF eBook"
+		},
+		{
+			"id": "ebook-disney",
+			"name": "Disney Online Book"
+		},
+		{
+			"id": "ebook-epub-adobe",
+			"name": "Adobe EPUB eBook"
+		},
+		{
+			"id": "ebook-kindle",
+			"name": "Kindle Book"
+		},
+		{
+			"id": "audiobook-mp3",
+			"name": "OverDrive MP3 Audiobook"
+		},
+		{
+			"id": "ebook-pdf-open",
+			"name": "Open PDF eBook"
+		},
+		{
+			"id": "ebook-epub-open",
+			"name": "Open EPUB eBook"
+		}]
+	},
+	{
+		"id": 9,
+		"name": "The Common Community Library",
+		"type": "Library Advantage Account",
+                "collectionToken": "v1L2B2gAAAKoBAAA1B",
+		"links": {
+			"self": {
+				"href": "https://api.overdrive.com/v1/libraries/1225/advantageAccounts/9",
+				"type": "application/vnd.overdrive.api+json"
+			},
+			"products": {
+				"href": "https://api.overdrive.com/v1/collections/v1L2B2gAAAKoBAAA1B/products",
+				"type": "application/vnd.overdrive.api+json"
+			}
+		},
+		"formats": [{
+			"id": "audiobook-wma",
+			"name": "OverDrive WMA Audiobook"
+		},
+		{
+			"id": "music-wma",
+			"name": "OverDrive Music"
+		},
+		{
+			"id": "video-wmv",
+			"name": "OverDrive Video"
+		},
+		{
+			"id": "ebook-pdf-adobe",
+			"name": "Adobe PDF eBook"
+		},
+		{
+			"id": "ebook-disney",
+			"name": "Disney Online Book"
+		},
+		{
+			"id": "ebook-epub-adobe",
+			"name": "Adobe EPUB eBook"
+		},
+		{
+			"id": "ebook-kindle",
+			"name": "Kindle Book"
+		},
+		{
+			"id": "audiobook-mp3",
+			"name": "OverDrive MP3 Audiobook"
+		},
+		{
+			"id": "ebook-pdf-open",
+			"name": "Open PDF eBook"
+		},
+		{
+			"id": "ebook-epub-open",
+			"name": "Open EPUB eBook"
+		}]
+	}],
+	"totalItems": 2
+}
