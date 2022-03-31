@@ -127,9 +127,8 @@ class TestHasSelfTests(DatabaseTest):
 
         # By default, the default constructor is instantiated and its
         # _run_self_tests method is called.
-        data, [setup, test] = Tester.run_self_tests(
-            mock_db, extra_arg="a value"
-        )
+        data, [setup, test] = Tester.run_self_tests(mock_db, constructor_method=Tester, extra_arg="a value")
+
         assert mock_db == setup.result._run_self_tests_called_with
 
         # There are two results -- `setup` from the initial setup
@@ -201,7 +200,7 @@ class TestHasSelfTests(DatabaseTest):
                 raise Exception("oh no")
                 yield SelfTestResult("i'll never be called.")
 
-        status, [init, success, failure] = Tester.run_self_tests(object())
+        status, [init, success, failure] = Tester.run_self_tests(object(), constructor_method=Tester)
         assert "Initial setup." == init.name
         assert "everything's ok so far" == success.name
 
