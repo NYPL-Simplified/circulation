@@ -1,0 +1,1323 @@
+<feed xmlns:simplified="http://librarysimplified.org/terms/" xmlns:app="http://www.w3.org/2007/app" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:schema="http://schema.org/" xmlns="http://www.w3.org/2005/Atom">
+  <id>http://localhost:5000/</id>
+  <title>Open-Access Content</title>
+  <updated>2015-01-02T16:56:40Z</updated>
+  <link href="http://localhost:5000/"/>
+  <link href="http://localhost:5000/" rel="self"/>
+  <entry schema:additionalType="http://schema.org/PublicationIssue">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441</id>
+    <title>The Green Mouse</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Chambers, Robert W. (Robert William)</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <schema:Series schema:name="Animal Colors" schema:position="1"/>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>6db4cf90-0129-0eaf-410a-502b20a45e67</simplified:pwid>
+    <schema:Rating schema:ratingValue="0.3333" schema:additionalType="http://librarysimplified.org/terms/rel/quality"/>
+    <schema:Rating schema:ratingValue="0.6000"/>
+    <schema:Rating schema:ratingValue="0.2500" schema:additionalType="http://librarysimplified.org/terms/rel/popularity"/>
+    <link href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png" rel="http://opds-spec.org/image"/>
+    <link href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png" rel="http://opds-spec.org/image/thumbnail"/>
+    <category term="Courtship -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="New York (N.Y.) -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Fantasy fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Magic -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PZ" scheme="http://purl.org/dc/terms/LCC"/>
+    <category term="Children" scheme="http://schema.org/audience"/>
+    <category term="7" scheme="http://schema.org/typicalAgeRange"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <dcterms:issued>1910</dcterms:issued>
+    <link href="http://www.gutenberg.org/ebooks/10441.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557</id>
+    <title>Johnny Crow's Party</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Brooke, L. Leslie (Leonard Leslie)</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>9acabf17-cea8-c7dd-8440-f12dfa75caa9</simplified:pwid>
+    <category term="Animals -- Juvenile poetry" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Nursery rhymes" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PZ" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <dcterms:issued>1907-07-07</dcterms:issued>
+    <link href="http://www.gutenberg.org/ebooks/10557.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10522</id>
+    <title>Beacon Lights of History, Volume 04: Imperial Antiquity</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Lord, John</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>fc402b43-2e14-a2dd-b826-a699bbf47a0b</simplified:pwid>
+    <category term="History" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="D" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10522.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10596</id>
+    <title>Cap and Gown</title>
+    <schema:alternativeHeadline>A Treasury of College Verse</schema:alternativeHeadline>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>a3389f1b-a7b2-c328-f6fc-c50ea5791e65</simplified:pwid>
+    <category term="College verse, American" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="American poetry" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PN" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <dcterms:issued>Ignore me, but the rest of this entry should still parse</dcterms:issued>
+    <link href="http://www.gutenberg.org/ebooks/10596.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10219</id>
+    <title>The Poetical Works of William Wordsworth &#8212; Volume 1</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Wordsworth, William</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>844e37e4-7c2e-3382-c178-f4f0ef91c509</simplified:pwid>
+    <category term="English poetry -- 19th century" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="English poetry -- 18th century" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10219.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10631</id>
+    <title>Halleck's New English Literature</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Halleck, Reuben Post</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>85896ae3-e278-dee2-16ee-5a3b72885a1d</simplified:pwid>
+    <category term="English literature -- History and criticism" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10631.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10394</id>
+    <title>Stolen Treasure</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Pyle, Howard</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>88b1ceab-6684-a526-f4e8-cda5fd673ed8</simplified:pwid>
+    <category term="Buccaneers -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Treasure troves -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10394.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10058</id>
+    <title>The Divine Office</title>
+    <schema:alternativeHeadline>A Study of the Roman Breviary</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Quigley, Edward J.</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>16057674-c8c3-24c6-f210-36c821ec2407</simplified:pwid>
+    <category term="Divine office" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Catholic Church. Breviary" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="BX" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10058.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10100</id>
+    <title>Byron</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Nichol, John</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>3c280dc0-2aee-080c-a02e-0a2e5a2e6c0d</simplified:pwid>
+    <category term="Byron, George Gordon Byron, Baron, 1788-1824" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10100.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10647</id>
+    <title>Beacon Lights of History, Volume 12: American Leaders</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Lord, John</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>bc29b18d-0c26-8489-cd1b-3cd545a165ed</simplified:pwid>
+    <category term="United States -- Biography" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="History" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="D" scheme="http://purl.org/dc/terms/LCC"/>
+    <category term="E151" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10647.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10341</id>
+    <title>The Great Events by Famous Historians, Volume 21</title>
+    <schema:alternativeHeadline>The Recent Days (1910-1914)</schema:alternativeHeadline>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>56120ab1-bbc2-4d3c-1ee2-070645cd37f0</simplified:pwid>
+    <category term="World history" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="World history" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="World history" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="World history" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="World history" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="D" scheme="http://purl.org/dc/terms/LCC"/>
+    <category term="D" scheme="http://purl.org/dc/terms/LCC"/>
+    <category term="D" scheme="http://purl.org/dc/terms/LCC"/>
+    <category term="D" scheme="http://purl.org/dc/terms/LCC"/>
+    <category term="D" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10341.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10029</id>
+    <title>The Hunt Ball Mystery</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Magnay, William, Sir</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>5165e071-ff53-b6e7-a8eb-29313139a73b</simplified:pwid>
+    <category term="Detective and mystery stories" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10029.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10656</id>
+    <title>A Collection of Old English Plays, Volume 2</title>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>290cb0c4-e876-474c-8775-6aed915964dc</simplified:pwid>
+    <category term="English drama -- Early modern and Elizabethan, 1500-1600" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10656.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10321</id>
+    <title>Dragon's blood</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Rideout, Henry Milner</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>14efbd0e-53ef-87c3-3630-2246272537f6</simplified:pwid>
+    <category term="Europeans -- China -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10321.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10338</id>
+    <title>With the Turks in Palestine</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Aaronsohn, Alexander</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>62213c46-4f92-5638-addf-619a609929ff</simplified:pwid>
+    <link href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10338/cover_10338_14.png" rel="http://opds-spec.org/image"/>
+    <link href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10338/cover_10338_14.png" rel="http://opds-spec.org/image/thumbnail"/>
+    <category term="World War, 1914-1918 -- Personal narratives" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Palestine" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="D501" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10338.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/1057</id>
+    <title>Poems, with The Ballad of Reading Gaol</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Wilde, Oscar</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:40Z</updated>
+    <simplified:pwid>d182039c-154f-e79f-f30e-36c62a5bdb1b</simplified:pwid>
+    <category term="Poetry" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Prisons -- Poetry" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/1057.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/1055</id>
+    <title>'Twixt Land &amp; Sea: Tales</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Conrad, Joseph</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>709428eb-1792-0bf4-afb9-8fb0666358f3</simplified:pwid>
+    <category term="Indian Ocean -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Ship captains -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/1055.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10064</id>
+    <title>Beltane the Smith</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Farnol, Jeffery</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>1c9a352f-db80-beae-a463-8f86411fe90e</simplified:pwid>
+    <category term="Blacksmiths -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10064.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10567</id>
+    <title>The Guardian Angel</title>
+    <schema:alternativeHeadline>Ship's Company, Part 7.</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Jacobs, W. W. (William Wymark)</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>f01d4bc4-cb4d-60ab-f391-67702e44ae5c</simplified:pwid>
+    <category term="England -- Social life and customs -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Humorous stories, English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10567.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10427</id>
+    <title>Scientific Essays and Lectures</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Kingsley, Charles</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>f81053e8-a494-c1ab-255f-517dbebdf608</simplified:pwid>
+    <category term="Science" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Q" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10427.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10134</id>
+    <title>John Wesley, Jr.</title>
+    <schema:alternativeHeadline>The Story of an Experiment</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Brummitt, Dan B. (Dan Brearley)</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>7a74ace1-79cc-ef7c-c767-781357038603</simplified:pwid>
+    <category term="Christian fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Methodists -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10134.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10551</id>
+    <title>Affair in Araby</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Mundy, Talbot</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>ea722658-2cb9-c435-7511-6cc00aeea011</simplified:pwid>
+    <category term="Secret service -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Spy stories" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Middle East -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Jerusalem -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10551.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10534</id>
+    <title>The Double Traitor</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Oppenheim, E. Phillips (Edward Phillips)</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>d4e5f027-20db-99be-df0e-f006847e82ba</simplified:pwid>
+    <category term="Spy stories" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10534.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10435</id>
+    <title>The Atlantic Monthly, Volume 02, No. 12, October, 1858</title>
+    <schema:alternativeHeadline>A Magazine of Literature, Art, and Politics</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Various</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>c9905d88-4f75-746f-b3ea-276e4e770256</simplified:pwid>
+    <category term="American periodicals" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="AP" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10435.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/1022</id>
+    <title>Walking</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Thoreau, Henry David</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>f1e7927a-5aaf-433a-fb7b-404bc16a5987</simplified:pwid>
+    <category term="Essays" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Nature" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Walking" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" label="American Literature" scheme="http://purl.org/dc/terms/LCC" schema:ratingValue="10"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <dcterms:issued>1862-06-01</dcterms:issued>
+    <link href="http://www.gutenberg.org/ebooks/1022.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10453</id>
+    <title>A Practical Physiology: A Text-Book for Higher Schools</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Blaisdell, Albert F. (Albert Franklin)</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>ada4f0f0-597e-9e48-d4cd-7c483e0af48e</simplified:pwid>
+    <category term="Human physiology" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Physiology" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="QP" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10453.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10572</id>
+    <title>Manners Makyth Man</title>
+    <schema:alternativeHeadline>Ship's Company, Part 12.</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Jacobs, W. W. (William Wymark)</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>a3c422e6-ce8a-1042-f307-b8d39372920e</simplified:pwid>
+    <category term="England -- Social life and customs -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Humorous stories, English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10572.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/1065</id>
+    <title>The Raven</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Poe, Edgar Allan</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>23b00b97-dfe7-33b8-5853-659031959d9a</simplified:pwid>
+    <category term="Fantasy poetry, American" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/1065.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10690</id>
+    <title>A Desperate Chance; Or, The Wizard Tramp's Revelation, a Thrilling Narrative</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Old Sleuth</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>926304d7-1a24-311a-d6dd-389bbaafb6a7</simplified:pwid>
+    <category term="Tramps -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Young men -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Adventure stories" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10690.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10467</id>
+    <title>A Select Collection of Old English Plays, Volume 8</title>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>aab1a48d-d44a-1a27-6807-0f2a536ce6dd</simplified:pwid>
+    <category term="English drama" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10467.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10595</id>
+    <title>Punch, or the London Charivari, Volume 153, September 19, 1917</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Various</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>8c7f0e89-1479-d0e3-521c-5c8c0b7443ff</simplified:pwid>
+    <category term="English wit and humor -- Periodicals" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="AP" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10595.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10122</id>
+    <title>Fairies and Fusiliers</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Graves, Robert</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>927f3a9c-67f6-5522-82ca-cae6f1ab7851</simplified:pwid>
+    <category term="World War, 1914-1918 -- Poetry" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="War poetry, English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10122.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10133</id>
+    <title>The Vigil of Venus and Other Poems by "Q"</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Quiller-Couch, Arthur</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:41Z</updated>
+    <simplified:pwid>981cc3e8-93ec-9019-c6fe-e79b9736dcde</simplified:pwid>
+    <category term="Poetry" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10133.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10210</id>
+    <title>Wolves of the Sea</title>
+    <schema:alternativeHeadline>Being a Tale of the Colonies from the Manuscript of One Geoffry Carlyle, Seaman, Narrating Certain Strange Adventures Which Befell Him Aboard the Pirate Craft "Namur"</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Parrish, Randall</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>e6e29557-6376-cafa-32d5-bdf68167273c</simplified:pwid>
+    <category term="Sea stories" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Pirates -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10210.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10217</id>
+    <title>The Land of Little Rain</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Austin, Mary Hunter</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>8ee11abd-8abe-d80e-09c4-9373c0565b40</simplified:pwid>
+    <category term="California -- Description and travel" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Natural history -- California" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Frontier and pioneer life -- California" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="California -- Social life and customs" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="California -- History, Local" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="F850.5" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10217.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10495</id>
+    <title>Under King Constantine</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Trask, Katrina</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>4654cd32-c0e7-8dd8-7291-4faf818f96d8</simplified:pwid>
+    <category term="Knights and knighthood -- Poetry" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10495.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10086</id>
+    <title>The Minute Boys of the Mohawk Valley</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Otis, James</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>0e25706c-1b7b-231c-2f8d-0d68b52fa7f7</simplified:pwid>
+    <category term="United States -- History -- Revolution, 1775-1783 -- Juvenile fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PZ" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10086.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10606</id>
+    <title>The Tragedie of Hamlet, Prince of Denmark</title>
+    <schema:alternativeHeadline>A Study with the Text of the Folio of 1623</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Shakespeare, William</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>04aa87f5-1a4e-33f9-d08a-812cc519e647</simplified:pwid>
+    <category term="Murder victims' families -- Drama" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Hamlet (Legendary character) -- Drama" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Princes -- Drama" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Fathers -- Death -- Drama" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Revenge -- Drama" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Kings and rulers -- Succession -- Drama" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Denmark -- Drama" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Tragedies" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10606.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10609</id>
+    <title>English Literature</title>
+    <schema:alternativeHeadline>Its History and Its Significance for the Life of the English-Speaking World</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Long, William J. (William Joseph)</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>67857d81-3248-b6e4-e489-1f3d1181ada3</simplified:pwid>
+    <category term="English literature -- History and criticism" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10609.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10111</id>
+    <title>Boys and Girls from Thackeray</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Sweetser, Kate Dickinson</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>6e2df318-c9e5-02ae-4bb6-e27cf8f02d45</simplified:pwid>
+    <category term="Thackeray, William Makepeace, 1811-1863 -- Characters" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10111.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10478</id>
+    <title>Beacon Lights of History, Volume 02: Jewish Heroes and Prophets</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Lord, John</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>68ae336c-21e9-3fb1-a141-0406bfa46ee2</simplified:pwid>
+    <category term="Jews -- History -- To 70 A.D." scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="History, Ancient" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="D" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10478.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10532</id>
+    <title>Beacon Lights of History, Volume 06: Renaissance and Reformation</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Lord, John</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>82d32977-4e6d-14d0-3b0b-335d6e26c478</simplified:pwid>
+    <category term="History" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="D" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10532.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10037</id>
+    <title>A Beautiful Possibility</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Black, Edith Ferguson</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>c124f6c1-6fb8-9c3f-5633-d094c82dfce2</simplified:pwid>
+    <category term="Orphans -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Christian life -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10037.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10212</id>
+    <title>Peck's Bad Boy with the Circus</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Peck, George W. (George Wilbur)</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>650a858c-172f-b6ff-2007-d071b9e4d5e9</simplified:pwid>
+    <category term="Circus -- Juvenile fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Boys -- Juvenile fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PZ" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10212.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10556</id>
+    <title>The Old Man in the Corner</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Orczy, Emmuska Orczy, Baroness</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>c6bcc03a-5aaa-9323-a7ec-8f5ef6b8c4fd</simplified:pwid>
+    <category term="Detective and mystery stories, English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10556.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10421</id>
+    <title>The Life of Lord Byron</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Galt, John</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>19f131a2-2084-e2e6-4855-fe08a13a3158</simplified:pwid>
+    <category term="Poets, English -- 19th century -- Biography" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Byron, George Gordon Byron, Baron, 1788-1824" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10421.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10624</id>
+    <title>Three John Silence Stories</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Blackwood, Algernon</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>d6a786dc-714e-d030-dbba-2443bfddbcaa</simplified:pwid>
+    <category term="Supernatural -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Detective and mystery stories, English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Ghost stories, English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Psychics -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Silence, John (Fictitious character) -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Paranormal fiction, English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Horror tales, English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10624.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10131</id>
+    <title>Required Poems for Reading and Memorizing</title>
+    <schema:alternativeHeadline>Third and Fourth Grades, Prescribed by State Courses of Study</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Anonymous</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>57a88951-5a54-bb09-f28c-f32835fbc97c</simplified:pwid>
+    <category term="Children's poetry" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PZ" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10131.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10540</id>
+    <title>Mother Carey's Chickens</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Wiggin, Kate Douglas Smith</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>20677e1b-d607-63a5-3e25-baeb194cdaa5</simplified:pwid>
+    <category term="Families -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Mother and child -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10540.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10325</id>
+    <title>The Gospel of the Pentateuch: A Set of Parish Sermons</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Kingsley, Charles</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>4e8b66c0-8506-b76f-eee8-0d27c6532394</simplified:pwid>
+    <category term="Sermons, English -- 19th century" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Church of England -- Sermons" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Bible. Pentateuch -- Criticism, interpretation, etc." scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Bible. Pentateuch -- Sermons" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="BX" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10325.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10367</id>
+    <title>Poems</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Carr, John, Sir</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>719d28b8-8c00-a59e-940b-352b6a1baf39</simplified:pwid>
+    <category term="Poetry" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10367.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10121</id>
+    <title>The Literature of Arabia</title>
+    <schema:alternativeHeadline>With Critical and Biographical Sketches by Epiphanius Wilson</schema:alternativeHeadline>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>8315b94b-fa44-1a63-3d1d-a1ea83d53687</simplified:pwid>
+    <category term="Arabic literature" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PJ" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10121.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10623</id>
+    <title>Plays</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Glaspell, Susan</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>553a6cfc-af2e-c8c2-a1fa-3e9a1bf701ef</simplified:pwid>
+    <category term="American drama" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10623.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10251</id>
+    <title>Town Geology</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Kingsley, Charles</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:42Z</updated>
+    <simplified:pwid>4c243e8d-1744-faad-3001-027a32760d2f</simplified:pwid>
+    <category term="Geology" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="QE" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10251.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10546</id>
+    <title>So Runs the World</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Sienkiewicz, Henryk</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>760500d1-d397-ea8a-495e-f90d41c78330</simplified:pwid>
+    <category term="Polish essays -- Translations into English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PG" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10546.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10565</id>
+    <title>Watch-Dogs</title>
+    <schema:alternativeHeadline>Ship's Company, Part 5.</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Jacobs, W. W. (William Wymark)</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>8091b7ff-1d93-59a3-cab0-2761445e4281</simplified:pwid>
+    <category term="Humorous stories, English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="England -- Social life and customs -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10565.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10036</id>
+    <title>Punchinello, Volume 2, No. 28, October 8, 1870</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Various</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>2ff451f8-0c41-3ff7-f1d9-9697d09e32c7</simplified:pwid>
+    <link href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10036/cover_10036_10.png" rel="http://opds-spec.org/image"/>
+    <link href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10036/cover_10036_10.png" rel="http://opds-spec.org/image/thumbnail"/>
+    <category term="American wit and humor -- Periodicals" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="AP" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10036.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/1063</id>
+    <title>The Cask of Amontillado</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Poe, Edgar Allan</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>0205dff8-cb77-8b17-b7ea-aadedced6475</simplified:pwid>
+    <category term="Horror tales, American" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Revenge -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/1063.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10517</id>
+    <title>Government and Rebellion</title>
+    <schema:alternativeHeadline>A Sermon Delivered in the North Broad Street Presbyterian Church, Sunday Morning, April 28, 1861</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Adams, E. E. (Ezra Eastman)</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>68f1c40f-98bd-d643-2b59-40b91218c7b8</simplified:pwid>
+    <category term="Providence and government of God -- Christianity -- Sermons" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="United States -- Politics and government -- 1861-1865 -- Sermons" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Bible. Proverbs, XVII, 11 -- Sermons" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="United States -- History -- Civil War, 1861-1865 -- Religious aspects -- Sermons" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="E456" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10517.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10102</id>
+    <title>The Czar's Spy: The Mystery of a Silent Love</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Le Queux, William</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>317a1a6b-d015-010f-9694-2ed4a06a01bd</simplified:pwid>
+    <category term="Spy stories" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10102.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10583</id>
+    <title>Holland: The History of the Netherlands</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Grattan, Thomas Colley</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>524edd33-5a2d-4955-30ed-1c7ed1ed924e</simplified:pwid>
+    <category term="Netherlands -- History" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="DJ" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10583.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10409</id>
+    <title>The Crisis of the Naval War</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Jellicoe, John Rushworth Jellicoe, Earl</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>35226305-1544-8a98-e00f-68370284696f</simplified:pwid>
+    <category term="World War, 1914-1918 -- Naval operations -- Submarine" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="World War, 1914-1918 -- Naval operations, British" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="D501" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10409.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10518</id>
+    <title>Poems</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Hay, John</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>3e87e565-93d7-e34d-b5f3-d547c2d0908d</simplified:pwid>
+    <category term="Poetry" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10518.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10328</id>
+    <title>Poems</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Cassels, Walter Richard</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>ecb651cb-6c5f-5362-7113-1eed9d4ddc86</simplified:pwid>
+    <category term="Poetry" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10328.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10452</id>
+    <title>Peter's Mother</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>De La Pasture, Henry, Mrs.</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>914770fe-19d7-2d36-c087-4408de4bab96</simplified:pwid>
+    <category term="England -- Social life and customs -- 20th century -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Love stories" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Mothers and sons -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Widows -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Upper class -- England -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="South African War, 1899-1902 -- Veterans -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10452.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10560</id>
+    <title>The Last of the Foresters</title>
+    <schema:alternativeHeadline>Or, Humors on the Border; A story of the Old Virginia Frontier</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Cooke, John Esten</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>536823bd-0683-8729-9ea0-b241a17b2d0f</simplified:pwid>
+    <category term="Frontier and pioneer life -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Virginia -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10560.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10135</id>
+    <title>The Great English Short-Story Writers, Volume 1</title>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>1b5f0ab1-4cc9-71c6-de27-47b31f2d187d</simplified:pwid>
+    <category term="Short stories" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PN" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10135.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10015</id>
+    <title>Punchinello, Volume 1, No. 19, August 6, 1870</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Various</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>a3f180d4-ef9f-8a8d-c21c-dbc87f9d86b7</simplified:pwid>
+    <link href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10015/cover_10015_6.png" rel="http://opds-spec.org/image"/>
+    <link href="https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10015/cover_10015_6.png" rel="http://opds-spec.org/image/thumbnail"/>
+    <category term="American wit and humor -- Periodicals" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="AP" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10015.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10520</id>
+    <title>The Compleat Cook</title>
+    <schema:alternativeHeadline>Expertly Prescribing the Most Ready Wayes, Whether Italian,
+Spanish or French, for Dressing of Flesh and Fish, Ordering
+Of Sauces or Making of Pastry</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>W. M.</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>4c79c3b4-fe88-fc86-b73a-1181fb59e1d8</simplified:pwid>
+    <category term="Cookbooks" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Cooking -- Early works to 1800" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="TX" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10520.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10357</id>
+    <title>Life of Johnson, Volume 4</title>
+    <schema:alternativeHeadline>1780-1784</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Boswell, James</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>7f340c2b-6f43-256f-2b27-04a87231909d</simplified:pwid>
+    <category term="Lexicographers -- Great Britain -- Biography" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Authors, English -- 18th century -- Biography" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Johnson, Samuel, 1709-1784" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Critics -- Great Britain -- Biography" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10357.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10509</id>
+    <title>The Bars of Iron</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Dell, Ethel M. (Ethel May)</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>8bcdaadf-4f0a-c153-0b78-33b2c5aca269</simplified:pwid>
+    <category term="Love stories" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10509.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10446</id>
+    <title>The Green Flag, and Other Stories of War and Sport</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Doyle, Arthur Conan</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>f2373af7-2795-ed66-78b8-c921c870cb47</simplified:pwid>
+    <category term="Great Britain -- Social life and customs -- 19th century -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="War stories, English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Sports stories, English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10446.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/1044</id>
+    <title>Extract from Captain Stormfield's Visit to Heaven</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Twain, Mark</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>b54c5429-10ed-2af6-4139-22d872742d8c</simplified:pwid>
+    <category term="Ship captains -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Satire" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Voyages, Imaginary" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Religious fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Heaven -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PS" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/1044.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/1003</id>
+    <title>Divine Comedy, Longfellow's Translation, Paradise</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Dante Alighieri</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>ce95ab2c-37a8-b150-4751-2c1ff990161f</simplified:pwid>
+    <category term="Epic poetry, Italian -- Translations into English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Italian poetry -- To 1400 -- Translations into English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PQ" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/1003.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10381</id>
+    <title>The History of a Crime</title>
+    <schema:alternativeHeadline>The Testimony of an Eye-Witness</schema:alternativeHeadline>
+    <author>
+      <name></name>
+      <simplified:sort_name>Hugo, Victor</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:43Z</updated>
+    <simplified:pwid>ffcebfb3-8a72-3fc9-0aa2-e5e2368305c0</simplified:pwid>
+    <category term="France -- History -- 1789-1900" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="DC" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10381.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10095</id>
+    <title>The Twilight of the Gods, and Other Tales</title>
+    <author>
+      <name></name>
+      <simplified:sort_name>Garnett, Richard</simplified:sort_name>
+    </author>
+    <summary></summary>
+    <updated>2015-01-02T16:56:44Z</updated>
+    <simplified:pwid>d2e77ca6-2a48-cae2-18b3-60bfce009085</simplified:pwid>
+    <category term="Mythology -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Satire" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Short stories, English" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="Legends -- Fiction" scheme="http://purl.org/dc/terms/LCSH"/>
+    <category term="PR" scheme="http://purl.org/dc/terms/LCC"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <link href="http://www.gutenberg.org/ebooks/10095.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+  <link href="http://localhost:5000/?after=327&amp;size=100" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="next"/>
+</feed>

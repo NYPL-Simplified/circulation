@@ -1,0 +1,28 @@
+<feed xmlns:bibframe="http://bibframe.org/vocab/" xmlns:simplified="http://librarysimplified.org/terms/" xmlns:app="http://www.w3.org/2007/app" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:schema="http://schema.org/" xmlns="http://www.w3.org/2005/Atom">
+  <id>http://content/lookup?urn=https%3A%2F%2Funglue.it%2Fapi%2Fid%2Fwork%2F98398%2F</id>
+  <title>Lookup results</title>
+  <updated>2016-06-29T16:04:36Z</updated>
+  <link href="http://content/lookup?urn=https%3A%2F%2Funglue.it%2Fapi%2Fid%2Fwork%2F98398%2F" rel="self"/>
+  <entry>
+    <id>https://unglue.it/api/id/work/98398/</id>
+    <title>Howards End</title>
+    <bibframe:distribution bibframe:ProviderName="unglue.it"/>
+    <author>
+      <name>Edward Morgan Forster</name>
+      <simplified:sort_name>Forster, Edward Morgan.</simplified:sort_name>
+    </author>
+    <updated>2016-06-29T16:04:36Z</updated>
+    <summary type="html">This OPDS entry comes from the content server
+     but it doesn't actually provide any way to get the book.
+    </summary>
+    <simplified:pwid>eba6d8f3-2684-5be6-01db-9476c27a21f1</simplified:pwid>
+    <link href="http://covers/unglue.it/URI/https%3A//unglue.it/api/id/work/98398//books.jpg" type="image/jpeg" rel="http://opds-spec.org/image"/>
+    <link href="http://covers/unglue.it/URI/https%3A//unglue.it/api/id/work/98398//books.jpg" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>
+    <category term="Adult" scheme="http://schema.org/audience" label="Adult"/>
+    <category term="18" scheme="http://schema.org/typicalAgeRange" label="18"/>
+    <category term="http://librarysimplified.org/terms/fiction/Fiction" scheme="http://librarysimplified.org/terms/fiction/" label="Fiction"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:format>application/audiobook+json;protection="http://www.feedbooks.com/audiobooks/access-restriction"</dcterms:format>
+    <published>2016-01-22T17:39:23Z</published>
+  </entry>
+</feed>

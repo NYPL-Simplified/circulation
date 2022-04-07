@@ -1,0 +1,5 @@
+#!/usr/bin/env python3
+"""Run any new migrations from the database"""
+import startup
+from core.scripts import DatabaseMigrationInitializationScript
+DatabaseMigrationInitializationScript().run()

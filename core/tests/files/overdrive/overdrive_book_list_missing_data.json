@@ -1,0 +1,27 @@
+{
+    "id": "v1L1BCgAAAA2C",
+    "limit": 300,
+    "links": {
+        "first": {
+            "href": "http://api.overdrive.com/v1/collections/collection-id/products?limit=300&offset=0&lastupdatetime=2014-04-28%2009:25:09&sort=popularity:desc&formats=ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open",
+            "type": "application/vnd.overdrive.api+json"
+        },
+        "last": {
+            "href": "http://api.overdrive.com/v1/collections/collection-id/products?limit=300&offset=0&lastupdatetime=2014-04-28%2009:25:09&sort=popularity:desc&formats=ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open",
+            "type": "application/vnd.overdrive.api+json"
+        },
+        "self": {
+            "href": "http://api.overdrive.com/v1/collections/collection-id/products?limit=300&offset=0&lastupdatetime=2014-04-28%2009:25:09&sort=popularity:desc&formats=ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open",
+            "type": "application/vnd.overdrive.api+json"
+        }
+    },
+    "offset": 0,
+    "products": [
+        {
+	    "title": "i only have a title"
+        },
+        {
+	    "id": "i only have an id"
+        }
+    ]
+}
