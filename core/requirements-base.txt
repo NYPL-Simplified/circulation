@@ -40,7 +40,7 @@ multipledispatch==0.6.0
 # nameparser is for author name manipulations
 nameparser==1.0.6
 # nltk is a textblob dependency.
-nltk==3.5
+nltk==3.6.6
 Pillow==8.1.2
 py-bcrypt==0.4
 pymarc==4.0.0
