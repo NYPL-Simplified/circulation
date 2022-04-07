@@ -30,7 +30,6 @@ from .config import (
     IntegrationException,
 )
 from core.model import (
-    credential,
     get_one,
     get_one_or_create,
     CirculationEvent,
