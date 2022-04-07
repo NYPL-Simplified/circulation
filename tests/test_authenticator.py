@@ -2927,11 +2927,10 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
 
     def test_basic_auth_temp_token(self):
         """
-        Test that a patron can authenticate with the generated
-        HTTP Basic token.
+        GIVEN: A valid Authorization header
+        WHEN:  Requesting a token and re-authenticating with the acquired token
+        THEN:  Patron is able to authenticate with the acquired token
         """
-
-        # Get a token from user/pass
         valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
         headers_basic = dict(Authorization=f"Basic {valid_credentials}")
 
@@ -2947,3 +2946,38 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
             headers_bearer = f"Bearer {token}"
             patron = self.controller.authenticator.authenticated_patron(self._db, headers_bearer)
             assert 'unittestuser' == patron.username
+
+    def test_basic_auth_temp_token_returns_existing(self):
+        """"
+        GIVEN: A request to authenticate a patron with a base64 encoded username:password to recieve a token
+        WHEN:  Re-requesting authentication with the same credentials
+        THEN:  The same token is returned
+        """
+        valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
+        headers_basic = dict(Authorization=f"Basic {valid_credentials}")
+
+        with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
+            response = self.controller.basic_auth_temp_token({}, self._db)
+            assert 200 == response.status_code
+
+            token = response.json.get('access_token')
+            assert token
+
+            another_response = self.controller.basic_auth_temp_token({}, self._db)
+            assert another_response.status_code == 200
+
+            another_token = another_response.json.get('access_token')
+            assert another_token == token
+
+    def test_basic_auth_temp_tokoen_problem_detail(self):
+        """
+        GIVEN: An invalid Authorization header
+        WHEN:  Requesting a token
+        THEN:  An UNSUPPORTED_AUTHENTICATION_MECHANISM ProblemDetail is raised
+        """
+        headers_basic = dict(Authorization=f"Basic invalid_authentication")
+
+        with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
+            response = self.controller.basic_auth_temp_token({}, self._db)
+            assert response.status_code == 400
+            assert response == UNSUPPORTED_AUTHENTICATION_MECHANISM
