@@ -2969,7 +2969,7 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
             another_token = another_response.json.get('access_token')
             assert another_token == token
 
-    def test_basic_auth_temp_tokoen_problem_detail(self):
+    def test_basic_auth_temp_token_problem_detail(self):
         """
         GIVEN: An invalid Authorization header
         WHEN:  Requesting a token
