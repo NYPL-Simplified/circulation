@@ -2989,7 +2989,7 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
             token = response.json.get('access_token')
             assert token
 
-            with freeze_time(lambda: utc_now() + datetime.timedelta(seconds=120)):
+            with freeze_time(lambda: utc_now() + datetime.timedelta(seconds=61)):
                 another_response = self.controller.basic_auth_temp_token({}, self._db)
                 assert another_response.status_code == 200
 
