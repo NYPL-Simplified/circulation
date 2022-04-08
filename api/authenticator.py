@@ -2685,8 +2685,8 @@ class BasicAuthTempTokenController(object):
     """A controller that handles requests for issuing temporary tokens
     to HTTP Basic Auth credentials.
     """
-    DO_NOT_GENERATE_NEW_TOKEN_PERIOD = 60 * 59
     TOKEN_DURATION = datetime.timedelta(seconds=3600)
+    DO_NOT_GENERATE_NEW_TOKEN_PERIOD = TOKEN_DURATION.seconds - 60
 
     def __init__(self, authenticator):
         self.authenticator = authenticator
