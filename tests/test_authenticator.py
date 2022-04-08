@@ -14,6 +14,9 @@ import urllib.request, urllib.parse, urllib.error
 import urllib.parse
 import flask
 from flask import url_for, Flask
+
+from freezegun import freeze_time
+
 from core.opds import OPDSFeed
 from core.user_profile import ProfileController
 from core.model import (
@@ -2968,6 +2971,29 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
 
             another_token = another_response.json.get('access_token')
             assert another_token == token
+
+    def test_basic_auth_temp_token_returns_new_token(self):
+        """
+        GIVEN: A request to authenticate a patron with a base64 encoded username:password to recieve a token
+        WHEN:  Re-requesting authentication with the same credentials after a minute of the token's creation
+        THEN:  A new token is returned
+        """
+        valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
+        headers_basic = dict(Authorization=f"Basic {valid_credentials}")
+
+        with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
+            response = self.controller.basic_auth_temp_token({}, self._db)
+            assert 200 == response.status_code
+
+            token = response.json.get('access_token')
+            assert token
+
+            with freeze_time(lambda: utc_now() + datetime.timedelta(seconds=120)):
+                another_response = self.controller.basic_auth_temp_token({}, self._db)
+                assert another_response.status_code == 200
+
+                another_token = another_response.json.get('access_token')
+                assert another_token != token
 
     def test_basic_auth_temp_token_problem_detail(self):
         """
