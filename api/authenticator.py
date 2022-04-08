@@ -2706,9 +2706,9 @@ class BasicAuthTempTokenController(object):
             # so the creation time can be calculated
             token_time_remaining = (credential.expires - utc_now()).seconds
 
-            if token_time_remaining >= BasicAuthTempTokenController.DO_NOT_GENERATE_NEW_TOKEN_PERIOD:
-                # Use the existing token if it's been requested within a minute since creation
-                inner_token = credential
+        if token_time_remaining >= BasicAuthTempTokenController.DO_NOT_GENERATE_NEW_TOKEN_PERIOD:
+            # Use the existing token if it's been requested within a minute since creation
+            inner_token = credential
         else:
             # Patron didn't have an existing token or is requesting a new one,
             # create a temporary inner token with a lifetime of 1 hour
