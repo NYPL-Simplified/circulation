@@ -2958,15 +2958,17 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
         """
         valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
         headers_basic = dict(Authorization=f"Basic {valid_credentials}")
+        start_datetime = datetime.datetime(2022, 1, 1, 0, 0, 0)
 
-        with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
-            response = self.controller.basic_auth_temp_token({}, self._db)
-            assert 200 == response.status_code
+        with freeze_time(start_datetime) as frozen_time:
+            with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
+                response = self.controller.basic_auth_temp_token({}, self._db)
+                assert 200 == response.status_code
 
-            token = response.json.get('access_token')
-            assert token
+                token = response.json.get('access_token')
+                assert token
 
-            with freeze_time(lambda: utc_now() + datetime.timedelta(seconds=59)):
+                frozen_time.move_to(start_datetime + datetime.timedelta(seconds=59))
                 another_response = self.controller.basic_auth_temp_token({}, self._db)
                 assert another_response.status_code == 200
 
@@ -2981,15 +2983,17 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
         """
         valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
         headers_basic = dict(Authorization=f"Basic {valid_credentials}")
+        start_datetime = datetime.datetime(2022, 1, 1, 0, 0, 0)
 
-        with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
-            response = self.controller.basic_auth_temp_token({}, self._db)
-            assert 200 == response.status_code
+        with freeze_time(start_datetime) as frozen_time:
+            with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
+                response = self.controller.basic_auth_temp_token({}, self._db)
+                assert 200 == response.status_code
 
-            token = response.json.get('access_token')
-            assert token
+                token = response.json.get('access_token')
+                assert token
 
-            with freeze_time(lambda: utc_now() + datetime.timedelta(seconds=61)):
+                frozen_time.move_to(start_datetime + datetime.timedelta(seconds=61))
                 another_response = self.controller.basic_auth_temp_token({}, self._db)
                 assert another_response.status_code == 200
 
