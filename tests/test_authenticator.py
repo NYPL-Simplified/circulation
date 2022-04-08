@@ -2966,11 +2966,12 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
             token = response.json.get('access_token')
             assert token
 
-            another_response = self.controller.basic_auth_temp_token({}, self._db)
-            assert another_response.status_code == 200
+            with freeze_time(lambda: utc_now() + datetime.timedelta(seconds=59)):
+                another_response = self.controller.basic_auth_temp_token({}, self._db)
+                assert another_response.status_code == 200
 
-            another_token = another_response.json.get('access_token')
-            assert another_token == token
+                another_token = another_response.json.get('access_token')
+                assert another_token == token
 
     def test_basic_auth_temp_token_returns_new_token(self):
         """
