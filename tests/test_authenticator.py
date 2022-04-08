@@ -2950,7 +2950,7 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
     def test_basic_auth_temp_token_returns_existing(self):
         """"
         GIVEN: A request to authenticate a patron with a base64 encoded username:password to recieve a token
-        WHEN:  Re-requesting authentication with the same credentials
+        WHEN:  Re-requesting authentication with the same credentials within a minute of the token's creation
         THEN:  The same token is returned
         """
         valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
