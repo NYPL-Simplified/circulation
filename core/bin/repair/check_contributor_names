@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+"""
+Goes through the database and checks that Contributor objects' sort_name
+properties make sense in light of their display_name values.  If sort_names
+need fixing, then has two options:
+- Auto-performs minor fixes, such as placing a comma.
+- Creates Complaint objects in the database to ask a human to make the more
+serious fixes, such as when a sort_name is a transliteration of the display_name.
+
+Can be called like so:
+
+    python bin/repair/check_contributor_names \
+      --identifier-type 'RBDigital ID' \
+      9781453202715 > rbdigital_contributors_repair.csv
+
+which generates a report file that lists the contributors affected, and whether their names
+were fixed or complained about.
+"""
+
+import startup      # noqa: F401
+
+from core.scripts import CheckContributorNamesInDB
+
+CheckContributorNamesInDB().run()

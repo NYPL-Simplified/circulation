@@ -1,0 +1,180 @@
+#!/bin/bash
+
+#### Housekeeping functions and variables ####################################
+
+THIS_SCRIPTS_NAME="$(basename $0)"
+
+function display_help () {
+  local help_text=''
+  IFS='' read -r -d '' help_text <<EOF
+
+Usage: $THIS_SCRIPTS_NAME [<OPTIONS>] <script-to-execute>
+
+Purpose: Runs a given script if (and only if) it is not running already.
+
+Options:  -h|--help         Display this message and exit.
+
+          -d|--delay <INT>  Delay the start of the <script-to-execute> by
+                            up to <INT> minutes. The actual delay is
+                            random, between 0 and <INT> minutes.
+
+Notes:
+
+    * The <script-to-execute> parameter should be a path relative to
+      either the bin directory of the Circulation Manager, or the bin
+      directory of the core checkout within the Circulation Manager.
+
+    * The script will be executed in the Python virtualenv which is
+      rooted in
+
+EOF
+
+  print "$help_text"
+}
+
+TSFMT="+%Y-%m-%dT%H:%M:%S%z"
+
+function format_log_msg () {
+    local level="$1"
+    local script_name="$2"
+    local status="$3"
+    local timestamp=$(date "$TSFMT")
+    echo "{\"timestamp\": \"$timestamp\", \"level\": \"$level\", \"pid\": \"$$\", \"script\": \"$script_name\", \"status\": \"$status\"}"
+}
+
+function log_info_to_stdout ()     { format_log_msg "INFO" "$1" "$2"     >> /dev/stdout; }
+function log_warning_to_stderr ()  { format_log_msg "WARN" "$1" "$2"     >> /dev/stderr; }
+function log_error_to_stderr ()    { format_log_msg "ERROR" "$1" "$2"    >> /dev/stderr; }
+function log_critical_to_stderr () { format_log_msg "CRITICAL" "$1" "$2" >> /dev/stderr; }
+
+#### CLI argument validation #################################################
+
+DELAY_MINUTES=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      display_help; exit 0;
+      ;;
+    -d|--delay)
+      arg_name="$1"
+      shift;
+      [ "$1" -eq "$1" ] 2>/dev/null || (log_critical_to_stderr "$0 called with $arg_name, but non-integer arg value" && exit 1)
+      DELAY_MINUTES="$1";
+      shift;
+      ;;
+    *)
+      break;
+      ;;
+  esac
+done
+
+# This is the full script as entered and may include a directory name
+# relative to Library Simplified directory/circulation/bin.
+SCRIPT_PATH="$1"
+
+if [[ -z "$SCRIPT_PATH" ]]; then
+  log_critical_to_stderr "None" "$0 called with no script path arg"
+  exit 126
+fi
+
+#### Post-validation functions and variables #################################
+
+# Grab the script name for logging purposes, shift it off
+SCRIPT_NAME=$(basename $SCRIPT_PATH)
+shift
+
+CORE_BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd)"
+CM_REPO_ROOT="$( cd $CORE_BIN_DIR/../.. >/dev/null 2>&1 && pwd)"
+CM_BIN_DIR="${CM_REPO_ROOT}/bin"
+SIMPLIFIED_VENV="${SIMPLIFIED_VENV:-/simplified_venv}"
+PID_DIR=/var/run/simplified
+PID_FILE=${PID_DIR}/${SCRIPT_NAME}.pid
+LOG_DIR=/var/log/simplified
+LOG_FILE=${LOG_DIR}/${SCRIPT_NAME}.log
+
+create_dir () {
+  local dir="$1"
+
+  if [[ ! -d $dir ]]; then
+    if [[ $UID -ne 0 ]]; then
+      # for non-root users
+      sudo mkdir -p $dir && sudo chown $USER $dir
+    else
+      # for root
+      mkdir -p $dir
+    fi
+  fi
+}
+
+create_pidfile () {
+  local pid="$1"
+  local pidfile="$2"
+
+  echo $pid > $pidfile
+  if [[ $? -ne 0 ]]; then
+    log_critical_to_stderr "$SCRIPT_NAME" "Could not create PID file '$pidfile'"
+    exit 1
+  fi
+  log_info_to_stdout "$SCRIPT_NAME" "PID file lock acquired"
+}
+
+#### Prepare to run the script ###############################################
+
+# Create a directory for Library Simplified PID files
+create_dir $PID_DIR
+
+# Check that the script exists.
+FULL_SCRIPT_PATH=$CM_BIN_DIR/$SCRIPT_PATH
+
+if [[ ! -f $FULL_SCRIPT_PATH ]]; then
+  # The script isn't in the main app bin. Try core.
+  FULL_SCRIPT_PATH=$CORE_BIN_DIR/$SCRIPT_PATH
+  if [[ ! -f $FULL_SCRIPT_PATH ]]; then
+    log_critical_to_stderr "$SCRIPT_NAME" "$SCRIPT_PATH wasn't found in $CM_BIN_DIR or $CORE_BIN_DIR"
+    exit 1
+  else
+    # This script is in core. Update the log- and pidfiles to reflect this.
+    core_prefix='core-'
+    new_filename="$core_prefix$SCRIPT_NAME"
+    PID_FILE="${PID_FILE/$SCRIPT_NAME/$new_filename}"
+    LOG_FILE="${LOG_FILE/$SCRIPT_NAME/$new_filename}"
+  fi
+fi
+
+# Confirm that process isn't still running && create PID file
+if [[ -f ${PID_FILE} ]]; then
+  pid=$(cat $PID_FILE)
+  ps -p $pid > /dev/null 2>&1
+  if [[ $? -eq 0 ]]; then
+    # Last recorded PID was found in running processes
+    log_warning_to_stderr "$SCRIPT_NAME" "$SCRIPT_NAME is already running, exiting"
+    exit 1
+  else
+    # Last recorded PID not running
+    create_pidfile $$ $PID_FILE
+  fi
+else
+  # No PID file; assume script not running
+  create_pidfile $$ $PID_FILE
+fi
+
+# Create a log file for this script if one doesn't exist
+create_dir $LOG_DIR
+if [[ ! -f $LOG_FILE ]]; then
+  touch $LOG_FILE
+fi
+
+# Force Python scripts not to write .pyc files
+export PYTHONDONTWRITEBYTECODE=1
+
+#### Run the script and append its output to its log file. ###################
+
+log_info_to_stdout "$SCRIPT_NAME" "started"
+source $SIMPLIFIED_VENV/bin/activate && $FULL_SCRIPT_PATH "$@" >> $LOG_FILE 2>&1
+log_info_to_stdout "$SCRIPT_NAME" "completed"
+
+# When it's done, remove the PID file.
+rm $PID_FILE
+log_info_to_stdout "$SCRIPT_NAME" "PID file lock released"
+exit 0
