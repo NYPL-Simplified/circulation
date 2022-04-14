@@ -32,6 +32,8 @@ help:
 	@echo "    up-watch          - Bring up the local cluster, attach to webapp and scripts"
 	@echo "    up-webapp         - Start the webapp, db, and elasticsearch containers in detached mode"
 	@echo "    up-webapp-watch   - Start the webapp, db, and elasticsearch containers, stay attached"
+	@echo "	   up-scripts        - Start the scripts, db, and elasticsearch containers in detached mode"
+	@echo "	   up-scripts-watch  - Start the scripts, db, and elasticsearch containers, stay attached"
 	@echo "    up-full           - Bring up the local cluster in detached mode"
 	@echo "    up-full-watch     - Bring up the local cluster, remains attached"
 	@echo "    start             - Start a stopped cluster"
@@ -88,6 +90,12 @@ up-webapp:
 
 up-webapp-watch:
 	$(compose_command) up webapp
+
+up-scripts:
+	$(compose_command) up scripts -d
+
+up-scripts-watch:
+	$(compose_command) up scripts
 
 up-full:
 	$(compose_command) up -d

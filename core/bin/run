@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#### Housekeeping functions and variables ####################################
+
 THIS_SCRIPTS_NAME="$(basename $0)"
 
 function display_help () {
@@ -23,28 +25,47 @@ Notes:
       directory of the core checkout within the Circulation Manager.
 
     * The script will be executed in the Python virtualenv which is
-      rooted in 
+      rooted in
 
 EOF
 
   print "$help_text"
 }
 
+TSFMT="+%Y-%m-%dT%H:%M:%S%z"
+
+function format_log_msg () {
+    local level="$1"
+    local script_name="$2"
+    local status="$3"
+    local timestamp=$(date "$TSFMT")
+    echo "{\"timestamp\": \"$timestamp\", \"level\": \"$level\", \"pid\": \"$$\", \"script\": \"$script_name\", \"status\": \"$status\"}"
+}
+
+function log_info_to_stdout ()     { format_log_msg "INFO" "$1" "$2"     >> /dev/stdout; }
+function log_warning_to_stderr ()  { format_log_msg "WARN" "$1" "$2"     >> /dev/stderr; }
+function log_error_to_stderr ()    { format_log_msg "ERROR" "$1" "$2"    >> /dev/stderr; }
+function log_critical_to_stderr () { format_log_msg "CRITICAL" "$1" "$2" >> /dev/stderr; }
+
+#### CLI argument validation #################################################
+
 DELAY_MINUTES=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help)
-      display_help; exit 0; ;;
+      display_help; exit 0;
+      ;;
     -d|--delay)
       arg_name="$1"
       shift;
-      [ "$1" -eq "$1" ] 2>/dev/null || (echo "$0 called with $arg_name, but non-integer arg value" && exit 1)
-      DELAY_MINUTES="$1";            
+      [ "$1" -eq "$1" ] 2>/dev/null || (log_critical_to_stderr "$0 called with $arg_name, but non-integer arg value" && exit 1)
+      DELAY_MINUTES="$1";
       shift;
       ;;
     *)
-      break; ;;
+      break;
+      ;;
   esac
 done
 
@@ -53,9 +74,11 @@ done
 SCRIPT_PATH="$1"
 
 if [[ -z "$SCRIPT_PATH" ]]; then
-  echo "No script provided."
+  log_critical_to_stderr "None" "$0 called with no script path arg"
   exit 126
 fi
+
+#### Post-validation functions and variables #################################
 
 # Grab the script name for logging purposes, shift it off
 SCRIPT_NAME=$(basename $SCRIPT_PATH)
@@ -90,11 +113,13 @@ create_pidfile () {
 
   echo $pid > $pidfile
   if [[ $? -ne 0 ]]; then
-    echo "Could not create PID file"
+    log_critical_to_stderr "$SCRIPT_NAME" "Could not create PID file '$pidfile'"
     exit 1
   fi
-  echo "$SCRIPT_NAME PIDFILE created: $pidfile"
+  log_info_to_stdout "$SCRIPT_NAME" "PID file lock acquired"
 }
+
+#### Prepare to run the script ###############################################
 
 # Create a directory for Library Simplified PID files
 create_dir $PID_DIR
@@ -106,7 +131,7 @@ if [[ ! -f $FULL_SCRIPT_PATH ]]; then
   # The script isn't in the main app bin. Try core.
   FULL_SCRIPT_PATH=$CORE_BIN_DIR/$SCRIPT_PATH
   if [[ ! -f $FULL_SCRIPT_PATH ]]; then
-    echo "$SCRIPT_PATH wasn't found in $CM_BIN_DIR or $CORE_BIN_DIR"
+    log_critical_to_stderr "$SCRIPT_NAME" "$SCRIPT_PATH wasn't found in $CM_BIN_DIR or $CORE_BIN_DIR"
     exit 1
   else
     # This script is in core. Update the log- and pidfiles to reflect this.
@@ -123,7 +148,7 @@ if [[ -f ${PID_FILE} ]]; then
   ps -p $pid > /dev/null 2>&1
   if [[ $? -eq 0 ]]; then
     # Last recorded PID was found in running processes
-    echo "$SCRIPT_NAME is already running"
+    log_warning_to_stderr "$SCRIPT_NAME" "$SCRIPT_NAME is already running, exiting"
     exit 1
   else
     # Last recorded PID not running
@@ -143,10 +168,22 @@ fi
 # Force Python scripts not to write .pyc files
 export PYTHONDONTWRITEBYTECODE=1
 
-# Run the script and append its output to its log file.
-echo "Running $SCRIPT_NAME (PID: $$)"
+# Make sure we have the SIMPLIFIED_* env vars
+source $CM_REPO_ROOT/../environment.sh
+
+#### Run the script and append its output to its log file. ###################
+
+log_info_to_stdout "$SCRIPT_NAME" "started"
+
 source $SIMPLIFIED_VENV/bin/activate && $FULL_SCRIPT_PATH "$@" >> $LOG_FILE 2>&1
+
+if [ $? -eq 0 ]; then
+  log_info_to_stdout "$SCRIPT_NAME" "completed"
+else
+  log_critical_to_stderr "$SCRIPT_NAME" "could not complete successfully, see $LOG_FILE"
+fi
 
 # When it's done, remove the PID file.
 rm $PID_FILE
+log_info_to_stdout "$SCRIPT_NAME" "PID file lock released"
 exit 0
