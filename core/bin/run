@@ -168,11 +168,20 @@ fi
 # Force Python scripts not to write .pyc files
 export PYTHONDONTWRITEBYTECODE=1
 
+# Make sure we have the SIMPLIFIED_* env vars
+source $CM_REPO_ROOT/../environment.sh
+
 #### Run the script and append its output to its log file. ###################
 
 log_info_to_stdout "$SCRIPT_NAME" "started"
+
 source $SIMPLIFIED_VENV/bin/activate && $FULL_SCRIPT_PATH "$@" >> $LOG_FILE 2>&1
-log_info_to_stdout "$SCRIPT_NAME" "completed"
+
+if [ $? -eq 0 ]; then
+  log_info_to_stdout "$SCRIPT_NAME" "completed"
+else
+  log_critical_to_stderr "$SCRIPT_NAME" "could not complete successfully, see $LOG_FILE"
+fi
 
 # When it's done, remove the PID file.
 rm $PID_FILE
