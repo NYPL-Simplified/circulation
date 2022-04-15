@@ -40,3 +40,9 @@ jobs:
         run: |
           export SIMPLIFIED_STATIC_DIR="$(pwd)/resources"
           tox
+
+      - name: Coverage HTML Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: htmlcov
