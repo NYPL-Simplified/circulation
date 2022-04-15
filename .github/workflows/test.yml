@@ -46,3 +46,4 @@ jobs:
         with:
           name: coverage-report
           path: htmlcov
+          retention-days: 30
