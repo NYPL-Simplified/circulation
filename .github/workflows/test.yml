@@ -41,9 +41,8 @@ jobs:
           export SIMPLIFIED_STATIC_DIR="$(pwd)/resources"
           tox
 
-      - name: Coverage HTML Report
-        uses: actions/upload-artifact@v3
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v2
         with:
-          name: coverage-report
-          path: htmlcov
-          retention-days: 30
+          files: ./coverage.xml
+          verbose: true
