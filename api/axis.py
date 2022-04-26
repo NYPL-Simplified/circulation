@@ -53,6 +53,7 @@ from core.model import (
     Library,
     LicensePool,
     LinkRelations,
+    Loan,
     MediaTypes,
     Patron,
     Representation,
@@ -438,7 +439,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         if isinstance(patron, Patron):
             # Check if the Patron's Loan has
             # a transaction ID as an external_identifier
-            loan, _ = licensepool.loan_to(patron)
+            loan = get_one(self._db, Loan, patron=patron, license_pool=licensepool)
             if loan and loan.external_identifier:
                 # Skip the availability API call and return fulfillment
                 return Axis360FulfillmentInfo(
@@ -464,7 +465,9 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
 
             if isinstance(patron, Patron) and loan.external_identifier:
                 # Save the external_identifier to the Patron's Loan for future retrieval
-                licensepool.loan_to(patron, external_identifier=loan.external_identifier)
+                patron_loan = get_one(self._db, Loan, patron=patron, license_pool=licensepool)
+                if patron_loan:
+                    patron_loan.external_identifier = loan.external_identifier
 
             return fulfillment
         # If we made it to this point, the patron does not have this
