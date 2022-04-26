@@ -22,10 +22,12 @@ from core.model import (
     LicensePool,
     LicensePoolDeliveryMechanism,
     LinkRelations,
+    Loan,
     MediaTypes,
     Representation,
     Subject,
     create,
+    get_one,
 )
 
 from core.metadata_layer import (
@@ -535,6 +537,42 @@ class TestAxis360API(Axis360Test):
         self.api.queue_response(200, content=data)
         fulfillment = fulfill(internal_format="irrelevant")
         assert isinstance(fulfillment, Axis360FulfillmentInfo)
+
+    def test_fulfill_without_subsequent_availability_call(self):
+        """
+        GIVEN: A patron requesting loan fulfillmlent
+        WHEN:  Fulfilling the loan
+        THEN:  The transaction_id is saved to loan.external_identifier
+        """
+        _, pool = self._edition(
+            identifier_type=Identifier.AXIS_360_ID,
+            identifier_id='0015176429',
+            data_source_name=DataSource.AXIS_360,
+            with_license_pool=True
+        )
+
+        patron = self._patron()
+        patron.authorization_identifier = "a barcode"
+        # Ensure a Loan exists for this patron for future calls
+        create(self._db, Loan, patron=patron, license_pool=pool) 
+        data = self.sample_data("availability_with_axisnow_fulfillment.xml")
+        data = data.replace(b"0016820953", pool.identifier.identifier.encode("utf8"))
+        self.api.queue_response(200, content=data)
+        first_fulfillment = self.api.fulfill(patron, "pin", pool, "AxisNow")
+        second_fulfillment = self.api.fulfill(patron, "pin", pool, "AxisNow")
+
+        # Verify that we get fulfillment information,
+        # rather than just that no exception is raised.
+        assert isinstance(second_fulfillment, Axis360FulfillmentInfo)
+
+        # Verify that only one API call has been made (to availability)
+        assert len(self.api.requests) == 1
+
+        # Verify that the fulfillment ID from the previous availability call is
+        # cached in Loan.external_identifier.
+        loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
+        assert loan.external_identifier == first_fulfillment.key
+        assert loan.external_identifier == second_fulfillment.key
 
     def test_fulfill_raises_cannotfulfill(self):
         """
