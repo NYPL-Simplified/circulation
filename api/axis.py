@@ -1553,7 +1553,8 @@ class AvailabilityResponseParser(ResponseParser):
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=start_date, end_date=end_date,
-                fulfillment_info=fulfillment
+                fulfillment_info=fulfillment,
+                external_identifier=transaction_id,
             )
 
         elif reserved:
