@@ -448,6 +448,11 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             fulfillment = loan.fulfillment_info
             if not fulfillment or not isinstance(fulfillment, FulfillmentInfo):
                 raise CannotFulfill()
+
+            if isinstance(patron, Patron) and loan.external_identifier:
+                # Save the external_identifier to the Patron's Loan for future retrieval
+                licensepool.loan_to(patron, external_identifier=loan.external_identifier)
+
             return fulfillment
         # If we made it to this point, the patron does not have this
         # book checked out.
