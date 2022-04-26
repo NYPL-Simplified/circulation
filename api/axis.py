@@ -435,6 +435,19 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             )
 
         identifier = licensepool.identifier
+        if isinstance(patron, Patron):
+            # Check if the Patron's Loan has
+            # a transaction ID as an external_identifier
+            loan, _ = licensepool.loan_to(patron)
+            if loan and loan.external_identifier:
+                # Skip the availability API call and return fulfillment
+                return Axis360FulfillmentInfo(
+                    api=self, key=loan.external_identifier,
+                    data_source_name=DataSource.AXIS_360,
+                    identifier_type=Identifier.AXIS_360_ID,
+                    identifier=identifier.identifier
+                )
+
         # This should include only one 'activity'.
         activities = self.patron_activity(patron, pin, licensepool.identifier, internal_format)
         for loan in activities:
