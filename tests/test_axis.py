@@ -524,13 +524,6 @@ class TestAxis360API(Axis360Test):
         # trigger another API request, so we won't do that; that's
         # tested in TestAxis360FulfillmentInfo.
 
-        # If the title is checked out but Axis provides no fulfillment
-        # info, the exception is CannotFulfill.
-        pool.identifier.identifier = '0015176429'
-        data = self.sample_data("availability_without_fulfillment.xml")
-        self.api.queue_response(200, content=data)
-        pytest.raises(CannotFulfill, fulfill)
-
         # If we ask to fulfill an audiobook, we get an AudiobookFulfillmentInfo.
         #
         # Change our test LicensePool's identifier to match the data we're about
@@ -542,6 +535,34 @@ class TestAxis360API(Axis360Test):
         self.api.queue_response(200, content=data)
         fulfillment = fulfill(internal_format="irrelevant")
         assert isinstance(fulfillment, Axis360FulfillmentInfo)
+
+    def test_fulfill_raises_cannotfulfill(self):
+        """
+        GIVEN: A patron requesting loan fulfillment
+        WHEN:  Loan fulfillment provides no fulfillment information
+        THEN:  CannotFulfill is raised
+        """
+        _, pool = self._edition(
+            identifier_type=Identifier.AXIS_360_ID,
+            identifier_id='0015176429',
+            data_source_name=DataSource.AXIS_360,
+            with_license_pool=True
+        )
+
+        patron = self._patron()
+        patron.authorization_identifier = "a barcode"
+
+        def fulfill(internal_format="not AxisNow"):
+            return self.api.fulfill(
+                patron, "pin", licensepool=pool,
+                internal_format=internal_format
+            )
+
+        # If the title is checked out but Axis provides no fulfillment
+        # info, the exception is CannotFulfill.
+        data = self.sample_data("availability_without_fulfillment.xml")
+        self.api.queue_response(200, content=data)
+        pytest.raises(CannotFulfill, fulfill)
 
     def test_fulfill_anonymously(self):
         # Normally, an attempt to fulfill a book with no authenticated
