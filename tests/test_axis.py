@@ -554,11 +554,16 @@ class TestAxis360API(Axis360Test):
         patron = self._patron()
         patron.authorization_identifier = "a barcode"
         # Ensure a Loan exists for this patron for future calls
-        create(self._db, Loan, patron=patron, license_pool=pool) 
+        create(self._db, Loan, patron=patron, license_pool=pool)
         data = self.sample_data("availability_with_axisnow_fulfillment.xml")
         data = data.replace(b"0016820953", pool.identifier.identifier.encode("utf8"))
         self.api.queue_response(200, content=data)
+
+        # Ensure loan.external_identifier is set after the first fulfillment
+        loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
         first_fulfillment = self.api.fulfill(patron, "pin", pool, "AxisNow")
+        assert loan.external_identifier == first_fulfillment.key
+
         second_fulfillment = self.api.fulfill(patron, "pin", pool, "AxisNow")
 
         # Verify that we get fulfillment information,
@@ -571,7 +576,6 @@ class TestAxis360API(Axis360Test):
         # Verify that the fulfillment ID from the previous availability call is
         # cached in Loan.external_identifier.
         loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
-        assert loan.external_identifier == first_fulfillment.key
         assert loan.external_identifier == second_fulfillment.key
 
     def test_fulfill_raises_cannotfulfill(self):
