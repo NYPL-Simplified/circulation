@@ -53,6 +53,7 @@ from core.model import (
     Library,
     LicensePool,
     LinkRelations,
+    Loan,
     MediaTypes,
     Patron,
     Representation,
@@ -435,6 +436,19 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             )
 
         identifier = licensepool.identifier
+        if isinstance(patron, Patron):
+            # Check if the Patron's Loan has
+            # a transaction ID as an external_identifier
+            loan = get_one(self._db, Loan, patron=patron, license_pool=licensepool)
+            if loan and loan.external_identifier:
+                # Skip the availability API call and return fulfillment
+                return Axis360FulfillmentInfo(
+                    api=self, key=loan.external_identifier,
+                    data_source_name=DataSource.AXIS_360,
+                    identifier_type=Identifier.AXIS_360_ID,
+                    identifier=identifier.identifier
+                )
+
         # This should include only one 'activity'.
         activities = self.patron_activity(patron, pin, licensepool.identifier, internal_format)
         for loan in activities:
@@ -448,6 +462,13 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             fulfillment = loan.fulfillment_info
             if not fulfillment or not isinstance(fulfillment, FulfillmentInfo):
                 raise CannotFulfill()
+
+            if isinstance(patron, Patron) and loan.external_identifier:
+                # Save the external_identifier to the Patron's Loan for future retrieval
+                patron_loan = get_one(self._db, Loan, patron=patron, license_pool=licensepool)
+                if patron_loan:
+                    patron_loan.external_identifier = loan.external_identifier
+
             return fulfillment
         # If we made it to this point, the patron does not have this
         # book checked out.
@@ -1553,7 +1574,8 @@ class AvailabilityResponseParser(ResponseParser):
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=start_date, end_date=end_date,
-                fulfillment_info=fulfillment
+                fulfillment_info=fulfillment,
+                external_identifier=transaction_id,
             )
 
         elif reserved:
