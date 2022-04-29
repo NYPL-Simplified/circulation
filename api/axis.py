@@ -442,12 +442,14 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             loan = get_one(self._db, Loan, patron=patron, license_pool=licensepool)
             if loan and loan.external_identifier:
                 # Skip the availability API call and return fulfillment
-                return Axis360FulfillmentInfo(
+                fulfillment = Axis360FulfillmentInfo(
                     api=self, key=loan.external_identifier,
                     data_source_name=DataSource.AXIS_360,
                     identifier_type=Identifier.AXIS_360_ID,
                     identifier=identifier.identifier
                 )
+                fulfillment.can_cache_manifest = True
+                return fulfillment
 
         # This should include only one 'activity'.
         activities = self.patron_activity(patron, pin, licensepool.identifier, internal_format)
@@ -469,6 +471,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
                 if patron_loan:
                     patron_loan.external_identifier = loan.external_identifier
 
+            fulfillment.can_cache_manifest = True
             return fulfillment
         # If we made it to this point, the patron does not have this
         # book checked out.
