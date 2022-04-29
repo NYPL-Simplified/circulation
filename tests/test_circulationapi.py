@@ -944,46 +944,6 @@ class TestCirculationAPI(DatabaseTest):
         result = try_to_fulfill()
         assert fulfillment == result
 
-    def test_fulfill_cached_manifest_axis_ebook(self):
-        """
-        GIVEN: 
-        WHEN:  
-        THEN:  
-        """
-        self.collection = MockAxis360API.mock_collection(self._db)
-        self.patron = self._patron()
-        _, self.pool = self._edition(
-            data_source_name=DataSource.AXIS_360,
-            identifier_id='0016820953',
-            identifier_type=Identifier.AXIS_360_ID,
-            with_license_pool=True
-        )
-        loan, _ = self.pool.loan_to(self.patron, end=datetime(2018, 9, 29, 18, 34))
-
-        def mock_axis_api(licensepool):
-            api = MockAxis360API(self._db, self.collection)
-            api.queue_response(
-                200, {}, sample_data("availability_with_axisnow_fulfillment.xml", "axis"))
-            api.queue_response(
-                200, {}, sample_data("ebook_fulfillment_info.json", "axis"))
-            return api
-
-        self.circulation.api_for_license_pool = mock_axis_api
-
-        first_fulfillment = self.circulation.fulfill(
-            self.patron, '1234', self.pool, self.pool.delivery_mechanisms[0])
-        assert first_fulfillment.content == loan.cached_manifest.decode("utf-8")
-        assert first_fulfillment.content_type == loan.cached_content_type
-        assert first_fulfillment.can_cache_manifest is True
-
-        second_fulfillment = self.circulation.fulfill(
-            self.patron, '1234', self.pool, self.pool.delivery_mechanisms[0])
-        # The second fulfillment request won't have can_cache_manifest set to True
-        # since it created a FulfillmentInfo from the Loan information
-        assert second_fulfillment.content == loan.cached_manifest.decode("utf-8")
-        assert second_fulfillment.content_expires == loan.end
-        assert second_fulfillment.can_cache_manifest is False
-
     @parameterized.expand([
         ('open_access', True, False),
         ('self_hosted', False, True)
