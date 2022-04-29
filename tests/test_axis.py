@@ -1820,6 +1820,9 @@ class TestAxis360FulfillmentInfo(Axis360Test):
         assert DeliveryMechanism.FINDAWAY_DRM == fulfillment.content_type
         assert isinstance(fulfillment.content, str)
 
+        # Findaway manifests can't be cached
+        assert fulfillment.can_cache_manifest is False
+
         # The manifest document combines information from the
         # fulfillment document and the metadata document.
         for required in (
@@ -1859,6 +1862,9 @@ class TestAxis360FulfillmentInfo(Axis360Test):
         assert (
             '{"book_vault_uuid": "1c11c31f-81c2-41bb-9179-491114c3f121", "isbn": "9780547351551"}' ==
             fulfillment.content)
+
+        # AxisNow manifests can be cached
+        assert fulfillment.can_cache_manifest is True
 
         # The content expiration date also comes from the fulfillment
         # document.
