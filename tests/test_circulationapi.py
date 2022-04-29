@@ -959,7 +959,7 @@ class TestCirculationAPI(DatabaseTest):
 
         first_fulfillment = self.circulation.fulfill(
             self.patron, '1234', self.pool, self.pool.delivery_mechanisms[0])
-        assert first_fulfillment.content == loan.cached_manifest
+        assert first_fulfillment.content == loan.cached_manifest.decode("utf-8")
         assert first_fulfillment.content_type == loan.cached_content_type
         assert first_fulfillment.can_cache_manifest is True
 
@@ -967,8 +967,9 @@ class TestCirculationAPI(DatabaseTest):
             self.patron, '1234', self.pool, self.pool.delivery_mechanisms[0])
         # The second fulfillment request won't have can_cache_manifest set to True
         # since it created a FulfillmentInfo from the Loan information
-        assert second_fulfillment.can_cache_manifest is False
+        assert second_fulfillment.content == loan.cached_manifest.decode("utf-8")
         assert second_fulfillment.content_expires == loan.end
+        assert second_fulfillment.can_cache_manifest is False
 
     @parameterized.expand([
         ('open_access', True, False),

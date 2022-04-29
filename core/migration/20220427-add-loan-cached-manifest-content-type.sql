@@ -1,7 +1,7 @@
  BEGIN
   -- Add the 'cached_manifest' column
   BEGIN
-   ALTER TABLE loans ADD COLUMN cached_manifest varchar;
+   ALTER TABLE loans ADD COLUMN cached_manifest bytea;
   EXCEPTION
    WHEN duplicate_column THEN RAISE NOTICE 'column loans.cached_manifest already exists, not creating it.';
   END;

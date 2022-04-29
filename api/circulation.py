@@ -977,7 +977,7 @@ class CirculationAPI(object):
                     identifier=licensepool.identifier.identifier,
                     content_link=None,
                     content_type=loan.cached_content_type,
-                    content=loan.cached_manifest,
+                    content=loan.cached_manifest.decode("utf-8"),
                     content_expires=loan.end
                 )
             else:
@@ -994,7 +994,7 @@ class CirculationAPI(object):
                 )
 
                 if getattr(fulfillment, "can_cache_manifest", False):
-                    loan.cached_manifest = fulfillment.content
+                    loan.cached_manifest = fulfillment.content.encode("raw_unicode_escape")
                     loan.cached_content_type = fulfillment.content_type
 
             if not fulfillment or not (
