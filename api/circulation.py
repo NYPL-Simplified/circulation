@@ -163,6 +163,7 @@ class FulfillmentInfo(CirculationInfo):
     """A record of a technique that can be used *right now* to fulfill
     a loan.
     """
+    can_cache_manifest = False
 
     def __init__(self, collection, data_source_name, identifier_type,
                  identifier, content_link, content_type, content,
@@ -200,7 +201,6 @@ class FulfillmentInfo(CirculationInfo):
         self.content_type = content_type
         self.content = content
         self.content_expires = content_expires
-        self.can_cache_manifest = False
 
     def __repr__(self):
         if self.content:
