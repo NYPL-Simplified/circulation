@@ -951,6 +951,27 @@ class TestCirculationAPI(DatabaseTest):
         result = try_to_fulfill()
         assert fulfillment == result
 
+    def test_fulfill_with_loan_cached_manifest(self):
+        """
+        GIVEN: A request for loan fulfillment
+        WHEN:  Fulfilling the request with a cached_manifest available
+        THEN:  A FulfillmentInfo is returned without making additional API calls
+        """
+        loan, _ = self.pool.loan_to(self.patron)
+        loan.cached_manifest = b'Fulfilled.'
+        loan.cached_content_type = self.pool.delivery_mechanisms[0].delivery_mechanism.content_type
+
+        assert len(self.remote.responses['fulfill']) == 0
+
+        # Since there is a cached_manifest in the loan, no additional API calls are made
+        result = self.circulation.fulfill(self.patron, '1234', self.pool,
+                                          self.pool.delivery_mechanisms[0])
+
+        assert isinstance(result, FulfillmentInfo)
+        assert result.can_cache_manifest is False
+        assert result.content == loan.cached_manifest.decode('utf-8')
+        assert result.content_type == loan.cached_content_type
+        assert len(self.remote.responses['fulfill']) == 0
     @parameterized.expand([
         ('open_access', True, False),
         ('self_hosted', False, True)
