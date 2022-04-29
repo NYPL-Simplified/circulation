@@ -972,6 +972,38 @@ class TestCirculationAPI(DatabaseTest):
         assert result.content == loan.cached_manifest.decode('utf-8')
         assert result.content_type == loan.cached_content_type
         assert len(self.remote.responses['fulfill']) == 0
+
+    def test_fulfill_cacheable_manifest(self):
+        """
+        GIVEN: A request for loan fulfillment
+        WHEN:  Fulfilling the request that allows for a cacheable manifest
+        THEN:  Manifest and content_type are saved to the patron's Loan
+        """
+        self.pool.loan_to(self.patron)
+        fulfillment = FulfillmentInfo(
+            self.collection,
+            data_source_name=DataSource.AXIS_360,
+            identifier_type=self.identifier,
+            identifier=self.identifier.identifier,
+            content_link=None,
+            content_type=self.pool.delivery_mechanisms[0].delivery_mechanism.content_type,
+            content="Fulfilled.",
+            content_expires=None,
+        )
+        fulfillment.can_cache_manifest = True
+        self.remote.queue_fulfill(fulfillment)
+
+        assert len(self.remote.responses['fulfill']) == 1
+
+        # Since there is no cached_manifest in the loan, an API call will be made
+        result = self.circulation.fulfill(self.patron, '1234', self.pool,
+                                          self.pool.delivery_mechanisms[0])
+
+        loan = get_one(self._db, Loan, patron=self.patron, license_pool=self.pool)
+        assert loan.cached_manifest.decode('utf-8') == result.content
+        assert result.can_cache_manifest is True
+        assert len(self.remote.responses['fulfill']) == 0
+
     @parameterized.expand([
         ('open_access', True, False),
         ('self_hosted', False, True)
