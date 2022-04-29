@@ -36,6 +36,7 @@ from core.model import (
     Loan,
     Representation,
     RightsStatus,
+    get_one,
 )
 
 from core.testing import DatabaseTest
@@ -907,6 +908,12 @@ class TestCirculationAPI(DatabaseTest):
 
         # The fulfillment looks good.
         assert fulfillment == result
+
+        # Since the fulfillment did not allow for manifest caching it is not present
+        loan = get_one(self._db, Loan, patron=self.patron, license_pool=self.pool)
+        assert fulfillment.can_cache_manifest is False
+        assert loan.cached_manifest is None
+        assert loan.cached_content_type is None
 
         # An analytics event was created.
         assert 1 == self.analytics.count
