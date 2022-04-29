@@ -200,6 +200,7 @@ class FulfillmentInfo(CirculationInfo):
         self.content_type = content_type
         self.content = content
         self.content_expires = content_expires
+        self.can_cache_manifest = False
 
     def __repr__(self):
         if self.content:
