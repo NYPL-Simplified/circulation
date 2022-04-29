@@ -448,7 +448,6 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
                     identifier_type=Identifier.AXIS_360_ID,
                     identifier=identifier.identifier
                 )
-                fulfillment.can_cache_manifest = True
                 return fulfillment
 
         # This should include only one 'activity'.
@@ -471,7 +470,6 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
                 if patron_loan:
                     patron_loan.external_identifier = loan.external_identifier
 
-            fulfillment.can_cache_manifest = True
             return fulfillment
         # If we made it to this point, the patron does not have this
         # book checked out.
@@ -1813,3 +1811,6 @@ class Axis360FulfillmentInfo(APIAwareFulfillmentInfo):
         self._content = str(manifest)
         self._content_type = manifest.MEDIA_TYPE
         self._content_expires = expires
+
+        if manifest.MEDIA_TYPE == AxisNowManifest.MEDIA_TYPE:
+            self.can_cache_manifest = True
