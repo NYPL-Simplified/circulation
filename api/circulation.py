@@ -993,7 +993,7 @@ class CirculationAPI(object):
                     part=part, fulfill_part_url=fulfill_part_url
                 )
 
-                if fulfillment.can_cache_manifest:
+                if loan and fulfillment.can_cache_manifest:
                     loan.cached_manifest = fulfillment.content.encode("raw_unicode_escape")
                     loan.cached_content_type = fulfillment.content_type
 
