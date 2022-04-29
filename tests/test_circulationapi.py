@@ -890,10 +890,16 @@ class TestCirculationAPI(DatabaseTest):
 
     def test_fulfill(self):
         self.pool.loan_to(self.patron)
-
-        fulfillment = self.pool.delivery_mechanisms[0]
-        fulfillment.content = "Fulfilled."
-        fulfillment.content_link = None
+        fulfillment = FulfillmentInfo(
+            self.collection,
+            data_source_name=DataSource.BIBBLIO,
+            identifier_type=self.identifier,
+            identifier=self.identifier.identifier,
+            content_link=None,
+            content_type=self.pool.delivery_mechanisms[0].delivery_mechanism.content_type,
+            content="Fulfilled.",
+            content_expires=None,
+        )
         self.remote.queue_fulfill(fulfillment)
 
         result = self.circulation.fulfill(self.patron, '1234', self.pool,
@@ -910,9 +916,16 @@ class TestCirculationAPI(DatabaseTest):
     def test_fulfill_without_loan(self):
         # By default, a title cannot be fulfilled unless there is an active
         # loan for the title (tested above, in test_fulfill).
-        fulfillment = self.pool.delivery_mechanisms[0]
-        fulfillment.content = "Fulfilled."
-        fulfillment.content_link = None
+        fulfillment = FulfillmentInfo(
+            self.collection,
+            data_source_name=DataSource.BIBBLIO,
+            identifier_type=self.identifier,
+            identifier=self.identifier.identifier,
+            content_link=None,
+            content_type=self.pool.delivery_mechanisms[0].delivery_mechanism.content_type,
+            content="Fulfilled.",
+            content_expires=None,
+        )
         self.remote.queue_fulfill(fulfillment)
 
         def try_to_fulfill():
