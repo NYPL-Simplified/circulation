@@ -5,7 +5,6 @@ from flask import (
     redirect,
     make_response
 )
-import os
 
 from api.app import app
 from api.config import Configuration
@@ -398,6 +397,72 @@ def admin_auth_service(protocol):
 @requires_admin
 @requires_csrf_token
 def individual_admins():
+    """Manage individual site administrators
+    ---
+    get:
+      summary: Fetch list of site administrators
+      description: Get a list of all site administrators with details, accessible to all admins
+      security:
+        - BearerAuth
+      responses:
+        200:
+          description: List of currently authorized admins
+          content:
+            application/json:
+              schema: IndividualAdminResponse
+        403:
+          description: Unauthorized for admin endpoints
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: Unspecified Internal Error
+          content:
+            application/json:
+              schema: ProblemResponse
+    post:
+      summary: Create first site admin or update administrators
+      description: |
+        Create a site administrator with specific privledges. The following restrictions apply:
+        * System admins have all permissions
+        * Sitewide library managers can add/edit other sitewide managers, as well as specific library managers
+        * Managers of specific library managers can manage managers and librarians within their library
+        * Librarians have no special permissions
+      security:
+        - BearerAuth
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: SiteAdminPost
+      responses:
+        200:
+          description: Email address of updated admin
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: existing_user@example.com
+        201:
+          description: Email address of newly created admin
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: new_user@example.com
+        400:
+          description: |
+            One of the following endpoint-specific errors
+            * `INCOMPLETE_CONFIGURATION` If initial setup is performed with providing a password
+            * `INCOMPLETE_CONFIGURATION` If an email is removed without replacement
+            * `INVALID_EMAIL` If an admin email is set to an invalid format
+            * `UNKNOWN_ROLE` If a role code is provided that is not in the allowed list
+            * `LIBRARY_NOT_FOUND` If a provided library code is not recognized
+            * `MISSING_PGCRYPTO_EXTENSION` If the database is not configured with the pgcrypto extension
+          content:
+            application/json:
+              schema: ProblemResponse
+    """
     return app.manager.admin_individual_admin_settings_controller.process_individual_admins()
 
 @app.route("/admin/individual_admin/<email>", methods=["DELETE"])
@@ -406,6 +471,41 @@ def individual_admins():
 @requires_admin
 @requires_csrf_token
 def individual_admin(email):
+    """Delete a site administrator
+    ---
+    delete:
+      summary: Delete administrator by email address
+      description: In order to execute this operation the current user must be a) a site admin and b) have sitewide library permissions
+      security:
+        - BearerAuth
+      parameters:
+        - in: path
+          name: email
+          schema:
+            type: string
+          required: true
+          description: email of administrator to delete
+      responses:
+        200:
+          description: Successful deletion of admin
+          content:
+            text/html:
+              schema:
+                type: string
+                enum: Deleted
+                example: Deleted
+        403:
+          description: User Unauthorized to perform admin deletions
+          content:
+            application/json:
+              schema: ProblemResponse
+        404:
+          description: Unable to locate admin with specified email
+          content:
+            application/json:
+              schema: ProblemResponse
+      
+    """
     return app.manager.admin_individual_admin_settings_controller.process_delete(email)
 
 @app.route("/admin/patron_auth_services", methods=['GET', 'POST'])
