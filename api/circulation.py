@@ -993,14 +993,16 @@ class CirculationAPI(object):
                     part=part, fulfill_part_url=fulfill_part_url
                 )
 
-                if loan and fulfillment.can_cache_manifest:
-                    loan.cached_manifest = fulfillment.content.encode("raw_unicode_escape")
-                    loan.cached_content_type = fulfillment.content_type
-
             if not fulfillment or not (
                 fulfillment.content_link or fulfillment.content
             ):
                 raise NoAcceptableFormat()
+
+            # Now that the additional API calls have been made,
+            # fulfillment data can be saved to the loan for future retrieval
+            if loan and fulfillment.can_cache_manifest:
+                loan.cached_manifest = fulfillment.content.encode("raw_unicode_escape")
+                loan.cached_content_type = fulfillment.content_type
 
         # Send out an analytics event to record the fact that
         # a fulfillment was initiated through the circulation
