@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Unicode,
     UniqueConstraint,
@@ -511,11 +512,13 @@ class Loan(Base, LoanAndHoldMixin):
     # Some distributors (e.g. Feedbooks) may have an identifier that can
     # be used to check the status of a specific Loan.
     external_identifier = Column(Unicode, unique=True, nullable=True)
+    cached_manifest = Column(LargeBinary, nullable=True)
+    cached_content_type = Column(Unicode, nullable=True)
 
     __table_args__ = (
         UniqueConstraint('patron_id', 'license_pool_id'),
     )
-    
+
     def __lt__(self, other):
         return self.id < other.id
 
