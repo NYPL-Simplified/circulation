@@ -1,4 +1,5 @@
- BEGIN
+DO $$
+  BEGIN
   -- Add the 'cached_manifest' column
   BEGIN
    ALTER TABLE loans ADD COLUMN cached_manifest bytea;
