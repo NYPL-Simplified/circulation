@@ -97,7 +97,7 @@ while [[ $# -gt 0 ]]; do
         scripts)
             # Check for migrations to run, then make cron the foreground process
             source ${SIMPLIFIED_VENV}/bin/activate
-            db_init_script="${CM_BIN_DIR}/util/initialize_database"
+            db_init_script="${CORE_BIN_DIR}/initialize_database"
             migrate_script="${CORE_BIN_DIR}/migrate_database"
             if [[ -x $db_init_script && -x $migrate_script ]]; then
                 ${db_init_script} && ${migrate_script}
