@@ -100,7 +100,9 @@ while [[ $# -gt 0 ]]; do
             db_init_script="${CORE_BIN_DIR}/initialize_database"
             migrate_script="${CORE_BIN_DIR}/migrate_database"
             if [[ -x $db_init_script && -x $migrate_script ]]; then
-                ${db_init_script} && ${migrate_script}
+                PID1_STDOUT=/proc/1/fd/1
+                PID1_STDERR=/proc/1/fd/2
+                core/bin/run initialize_database |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR && core/bin/run migrate_database |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
             fi
             cron -f
             ;;
