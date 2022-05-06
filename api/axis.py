@@ -442,12 +442,13 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             loan = get_one(self._db, Loan, patron=patron, license_pool=licensepool)
             if loan and loan.external_identifier:
                 # Skip the availability API call and return fulfillment
-                return Axis360FulfillmentInfo(
+                fulfillment = Axis360FulfillmentInfo(
                     api=self, key=loan.external_identifier,
                     data_source_name=DataSource.AXIS_360,
                     identifier_type=Identifier.AXIS_360_ID,
                     identifier=identifier.identifier
                 )
+                return fulfillment
 
         # This should include only one 'activity'.
         activities = self.patron_activity(patron, pin, licensepool.identifier, internal_format)
@@ -1810,3 +1811,6 @@ class Axis360FulfillmentInfo(APIAwareFulfillmentInfo):
         self._content = str(manifest)
         self._content_type = manifest.MEDIA_TYPE
         self._content_expires = expires
+
+        if manifest.MEDIA_TYPE == AxisNowManifest.MEDIA_TYPE:
+            self.can_cache_manifest = True

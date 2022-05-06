@@ -163,6 +163,7 @@ class FulfillmentInfo(CirculationInfo):
     """A record of a technique that can be used *right now* to fulfill
     a loan.
     """
+    can_cache_manifest = False
 
     def __init__(self, collection, data_source_name, identifier_type,
                  identifier, content_link, content_type, content,
@@ -966,21 +967,42 @@ class CirculationAPI(object):
             if licensepool.self_hosted:
                 fulfillment = self._try_to_sign_fulfillment_link(licensepool, fulfillment)
         else:
-            api = self.api_for_license_pool(licensepool)
-            internal_format = api.internal_format(delivery_mechanism)
+            if loan and loan.cached_manifest:
+                # Skip the fulfill call and build out FulfillmentInfo
+                # using information from the Loan
+                fulfillment = FulfillmentInfo(
+                    collection=licensepool.collection,
+                    data_source_name=licensepool.data_source,
+                    identifier_type=licensepool.identifier.type,
+                    identifier=licensepool.identifier.identifier,
+                    content_link=None,
+                    content_type=loan.cached_content_type,
+                    content=loan.cached_manifest.decode("utf-8"),
+                    content_expires=loan.end
+                )
+            else:
+                api = self.api_for_license_pool(licensepool)
+                internal_format = api.internal_format(delivery_mechanism)
 
-            # Here we _do_ pass in the vendor-specific arguments, but
-            # we pass them in as keyword arguments, to minimize the
-            # impact on implementation signatures. Most vendor APIs
-            # will ignore one or more of these arguments.
-            fulfillment = api.fulfill(
-                patron, pin, licensepool, internal_format=internal_format,
-                part=part, fulfill_part_url=fulfill_part_url
-            )
+                # Here we _do_ pass in the vendor-specific arguments, but
+                # we pass them in as keyword arguments, to minimize the
+                # impact on implementation signatures. Most vendor APIs
+                # will ignore one or more of these arguments.
+                fulfillment = api.fulfill(
+                    patron, pin, licensepool, internal_format=internal_format,
+                    part=part, fulfill_part_url=fulfill_part_url
+                )
+
             if not fulfillment or not (
                 fulfillment.content_link or fulfillment.content
             ):
                 raise NoAcceptableFormat()
+
+            # Now that the additional API calls have been made,
+            # fulfillment data can be saved to the loan for future retrieval
+            if loan and fulfillment.can_cache_manifest:
+                loan.cached_manifest = fulfillment.content.encode("raw_unicode_escape")
+                loan.cached_content_type = fulfillment.content_type
 
         # Send out an analytics event to record the fact that
         # a fulfillment was initiated through the circulation
