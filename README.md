@@ -62,7 +62,6 @@ The following shell commands will clone this repo and build Docker images for th
 ```shell
 git clone https://github.com/NYPL-Simplified/circulation.git
 cd ./circulation
-make setup
 make build
 ```
 
