@@ -27,7 +27,7 @@ services:
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     command: >
       /bin/sh -c "./bin/elasticsearch-plugin list | grep -q analysis-icu 
-      || ./bin/elasticsearch-plugin install analysis-icu; tail -f /dev/null"
+      || ./bin/elasticsearch-plugin install analysis-icu; /usr/local/bin/docker-entrypoint.sh && tail -f /dev/null"
 
   minio:
     container_name: minio
