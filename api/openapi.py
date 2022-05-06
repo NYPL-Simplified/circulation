@@ -27,6 +27,10 @@ def generateSpecBase():
         },
         servers=[
             {
+                'url': 'http://localhost',
+                'description': 'localhost'
+            },
+            {
                 'url': 'https://circulation.librarysimplified.org/',
                 'description': 'NYPL Production Circulation Manager'
             },
@@ -48,6 +52,13 @@ def generateSpecBase():
         component={
             'type': 'http',
             'scheme': 'bearer'
+        },
+    )
+    spec.components.security_scheme(
+        'BasicAuth',
+        component={
+            'type': 'http',
+            'scheme': 'basic'
         }
     )
 
