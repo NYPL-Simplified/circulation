@@ -2704,7 +2704,7 @@ class BasicAuthTempTokenController(object):
         if credential.expires:
             # The Credential's expiration time is stored and the lifetime of the Credential (one hour) is known,
             # so the creation time can be calculated
-            token_time_remaining = (credential.expires - utc_now()).seconds
+            token_time_remaining = (credential.expires - utc_now()).total_seconds()
 
         if (
             BasicAuthTempTokenController.TOKEN_DURATION.seconds
