@@ -2,6 +2,8 @@
 from apispec import APISpec
 from apispec_webframeworks.flask import FlaskPlugin
 
+from .documentation.plugins import CSRFPlugin
+
 
 def generateSpecBase():
     # Initialize OpenAPI Spec Document
@@ -43,17 +45,10 @@ def generateSpecBase():
                 'description': 'Open eBooks Production Circulation Manager'
             }
         ],
-        plugins=[FlaskPlugin()]
+        plugins=[FlaskPlugin(), CSRFPlugin()]
     )
 
     # Add securitySchemes
-    spec.components.security_scheme(
-        'BearerAuth',
-        component={
-            'type': 'http',
-            'scheme': 'bearer'
-        },
-    )
     spec.components.security_scheme(
         'BasicAuth',
         component={
@@ -170,5 +165,15 @@ def generateSpecBase():
         }
     )
 
+    spec.components.parameter(
+        'X-CSRF-Token',
+        'header',
+        component={
+            'schema': {
+                'type': 'string'
+            },
+            'required': True
+        }
+    )
 
     return spec
