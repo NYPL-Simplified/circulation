@@ -481,6 +481,7 @@ def individual_admin(email):
       security:
         - BearerAuth
       parameters:
+        - X-CSRF-Token
         - in: path
           name: email
           schema:
