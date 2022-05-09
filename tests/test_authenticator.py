@@ -2975,7 +2975,15 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
                 another_token = another_response.json.get('access_token')
                 assert another_token == token
 
-    def test_basic_auth_temp_token_returns_new_token(self):
+
+    @pytest.mark.parametrize(
+        'delta',
+        [
+            pytest.param(61, id='after_one_minute'),
+            pytest.param(3601, id='after_one_hour')
+        ]
+    )
+    def test_basic_auth_temp_token_returns_new_token(self, delta):
         """
         GIVEN: A request to authenticate a patron with a base64 encoded username:password to recieve a token
         WHEN:  Re-requesting authentication with the same credentials after a minute of the token's creation
@@ -2993,7 +3001,7 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
                 token = response.json.get('access_token')
                 assert token
 
-                frozen_time.move_to(start_datetime + datetime.timedelta(seconds=61))
+                frozen_time.move_to(start_datetime + datetime.timedelta(seconds=delta))
                 another_response = self.controller.basic_auth_temp_token({}, self._db)
                 assert another_response.status_code == 200
 
