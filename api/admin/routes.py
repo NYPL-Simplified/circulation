@@ -430,6 +430,8 @@ def individual_admins():
         * Librarians have no special permissions
       security:
         - BearerAuth
+      parameters:
+        - X-CSRF-Token
       requestBody:
         required: true
         content:
