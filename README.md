@@ -31,7 +31,7 @@ Branches whose name follows the pattern `<organization>-deploy-<env>` are protec
 * `nypl-deploy-qa`
 * `nypl-deploy-production`
 * `openebooks-deploy-qa`
-* `openebooks-deploy-qa`
+* `openebooks-deploy-production`
 * `bpl-deploy-qa`
 * `bpl-deploy-production`
 
@@ -62,7 +62,6 @@ The following shell commands will clone this repo and build Docker images for th
 ```shell
 git clone https://github.com/NYPL-Simplified/circulation.git
 cd ./circulation
-make setup
 make build
 ```
 

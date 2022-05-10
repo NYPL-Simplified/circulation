@@ -17,17 +17,17 @@ services:
   elasticsearch:
     # Use the latest version of Elasticsearch supported by Amazon AWS ES.
     container_name: cm_local_es
-    image: docker.elastic.co/elasticsearch/elasticsearch:6.7.2
+    image: bitnami/elasticsearch:6.7.2
     ports:
       - "9200:9200"
       - "9300:9300"
     environment:
       - discovery.type=single-node
       - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    command: >
-      /bin/sh -c "./bin/elasticsearch-plugin list | grep -q analysis-icu 
-      || ./bin/elasticsearch-plugin install analysis-icu; tail -f /dev/null"
+      - ELASTICSEARCH_HEAP_SIZE=512m
+      - ELASTICSEARCH_PLUGINS=analysis-icu
+    volumes:
+      - cm_local_esdata:/bitnami/elasticsearch/data
 
   minio:
     container_name: minio
@@ -88,3 +88,4 @@ volumes:
   cm_local_dbdata:
   cm_local_gunicorn_log:
   cm_local_script_logs:
+  cm_local_esdata:
