@@ -19,7 +19,7 @@ class OverdriveRawCirculationScript(IdentifierInputScript):
         for collection in Collection.by_protocol(self._db, ExternalIntegration.OVERDRIVE):
             overdrive = OverdriveAPI(self._db, collection)
             for identifier in args.identifiers:
-                (_, _, _, content) = overdrive.circulation_lookup(identifier.identifier)
+                (_, (_, _, content)) = overdrive.circulation_lookup(identifier.identifier)
                 data = json.loads(content)
                 print(json.dumps(data, sort_keys=True, indent=4, separators=(',', ': ')), "\n")
 
