@@ -1,18 +1,18 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
-Monitor the RBdigital collections by going through
-the availability endpoint result list.
-Update RBDigital Licensepools to have either 0 or 1
-available copies, based on availability flag returned
-from RBDigital.
+Monitor the RBdigital collections by going through the availability endpoint result list.
+Update RBDigital Licensepools to have either 0 or 1 available copies, based on availability
+flag returned from RBDigital.
 """
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from core.scripts import RunCollectionMonitorScript
-from api.rbdigital import RBDigitalCirculationMonitor
+from core.scripts import RunCollectionMonitorScript         # noqa: E402
+from api.rbdigital import RBDigitalCirculationMonitor       # noqa: E402
 
 RunCollectionMonitorScript(RBDigitalCirculationMonitor).run()

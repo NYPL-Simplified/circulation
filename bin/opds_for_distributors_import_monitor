@@ -1,10 +1,16 @@
-#!/usr/bin/env python
-"""Update the circulation manager server with new books from
-OPDS import collections that have authentication."""
+#!/usr/bin/env python3
+"""
+Update the circulation manager server with new books from OPDS import collections
+that have authentication.
+"""
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
-from scripts import OPDSForDistributorsImportScript
+
+from scripts import OPDSForDistributorsImportScript     # noqa: E402
+
 OPDSForDistributorsImportScript().run()

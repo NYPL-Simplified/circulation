@@ -37,6 +37,7 @@ from api.rbdigital import (
 from api.saml.controller import SAMLController
 from .authenticator import (
     Authenticator,
+    BasicAuthTempTokenController,
     CirculationPatronProfileStorage,
     OAuthController,
 )
@@ -277,6 +278,7 @@ class CirculationManager(object):
         # Assemble the list of patron web client domains from individual
         # library registration settings as well as a sitewide setting.
         patron_web_domains = set()
+        admin_web_domains = set()
 
         def get_domain(url):
             url = url.strip()
@@ -295,6 +297,14 @@ class CirculationManager(object):
                 domain = get_domain(url)
                 if domain:
                     patron_web_domains.add(domain)
+                
+        sitewide_admin_web_client_urls = ConfigurationSetting.sitewide(
+            self._db, Configuration.ADMIN_WEB_HOSTNAMES).value
+        if sitewide_admin_web_client_urls:
+            for url in sitewide_admin_web_client_urls.split('|'):
+                domain = get_domain(url)
+                if domain:
+                    admin_web_domains.add(domain)
 
         from .registry import Registration
         for setting in self._db.query(
@@ -304,6 +314,7 @@ class CirculationManager(object):
                 patron_web_domains.add(get_domain(setting.value))
 
         self.patron_web_domains = patron_web_domains
+        self.admin_web_domains = admin_web_domains
         self.setup_configuration_dependent_controllers()
         authentication_document_cache_time = int(
             ConfigurationSetting.sitewide(
@@ -442,6 +453,7 @@ class CirculationManager(object):
         This method will be called fresh every time the site
         configuration changes.
         """
+        self.basic_auth_token_controller = BasicAuthTempTokenController(self.auth)
         self.oauth_controller = OAuthController(self.auth)
         self.saml_controller = SAMLController(self, self.auth)
 
@@ -1406,6 +1418,9 @@ class LoanController(CirculationManagerController):
         patron = flask.request.patron
         library = flask.request.library
 
+        header = self.authorization_header()
+        credential = self.manager.auth.get_credential_from_header(header)
+
         result = self.best_lendable_pool(
             library, patron, identifier_type, identifier, mechanism_id
         )
@@ -1416,51 +1431,22 @@ class LoanController(CirculationManagerController):
                 _("I've never heard of this work.")
             )
         if isinstance(result, ProblemDetail):
+            # There was a problem determining the appropriate
+            # LicensePool to use.
             return result
-        pool, mechanism = result
 
-        header = self.authorization_header()
-        credential = self.manager.auth.get_credential_from_header(header)
-        problem_doc = None
-        try:
-            loan, hold, is_new = self.circulation.borrow(
-                patron, credential, pool, mechanism
-            )
-        except NoOpenAccessDownload as e:
-            problem_doc = NO_LICENSES.detailed(
-                _("Couldn't find an open-access download link for this book."),
-                status_code=404
-            )
-        except PatronAuthorizationFailedException as e:
-            problem_doc = INVALID_CREDENTIALS
-        except (PatronLoanLimitReached, PatronHoldLimitReached) as e:
-            problem_doc = e.as_problem_detail_document().with_debug(str(e))
-        except DeliveryMechanismError as e:
-            return BAD_DELIVERY_MECHANISM.with_debug(
-                str(e), status_code=e.status_code
-            )
-        except OutstandingFines as e:
-            problem_doc = OUTSTANDING_FINES.detailed(
-                _("You must pay your $%(fine_amount).2f outstanding fines before you can borrow more books.", fine_amount=patron.fines)
-            )
-        except AuthorizationExpired as e:
-            return e.as_problem_detail_document(debug=False)
-        except AuthorizationBlocked as e:
-            return e.as_problem_detail_document(debug=False)
-        except CannotLoan as e:
-            problem_doc = CHECKOUT_FAILED.with_debug(str(e))
-        except CannotHold as e:
-            problem_doc = HOLD_FAILED.with_debug(str(e))
-        except CannotRenew as e:
-            problem_doc = RENEW_FAILED.with_debug(str(e))
-        except NotFoundOnRemote as e:
-            problem_doc = NOT_FOUND_ON_REMOTE
-        except CirculationException as e:
-            # Generic circulation error.
-            problem_doc = CHECKOUT_FAILED.with_debug(str(e))
+        if isinstance(result, Loan):
+            # We already have a Loan, so there's no need to go to the API.
+            loan_or_hold = result
+            is_new = False
+        else:
+            # We need to actually go out to the API
+            # and try to take out a loan.
+            pool, mechanism = result
+            loan_or_hold, is_new = self._borrow(patron, credential, pool, mechanism)
 
-        if problem_doc:
-            return problem_doc
+        if isinstance(loan_or_hold, ProblemDetail):
+            return loan_or_hold
 
         # At this point we have either a loan or a hold. If a loan, serve
         # a feed that tells the patron how to fulfill the loan. If a hold,
@@ -1470,20 +1456,78 @@ class LoanController(CirculationManagerController):
             response_kwargs['status'] = 201
         else:
             response_kwargs['status'] = 200
-        item = loan or hold
-        if item:
-            return LibraryLoanAndHoldAnnotator.single_item_feed(
-                self.circulation, item, **response_kwargs
-            )
-        else:
-            # This should never happen -- we should have sent a more specific
-            # error earlier.
-            return HOLD_FAILED
+        return LibraryLoanAndHoldAnnotator.single_item_feed(
+            self.circulation, loan_or_hold, **response_kwargs
+        )
 
-    def best_lendable_pool(self, library, patron, identifier_type, identifier,
-                           mechanism_id):
-        """Of the available LicensePools for the given Identifier, return the
+    def _borrow(self, patron, credential, pool, mechanism):
+        """Go out to the API, try to take out a loan, and handle errors as
+        problem detail documents.
+
+        :param patron: The Patron who's trying to take out the loan
+        :param credential: A Credential to use when authenticating
+           as this Patron with the external API.
+        :param pool: The LicensePool for the book the Patron wants.
+        :mechanism: The DeliveryMechanism to request when asking for
+           a loan.
+        :return: a 2-tuple (result, is_new) `result` is a Loan (if one
+           could be created or found), a Hold (if a Loan could not be
+           created but a Hold could be), or a ProblemDetail (if the
+           entire operation failed).
+        """
+        result = None
+        is_new = False
+        try:
+            loan, hold, is_new = self.circulation.borrow(
+                patron, credential, pool, mechanism
+            )
+            result = loan or hold
+        except NoOpenAccessDownload as e:
+            result = NO_LICENSES.detailed(
+                _("Couldn't find an open-access download link for this book."),
+                status_code=404
+            )
+        except PatronAuthorizationFailedException as e:
+            result = INVALID_CREDENTIALS
+        except (PatronLoanLimitReached, PatronHoldLimitReached) as e:
+            result = e.as_problem_detail_document().with_debug(str(e))
+        except DeliveryMechanismError as e:
+            result = BAD_DELIVERY_MECHANISM.with_debug(
+                str(e), status_code=e.status_code
+            )
+        except OutstandingFines as e:
+            result = OUTSTANDING_FINES.detailed(
+                _("You must pay your $%(fine_amount).2f outstanding fines before you can borrow more books.", fine_amount=patron.fines)
+            )
+        except AuthorizationExpired as e:
+            result = e.as_problem_detail_document(debug=False)
+        except AuthorizationBlocked as e:
+            result = e.as_problem_detail_document(debug=False)
+        except CannotLoan as e:
+            result = CHECKOUT_FAILED.with_debug(str(e))
+        except CannotHold as e:
+            result = HOLD_FAILED.with_debug(str(e))
+        except CannotRenew as e:
+            result = RENEW_FAILED.with_debug(str(e))
+        except NotFoundOnRemote as e:
+            result = NOT_FOUND_ON_REMOTE
+        except CirculationException as e:
+            # Generic circulation error.
+            result = CHECKOUT_FAILED.with_debug(str(e))
+
+        if result is None:
+            # This shouldn't happen, but if it does, it means no exception
+            # was raised but we just didn't get a loan or hold. Return a
+            # generic circulation error.
+            result = HOLD_FAILED
+        return result, is_new
+
+    def best_lendable_pool(self, library, patron, identifier_type, identifier, mechanism_id):
+        """
+        Of the available LicensePools for the given Identifier, return the
         one that's the best candidate for loaning out right now.
+
+        :return: A Loan if this patron already has an active loan, otherwise a LicensePool.
         """
         # Turn source + identifier into a set of LicensePools
         pools = self.load_licensepools(
@@ -1502,7 +1546,10 @@ class LoanController(CirculationManagerController):
             Loan.patron==patron
         ).all()
         if existing_loans:
-            return ALREADY_CHECKED_OUT
+            # The patron already has at least one loan on this book already.
+            # To make the "borrow" operation idempotent, return one of
+            # those loans instead of an error.
+            return existing_loans[0]
 
         # We found a number of LicensePools. Try to locate one that
         # we can actually loan to the patron.
@@ -2466,6 +2513,7 @@ class SharedCollectionController(CirculationManagerController):
             return CANNOT_RELEASE_HOLD.detailed(str(e))
         return Response(_("Success"), 200)
 
+
 class StaticFileController(CirculationManagerController):
     def static_file(self, directory, filename):
         cache_timeout = ConfigurationSetting.sitewide(
@@ -2473,9 +2521,6 @@ class StaticFileController(CirculationManagerController):
         ).int_value
         return flask.send_from_directory(directory, filename, cache_timeout=cache_timeout)
 
-    def image(self, filename):
-        directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
-        return self.static_file(directory, filename)
 
 class RBDFulfillmentProxyController(CirculationManagerController):
 

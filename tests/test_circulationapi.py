@@ -298,6 +298,52 @@ class TestCirculationAPI(DatabaseTest):
         assert self.pool == hold.license_pool
         assert self.patron == hold.patron
 
+    def test_vendor_side_loan_limit_allows_for_hold_placement(self):
+        # Attempting to borrow a book will trigger a vendor-side loan
+        # limit.
+        self.remote.queue_checkout(PatronLoanLimitReached())
+
+        # But the point is moot because the book isn't even available.
+        # Attempting to place a hold will succeed.
+        holdinfo = HoldInfo(
+            self.pool.collection, self.pool.data_source,
+            self.identifier.type, self.identifier.identifier,
+            None, None, 10
+        )
+        self.remote.queue_hold(holdinfo)
+
+        loan, hold, is_new = self.borrow()
+
+        # No exception was raised, and the Hold looks good.
+        assert holdinfo.identifier == hold.license_pool.identifier.identifier
+        assert self.patron == hold.patron
+        assert None == loan
+        assert True == is_new
+
+    def test_loan_exception_reraised_if_hold_placement_fails(self):
+        # Attempting to borrow a book will trigger a vendor-side loan
+        # limit.
+        self.remote.queue_checkout(PatronLoanLimitReached())
+
+        # Attempting to place a hold will fail because the book is
+        # available. (As opposed to the previous test, where the book
+        # was _not_ available and hold placement succeeded.) This
+        # indicates that we should have raised PatronLoanLimitReached
+        # in the first place.
+        self.remote.queue_hold(CurrentlyAvailable())
+
+        assert len(self.remote.responses['checkout']) == 1
+        assert len(self.remote.responses['hold']) == 1
+
+        # The exception raised is PatronLoanLimitReached, the first
+        # one we encountered...
+        pytest.raises(PatronLoanLimitReached, self.borrow)
+
+        # ...but we made both requests and have no more responses
+        # queued.
+        assert not self.remote.responses['checkout']
+        assert not self.remote.responses['hold']
+
     def test_hold_sends_analytics_event(self):
         self.remote.queue_checkout(NoAvailableCopies())
         holdinfo = HoldInfo(
@@ -1397,7 +1443,7 @@ class TestBaseCirculationAPI(DatabaseTest):
                 self.called_with = patron
                 raise NotImplementedError()
         mock_oauth = MockOAuth()
-        authenticator.register_oauth_provider(mock_oauth)
+        authenticator.register_bearer_token_auth_provider(mock_oauth)
         assert (
             None ==
             api.patron_email_address(

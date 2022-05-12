@@ -1,5 +1,6 @@
-#!/usr/bin/env python
-"""Refreshes SAML federated metadata.
+#!/usr/bin/env python3
+"""
+Refreshes SAML federated metadata.
 
 Please note that the monitor looks up for federations in `samlfederations` table.
 Currently, there is no way to configure SAML federations in the admin interface.
@@ -12,18 +13,18 @@ bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from api.saml.metadata.federations.loader import (
+from api.saml.metadata.federations.loader import (              # noqa: E402
     SAMLFederatedIdentityProviderLoader,
     SAMLMetadataLoader,
 )
-from api.saml.metadata.federations.validator import (
+from api.saml.metadata.federations.validator import (           # noqa: E402
     SAMLFederatedMetadataExpirationValidator,
     SAMLFederatedMetadataValidatorChain,
     SAMLMetadataSignatureValidator,
 )
-from api.saml.metadata.monitor import SAMLMetadataMonitor
-from api.saml.metadata.parser import SAMLMetadataParser
-from core.scripts import RunMonitorScript
+from api.saml.metadata.monitor import SAMLMetadataMonitor       # noqa: E402
+from api.saml.metadata.parser import SAMLMetadataParser         # noqa: E402
+from core.scripts import RunMonitorScript                       # noqa: E402
 
 saml_metadata_loader = SAMLMetadataLoader()
 saml_metadata_validator = SAMLFederatedMetadataValidatorChain(

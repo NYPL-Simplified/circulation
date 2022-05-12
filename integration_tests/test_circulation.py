@@ -1,27 +1,29 @@
-#!/usr/bin/env python
-import random
-import sys
+#!/usr/bin/env python3
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from core.model import (
+from core.model import (            # noqa: E402,F401
     get_one_or_create,
     production_session,
     DataSource,
     Identifier,
-
     LicensePool,
     Patron,
     )
-from threem import ThreeMAPI
-from overdrive import OverdriveAPI
-from axis import Axis360API
 
-from circulation import CirculationAPI
-from circulation_exceptions import *
+from threem import ThreeMAPI                # noqa: E402
+from api.overdrive import OverdriveAPI      # noqa: E402
+from api.axis import Axis360API             # noqa: E402
+from api.circulation import CirculationAPI  # noqa: E402
+from api.circulation_exceptions import (    # noqa: E402
+    CannotLoan,
+    NoActiveLoan,
+)
 
 barcode, pin, borrow_urn, hold_urn = sys.argv[1:5]
 email = os.environ.get('DEFAULT_NOTIFICATION_EMAIL_ADDRESS', 'test@librarysimplified.org')
@@ -63,17 +65,20 @@ licensepool = borrow_pool
 mechanism = licensepool.delivery_mechanisms[0]
 try:
     circulation.fulfill(patron, pin, licensepool, mechanism)
-except NoActiveLoan as e:
+except NoActiveLoan:
     print(" No active loan...")
+
 circulation.borrow(patron, pin, licensepool, mechanism, email)
 print("Attempting to borrow", licensepool.work)
 print("Initial revoke loan")
 print(circulation.revoke_loan(patron, pin, licensepool))
 print("Fulfill with no loan")
+
 try:
     circulation.fulfill(patron, pin, licensepool, mechanism)
-except NoActiveLoan as e:
+except NoActiveLoan:
     print(" Exception as expected.")
+
 print("Borrow")
 print(circulation.borrow(patron, pin, licensepool, mechanism, email))
 print("Borrow again!")
@@ -89,14 +94,17 @@ print("", circulation.release_hold(patron, pin, licensepool))
 print("Creating hold.")
 print("", circulation.borrow(patron, pin, licensepool, mechanism, email))
 print("Creating hold again!")
+
 try:
     print(circulation.borrow(patron, pin, licensepool, mechanism, email))
-except CannotLoan as e:
+except CannotLoan:
     print(" Exception as expected.")
+
 print("Attempt to fulfill hold.")
+
 try:
     print(circulation.fulfill(patron, pin, licensepool, mechanism))
-except NoActiveLoan as e:
+except NoActiveLoan:
     print(" Exception as expected")
 
 activity = circulation.patron_activity(patron, pin)
@@ -114,4 +122,3 @@ print("Release hold.")
 print(circulation.release_hold(patron, pin, licensepool))
 print("Release nonexistent hold.")
 print(circulation.release_hold(patron, pin, licensepool))
-

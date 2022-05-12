@@ -2,6 +2,8 @@ import json
 import logging
 import os
 import re
+import urllib
+import uuid
 
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -38,6 +40,7 @@ from core.model import (
     CirculationEvent,
     Classification,
     Collection,
+    ConfigurationSetting,
     Contributor,
     DataSource,
     DeliveryMechanism,
@@ -51,6 +54,7 @@ from core.model import (
     LicensePool,
     LinkRelations,
     MediaTypes,
+    Patron,
     Representation,
     Session,
     Subject,
@@ -109,6 +113,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
+    ALLOW_ANONYMOUS_ACCESS_SETTING = "allow_anonymous_access"
+
     SERVICE_NAME = "Axis 360"
     PRODUCTION_BASE_URL = "https://axis360api.baker-taylor.com/Services/VendorAPI/"
     QA_BASE_URL = "http://axis360apiqa.baker-taylor.com/Services/VendorAPI/"
@@ -129,6 +135,18 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
           "format": "url",
           "allowed": list(SERVER_NICKNAMES.keys()),
         },
+
+        {
+            "key": ALLOW_ANONYMOUS_ACCESS_SETTING,
+            "label": _("Allow anonymous access"),
+            "description": _("If you're associating an Axis 360 collection with a library that doesn't take any steps to authenticate its patrons, you'll need to disable this safety setting to explicitly allow anonymous access to the collection. Most libraries authenticate their patrons, so allowing only authenticated access is the right choice in almost all situations."),
+            "type": "select",
+            "options": [
+                { "key": "false", "label": _("Allow only authenticated access to this collection's titles") },
+                { "key": "true", "label": _("Allow anonymous access to this collection's titles") },
+            ],
+            "default": "false"
+        }
     ] + BaseCirculationAPI.SETTINGS
 
     LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
@@ -175,6 +193,12 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
 
+        # Anonymous access is only allowed a) for libraries that don't
+        # authenticate patrons, b) if this setting is set to True.
+        self.allow_anonymous_access = collection.external_integration.setting(
+            self.ALLOW_ANONYMOUS_ACCESS_SETTING
+        ).bool_value or False
+
         # Convert the nickname for a server into an actual URL.
         base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
         if base_url in self.SERVER_NICKNAMES:
@@ -215,6 +239,17 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
 
     def external_integration(self, _db):
         return self.collection.external_integration
+
+    def can_fulfill_without_loan(self, patron, pool, lpdm):
+        """A LicensePool can be fulfilled without a loan
+        if a) the library allows for it, and b) the delivery mechanism
+        is either AxisNow or unspecified (in which case AxisNow is an option).
+        """
+        return (
+            patron is None and self.allow_anonymous_access
+            and (lpdm is None or lpdm.delivery_mechanism is None or
+                 lpdm.delivery_mechanism.drm_scheme == self.axisnow_drm)
+        )
 
     def _run_self_tests(self, _db):
         result = self.run_test(
@@ -323,9 +358,44 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         response = self.request(url, "POST", params=params)
         return response
 
-    def checkout(self, patron, pin, licensepool, internal_format):
+    def checkin(self, patron, pin, licensepool):
+        """Return a book early.
+
+        :param patron: The Patron who wants to return their book.
+        :param pin: Not used.
+        :param licensepool: LicensePool for the book to be returned.
+        :raise CirculationException: If the API can't carry out the operation.
+        :raise RemoteInitiatedServerError: If the API is down.
+        """
         title_id = licensepool.identifier.identifier
         patron_id = patron.authorization_identifier
+        response = self._checkin(title_id, patron_id)
+        try:
+            return CheckinResponseParser(
+                licensepool.collection
+            ).process_all(response.content)
+        except etree.XMLSyntaxError as e:
+            raise RemoteInitiatedServerError(
+                response.content, self.SERVICE_NAME
+            )
+
+    def _checkin(self, title_id, patron_id):
+        """Make a request to the EarlyCheckInTitle endpoint."""
+        url = self.base_url + "EarlyCheckInTitle/v3?itemID=%s&patronID=%s" % (
+            urllib.parse.quote(title_id),
+            urllib.parse.quote(patron_id)
+        )
+        return self.request(url, method="GET", verbose=True)
+
+    def checkout(self, patron, pin, licensepool, internal_format):
+        title_id = licensepool.identifier.identifier
+        if isinstance(patron, Patron):
+            # Patron object was provided; this is the normal path.
+            patron_id = patron.authorization_identifier
+        else:
+            # patron ID was provided directly, probably because it's
+            # a UUID generated by fulfill()
+            patron_id = patron
         response = self._checkout(title_id, patron_id, internal_format)
         try:
             return CheckoutResponseParser(
@@ -350,6 +420,20 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
 
         :return: a FulfillmentInfo object.
         """
+
+        if patron is None:
+            # An attempt to fulfill anonymously.
+            if not self.can_fulfill_without_loan(patron, licensepool, None):
+                # This collection does not allow anonymous fulfillment.
+                raise NoActiveLoan()
+
+            # Make up a throwaway patron ID and check out the book
+            # under that ID.
+            patron = str(uuid.uuid4())
+            checkout_result = self.checkout(
+                patron, None, licensepool, internal_format
+            )
+
         identifier = licensepool.identifier
         # This should include only one 'activity'.
         activities = self.patron_activity(patron, pin, licensepool.identifier, internal_format)
@@ -368,9 +452,6 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         # If we made it to this point, the patron does not have this
         # book checked out.
         raise NoActiveLoan()
-
-    def checkin(self, patron, pin, licensepool):
-        pass
 
     def place_hold(self, patron, pin, licensepool, hold_notification_email):
         if not hold_notification_email:
@@ -412,12 +493,19 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         return True
 
     def patron_activity(self, patron, pin, identifier=None, internal_format=None):
+        if isinstance(patron, Patron):
+            # This is the normal path.
+            patron_id = patron.authorization_identifier
+        else:
+            # This is the path of anonymous fulfillment; the "patron"
+            # is a UUID corresponding to a throwaway account.
+            patron_id = patron
         if identifier:
             title_ids = [identifier.identifier]
         else:
             title_ids = None
         availability = self.availability(
-            patron_id=patron.authorization_identifier,
+            patron_id=patron_id,
             title_ids=title_ids)
         return list(AvailabilityResponseParser(self, internal_format).process_all(
             availability.content))
@@ -1183,20 +1271,24 @@ class ResponseParser(Axis360Parser):
         (3113, "Title ID is not available for checkout") : NoAvailableCopies,
         3114 : PatronLoanLimitReached,
         3115 : LibraryInvalidInputException, # Missing DRM format
+        3116 : LibraryInvalidInputException, # No patron session ID provided -- we don't use this
         3117 : LibraryInvalidInputException, # Invalid DRM format
         3118 : LibraryInvalidInputException, # Invalid Patron credentials
         3119 : LibraryAuthorizationFailedException, # No Blio account
         3120 : LibraryAuthorizationFailedException, # No Acoustikaccount
         3123 : PatronAuthorizationFailedException, # Patron Session ID expired
+        3124 : PatronAuthorizationFailedException, # Patron SessionID is required
         3126 : LibraryInvalidInputException, # Invalid checkout format
         3127 : InvalidInputException, # First name is required
         3128 : InvalidInputException, # Last name is required
+        3129 : PatronAuthorizationFailedException, # Invalid Patron Session Id
         3130 : LibraryInvalidInputException, # Invalid hold format (?)
         3131 : RemoteInitiatedServerError, # Custom error message (?)
         3132 : LibraryInvalidInputException, # Invalid delta datetime format
         3134 : LibraryInvalidInputException, # Delta datetime format must not be in the future
         3135 : NoAcceptableFormat,
         3136 : LibraryInvalidInputException, # Missing checkout format
+        4058 : NoActiveLoan, # No checkout is associated with patron for the title.
         5000 : RemoteInitiatedServerError,
         5003 : LibraryInvalidInputException, # Missing TransactionID
         5004 : LibraryInvalidInputException, # Missing TransactionID
@@ -1210,9 +1302,17 @@ class ResponseParser(Axis360Parser):
         """
         self.collection = collection
 
-    def raise_exception_on_error(self, e, ns, custom_error_classes={}):
+    def raise_exception_on_error(self, e, ns, custom_error_classes={},
+                                 ignore_error_codes=None):
         """Raise an error if the given lxml node represents an Axis 360 error
         condition.
+
+        :param e: An lxml Element
+        :param ns: A dictionary of namespaces
+        :param custom_error_classes: A dictionary of errors to map to custom
+           classes rather than the defaults.
+        :param ignore_error_codes: A list of error codes to treat as success
+           rather than as cause to raise an exception.
         """
         code = self._xpath1(e, '//axis:status/axis:code', ns)
         message = self._xpath1(e, '//axis:status/axis:statusMessage', ns)
@@ -1224,11 +1324,12 @@ class ResponseParser(Axis360Parser):
             # Something is so wrong that we don't know what to do.
             raise RemoteInitiatedServerError(message, self.SERVICE_NAME)
         return self._raise_exception_on_error(
-            code.text, message, custom_error_classes
+            code.text, message, custom_error_classes, ignore_error_codes
         )
 
     @classmethod
-    def _raise_exception_on_error(cls, code, message, custom_error_classes={}):
+    def _raise_exception_on_error(cls, code, message, custom_error_classes={},
+                                  ignore_error_codes=None):
         try:
             code = int(code)
         except ValueError:
@@ -1237,6 +1338,9 @@ class ResponseParser(Axis360Parser):
                 "Invalid response code from Axis 360: %s" % code,
                 cls.SERVICE_NAME
             )
+
+        if ignore_error_codes and code in ignore_error_codes:
+            return code, message
 
         for d in custom_error_classes, cls.code_to_exception:
             if (code, message) in d:
@@ -1251,6 +1355,22 @@ class ResponseParser(Axis360Parser):
                     e = error_class(message)
                 raise e
         return code, message
+
+
+class CheckinResponseParser(ResponseParser):
+
+    def process_all(self, string):
+        for i in super(CheckinResponseParser, self).process_all(
+                string, "//axis:EarlyCheckinRestResult", self.NS):
+            return i
+
+    def process_one(self, e, namespaces):
+        """Either raise an appropriate exception, or do nothing.
+        """
+        self.raise_exception_on_error(
+            e, namespaces, ignore_error_codes = [4058]
+        )
+        return True
 
 
 class CheckoutResponseParser(ResponseParser):

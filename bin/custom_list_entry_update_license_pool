@@ -1,14 +1,19 @@
-#!/usr/bin/env python
-"""Update the license pools for custom list entries.
+#!/usr/bin/env python3
+"""
+Update the license pools for custom list entries.
 
 This should be run occasionally, maybe once every few weeks, to handle
 newly acquired licenses for books that were already on a custom list.
 """
+
 import os
 import sys
+
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
-from core.monitor import CustomListEntryLicensePoolUpdateMonitor
-from core.scripts import RunMonitorScript
+
+from core.monitor import CustomListEntryLicensePoolUpdateMonitor        # noqa: E402
+from core.scripts import RunMonitorScript                               # noqa: E402
+
 RunMonitorScript(CustomListEntryLicensePoolUpdateMonitor).run()
