@@ -1,4 +1,5 @@
 import datetime
+import dateutil
 from decimal import Decimal
 
 import pytest
@@ -10,6 +11,7 @@ from api.config import Configuration, temp_config
 from api.authenticator import PatronData
 from api.util.patron import PatronUtility
 from api.circulation_exceptions import *
+from core.util.datetime_helpers import utc_now
 from core.model import ConfigurationSetting
 from core.util import MoneyUtility
 
@@ -30,7 +32,7 @@ class TestPatronUtility(DatabaseTest):
             def authorization_is_active(cls, patron):
                 return cls.mock_has_borrowing_privileges
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         one_hour_ago = now - datetime.timedelta(hours=1)
         six_seconds_ago = now - datetime.timedelta(seconds=6)
         three_seconds_ago = now - datetime.timedelta(seconds=3)
@@ -67,10 +69,10 @@ class TestPatronUtility(DatabaseTest):
         of whether or not a patron can borrow books.
         """
 
-        # Patron expirations checks are done against localtime, rather than
-        # UTC; so `patron.authorization_expires` needs datetimes relative to
-        # `datetime.datetime.now()`, rather than `...utcnow()`.
-        now = datetime.datetime.now()
+        # Patron expirations checks are done against localtime, rather
+        # than UTC; so `patron.authorization_expires` needs
+        # timezone-aware datetimes set to local time.
+        now = datetime.datetime.now(tz=dateutil.tz.tzlocal())
         one_day_ago = now - datetime.timedelta(days=1)
         patron = self._patron()
 

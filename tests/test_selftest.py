@@ -1,6 +1,6 @@
 """Test circulation-specific extensions to the self-test infrastructure."""
 import datetime
-from StringIO import StringIO
+from io import StringIO
 
 from core.testing import DatabaseTest
 from core.model import (
@@ -37,7 +37,7 @@ class TestHasSelfTests(DatabaseTest):
         assert "Acquiring test patron credentials." == result.name
         assert False == result.success
         assert ("Collection is not associated with any libraries." ==
-            result.exception.message)
+            str(result.exception))
         assert (
             "Add the collection to a library that has a patron authentication service." ==
             result.exception.debug_message)
@@ -73,7 +73,7 @@ class TestHasSelfTests(DatabaseTest):
         assert (
             "Acquiring test patron credentials for library %s" % no_default_patron.name ==
             failure.name)
-        assert "Library has no test patron configured." == failure.exception.message
+        assert "Library has no test patron configured." == str(failure.exception)
         assert "You can specify a test patron when you configure the library's patron authentication service." == failure.exception.debug_message
 
         # The test patron for the library that has one was looked up,
@@ -120,7 +120,7 @@ class TestRunSelfTestsScript(DatabaseTest):
         default_api_map = CirculationAPI(
             self._db, self._default_library
         ).default_api_map
-        for k, v in default_api_map.items():
+        for k, v in list(default_api_map.items()):
             assert api_map[k] == v
 
         # But a couple things were added to the map that are not in
@@ -137,7 +137,7 @@ class TestRunSelfTestsScript(DatabaseTest):
         script = MockScript2(self._db, out)
         script.do_run()
         assert (out.getvalue() ==
-            "Testing %s\n  Exception while running self-test: Exception('blah',)\nTesting %s\n" % (library1.name, library2.name))
+            "Testing %s\n  Exception while running self-test: 'blah'\nTesting %s\n" % (library1.name, library2.name))
 
     def test_test_collection(self):
         class MockScript(RunSelfTestsScript):
@@ -204,7 +204,7 @@ class TestRunSelfTestsScript(DatabaseTest):
         script = RunSelfTestsScript(self._db, out)
         script.process_result(failure)
         assert (out.getvalue() ==
-            "  FAILURE i failed (0.0sec)\n   Exception: Exception('bah',)\n")
+            "  FAILURE i failed (0.0sec)\n   Exception: 'bah'\n")
 
 
 class TestHasCollectionSelfTests(DatabaseTest):

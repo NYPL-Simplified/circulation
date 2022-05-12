@@ -1,4 +1,3 @@
-import datetime
 import logging
 
 from enum import Enum
@@ -20,6 +19,7 @@ from core.model import (
     Representation,
     Subject,
     LicensePool, EditionConstants)
+from core.util.datetime_helpers import strptime_utc
 from core.util.xmlparser import XMLParser
 
 
@@ -222,7 +222,7 @@ class ONIXExtractor(object):
             publishing_date = parser.text_of_optional_subtag(record, 'publishingdetail/publishingdate/b306')
             issued = None
             if publishing_date:
-                issued = datetime.datetime.strptime(publishing_date, "%Y%m%d")
+                issued = strptime_utc(publishing_date, "%Y%m%d")
 
             identifier_tags = parser._xpath(record, 'productidentifier')
             identifiers = []

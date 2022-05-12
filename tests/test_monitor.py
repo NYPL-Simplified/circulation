@@ -13,6 +13,7 @@ from core.model import (
     ExternalIntegration,
     Identifier,
 )
+from core.util.datetime_helpers import utc_now
 
 from api.monitor import (
     HoldReaper,
@@ -86,7 +87,7 @@ class TestLoanlikeReaperMonitor(DatabaseTest):
             collection=sot_collection
         )
 
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         a_long_time_ago = now - datetime.timedelta(days=1000)
         not_very_long_ago = now - datetime.timedelta(days=60)
         even_longer = now - datetime.timedelta(days=2000)
@@ -199,7 +200,7 @@ class TestIdlingAnnotationReaper(DatabaseTest):
         p2 = self._patron()
         for p in [p1, p2]:
             p.synchronize_annotations = True
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         not_that_old = now - datetime.timedelta(days=59)
         very_old = now - datetime.timedelta(days=61)
 

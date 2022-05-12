@@ -12,7 +12,7 @@ from core.testing import MockRequestsResponse
 import json
 import pypostalcode
 from tests.admin.controller.test_controller import SettingsControllerTest
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import uszipcode
 
 class TestGeographicValidator(SettingsControllerTest):
@@ -109,9 +109,9 @@ class TestGeographicValidator(SettingsControllerTest):
             called_with = []
             def mock_ask_registry(self, service_area_object, db):
                 places = {"US": ["Chicago"], "CA": ["Victoria, BC"]}
-                service_area_info = json.loads(urllib.unquote(service_area_object))
-                nation = service_area_info.keys()[0]
-                city_or_county = service_area_info.values()[0]
+                service_area_info = json.loads(urllib.parse.unquote(service_area_object))
+                nation = list(service_area_info.keys())[0]
+                city_or_county = list(service_area_info.values())[0]
                 if city_or_county == "ERROR":
                     test.responses.append(MockRequestsResponse(502))
                 elif city_or_county in places[nation]:
@@ -152,12 +152,13 @@ class TestGeographicValidator(SettingsControllerTest):
         assert error_response.detail == "Unable to contact the registry at https://registry_url."
         assert error_response.status_code == 502
 
-    def test_ask_registry(self):
+    def test_ask_registry(self, monkeypatch):
         validator = GeographicValidator()
 
-        registry_1 = self._registry("https://registry_1_url")
-        registry_2 = self._registry("https://registry_2_url")
-        registry_3 = self._registry("https://registry_3_url")
+        registry_1 = "https://registry_1_url"
+        registry_2 = "https://registry_2_url"
+        registry_3 = "https://registry_3_url"
+        registries = self._registries([registry_1, registry_2, registry_3], monkeypatch)
 
         true_response = MockRequestsResponse(200, content="{}")
         unknown_response = MockRequestsResponse(200, content='{"unknown": "place"}')
@@ -230,6 +231,31 @@ class TestGeographicValidator(SettingsControllerTest):
         integration.url = url
         return RemoteRegistry(integration)
 
+    def _registries(self, urls, monkeypatch):
+        """Create and mock the `for_protocol_and_goal` function from
+        RemoteRegistry. Instead of relying on getting the newly created
+        integrations from the database in a specific order, we return them
+        in the order they were created.
+        """
+        integrations = []
+        for url in urls:
+            integration, is_new = create(
+                self._db, ExternalIntegration, protocol=ExternalIntegration.OPDS_REGISTRATION, goal=ExternalIntegration.DISCOVERY_GOAL
+            )
+            integration.url = url
+            integrations.append(integration)
+
+        def mock_for_protocol_and_goal(_db, protocol, goal):
+            for integration in integrations:
+                yield RemoteRegistry(integration)
+
+        monkeypatch.setattr(
+            RemoteRegistry,
+            "for_protocol_and_goal",
+            mock_for_protocol_and_goal
+        )
+
+
     def test_is_zip(self):
         validator = GeographicValidator()
         assert validator.is_zip("06759", "US") == True
@@ -249,9 +275,9 @@ class TestGeographicValidator(SettingsControllerTest):
         us_zip_unformatted = validator.look_up_zip("06759", "US")
         assert isinstance(us_zip_unformatted, uszipcode.SimpleZipcode)
         us_zip_formatted = validator.look_up_zip("06759", "US", True)
-        assert us_zip_formatted == {'06759': u'Litchfield, CT'}
+        assert us_zip_formatted == {'06759': 'Litchfield, CT'}
 
         ca_zip_unformatted = validator.look_up_zip("R2V", "CA")
         assert isinstance(ca_zip_unformatted, pypostalcode.PostalCode)
         ca_zip_formatted = validator.look_up_zip("R2V", "CA", True)
-        assert ca_zip_formatted == {'R2V': u'Winnipeg (Seven Oaks East), Manitoba'}
+        assert ca_zip_formatted == {'R2V': 'Winnipeg (Seven Oaks East), Manitoba'}

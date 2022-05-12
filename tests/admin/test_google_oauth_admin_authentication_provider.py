@@ -42,7 +42,7 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
         # Successful case creates a dict of admin details
         success, redirect = self.google.callback(self._db, {'code' : 'abc'})
         assert 'example@nypl.org' == success['email']
-        default_credentials = json.dumps({"id_token": {"email": "example@nypl.org", "hd": "nypl.org"}})
+        default_credentials = json.dumps({"id_token": {"hd": "nypl.org", "email": "example@nypl.org"}})
         assert default_credentials == success['credentials']
         assert GoogleOAuthAdminAuthenticationProvider.NAME == success["type"]
         [role] = success.get("roles")
@@ -83,7 +83,7 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
 
         google = GoogleOAuthAdminAuthenticationProvider(auth_integration, "", test_mode=True)
 
-        assert ["nypl.org"] == google.domains.keys()
+        assert ["nypl.org"] == list(google.domains.keys())
         assert [self._default_library] == google.domains["nypl.org"]
 
         l2 = self._library()

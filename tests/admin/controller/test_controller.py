@@ -1,9 +1,10 @@
 import csv
+import datetime
 import json
 import re
-from StringIO import StringIO
+from io import StringIO
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import feedparser
 import flask
@@ -61,9 +62,11 @@ from core.model import (
 from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 from core.s3 import S3UploaderConfiguration
 from core.selftest import HasSelfTests
+from core.util.datetime_helpers import (
+    utc_now,
+)
 from core.util.http import HTTP
 from tests.test_controller import CirculationControllerTest
-
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -77,7 +80,7 @@ class AdminControllerTest(CirculationControllerTest):
         setup_admin(self._db)
         setup_admin_controllers(self.manager)
         self.admin, ignore = create(
-            self._db, Admin, email=u'example@nypl.org',
+            self._db, Admin, email='example@nypl.org',
         )
         self.admin.password = "password"
 
@@ -117,7 +120,7 @@ class TestViewController(AdminControllerTest):
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_view_controller(None, None)
             assert 200 == response.status_code
-            html = response.response[0]
+            html = response.get_data(as_text=True)
             assert 'settingUp: true' in html
 
     def test_not_setting_up(self):
@@ -126,7 +129,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             assert 200 == response.status_code
-            html = response.response[0]
+            html = response.get_data(as_text=True)
             assert 'settingUp: false' in html
 
     def test_redirect_to_sign_in(self):
@@ -147,7 +150,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
             assert 200 == response.status_code
-            assert "Your admin account doesn't have access to any libraries" in response.data
+            assert "Your admin account doesn't have access to any libraries" in response.get_data(as_text=True)
 
         # Unless there aren't any libraries yet. In that case, an admin needs to
         # get in to create one.
@@ -158,7 +161,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
             assert 200 == response.status_code
-            assert "<body>" in response.data
+            assert "<body>" in response.get_data(as_text=True)
 
         l1 = self._library(short_name="L1")
         l2 = self._library(short_name="L2")
@@ -187,7 +190,7 @@ class TestViewController(AdminControllerTest):
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_view_controller(None, None)
             assert 200 == response.status_code
-            html = response.response[0]
+            html = response.get_data(as_text=True)
 
             # The CSRF token value is random, but the cookie and the html have the same value.
             html_csrf_re = re.compile('csrfToken: \"([^\"]*)\"')
@@ -207,7 +210,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             assert 200 == response.status_code
-            html = response.response[0]
+            html = response.get_data(as_text=True)
             assert 'csrfToken: "%s"' % token in html
             assert token in response.headers.get('Set-Cookie')
 
@@ -219,7 +222,7 @@ class TestViewController(AdminControllerTest):
                 flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
                 response = self.manager.admin_view_controller("collection", "book")
                 assert 200 == response.status_code
-                html = response.response[0]
+                html = response.get_data(as_text=True)
 
                 assert ('tos_link_href: "%s",' % expect_href) in html
                 assert ('tos_link_text: "%s",' % expect_text) in html
@@ -250,7 +253,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             assert 200 == response.status_code
-            html = response.response[0]
+            html = response.get_data(as_text=True)
             assert 'showCircEventsDownload: true' in html
 
     def test_roles(self):
@@ -261,7 +264,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             assert 200 == response.status_code
-            html = response.response[0]
+            html = response.get_data(as_text=True)
             assert "\"role\": \"librarian-all\"" in html
             assert "\"role\": \"manager\", \"library\": \"%s\"" % self._default_library.short_name in html
 
@@ -305,10 +308,10 @@ class TestSignInController(AdminControllerTest):
     def setup_method(self):
         super(TestSignInController, self).setup_method()
         self.admin.credential = json.dumps({
-            u'access_token': u'abc123',
-            u'client_id': u'', u'client_secret': u'',
-            u'refresh_token': u'', u'token_expiry': u'', u'token_uri': u'',
-            u'user_agent': u'', u'invalid': u''
+            'access_token': 'abc123',
+            'client_id': '', 'client_secret': '',
+            'refresh_token': '', 'token_expiry': '', 'token_uri': '',
+            'user_agent': '', 'invalid': ''
         })
         self.admin.password_hashed = None
 
@@ -437,8 +440,8 @@ class TestSignInController(AdminControllerTest):
 
         # Creates a new admin with fresh details.
         new_admin_details = {
-            'email' : u'admin@nypl.org',
-            'credentials' : u'gnarly',
+            'email' : 'admin@nypl.org',
+            'credentials' : 'gnarly',
             'type': GoogleOAuthAdminAuthenticationProvider.NAME,
             'roles': [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }],
         }
@@ -462,8 +465,8 @@ class TestSignInController(AdminControllerTest):
 
         # Or overwrites credentials for an existing admin.
         existing_admin_details = {
-            'email' : u'example@nypl.org',
-            'credentials' : u'b-a-n-a-n-a-s',
+            'email' : 'example@nypl.org',
+            'credentials' : 'b-a-n-a-n-a-s',
             'type': GoogleOAuthAdminAuthenticationProvider.NAME,
             'roles': [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }],
         }
@@ -497,10 +500,11 @@ class TestSignInController(AdminControllerTest):
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             response = self.manager.admin_sign_in_controller.sign_in()
             assert 200 == response.status_code
-            assert "GOOGLE REDIRECT" in response.data
-            assert "Sign in with Google" in response.data
-            assert "Email" not in response.data
-            assert "Password" not in response.data
+            response_data = response.get_data(as_text=True)
+            assert "GOOGLE REDIRECT" in response_data
+            assert "Sign in with Google" in response_data
+            assert "Email" not in response_data
+            assert "Password" not in response_data
 
         # If there are multiple auth providers, the login page
         # shows them all.
@@ -508,10 +512,11 @@ class TestSignInController(AdminControllerTest):
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             response = self.manager.admin_sign_in_controller.sign_in()
             assert 200 == response.status_code
-            assert "GOOGLE REDIRECT" in response.data
-            assert "Sign in with Google" in response.data
-            assert "Email" in response.data
-            assert "Password" in response.data
+            response_data = response.get_data(as_text=True)
+            assert "GOOGLE REDIRECT" in response_data
+            assert "Sign in with Google" in response_data
+            assert "Email" in response_data
+            assert "Password" in response_data
 
         # Redirects to the redirect parameter if an admin is signed in.
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
@@ -790,8 +795,8 @@ class TestTimestampsController(AdminControllerTest):
             self._db.delete(timestamp)
 
         self.collection = self._default_collection
-        self.start = datetime.now()
-        self.finish = datetime.now()
+        self.start = utc_now()
+        self.finish = utc_now()
 
         cp, ignore = create(
             self._db, Timestamp,
@@ -842,9 +847,9 @@ class TestTimestampsController(AdminControllerTest):
         assert set(response.keys()) == set(["coverage_provider", "monitor", "script", "other"])
 
         cp_service = response["coverage_provider"]
-        cp_name, cp_collection = cp_service.items()[0]
+        cp_name, cp_collection = list(cp_service.items())[0]
         assert cp_name == "test_cp"
-        cp_collection_name, [cp_timestamp] = cp_collection.items()[0]
+        cp_collection_name, [cp_timestamp] = list(cp_collection.items())[0]
         assert cp_collection_name == self.collection.name
         assert cp_timestamp.get("exception") == None
         assert cp_timestamp.get("start") == self.start
@@ -852,9 +857,9 @@ class TestTimestampsController(AdminControllerTest):
         assert cp_timestamp.get("achievements") == None
 
         monitor_service = response["monitor"]
-        monitor_name, monitor_collection = monitor_service.items()[0]
+        monitor_name, monitor_collection = list(monitor_service.items())[0]
         assert monitor_name == "test_monitor"
-        monitor_collection_name, [monitor_timestamp] = monitor_collection.items()[0]
+        monitor_collection_name, [monitor_timestamp] = list(monitor_collection.items())[0]
         assert monitor_collection_name == self.collection.name
         assert monitor_timestamp.get("exception") == "stack trace string"
         assert monitor_timestamp.get("start") == self.start
@@ -862,9 +867,9 @@ class TestTimestampsController(AdminControllerTest):
         assert monitor_timestamp.get("achievements") == None
 
         script_service = response["script"]
-        script_name, script_collection = script_service.items()[0]
+        script_name, script_collection = list(script_service.items())[0]
         assert script_name == "test_script"
-        script_collection_name, [script_timestamp] = script_collection.items()[0]
+        script_collection_name, [script_timestamp] = list(script_collection.items())[0]
         assert script_collection_name == "No associated collection"
         assert script_timestamp.get("exception") == None
         assert script_timestamp.get("duration") == duration
@@ -872,9 +877,9 @@ class TestTimestampsController(AdminControllerTest):
         assert script_timestamp.get("achievements") == "ran a script"
 
         other_service = response["other"]
-        other_name, other_collection = other_service.items()[0]
+        other_name, other_collection = list(other_service.items())[0]
         assert other_name == "test_other"
-        other_collection_name, [other_timestamp] = other_collection.items()[0]
+        other_collection_name, [other_timestamp] = list(other_collection.items())[0]
         assert other_collection_name == "No associated collection"
         assert other_timestamp.get("exception") == None
         assert other_timestamp.get("duration") == duration
@@ -920,7 +925,7 @@ class TestFeedController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_feed_controller.complaints()
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.get_data(as_text=True))
             entries = feed['entries']
 
             assert len(entries) == 2
@@ -938,7 +943,7 @@ class TestFeedController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_feed_controller.suppressed()
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.get_data(as_text=True))
             entries = feed['entries']
             assert 1 == len(entries)
             assert suppressed_work.title == entries[0]['title']
@@ -1087,7 +1092,7 @@ class TestCustomListsController(AdminControllerTest):
             assert 201 == response.status_code
 
             [list] = self._db.query(CustomList).all()
-            assert list.id == int(response.response[0])
+            assert list.id == int(response.get_data(as_text=True))
             assert self._default_library == list.library
             assert "List" == list.name
             assert 1 == len(list.entries)
@@ -1186,7 +1191,7 @@ class TestCustomListsController(AdminControllerTest):
 
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
         assert 200 == response.status_code
-        assert list.id == int(response.response[0])
+        assert list.id == int(response.get_data(as_text=True))
 
         assert "new name" == list.name
         assert (set([w2, w3]) ==
@@ -1484,7 +1489,7 @@ class TestLanesController(AdminControllerTest):
             assert 201 == response.status_code
 
             [lane] = self._db.query(Lane).filter(Lane.display_name=="lane")
-            assert lane.id == int(response.response[0])
+            assert lane.id == int(response.get_data(as_text=True))
             assert self._default_library == lane.library
             assert "lane" == lane.display_name
             assert parent == lane.parent
@@ -1526,7 +1531,7 @@ class TestLanesController(AdminControllerTest):
 
             response = self.manager.admin_lanes_controller.lanes()
             assert 200 == response.status_code
-            assert lane.id == int(response.response[0])
+            assert lane.id == int(response.get_data(as_text=True))
 
             assert "new name" == lane.display_name
             assert [list2] == lane.customlists
@@ -1700,7 +1705,7 @@ class TestDashboardController(AdminControllerTest):
             CirculationEvent.DISTRIBUTOR_HOLD_RELEASE,
             CirculationEvent.DISTRIBUTOR_TITLE_ADD
         ]
-        time = datetime.now() - timedelta(minutes=len(types))
+        time = utc_now() - timedelta(minutes=len(types))
         for type in types:
             get_one_or_create(
                 self._db, CirculationEvent,
@@ -1731,7 +1736,7 @@ class TestDashboardController(AdminControllerTest):
         genres = self._db.query(Genre).all()
         get_one_or_create(self._db, WorkGenre, work=self.english_1, genre=genres[0], affinity=0.2)
 
-        time = datetime.now() - timedelta(minutes=1)
+        time = utc_now() - timedelta(minutes=1)
         event, ignore = get_one_or_create(
             self._db, CirculationEvent,
             license_pool=lp, type=CirculationEvent.DISTRIBUTOR_CHECKOUT,
@@ -1773,11 +1778,11 @@ class TestDashboardController(AdminControllerTest):
             #
             args = list(exporter.called_with)
             assert self._db == args.pop(0)
-            assert datetime(2018, 1, 1) == args.pop(0)
+            assert datetime.date(2018, 1, 1) == args.pop(0)
             # This is the start of the day _after_ the dateEnd we
             # specified -- we want all events that happened _before_
             # 2018-01-05.
-            assert datetime(2018, 1, 5) == args.pop(0)
+            assert datetime.date(2018, 1, 5) == args.pop(0)
             assert "loc1,loc2" == args.pop(0)
             assert self._default_library == args.pop(0)
             assert [] == args
@@ -1817,7 +1822,7 @@ class TestDashboardController(AdminControllerTest):
 
             # patron1 has a loan.
             patron1 = self._patron()
-            pool.loan_to(patron1, end=datetime.now() + timedelta(days=5))
+            pool.loan_to(patron1, end=utc_now() + timedelta(days=5))
 
             # patron2 has a hold.
             patron2 = self._patron()
@@ -1842,7 +1847,7 @@ class TestDashboardController(AdminControllerTest):
             # These patrons are in a different library..
             l2 = self._library()
             patron4 = self._patron(library=l2)
-            pool.loan_to(patron4, end=datetime.now() + timedelta(days=5))
+            pool.loan_to(patron4, end=utc_now() + timedelta(days=5))
             patron5 = self._patron(library=l2)
             pool.on_hold_to(patron5)
 

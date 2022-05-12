@@ -80,9 +80,9 @@ class AnalyticsServicesController(SettingsController):
 
         service.name = name
         if is_new:
-            return Response(unicode(service.id), 201)
+            return Response(str(service.id), 201)
         else:
-            return Response(unicode(service.id), 200)
+            return Response(str(service.id), 200)
 
     def validate_form_fields(self, **fields):
         """The 'name' and 'URL' fields cannot be blank, the URL must be valid,
@@ -105,7 +105,7 @@ class AnalyticsServicesController(SettingsController):
 
         # The URL is only relevant, and required, if the user is creating a Google Analytics
         # integration; the local analytics form doesn't have a URL field.
-        if "url" in flask.request.form.keys() and not url:
+        if "url" in list(flask.request.form.keys()) and not url:
             return INCOMPLETE_CONFIGURATION
 
     def process_delete(self, service_id):

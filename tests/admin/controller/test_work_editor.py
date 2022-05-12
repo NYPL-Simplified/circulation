@@ -11,7 +11,7 @@ import math
 import operator
 import os
 from PIL import Image
-from StringIO import StringIO
+from io import BytesIO
 from tests.admin.controller.test_controller import AdminControllerTest
 from tests.test_controller import CirculationControllerTest
 from core.classifier import (
@@ -44,7 +44,8 @@ from core.testing import (
     NeverSuccessfulCoverageProvider,
     MockRequestsResponse,
 )
-from datetime import date, datetime, timedelta
+from core.util.datetime_helpers import datetime_utc
+from functools import reduce
 
 class TestWorkController(AdminControllerTest):
 
@@ -99,8 +100,8 @@ class TestWorkController(AdminControllerTest):
 
     def test_roles(self):
         roles = self.manager.admin_work_controller.roles()
-        assert Contributor.ILLUSTRATOR_ROLE in roles.values()
-        assert Contributor.NARRATOR_ROLE in roles.values()
+        assert Contributor.ILLUSTRATOR_ROLE in list(roles.values())
+        assert Contributor.NARRATOR_ROLE in list(roles.values())
         assert (Contributor.ILLUSTRATOR_ROLE ==
             roles[Contributor.MARC_ROLE_CODES[Contributor.ILLUSTRATOR_ROLE]])
         assert (Contributor.NARRATOR_ROLE ==
@@ -108,16 +109,16 @@ class TestWorkController(AdminControllerTest):
 
     def test_languages(self):
         languages = self.manager.admin_work_controller.languages()
-        assert 'en' in languages.keys()
-        assert 'fre' in languages.keys()
-        names = [name for sublist in languages.values() for name in sublist]
+        assert 'en' in list(languages.keys())
+        assert 'fre' in list(languages.keys())
+        names = [name for sublist in list(languages.values()) for name in sublist]
         assert 'English' in names
         assert 'French' in names
 
     def test_media(self):
         media = self.manager.admin_work_controller.media()
-        assert Edition.BOOK_MEDIUM in media.values()
-        assert Edition.medium_to_additional_type[Edition.BOOK_MEDIUM] in media.keys()
+        assert Edition.BOOK_MEDIUM in list(media.values())
+        assert Edition.medium_to_additional_type[Edition.BOOK_MEDIUM] in list(media.keys())
 
     def test_rights_status(self):
         rights_status = self.manager.admin_work_controller.rights_status()
@@ -257,7 +258,7 @@ class TestWorkController(AdminControllerTest):
             assert "fre" == self.english_1.presentation_edition.language
             assert "New Publisher" == self.english_1.publisher
             assert "New Imprint" == self.english_1.presentation_edition.imprint
-            assert datetime(2017, 11, 5) == self.english_1.presentation_edition.issued
+            assert datetime_utc(2017, 11, 5) == self.english_1.presentation_edition.issued
             assert 0.25 == self.english_1.quality
             assert "<p>New summary</p>" == self.english_1.summary_text
             assert "&lt;p&gt;New summary&lt;/p&gt;" in self.english_1.simple_opds_entry
@@ -892,7 +893,7 @@ class TestWorkController(AdminControllerTest):
         expected_histogram = processed.histogram()
 
         root_mean_square = math.sqrt(reduce(operator.add,
-                                            map(lambda a,b: (a-b)**2, image_histogram, expected_histogram))/len(image_histogram))
+                                            list(map(lambda a,b: (a-b)**2, image_histogram, expected_histogram)))/len(image_histogram))
         assert root_mean_square < 10
 
         # Here the title and author are added in the center. Compare the result
@@ -907,7 +908,7 @@ class TestWorkController(AdminControllerTest):
         expected_histogram = expected_image.histogram()
 
         root_mean_square = math.sqrt(reduce(operator.add,
-                                            map(lambda a,b: (a-b)**2, image_histogram, expected_histogram))/len(image_histogram))
+                                            list(map(lambda a,b: (a-b)**2, image_histogram, expected_histogram)))/len(image_histogram))
         assert root_mean_square < 10
 
     def test_preview_book_cover(self):
@@ -927,14 +928,14 @@ class TestWorkController(AdminControllerTest):
             assert INVALID_URL.uri == response.uri
             assert '"bad_url" is not a valid URL.' == response.detail
 
-        class TestFileUpload(StringIO):
+        class TestFileUpload(BytesIO):
             headers = { "Content-Type": "image/png" }
         base_path = os.path.split(__file__)[0]
         folder = os.path.dirname(base_path)
         resource_path = os.path.join(folder, "..", "files", "images")
         path = os.path.join(resource_path, "blue.jpg")
         original = Image.open(path)
-        buffer = StringIO()
+        buffer = BytesIO()
         original.save(buffer, format="PNG")
         image_data = buffer.getvalue()
 
@@ -947,7 +948,7 @@ class TestWorkController(AdminControllerTest):
             ])
             response = self.manager.admin_work_controller.preview_book_cover(identifier.type, identifier.identifier)
             assert 200 == response.status_code
-            assert "data:image/png;base64,%s" % base64.b64encode(image_data) == response.data
+            assert "data:image/png;base64,%s" % base64.b64encode(image_data) == response.get_data(as_text=True)
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
@@ -1013,14 +1014,14 @@ class TestWorkController(AdminControllerTest):
             assert INVALID_CONFIGURATION_OPTION.uri == response.uri
             assert "Could not find a storage integration" in response.detail
 
-        class TestFileUpload(StringIO):
+        class TestFileUpload(BytesIO):
             headers = { "Content-Type": "image/png" }
         base_path = os.path.split(__file__)[0]
         folder = os.path.dirname(base_path)
         resource_path = os.path.join(folder, "..", "files", "images")
         path = os.path.join(resource_path, "blue.jpg")
         original = Image.open(path)
-        buffer = StringIO()
+        buffer = BytesIO()
         original.save(buffer, format="PNG")
         image_data = buffer.getvalue()
 

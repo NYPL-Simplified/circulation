@@ -1,4 +1,3 @@
-import base64
 import feedparser
 from flask_babel import lazy_gettext as _
 from html_sanitizer import Sanitizer
@@ -20,6 +19,7 @@ from core.util.problem_detail import (
     ProblemDetail,
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
 )
+import base64
 
 from api.adobe_vendor_id import AuthdataUtility
 from api.config import Configuration
@@ -189,14 +189,14 @@ class RemoteRegistry(object):
             url = link.get('href')
             is_http = any(
                 [url.startswith(protocol + "://")
-                 for protocol in "http", "https"]
+                 for protocol in ("http", "https")]
             )
             if is_http and not tos_link:
                 tos_link = url
             elif url.startswith("data:") and not tos_html:
                 try:
                     tos_html = cls._decode_data_url(url)
-                except Exception, e:
+                except Exception as e:
                     tos_html = None
         return tos_link, tos_html
 
@@ -246,7 +246,7 @@ class RemoteRegistry(object):
             raise ValueError(
                 "Unsupported media type in data: URL: %s" % media_type
             )
-        html = base64.b64decode(encoded)
+        html = base64.b64decode(encoded.encode("utf-8")).decode("utf-8")
         return Sanitizer().sanitize(html)
 
 
@@ -261,9 +261,9 @@ class Registration(object):
 
     # A library may be succesfully registered with a registry, or the
     # registration may have failed.
-    LIBRARY_REGISTRATION_STATUS = u"library-registration-status"
-    SUCCESS_STATUS = u"success"
-    FAILURE_STATUS = u"failure"
+    LIBRARY_REGISTRATION_STATUS = "library-registration-status"
+    SUCCESS_STATUS = "success"
+    FAILURE_STATUS = "failure"
 
     # A library may be registered in a 'testing' stage or a
     # 'production' stage. This represents the _library's_ opinion
@@ -275,7 +275,7 @@ class Registration(object):
     # 'production' because there is no UI for specifying which stage
     # to use.  When registration happens through a script, the admin gets
     # to specify 'testing' or 'production'.
-    LIBRARY_REGISTRATION_STAGE = u"library-registration-stage"
+    LIBRARY_REGISTRATION_STAGE = "library-registration-stage"
     TESTING_STAGE = "testing"
     PRODUCTION_STAGE = "production"
     VALID_REGISTRATION_STAGES = [TESTING_STAGE, PRODUCTION_STAGE]
@@ -284,7 +284,7 @@ class Registration(object):
     # the URL so we can enable CORS headers in requests from that client,
     # and use it in MARC records so the library's main catalog can link
     # to it.
-    LIBRARY_REGISTRATION_WEB_CLIENT = u"library-registration-web-client"
+    LIBRARY_REGISTRATION_WEB_CLIENT = "library-registration-web-client"
 
     def __init__(self, registry, library):
         self.registry = registry
@@ -467,7 +467,7 @@ class Registration(object):
                     _("Remote service returned: \"%(problem)s\"", problem=problem.get("detail")))
             else:
                 return INTEGRATION_ERROR.detailed(
-                    _("Remote service returned: \"%(problem)s\"", problem=response.content))
+                    _("Remote service returned: \"%(problem)s\"", problem=response.content.decode("utf-8")))
         return response
 
     @classmethod
@@ -475,13 +475,15 @@ class Registration(object):
         """Attempt to decrypt an encrypted shared secret.
 
         :param cipher: A Cipher object.
+        
+        :param shared_secret: A byte string.
 
-        :return: The decrypted shared secret, or a ProblemDetail if
-        it could not be decrypted.
+        :return: The decrypted shared secret, as a bytestring, or
+        a ProblemDetail if it could not be decrypted.
         """
         try:
             shared_secret = cipher.decrypt(base64.b64decode(shared_secret))
-        except ValueError, e:
+        except ValueError as e:
             return SHARED_SECRET_DECRYPTION_ERROR.detailed(
                 _("Could not decrypt shared secret %s") % shared_secret
             )
@@ -527,7 +529,13 @@ class Registration(object):
                 return shared_secret
 
             setting = self.setting(ExternalIntegration.PASSWORD)
-            setting.value = shared_secret
+
+            # NOTE: we can only store Unicode data in the
+            # ConfigurationSetting.value, so this requires that the
+            # shared secret encoded as UTF-8. This works for the
+            # library registry product, which uses a long string of
+            # hex digits as its shared secret.
+            setting.value = shared_secret.decode("utf8")
 
         # We have successfully completed the registration.
         self.status_field.value = self.SUCCESS_STATUS
@@ -606,7 +614,7 @@ class LibraryRegistrationScript(LibraryInputScript):
         )
         try:
             result = registration.push(stage, url_for)
-        except Exception, e:
+        except Exception as e:
             logger.error("Exception during registration", exc_info=e)
             return False
         if isinstance(result, ProblemDetail):

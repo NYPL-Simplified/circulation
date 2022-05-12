@@ -6,7 +6,16 @@ import json
 import os
 import pkgutil
 import mock
+from mock import MagicMock
 import random
+from io import (
+    BytesIO,
+    StringIO,
+)
+
+from pymarc import parse_xml_to_array
+from pymarc.record import Record
+import pytz
 
 from core.testing import DatabaseTest
 from . import sample_data
@@ -38,6 +47,10 @@ from core.model import (
     WorkCoverageRecord,
     create,
 )
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from core.util.http import (
     BadResponseException,
 )
@@ -62,6 +75,7 @@ from api.bibliotheca import (
     BibliothecaAPI,
     BibliothecaEventMonitor,
     BibliothecaParser,
+    BibliothecaPurchaseMonitor,
     ItemListParser,
     BibliothecaBibliographicCoverageProvider,
 )
@@ -96,9 +110,9 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             self.api.external_integration(object()))
 
     def test__run_self_tests(self):
-        """Verify that BibliothecaAPI._run_self_tests() calls the right
-        methods.
-        """
+        # Verify that BibliothecaAPI._run_self_tests() calls the right
+        # methods.
+
         class Mock(MockBibliothecaAPI):
             "Mock every method used by BibliothecaAPI._run_self_tests."
 
@@ -132,7 +146,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
 
         # Now that everything is set up, run the self-test.
         api = Mock(self._db, self.collection)
-        now = datetime.utcnow()
+        now = utc_now()
         [no_patron_credential, recent_circulation_events, patron_activity] = sorted(
             api._run_self_tests(self._db), key=lambda x: x.name
         )
@@ -142,7 +156,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             no_patron_credential.name)
         assert False == no_patron_credential.success
         assert ("Library has no test patron configured." ==
-            no_patron_credential.exception.message)
+            str(no_patron_credential.exception))
 
         assert ("Asking for circulation events for the last five minutes" ==
             recent_circulation_events.name)
@@ -174,9 +188,9 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             self.api.full_url("/foo"))
 
     def test_request_signing(self):
-        """Confirm a known correct result for the Bibliotheca request signing
-        algorithm.
-        """
+        # Confirm a known correct result for the Bibliotheca request signing
+        # algorithm.
+
         self.api.queue_response(200)
         response = self.api.request("some_url")
         [request] = self.api.requests
@@ -211,7 +225,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         assert url == self.api.full_url("items") + "/id1,id2"
 
         # The response string is returned directly.
-        assert "some data" == response
+        assert b"some data" == response
 
     def test_bibliographic_lookup(self):
 
@@ -263,10 +277,10 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         assert "Got status code 500" in str(excinfo.value)
 
     def test_put_request(self):
-        """This is a basic test to make sure the method calls line up
-        right--there are more thorough tests in the circulation
-        manager, which actually uses this functionality.
-        """
+        # This is a basic test to make sure the method calls line up
+        # right--there are more thorough tests in the circulation
+        # manager, which actually uses this functionality.
+
         self.api.queue_response(200, content="ok, you put something")
         response = self.api.request('checkout', "put this!", method="PUT")
 
@@ -279,12 +293,12 @@ class TestBibliothecaAPI(BibliothecaAPITest):
 
         # The response is what we'd expect.
         assert 200 == response.status_code
-        assert "ok, you put something" == response.content
+        assert b"ok, you put something" == response.content
 
     def test_get_events_between_success(self):
         data = self.sample_data("empty_end_date_event.xml")
         self.api.queue_response(200, content=data)
-        now = datetime.now()
+        now = utc_now()
         an_hour_ago = now - timedelta(minutes=3600)
         response = self.api.get_events_between(an_hour_ago, now)
         [event] = list(response)
@@ -292,7 +306,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
 
     def test_get_events_between_failure(self):
         self.api.queue_response(500)
-        now = datetime.now()
+        now = utc_now()
         an_hour_ago = now - timedelta(minutes=3600)
         pytest.raises(
             BadResponseException,
@@ -339,7 +353,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         data = self.sample_data("item_metadata_single.xml")
         # Change the ID in the test data so it looks like it's talking
         # about the LicensePool we just created.
-        data = data.replace("ddf4gr9", pool.identifier.identifier)
+        data = data.replace(b"ddf4gr9", pool.identifier.identifier.encode("utf8"))
 
         # Update availability using that data.
         self.api.queue_response(200, content=data)
@@ -387,6 +401,41 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         circulation_events = self._db.query(CirculationEvent).join(LicensePool).filter(LicensePool.id==pool.id)
         assert 5 == circulation_events.count()
 
+    def test_marc_request(self):
+        # A request for MARC records between two dates makes an API
+        # call and yields a sequence of pymarc Record objects.
+        start = datetime_utc(2012, 1, 2, 3, 4, 5)
+        end = datetime_utc(2014, 5, 6, 7, 8, 9)
+        self.api.queue_response(
+            200, content=self.sample_data("marc_records_two.xml")
+        )
+        records = [x for x in self.api.marc_request(start, end, 10, 20)]
+        [(method, url, body, headers)] = self.api.requests
+
+        # A GET request was sent to the expected endpoint
+        assert method == "GET"
+        for expect in (
+                "/data/marc?"
+                "startdate=2012-01-02T03:04:05",
+                "enddate=2014-05-06T07:08:09",
+                "offset=10",
+                "limit=20"
+        ):
+            assert expect in url
+
+        # The queued response was converted into pymarc Record objects.
+        assert all(isinstance(x, Record) for x in records)
+        assert ['Siege and Storm', 'Red Island House A Novel/'] == [
+            x.title() for x in records
+        ]
+
+        # If the API returns an error, an appropriate exception is raised.
+        self.api.queue_response(
+            404, content=self.sample_data("error_unknown.xml")
+        )
+        with pytest.raises(RemoteInitiatedServerError) as excinfo:
+            [x for x in self.api.marc_request(start, end, 10, 20)]
+
     def test_sync_bookshelf(self):
         patron = self._patron()
         circulation = CirculationAPI(self._db, self._default_library, api_map={
@@ -401,22 +450,22 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         l1, l2 = patron.loans
         h1, h2 = patron.holds
 
-        assert datetime(2015, 3, 20, 18, 50, 22) == l1.start
-        assert datetime(2015, 4, 10, 18, 50, 22) == l1.end
+        assert datetime_utc(2015, 3, 20, 18, 50, 22) == l1.start
+        assert datetime_utc(2015, 4, 10, 18, 50, 22) == l1.end
 
-        assert datetime(2015, 3, 13, 13, 38, 19) == l2.start
-        assert datetime(2015, 4, 3, 13, 38, 19) == l2.end
+        assert datetime_utc(2015, 3, 13, 13, 38, 19) == l2.start
+        assert datetime_utc(2015, 4, 3, 13, 38, 19) == l2.end
 
         # The patron is fourth in line. The end date is an estimate
         # of when the hold will be available to check out.
-        assert datetime(2015, 3, 24, 15, 6, 56) == h1.start
-        assert datetime(2015, 3, 24, 15, 7, 51) == h1.end
+        assert datetime_utc(2015, 3, 24, 15, 6, 56) == h1.start
+        assert datetime_utc(2015, 3, 24, 15, 7, 51) == h1.end
         assert 4 == h1.position
 
         # The hold has an end date. It's time for the patron to decide
         # whether or not to check out this book.
-        assert datetime(2015, 5, 25, 17, 5, 34) == h2.start
-        assert datetime(2015, 5, 27, 17, 5, 34) == h2.end
+        assert datetime_utc(2015, 5, 25, 17, 5, 34) == h2.start
+        assert datetime_utc(2015, 5, 27, 17, 5, 34) == h2.end
         assert 0 == h2.position
 
     def test_place_hold(self):
@@ -447,7 +496,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         assert '<AudioFulfillmentRequest><ItemId>bib id</ItemId><PatronId>patron id</PatronId></AudioFulfillmentRequest>' == kwargs['data']
 
         assert 200 == response.status_code
-        assert "A license" == response.content
+        assert b"A license" == response.content
 
     def test_fulfill(self):
         patron = self._patron()
@@ -468,7 +517,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             patron, 'password', pool, internal_format='ePub'
         )
         assert isinstance(fulfillment, FulfillmentInfo)
-        assert "this is an ACSM" == fulfillment.content
+        assert b"this is an ACSM" == fulfillment.content
         assert pool.identifier.identifier == fulfillment.identifier
         assert pool.identifier.type == fulfillment.identifier_type
         assert pool.data_source.name == fulfillment.data_source_name
@@ -506,7 +555,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         # Now let's see what happens to fulfillment when 'Findaway' or
         # 'Bibliotheca' sends bad information.
         bad_media_type = "application/error+json"
-        bad_content = "This is not my beautiful license document!"
+        bad_content = b"This is not my beautiful license document!"
         self.api.queue_response(
             200, headers={"Content-Type": bad_media_type},
             content=bad_content
@@ -560,14 +609,14 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         # Information about the license has been added to an 'encrypted'
         # object within metadata.
         encrypted = metadata['encrypted']
-        assert (u'http://librarysimplified.org/terms/drm/scheme/FAE' ==
+        assert ('http://librarysimplified.org/terms/drm/scheme/FAE' ==
             encrypted['scheme'])
-        assert u'abcdef01234789abcdef0123' == encrypted[u'findaway:checkoutId']
-        assert u'1234567890987654321ababa' == encrypted[u'findaway:licenseId']
-        assert u'3M' == encrypted[u'findaway:accountId']
-        assert u'123456' == encrypted[u'findaway:fulfillmentId']
-        assert (u'aaaaaaaa-4444-cccc-dddd-666666666666' ==
-            encrypted[u'findaway:sessionKey'])
+        assert 'abcdef01234789abcdef0123' == encrypted['findaway:checkoutId']
+        assert '1234567890987654321ababa' == encrypted['findaway:licenseId']
+        assert '3M' == encrypted['findaway:accountId']
+        assert '123456' == encrypted['findaway:fulfillmentId']
+        assert ('aaaaaaaa-4444-cccc-dddd-666666666666' ==
+            encrypted['findaway:sessionKey'])
 
         # Every entry in the license document's 'items' list has
         # become a readingOrder item in the manifest.
@@ -659,7 +708,7 @@ class TestBibliothecaParser(BibliothecaAPITest):
     def test_parse_date(self):
         parser = BibliothecaParser()
         v = parser.parse_date("2016-01-02T12:34:56")
-        assert datetime(2016, 1, 2, 12, 34, 56) == v
+        assert datetime_utc(2016, 1, 2, 12, 34, 56) == v
 
         assert None == parser.parse_date(None)
         assert None == parser.parse_date("Some weird value")
@@ -688,9 +737,9 @@ class TestEventParser(BibliothecaAPITest):
         (threem_id, isbn, patron_id, start_time, end_time,
          internal_event_type) = event
         assert 'd5rf89' == threem_id
-        assert u'9781101190623' == isbn
+        assert '9781101190623' == isbn
         assert None == patron_id
-        assert datetime(2016, 4, 28, 11, 4, 6) == start_time
+        assert datetime_utc(2016, 4, 28, 11, 4, 6) == start_time
         assert None == end_time
         assert 'distributor_license_add' == internal_event_type
 
@@ -708,8 +757,8 @@ class TestPatronCirculationParser(BibliothecaAPITest):
         [l1, l2] = sorted(loans, key=lambda x: x.identifier)
         assert "1ad589" == l1.identifier
         assert "cgaxr9" == l2.identifier
-        expect_loan_start = datetime(2015, 3, 20, 18, 50, 22)
-        expect_loan_end = datetime(2015, 4, 10, 18, 50, 22)
+        expect_loan_start = datetime_utc(2015, 3, 20, 18, 50, 22)
+        expect_loan_end = datetime_utc(2015, 4, 10, 18, 50, 22)
         assert expect_loan_start == l1.start_date
         assert expect_loan_end == l1.end_date
 
@@ -719,8 +768,8 @@ class TestPatronCirculationParser(BibliothecaAPITest):
         assert collection.id == h1.collection_id
         assert DataSource.BIBLIOTHECA == h1.data_source_name
         assert "9wd8" == h1.identifier
-        expect_hold_start = datetime(2015, 5, 25, 17, 5, 34)
-        expect_hold_end = datetime(2015, 5, 27, 17, 5, 34)
+        expect_hold_start = datetime_utc(2015, 5, 25, 17, 5, 34)
+        expect_hold_end = datetime_utc(2015, 5, 27, 17, 5, 34)
         assert expect_hold_start == h1.start_date
         assert expect_hold_end == h1.end_date
         assert 0 == h1.hold_position
@@ -729,8 +778,8 @@ class TestPatronCirculationParser(BibliothecaAPITest):
         assert "d4o8r9" == h2.identifier
         assert collection.id == h2.collection_id
         assert DataSource.BIBLIOTHECA == h2.data_source_name
-        expect_hold_start = datetime(2015, 3, 24, 15, 6, 56)
-        expect_hold_end = datetime(2015, 3, 24, 15, 7, 51)
+        expect_hold_start = datetime_utc(2015, 3, 24, 15, 6, 56)
+        expect_hold_end = datetime_utc(2015, 3, 24, 15, 7, 51)
         assert expect_hold_start == h2.start_date
         assert expect_hold_end == h2.end_date
         assert 4 == h2.hold_position
@@ -740,7 +789,7 @@ class TestCheckoutResponseParser(BibliothecaAPITest):
     def test_parse(self):
         data = self.sample_data("successful_checkout.xml")
         due_date = CheckoutResponseParser().process_all(data)
-        assert datetime(2015, 4, 16, 0, 32, 36) == due_date
+        assert datetime_utc(2015, 4, 16, 0, 32, 36) == due_date
 
 
 class TestErrorParser(BibliothecaAPITest):
@@ -752,20 +801,20 @@ class TestErrorParser(BibliothecaAPITest):
         msg=self.sample_data("error_exceeded_limit.xml")
         error = ErrorParser().process_all(msg)
         assert isinstance(error, PatronLoanLimitReached)
-        assert u'Patron cannot loan more than 12 documents' == error.message
+        assert 'Patron cannot loan more than 12 documents' == error.message
 
     def test_exceeded_hold_limit(self):
         msg=self.sample_data("error_exceeded_hold_limit.xml")
         error = ErrorParser().process_all(msg)
         assert isinstance(error, PatronHoldLimitReached)
-        assert u'Patron cannot have more than 15 holds' == error.message
+        assert 'Patron cannot have more than 15 holds' == error.message
 
     def test_wrong_status(self):
         msg=self.sample_data("error_no_licenses.xml")
         error = ErrorParser().process_all(msg)
         assert isinstance(error, NoLicenses)
         assert (
-            u'the patron document status was CAN_WISH and not one of CAN_LOAN,RESERVATION' ==
+            'the patron document status was CAN_WISH and not one of CAN_LOAN,RESERVATION' ==
             error.message)
 
         problem = error.as_problem_detail_document()
@@ -786,7 +835,7 @@ class TestErrorParser(BibliothecaAPITest):
         assert "Integration error communicating with Bibliotheca" == doc.detail
 
     def test_unknown_error_becomes_remote_initiated_server_error(self):
-        """Simulate the message we get when ¯\_(ツ)_/¯."""
+        """Simulate the message we get when the server gives a vague error."""
         msg=self.sample_data("error_unknown.xml")
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
@@ -873,8 +922,8 @@ class TestBibliothecaEventParser(object):
         assert CirculationEvent.DISTRIBUTOR_CHECKOUT == internal_event_type
 
         # Verify that start and end time were parsed correctly.
-        correct_start = datetime(2014, 4, 3, 0, 0, 34)
-        correct_end = datetime(2014, 4, 2, 23, 57, 37)
+        correct_start = datetime_utc(2014, 4, 3, 0, 0, 34)
+        correct_end = datetime_utc(2014, 4, 2, 23, 57, 37)
         assert correct_start == start_time
         assert correct_end == end_time
 
@@ -928,6 +977,390 @@ class TestErrorParser(object):
         error = parser.process_all(self.TRIED_TO_HOLD_BOOK_ON_LOAN)
         assert isinstance(error, CannotHold)
 
+class TestBibliothecaPurchaseMonitor(BibliothecaAPITest):
+
+    @pytest.fixture()
+    def default_monitor(self):
+        return BibliothecaPurchaseMonitor(
+            self._db, self.collection, api_class=MockBibliothecaAPI,
+            analytics=MockAnalyticsProvider()
+        )
+
+    @pytest.fixture()
+    def initialized_monitor(self):
+        collection = MockBibliothecaAPI.mock_collection(self._db, name='Initialized Purchase Monitor Collection')
+        monitor = BibliothecaPurchaseMonitor(
+            self._db, collection, api_class=MockBibliothecaAPI
+        )
+        Timestamp.stamp(
+            self._db, service=monitor.service_name,
+            service_type=Timestamp.MONITOR_TYPE, collection=collection
+        )
+        return monitor
+
+    @pytest.mark.parametrize('specified_default_start, expected_default_start', [
+        ('2011', datetime_utc(year=2011, month=1, day=1)),
+        ('2011-10', datetime_utc(year=2011, month=10, day=1)),
+        ('2011-10-05', datetime_utc(year=2011, month=10, day=5)),
+        ('2011-10-05T15', datetime_utc(year=2011, month=10, day=5, hour=15)),
+        ('2011-10-05T15:27', datetime_utc(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        ('2011-10-05 15:27:33', datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        ('2011-10-05T15:27:33.123456',
+         datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33, microsecond=123456)),
+        (datetime_utc(year=2011, month=10, day=5, hour=15, minute=27),
+         datetime_utc(year=2011, month=10, day=5, hour=15, minute=27)),
+        (None, None),
+    ])
+    def test_optional_iso_date_valid_dates(self, specified_default_start, expected_default_start, default_monitor):
+        # ISO 8601 strings, `datetime`s, or None are valid.
+        actual_default_start = default_monitor._optional_iso_date(specified_default_start)
+        if expected_default_start is not None:
+            assert isinstance(actual_default_start, datetime)
+        assert actual_default_start == expected_default_start
+
+    def test_monitor_intrinsic_start_time(self, default_monitor, initialized_monitor):
+        # No `default_start` time is specified for either `default_monitor` or
+        # `initialized_monitor`, so each monitor's `default_start_time` should
+        # match the monitor class's intrinsic start time.
+        for monitor in [default_monitor, initialized_monitor]:
+            expected_intrinsic_start = BibliothecaPurchaseMonitor.DEFAULT_START_TIME
+            intrinsic_start = monitor._intrinsic_start_time(self._db)
+            assert isinstance(intrinsic_start, datetime)
+            assert intrinsic_start == expected_intrinsic_start
+            assert intrinsic_start == monitor.default_start_time
+
+    @pytest.mark.parametrize('specified_default_start, override_timestamp, expected_start', [
+        ('2011-10-05T15:27', False, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', False, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        (None, False, None),
+        (None, True, None),
+        ('2011-10-05T15:27', True, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', True, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+    ])
+    def test_specified_start_trumps_intrinsic_default_start(self, specified_default_start,
+                                                            override_timestamp, expected_start):
+        # When a valid `default_start` parameter is specified, it -- not the monitor's
+        # intrinsic default -- will always become the monitor's `default_start_time`.
+        monitor = BibliothecaPurchaseMonitor(
+            self._db, self.collection, api_class=MockBibliothecaAPI,
+            default_start=specified_default_start, override_timestamp=override_timestamp,
+        )
+        monitor_intrinsic_default = monitor._intrinsic_start_time(self._db)
+        assert isinstance(monitor.default_start_time, datetime)
+        assert isinstance(monitor_intrinsic_default, datetime)
+        if specified_default_start:
+            assert monitor.default_start_time == expected_start
+        else:
+            assert abs((monitor_intrinsic_default - monitor.default_start_time).total_seconds()) <= 1
+
+        # If no `default_date` specified, then `override_timestamp` must be false.
+        if not specified_default_start:
+            assert monitor.override_timestamp is False
+
+        # For an uninitialized monitor (no timestamp), the monitor's `default_start_time`,
+        # whether from a specified `default_start` or the monitor's intrinsic start time,
+        # will be the actual start time. The cut-off will be roughly the current time, in
+        # either case.
+        expected_cutoff = utc_now()
+        with mock.patch.object(monitor, 'catch_up_from', return_value=None) as catch_up_from:
+            monitor.run()
+            actual_start, actual_cutoff, progress = catch_up_from.call_args[0]
+        assert abs((expected_cutoff - actual_cutoff).total_seconds()) <= 1
+        assert actual_cutoff == progress.finish
+        assert actual_start == monitor.default_start_time
+        assert progress.start == monitor.default_start_time
+
+    @pytest.mark.parametrize('specified_default_start, override_timestamp, expected_start', [
+        ('2011-10-05T15:27', False, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', False, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+        (None, False, None),
+        (None, True, None),
+        ('2011-10-05T15:27', True, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27)),
+        ('2011-10-05T15:27:33', True, datetime_utc(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
+    ])
+    def test_specified_start_can_override_timestamp(self, specified_default_start,
+                                                           override_timestamp, expected_start):
+        monitor = BibliothecaPurchaseMonitor(
+            self._db, self.collection, api_class=MockBibliothecaAPI,
+            default_start=specified_default_start, override_timestamp=override_timestamp,
+        )
+        # For an initialized monitor, the `default_start_time` will be derived from
+        # `timestamp.finish`, unless overridden by a specified `default_start` when
+        # `override_timestamp` is specified as True.
+        ts = Timestamp.stamp(
+            self._db, service=monitor.service_name,
+            service_type=Timestamp.MONITOR_TYPE, collection=monitor.collection
+        )
+        start_time_from_ts = ts.finish - BibliothecaPurchaseMonitor.OVERLAP
+        expected_actual_start_time = expected_start if monitor.override_timestamp else start_time_from_ts
+        expected_cutoff = utc_now()
+        with mock.patch.object(monitor, 'catch_up_from', return_value=None) as catch_up_from:
+            monitor.run()
+            actual_start, actual_cutoff, progress = catch_up_from.call_args[0]
+        assert abs((expected_cutoff - actual_cutoff).total_seconds()) <= 1
+        assert actual_cutoff == progress.finish
+        assert actual_start == expected_actual_start_time
+        assert progress.start == expected_actual_start_time
+
+    @pytest.mark.parametrize('input', [
+        ('invalid'), ('2020/10'), (['2020-10-05'])
+    ])
+    def test_optional_iso_date_invalid_dates(self, input, default_monitor):
+        with pytest.raises(ValueError) as excinfo:
+            default_monitor._optional_iso_date(input)
+
+    def test_catch_up_from(self, default_monitor):
+        # catch_up_from() slices up its given timespan, calls
+        # purchases() to find purchases for each slice, processes each
+        # purchase using process_record(), and sets a checkpoint for each
+        # slice that is unambiguously in the past.
+        today = utc_now().date()
+
+        # _checkpoint() will be called after processing this slice
+        # because it's a full slice that ends before today.
+        full_slice = [
+            datetime_utc(2014, 1, 1),
+            datetime_utc(2014, 1, 2),
+            True
+        ]
+
+        # _checkpoint() is not called after processing this slice
+        # because it's not a full slice.
+        incomplete_slice = [
+            datetime_utc(2015, 1, 1),
+            datetime_utc(2015, 1, 2),
+            False
+        ]
+
+        # _checkpoint() is not called after processing this slice,
+        # even though it's supposedly complete, because today isn't
+        # over yet.
+        today_slice = [
+            today - timedelta(days=1),
+            today,
+            True
+        ]
+
+        # _checkpoint() is not called after processing this slice
+        # because it doesn't end in the past.
+        future_slice = [
+            today + timedelta(days=1),
+            today + timedelta(days=2),
+            True
+        ]
+
+        default_monitor.slice_timespan = MagicMock(
+            return_value = [
+                full_slice, incomplete_slice, today_slice, future_slice
+            ]
+        )
+        default_monitor.purchases = MagicMock(return_value=["A record"])
+        default_monitor.process_record = MagicMock()
+        default_monitor._checkpoint = MagicMock()
+
+        # Execute.
+        progress = TimestampData()
+        start = datetime_utc(2019, 1, 1)
+        cutoff = datetime_utc(2020, 1, 1)
+        default_monitor.catch_up_from(start, cutoff, progress)
+
+        # slice_timespan was called once.
+        default_monitor.slice_timespan.assert_called_once_with(
+            start, cutoff, timedelta(days=1)
+        )
+
+        # purchases() was called on each slice it returned.
+        default_monitor.purchases.assert_has_calls(
+            [mock.call(*x[:2]) for x in (
+                full_slice, incomplete_slice, today_slice, future_slice)
+            ]
+        )
+
+        # Each purchases() call returned a single record, which was
+        # passed into process_record along with the start date of the
+        # current slice.
+        default_monitor.process_record.assert_has_calls(
+            [mock.call("A record", x[0]) for x in
+             [full_slice, incomplete_slice, today_slice, future_slice]]
+        )
+
+        # TimestampData.achievements was set to the total number of
+        # records processed.
+        assert progress.achievements == "MARC records processed: 4"
+
+        # Only one of our contrived time slices -- the first one --
+        # was a full slice that ended before the current
+        # date. _checkpoint was called on that slice, and only that
+        # slice.
+        default_monitor._checkpoint.assert_called_once_with(
+            progress, start, full_slice[0], "MARC records processed: 1"
+        )
+
+    def test__checkpoint(self, default_monitor):
+        # The _checkpoint method allows the BibliothecaPurchaseMonitor
+        # to preserve its progress in case of a crash.
+
+        # The Timestamp for the default monitor shows that it has
+        # a start date but it's never successfully completed.
+        timestamp_obj = default_monitor.timestamp()
+        assert timestamp_obj.achievements is None
+        assert timestamp_obj.start == BibliothecaPurchaseMonitor.DEFAULT_START_TIME
+        assert timestamp_obj.finish is None
+
+        timestamp_data = TimestampData()
+        finish = datetime_utc(2020, 1, 1)
+        achievements = "Some achievements"
+
+        default_monitor._checkpoint(
+            timestamp_data, timestamp_obj.start, finish, achievements
+        )
+
+        # Calling _checkpoint creates the impression that the monitor
+        # completed at the checkpoint, even though in point of fact
+        # it's still running.
+        timestamp_obj = default_monitor.timestamp()
+        assert timestamp_obj.achievements == achievements
+        assert timestamp_obj.start == BibliothecaPurchaseMonitor.DEFAULT_START_TIME
+        assert timestamp_obj.finish == finish
+
+    def test_purchases(self, default_monitor):
+        # The purchases() method calls marc_request repeatedly, handling
+        # pagination.
+
+        # Mock three pages that contain 50, 50, and 49 items.
+        default_monitor.api.marc_request = MagicMock(
+            side_effect=[[1] * 50, [2] * 50, [3] * 49]
+        )
+        start = datetime_utc(2020, 1, 1)
+        end = datetime_utc(2020, 1, 2)
+        records = [x for x in default_monitor.purchases(start, end)]
+
+        # marc_request was called repeatedly with increasing offsets
+        # until it returned fewer than 50 results.
+        default_monitor.api.marc_request.assert_has_calls(
+            [mock.call(start, end, offset, 50) for offset in (1, 51, 101)]
+        )
+
+        # Every "record" it returned was yielded as part of a single
+        # stream.
+        assert ([1] * 50) + ([2] * 50) + ([3] * 49) == records
+
+    def test_process_record(self, default_monitor, caplog):
+        # process_record may create a LicensePool, trigger the
+        # bibliographic coverage provider, and/or issue a "license
+        # added" analytics event, based on the identifier found in a
+        # MARC record.
+        purchase_time = utc_now()
+        analytics = MockAnalyticsProvider()
+        default_monitor.analytics = analytics
+        ensure_coverage = MagicMock()
+        default_monitor.bibliographic_coverage_provider.ensure_coverage = (
+            ensure_coverage
+        )
+
+        # Try some cases that won't happen in real life.
+        multiple_control_numbers = b"""<?xml version="1.0" encoding="UTF-8" ?><marc:collection xmlns:marc="http://www.loc.gov/MARC21/slim" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd"><marc:record><marc:leader>01034nam a22002413a 4500</marc:leader><marc:controlfield tag="001">ehasb89</marc:controlfield><marc:controlfield tag="001">abcde</marc:controlfield></marc:record></marc:collection>"""
+        no_control_number = b"""<?xml version="1.0" encoding="UTF-8" ?><marc:collection xmlns:marc="http://www.loc.gov/MARC21/slim" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd"><marc:record><marc:leader>01034nam a22002413a 4500</marc:leader></marc:record></marc:collection>"""
+        for bad_record, expect_error in (
+                (multiple_control_numbers,
+                 "Ignoring MARC record with multiple Bibliotheca control numbers."
+                ),
+                (no_control_number,
+                 "Ignoring MARC record with no Bibliotheca control number."
+                )
+        ):
+            [marc] = parse_xml_to_array(BytesIO(bad_record))
+            assert default_monitor.process_record(marc, purchase_time) is None
+            assert expect_error in caplog.messages[-1]
+
+        # Now, try the two real cases.
+        [ehasb89, oock89] = parse_xml_to_array(
+            StringIO(self.sample_data("marc_records_two.xml").decode("utf8"))
+        )
+
+        # If the book is new to this collection, it's run through
+        # BibliothecaBibliographicCoverageProvider.ensure_coverage to
+        # give it initial bibliographic and circulation data.
+        pool = default_monitor.process_record(ehasb89, purchase_time)
+        assert pool.identifier.identifier == "ehasb89"
+        assert pool.identifier.type == Identifier.BIBLIOTHECA_ID
+        assert pool.data_source.name == DataSource.BIBLIOTHECA
+        assert self.collection == pool.collection
+        ensure_coverage.assert_called_once_with(
+            pool.identifier, force=True
+        )
+
+        # An analytics event is issued to mark the time at which the
+        # book was first purchased.
+        assert analytics.count == 1
+        assert analytics.event_type == "distributor_title_add"
+        assert analytics.time == purchase_time
+
+        # If the book is already in this collection, ensure_coverage
+        # is not called.
+        pool, ignore = LicensePool.for_foreign_id(
+            self._db, DataSource.BIBLIOTHECA, Identifier.BIBLIOTHECA_ID,
+            "3oock89", collection=self.collection
+        )
+        pool2 = default_monitor.process_record(oock89, purchase_time)
+        assert pool == pool2
+        assert ensure_coverage.call_count == 1 # i.e. was not called again.
+
+        # But an analytics event is still issued to mark the purchase.
+        assert analytics.count == 2
+        assert analytics.event_type == "distributor_title_add"
+        assert analytics.time == purchase_time
+
+    def test_end_to_end(self, default_monitor):
+        # Limited end-to-end test of the BibliothecaPurchaseMonitor.
+
+        # Set the default start time to one minute in the past, so the
+        # monitor doesn't feel the need to make more than one call to
+        # the MARC endpoint.
+        default_monitor.override_timestamp = True
+        start_time = utc_now() - timedelta(minutes=1)
+        default_monitor.default_start_time = start_time
+
+        # There will be two calls to the mock API: one to the MARC
+        # endpoint, which will tell us about the purchase of a single
+        # book, and one to the metadata endpoint for information about
+        # that book.
+        api = default_monitor.api
+        api.queue_response(
+            200, content=self.sample_data("marc_records_one.xml")
+        )
+        api.queue_response(
+            200, content=self.sample_data("item_metadata_single.xml")
+        )
+        default_monitor.run()
+
+        # One book was created.
+        work = self._db.query(Work).one()
+
+        # Bibliographic information came from the coverage provider,
+        # not from our fake MARC record (which is actually for a
+        # different book).
+        assert work.title == "The Incense Game"
+
+        # Licensing information was also taken from the coverage
+        # provider.
+        [lp] = work.license_pools
+        assert lp.identifier.identifier == 'ddf4gr9'
+        assert default_monitor.collection == lp.collection
+        assert lp.licenses_owned == 1
+        assert lp.licenses_available == 1
+
+        # An analytics event was issued to commemorate the addition of
+        # the book to the collection.
+        assert default_monitor.analytics.event_type == 'distributor_title_add'
+
+        # The timestamp has been updated; the next time the monitor
+        # runs it will ask for purchases that haven't happened yet.
+        default_monitor.override_timestamp = False
+        timestamp = default_monitor.timestamp()
+        assert timestamp.achievements == "MARC records processed: 1"
+        assert timestamp.finish > start_time
 
 class TestBibliothecaEventMonitor(BibliothecaAPITest):
 
@@ -950,124 +1383,12 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         return monitor
 
 
-    @pytest.mark.parametrize('specified_default_start, expected_default_start', [
-        ('2011', datetime(year=2011, month=1, day=1)),
-        ('2011-10', datetime(year=2011, month=10, day=1)),
-        ('2011-10-05', datetime(year=2011, month=10, day=5)),
-        ('2011-10-05T15', datetime(year=2011, month=10, day=5, hour=15)),
-        ('2011-10-05T15:27', datetime(year=2011, month=10, day=5, hour=15, minute=27)),
-        ('2011-10-05T15:27:33', datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
-        ('2011-10-05 15:27:33', datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
-        ('2011-10-05T15:27:33.123456',
-         datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33, microsecond=123456)),
-        (datetime(year=2011, month=10, day=5, hour=15, minute=27),
-         datetime(year=2011, month=10, day=5, hour=15, minute=27)),
-        (None, None),
-    ])
-    def test_optional_iso_date_valid_dates(self, specified_default_start, expected_default_start, default_monitor):
-        # ISO 8601 strings, `datetime`s, or None are valid.
-        actual_default_start = default_monitor._optional_iso_date(specified_default_start)
-        if expected_default_start is not None:
-            assert isinstance(actual_default_start, datetime)
-        assert actual_default_start == expected_default_start
-
-    def test_monitor_intrinsic_start_time(self, default_monitor, initialized_monitor):
-        # No `default_start` time is specified for either `default_monitor` or
-        # `initialized_monitor`, so each monitor's `default_start_time` should
-        # (roughly) match the monitor's intrinsic start time.
-        for monitor in [default_monitor, initialized_monitor]:
-            expected_intrinsic_start = datetime.utcnow() - BibliothecaEventMonitor.DEFAULT_START_TIME
-            intrinsic_start = monitor._intrinsic_start_time(self._db)
-            assert isinstance(intrinsic_start, datetime)
-            assert abs(intrinsic_start - expected_intrinsic_start).total_seconds() <= 1
-            assert abs(intrinsic_start - monitor.default_start_time).total_seconds() <= 1
-
-    @pytest.mark.parametrize('specified_default_start, override_timestamp, expected_start', [
-        ('2011-10-05T15:27', False, datetime(year=2011, month=10, day=5, hour=15, minute=27)),
-        ('2011-10-05T15:27:33', False, datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
-        (None, False, None),
-        (None, True, None),
-        ('2011-10-05T15:27', True, datetime(year=2011, month=10, day=5, hour=15, minute=27)),
-        ('2011-10-05T15:27:33', True, datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
-    ])
-    def test_specified_start_trumps_intrinsic_default_start(self, specified_default_start,
-                                                            override_timestamp, expected_start):
-        # When a valid `default_start` parameter is specified, it -- not the monitor's
-        # intrinsic default -- will always become the monitor's `default_start_time`.
-        monitor = BibliothecaEventMonitor(
-            self._db, self.collection, api_class=MockBibliothecaAPI,
-            default_start=specified_default_start, override_timestamp=override_timestamp,
-        )
-        monitor_intrinsic_default = monitor._intrinsic_start_time(self._db)
-        assert isinstance(monitor.default_start_time, datetime)
-        assert isinstance(monitor_intrinsic_default, datetime)
-        if specified_default_start:
-            assert monitor.default_start_time == expected_start
-        else:
-            assert abs((monitor_intrinsic_default - monitor.default_start_time).total_seconds()) <= 1
-
-        # If no `default_date` specified, then `override_timestamp` must be false.
-        if not specified_default_start:
-            assert monitor.override_timestamp is False
-
-        # For an uninitialized monitor (no timestamp), the monitor's `default_start_time`,
-        # whether from a specified `default_start` or the monitor's intrinsic start time,
-        # will be the actual start time. The cut-off will be roughly the current time, in
-        # either case.
-        expected_cutoff = datetime.utcnow()
-        with mock.patch.object(monitor, 'catch_up_from', return_value=None) as catch_up_from:
-            monitor.run()
-            actual_start, actual_cutoff, progress = catch_up_from.call_args[0]
-        assert abs((expected_cutoff - actual_cutoff).total_seconds()) <= 1
-        assert actual_cutoff == progress.finish
-        assert actual_start == monitor.default_start_time
-        assert progress.start == monitor.default_start_time
-
-    @pytest.mark.parametrize('specified_default_start, override_timestamp, expected_start', [
-        ('2011-10-05T15:27', False, datetime(year=2011, month=10, day=5, hour=15, minute=27)),
-        ('2011-10-05T15:27:33', False, datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
-        (None, False, None),
-        (None, True, None),
-        ('2011-10-05T15:27', True, datetime(year=2011, month=10, day=5, hour=15, minute=27)),
-        ('2011-10-05T15:27:33', True, datetime(year=2011, month=10, day=5, hour=15, minute=27, second=33)),
-    ])
-    def test_specified_start_can_override_timestamp(self, specified_default_start,
-                                                           override_timestamp, expected_start):
-        monitor = BibliothecaEventMonitor(
-            self._db, self.collection, api_class=MockBibliothecaAPI,
-            default_start=specified_default_start, override_timestamp=override_timestamp,
-        )
-        # For an initialized monitor, the `default_start_time` will be derived from
-        # `timestamp.finish`, unless overridden by a specified `default_start` when
-        # `override_timestamp` is specified as True.
-        ts = Timestamp.stamp(
-            self._db, service=monitor.service_name,
-            service_type=Timestamp.MONITOR_TYPE, collection=monitor.collection
-        )
-        start_time_from_ts = ts.finish - BibliothecaEventMonitor.OVERLAP
-        expected_actual_start_time = expected_start if monitor.override_timestamp else start_time_from_ts
-        expected_cutoff = datetime.utcnow()
-        with mock.patch.object(monitor, 'catch_up_from', return_value=None) as catch_up_from:
-            monitor.run()
-            actual_start, actual_cutoff, progress = catch_up_from.call_args[0]
-        assert abs((expected_cutoff - actual_cutoff).total_seconds()) <= 1
-        assert actual_cutoff == progress.finish
-        assert actual_start == expected_actual_start_time
-        assert progress.start == expected_actual_start_time
-
-    @pytest.mark.parametrize('input', [
-        ('invalid'), ('2020/10'), (['2020-10-05'])
-    ])
-    def test_optional_iso_date_invalid_dates(self, input, default_monitor):
-        with pytest.raises(ValueError) as excinfo:
-            default_monitor._optional_iso_date(input)
-
     def test_run_once(self):
         # run_once() slices the time between its start date
         # and the current time into five-minute intervals, and asks for
-        # data about one day at a time.
+        # data about one interval at a time.
 
-        now = datetime.utcnow()
+        now = utc_now()
         one_hour_ago = now - timedelta(hours=1)
         two_hours_ago = now - timedelta(hours=2)
 
@@ -1097,7 +1418,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         #    whose event we found.
         #
         # 2. Retrieving the 'slices' of events between 2 hours ago and
-        #    1 hours ago in 5 minute intervals.
+        #    1 hour ago in 5 minute intervals.
         assert 15 == len(api.requests)
 
         # There is no second 'detailed information' lookup because both events
@@ -1126,43 +1447,36 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         # The timestamp's achivements have been updated.
         assert "Events handled: 13." == after_timestamp.achievements
 
-        # After the initial run, the progress timestamp's `counter` property
-        # is set to `1`. This means we are now in "catch up" mode where we
-        # consider no events to be an error. The timespan to check for events
-        # also expands to a 70-hour slice of time.
+        # In earlier versions, the progress timestamp's `counter`
+        # property was manipulated to put the monitor in different
+        # states that would improve its reliability in different
+        # failure scenarios. With the addition of the
+        # BibliothecaPurchaseMonitor, the reliability of
+        # BibliothecaEventMonitor became much less important, so the
+        # complex code has been removed.
+        assert None == after_timestamp.counter
+
+        # To prove this, run the monitor again, catching up between
+        # after_timestamp.start (the current time, minus 5 minutes and
+        # a little bit), and the current time.
+        #
+        # This is going to result in two more API calls, one for the
+        # "5 minutes" and one for the "little bit".
         api.queue_response(
             200, content=self.sample_data("empty_event_batch.xml")
         )
-
-        assert after_timestamp.counter == 1
-
-        with pytest.raises(RemoteInitiatedServerError) as excinfo:
-            monitor.run_once(after_timestamp)
-        assert "No events returned from server. This may not be an error, but treating it as one to be safe." in str(excinfo.value)
-
-        # One request was made but no events were found.
-        assert 16 == len(api.requests)
-
-        # If we are in "catch up" mode and the timespan to check for events
-        # is longer than 70 hours, we revert back to checking for events
-        # in 5-minute intervals.
-        now = datetime.utcnow()
-        two_days_ago = now - timedelta(days=2)
-        seven_days_ago = now - timedelta(days=5)
-        before_timestamp = TimestampData(
-            start=seven_days_ago, finish=two_days_ago
+        api.queue_response(
+            200, content=self.sample_data("empty_event_batch.xml")
         )
-        before_timestamp.counter = 1
+        monitor.run_once(after_timestamp)
 
-        # All the requests triggered in the 3 day span in 5-minute intervals.
-        for i in range(1, 600):
-            api.queue_response(
-                200, content=self.sample_data("empty_end_date_event.xml")
-            )
-
-        after_timestamp = monitor.run_once(before_timestamp)
-
-        assert after_timestamp.counter == 0
+        # Two more requests were made, but no events were found for the
+        # corresponding time slices, so nothing happened.
+        #
+        # Previously the lack of any events would have been treated as
+        # an error.
+        assert 17 == len(api.requests)
+        assert "Events handled: 0." == after_timestamp.achievements
 
     def test_handle_event(self):
         api = MockBibliothecaAPI(self._db, self.collection)
@@ -1175,7 +1489,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
             analytics=analytics
         )
 
-        now = datetime.utcnow()
+        now = utc_now()
         monitor.handle_event("ddf4gr9", "9781250015280", None, now, None,
                              CirculationEvent.DISTRIBUTOR_LICENSE_ADD)
 
@@ -1196,16 +1510,19 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         assert 1 == pool.licenses_owned
         assert 1 == pool.licenses_available
 
-        # Four analytics events were collected: one for the license add
-        # event itself, one for the 'checkin' that made the new
-        # license available, one for the first appearance of a new
-        # LicensePool, and a redundant 'license add' event
-        # which was registered with analytics but which did not
-        # affect the counts.
-        assert 4 == analytics.count
+        # Three analytics events were collected: one for the license
+        # add event itself, one for the 'checkin' that made the new
+        # license available, and a redundant 'license add' event which
+        # was registered with analytics but which did not affect the
+        # counts.
+        #
+        # In earlier versions a fourth analytics event would have been
+        # issued, for the creation of a new LicensePool, but that is now
+        # solely the job of the BibliothecaPurchasMonitor.
+        assert 3 == analytics.count
 
 
-class TestBibliothecaEventMonitorWhenMultipleCollections(BibliothecaAPITest):
+class TestBibliothecaPurchaseMonitorWhenMultipleCollections(BibliothecaAPITest):
 
     def test_multiple_service_type_timestamps_with_start_date(self):
         # Start with multiple collections that have timestamps
@@ -1216,19 +1533,19 @@ class TestBibliothecaEventMonitorWhenMultipleCollections(BibliothecaAPITest):
         ]
         for c in collections:
             Timestamp.stamp(
-                self._db, service=BibliothecaEventMonitor.SERVICE_NAME,
+                self._db, service=BibliothecaPurchaseMonitor.SERVICE_NAME,
                 service_type=Timestamp.MONITOR_TYPE, collection=c
             )
         # Instantiate the associated monitors with a start date.
         monitors = [
-            BibliothecaEventMonitor(self._db, c, api_class=BibliothecaAPI,
-                                    default_start='2011-02-03')
+            BibliothecaPurchaseMonitor(self._db, c, api_class=BibliothecaAPI,
+                                       default_start='2011-02-03')
             for c in collections
         ]
         assert len(monitors) == len(collections)
         # Ensure that we get monitors and not an exception.
         for m in monitors:
-            assert isinstance(m, BibliothecaEventMonitor)
+            assert isinstance(m, BibliothecaPurchaseMonitor)
 
 
 class TestItemListParser(BibliothecaAPITest):
@@ -1285,7 +1602,7 @@ class TestItemListParser(BibliothecaAPITest):
         assert Edition.BOOK_MEDIUM == cooked.medium
         assert "eng" == cooked.language
         assert "St. Martin's Press" == cooked.publisher
-        assert (datetime(year=2012, month=9, day=17) ==
+        assert (datetime_utc(year=2012, month=9, day=17) ==
             cooked.published)
 
         primary = cooked.primary_identifier
@@ -1295,7 +1612,7 @@ class TestItemListParser(BibliothecaAPITest):
         identifiers = sorted(
             cooked.identifiers, key=lambda x: x.identifier
         )
-        assert ([u'9781250015280', u'9781250031112', u'ddf4gr9'] ==
+        assert (['9781250015280', '9781250031112', 'ddf4gr9'] ==
             [x.identifier for x in identifiers])
 
         [author] = cooked.contributors
@@ -1342,10 +1659,10 @@ class TestItemListParser(BibliothecaAPITest):
 
         # We found one author and three narrators.
         assert (
-            sorted([(u'Riggs, Ransom', u'Author'),
-                    (u'Callow, Simon', u'Narrator'),
-                    (u'Mann, Bruce', u'Narrator'),
-                    (u'Hagon, Garrick', u'Narrator')]) ==
+            sorted([('Riggs, Ransom', 'Author'),
+                    ('Callow, Simon', 'Narrator'),
+                    ('Mann, Bruce', 'Narrator'),
+                    ('Hagon, Garrick', 'Narrator')]) ==
             sorted(names_and_roles))
 
 class TestBibliographicCoverageProvider(TestBibliothecaAPI):

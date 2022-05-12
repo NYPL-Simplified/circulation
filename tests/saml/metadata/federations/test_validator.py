@@ -13,6 +13,11 @@ from api.saml.metadata.federations.validator import (
     SAMLFederatedMetadataValidationError,
     SAMLMetadataSignatureValidator,
 )
+from core.util.datetime_helpers import (
+    datetime_utc,
+    from_timestamp,
+    utc_now
+)
 
 
 class TestSAMLFederatedMetadataExpirationValidator(object):
@@ -20,13 +25,13 @@ class TestSAMLFederatedMetadataExpirationValidator(object):
         [
             (
                 "incorrect_xml",
-                datetime.datetime.utcnow(),
+                utc_now(),
                 tests.saml.fixtures.INCORRECT_XML,
                 SAMLFederatedMetadataValidationError,
             ),
             (
                 "without_valid_until_attribute",
-                datetime.datetime.utcnow(),
+                utc_now(),
                 tests.saml.fixtures.FEDERATED_METADATA_WITHOUT_VALID_UNTIL_ATTRIBUTE,
                 SAMLFederatedMetadataValidationError,
             ),
@@ -63,7 +68,7 @@ class TestSAMLFederatedMetadataExpirationValidator(object):
             ),
             (
                 "with_real_incommon_metadata",
-                datetime.datetime(2020, 11, 26, 14, 32, 42),
+                datetime_utc(2020, 11, 26, 14, 32, 42),
                 open(
                     os.path.join(
                         os.path.dirname(os.path.abspath(__file__)),

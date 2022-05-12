@@ -3,8 +3,6 @@ import json
 
 import pytest
 
-
-import datetime
 import os
 
 from core.util.http import (
@@ -47,7 +45,10 @@ from core.testing import (
     DatabaseTest,
     MockRequestsResponse,
 )
-
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 
 class OdiloAPITest(DatabaseTest):
     PIN = 'c4ca4238a0b923820dcc509a6f75849b'
@@ -104,7 +105,7 @@ class TestOdiloAPI(OdiloAPITest):
         self.api.queue_response(200, content="some content")
         status_code, headers, content = self.api.get(self._url, {})
         assert 200 == status_code
-        assert "some content" == content
+        assert b"some content" == content
         self.api.log.info('Test get success ok!')
 
     def test_401_on_get_refreshes_bearer_token(self):
@@ -122,11 +123,10 @@ class TestOdiloAPI(OdiloAPITest):
 
         # Then we retry the GET and it succeeds this time.
         self.api.queue_response(200, content="at last, the content")
-
         status_code, headers, content = self.api.get(self._url, {})
 
         assert 200 == status_code
-        assert "at last, the content" == content
+        assert b"at last, the content" == content
 
         # The bearer token has been updated.
         assert "new bearer token" == self.api.token
@@ -161,7 +161,7 @@ class TestOdiloAPI(OdiloAPITest):
         self.api.refresh_creds(credential)
         assert "new bearer token 2" == credential.credential
         assert self.api.token == credential.credential
-        assert credential.expires > datetime.datetime.utcnow()
+        assert credential.expires > utc_now()
 
     def test_credential_refresh_failure(self):
         """Verify that a useful error message results when the Odilo bearer
@@ -306,7 +306,7 @@ class TestOdiloAPI(OdiloAPITest):
             loans_failure.name)
         assert False == loans_failure.success
         assert ("Library has no test patron configured." ==
-            loans_failure.exception.message)
+            str(loans_failure.exception))
 
     def test_run_self_tests_short_circuit(self):
         """If OdiloAPI.check_creds can't get credentials, the rest of
@@ -321,7 +321,7 @@ class TestOdiloAPI(OdiloAPITest):
 
         # Only one test will be run.
         [check_creds] = self.api._run_self_tests(self._db)
-        assert "Failure!" == check_creds.exception.message
+        assert "Failure!" == str(check_creds.exception)
 
 
 class TestOdiloCirculationAPI(OdiloAPITest):
@@ -353,7 +353,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         # A relative URL is made absolute using the API's base URL.
         relative = "/relative-url"
         absolute = self.api._make_absolute_url(relative)
-        assert absolute == self.api.library_api_base_url + relative
+        assert absolute == self.api.library_api_base_url.decode("utf-8") + relative
 
         # An absolute URL is not modified.
         for protocol in ('http', 'https'):
@@ -609,7 +609,7 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
 
         monitor.api.queue_response(200, content='[]')  # No more resources retrieved
 
-        timestamp = TimestampData(start=datetime.datetime(2017, 9, 1))
+        timestamp = TimestampData(start=datetime_utc(2017, 9, 1))
         updated, new = monitor.all_ids(None)
         assert 10 == updated
         assert 10 == new
@@ -634,7 +634,7 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
 
         monitor.api.queue_response(200, content='[]')  # No more resources retrieved
 
-        updated, new = monitor.all_ids(datetime.datetime(2017, 9, 1))
+        updated, new = monitor.all_ids(datetime_utc(2017, 9, 1))
         assert 10 == updated
         assert 10 == new
 
@@ -720,10 +720,10 @@ class TestOdiloRepresentationExtractor(OdiloAPITest):
         assert "1" == metadata.series_position
         assert "ANBOCO" == metadata.publisher
         assert 2013 == metadata.published.year
-        assert 02 == metadata.published.month
-        assert 02 == metadata.published.day
+        assert 2 == metadata.published.month
+        assert 2 == metadata.published.day
         assert 2017 == metadata.data_source_last_updated.year
-        assert 03 == metadata.data_source_last_updated.month
+        assert 3 == metadata.data_source_last_updated.month
         assert 10 == metadata.data_source_last_updated.day
         # Related IDs.
         assert ((Identifier.ODILO_ID, '00010982') ==
@@ -738,13 +738,13 @@ class TestOdiloRepresentationExtractor(OdiloAPITest):
 
         subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
         weight = Classification.TRUSTED_DISTRIBUTOR_WEIGHT
-        assert ([(u'Children', 'tag', weight),
-             (u'Classics', 'tag', weight),
-             (u'FIC004000', 'BISAC', weight),
-             (u'Fantasy', 'tag', weight),
-             (u'K-12', 'Grade level', weight),
-             (u'LIT009000', 'BISAC', weight),
-             (u'YAF019020', 'BISAC', weight)] ==
+        assert ([('Children', 'tag', weight),
+             ('Classics', 'tag', weight),
+             ('FIC004000', 'BISAC', weight),
+             ('Fantasy', 'tag', weight),
+             ('K-12', 'Grade level', weight),
+             ('LIT009000', 'BISAC', weight),
+             ('YAF019020', 'BISAC', weight)] ==
             [(x.identifier, x.type, x.weight) for x in subjects])
 
         [author] = metadata.contributors

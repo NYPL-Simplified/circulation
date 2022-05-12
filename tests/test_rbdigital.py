@@ -6,10 +6,10 @@ import json
 from lxml import etree
 import os
 import random
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import uuid
 
-from StringIO import StringIO
+from io import StringIO
 
 from api.authenticator import BasicAuthenticationProvider
 
@@ -75,6 +75,10 @@ from core.model import (
 from core.scripts import RunCollectionCoverageProviderScript
 from core.testing import MockRequestsResponse
 
+from core.util.datetime_helpers import (
+    datetime_utc,
+    utc_now,
+)
 from core.util.http import (
     BadResponseException,
     RemoteIntegrationException,
@@ -180,7 +184,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             no_patron_credential.name)
         assert False == no_patron_credential.success
         assert ("Library has no test patron configured." ==
-            no_patron_credential.exception.message)
+            str(no_patron_credential.exception))
 
         assert ("Checking patron activity, using test patron for library %s" % with_default_patron.name ==
             patron_activity.name)
@@ -212,7 +216,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # We gave up after the first test failed.
         assert "Counting ebooks in collection" == result.name
-        assert "Invalid library id is provided or permission denied" == result.exception.message
+        assert "Invalid library id is provided or permission denied" == str(result.exception)
         assert repr(error) == result.exception.debug_message
 
     def test_external_integration(self):
@@ -297,7 +301,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         response = self.api.search(mediatype='ebook', author="Alexander Mccall Smith", title="Tea Time for the Traditionally Built")
         response_dictionary = response.json()
         assert 1 == response_dictionary['pageCount']
-        assert u'Tea Time for the Traditionally Built' == response_dictionary['items'][0]['item']['title']
+        assert 'Tea Time for the Traditionally Built' == response_dictionary['items'][0]['item']['title']
 
     def test_get_all_available_through_search(self):
         datastr, datadict = self.api.get_data("response_search_five_items_1.json")
@@ -308,7 +312,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         assert 5 == response_dictionary['resultSetCount']
         assert 5 == len(response_dictionary['items'])
         returned_titles = [iteminterest['item']['title'] for iteminterest in response_dictionary['items']]
-        assert (u'Unusual Uses for Olive Oil' in returned_titles)
+        assert ('Unusual Uses for Olive Oil' in returned_titles)
 
     def test_get_all_catalog(self):
         datastr, datadict = self.api.get_data("response_catalog_all_sample.json")
@@ -316,7 +320,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         catalog = self.api.get_all_catalog()
         assert (
-            [u'Tricks', u'Emperor Mage: The Immortals', u'In-Flight Russian'] ==
+            ['Tricks', 'Emperor Mage: The Immortals', 'In-Flight Russian'] ==
             [x['title'] for x in catalog])
 
 
@@ -420,11 +424,11 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         assert last_snapshot == to_date
 
         # date alignment cannot work without at least one snapshot
-        self.api.queue_response(status_code=200, content=u"[]")
+        self.api.queue_response(status_code=200, content="[]")
         with pytest.raises(BadResponseException) as excinfo:
             self.api.align_dates_to_available_snapshots(from_date="2000-02-02", to_date="2000-01-01")
         assert "RBDigital available-dates response contains no snapshots." in str(excinfo.value)
-        self.api.queue_response(status_code=200, content=u"[]")
+        self.api.queue_response(status_code=200, content="[]")
         with pytest.raises(BadResponseException) as excinfo:
             self.api.align_dates_to_available_snapshots()
         assert "RBDigital available-dates response contains no snapshots." in str(excinfo.value)
@@ -485,8 +489,8 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         assert "2020-04-14" == delta["endDate"]
         assert 1 == delta["booksAddedCount"]
         assert 1 == delta["booksRemovedCount"]
-        assert [{u'isbn': u'9781934180723', u'id': 1301944, u'mediaType': u'eAudio'}] == delta["addedBooks"]
-        assert [{u'isbn': u'9780590543439', u'id': 1031919, u'mediaType': u'eAudio'}] == delta["removedBooks"]
+        assert [{'isbn': '9781934180723', 'id': 1301944, 'mediaType': 'eAudio'}] == delta["addedBooks"]
+        assert [{'isbn': '9780590543439', 'id': 1031919, 'mediaType': 'eAudio'}] == delta["removedBooks"]
 
     def test_patron_remote_identifier_new_patron(self):
         # End-to-end test of patron_remote_identifier, in the case
@@ -638,7 +642,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         allowed_create_keywords_keys = ["bearer_token_handler"]
         expected_create_keywords_keys = sorted(["bearer_token_handler"])
         # allowing kwargs keys
-        for key in api.create_patron_called_with_kwargs.keys():
+        for key in list(api.create_patron_called_with_kwargs.keys()):
             assert key in allowed_create_keywords_keys
         # expected kwargs keys
         assert actual_create_keywords_keys == expected_create_keywords_keys
@@ -873,11 +877,11 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # The dummy identifier is the input identifier plus
         # 6 random characters.
-        assert auth + "N098QO" == remote_auth
+        assert auth + "71HFE8" == remote_auth
 
         # It's different every time.
         remote_auth = self.api.dummy_patron_identifier(auth)
-        assert auth + "W3F17I" == remote_auth
+        assert auth + "6Y5R21" == remote_auth
 
     def test_dummy_email_address(self):
 
@@ -935,7 +939,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         self.api.queue_response(status_code=200, content=datastr)
 
         response_list = self.api.get_ebook_availability_info()
-        assert u'9781420128567' == response_list[0]['isbn']
+        assert '9781420128567' == response_list[0]['isbn']
         assert False == response_list[0]['availability']
 
     def test_get_metadata_by_isbn(self):
@@ -954,8 +958,8 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         datastr, datadict = self.api.get_data("response_isbn_found_1.json")
         self.api.queue_response(status_code=200, content=datastr)
         response_dictionary = self.api.get_metadata_by_isbn('9780307378101')
-        assert u'9780307378101' == response_dictionary['isbn']
-        assert u'Anchor' == response_dictionary['publisher']
+        assert '9780307378101' == response_dictionary['isbn']
+        assert 'Anchor' == response_dictionary['publisher']
 
     def test_populate_all_catalog(self):
         # Test the method that retrieves the entire catalog from RBdigital
@@ -1027,7 +1031,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         datastr, datadict = self.get_data("response_catalog_media_isbn.json")
         self.api.queue_response(status_code=200, content=datastr)
         result = self.api.populate_delta(
-            today=datetime.datetime(2020,04,30)
+            today=datetime_utc(2020,4,30)
         )
 
         # populate_delta returns two numbers, as required by
@@ -1251,7 +1255,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # Now we have a LoanInfo that describes the remote loan.
         assert Identifier.RB_DIGITAL_ID == loan_info.identifier_type
         assert pool.identifier.identifier == loan_info.identifier
-        today = datetime.datetime.utcnow()
+        today = utc_now()
         assert (loan_info.start_date - today).total_seconds() < 20
         assert (loan_info.end_date - today).days <= ebook_period
 
@@ -1303,7 +1307,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         self.queue_fetch_patron_bearer_token()
 
         # Let's queue it up now.
-        download_url  = u"http://download_url/"
+        download_url  = "http://download_url/"
         epub_manifest = json.dumps({ "url": download_url,
                                      "type": Representation.EPUB_MEDIA_TYPE })
         self.api.queue_response(status_code=200, content=epub_manifest)
@@ -1311,15 +1315,15 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # Since the book being fulfilled is an EPUB, the
         # FulfillmentInfo returned contains a direct link to the EPUB.
         assert Identifier.RB_DIGITAL_ID == found_fulfillment.identifier_type
-        assert u'9781426893483' == found_fulfillment.identifier
+        assert '9781426893483' == found_fulfillment.identifier
         assert download_url == found_fulfillment.content_link
-        assert u'application/epub+zip' == found_fulfillment.content_type
+        assert 'application/epub+zip' == found_fulfillment.content_type
         assert None == found_fulfillment.content
 
         # The fulfillment link expires in about 14 minutes -- rather
         # than testing this exactly we estimate it.
         expires = found_fulfillment.content_expires
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         thirteen_minutes = now + datetime.timedelta(minutes=13)
         fifteen_minutes = now + datetime.timedelta(minutes=15)
         assert expires > thirteen_minutes
@@ -1440,7 +1444,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             # the expected download URL has the API base URL stripped off
             expected_downloadUrl = downloadUrl[len(api.PRODUCTION_BASE_URL):]
             expected_proxied_url = '{}/rbdproxy/{}?{}'.format(
-                make_part_url(i), patron_bearer_token, urllib.urlencode({'url': expected_downloadUrl})
+                make_part_url(i), patron_bearer_token, urllib.parse.urlencode({'url': expected_downloadUrl})
             )
             assert expected_proxied_url == part['href']
             assert "vnd.librarysimplified/rbdigital-access-document+json" == part['type']
@@ -1469,7 +1473,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                 collection=api.collection,
             )
             assert False == new
-            assert credential.expires > datetime.datetime.utcnow()
+            assert credential.expires > utc_now()
 
             # Ensure that we've consumed all of the queued responses so far
             assert 0 == len(api.responses)
@@ -1551,12 +1555,12 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         patron_activity = self.api.patron_activity(patron, None)
 
         assert Identifier.RB_DIGITAL_ID == patron_activity[0].identifier_type
-        assert u'9781456103859' == patron_activity[0].identifier
+        assert '9781456103859' == patron_activity[0].identifier
         assert None == patron_activity[0].start_date
         assert datetime.date(2016, 11, 19) == patron_activity[0].end_date
 
         assert Identifier.RB_DIGITAL_ID == patron_activity[1].identifier_type
-        assert u'9781426893483' == patron_activity[1].identifier
+        assert '9781426893483' == patron_activity[1].identifier
         assert None == patron_activity[1].start_date
         assert datetime.date(2016, 11, 19) == patron_activity[1].end_date
 
@@ -1604,7 +1608,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         assert Identifier.RB_DIGITAL_ID == hold_info.identifier_type
         assert pool.identifier.identifier == hold_info.identifier
-        today = datetime.datetime.now()
+        today = utc_now()
         assert (hold_info.start_date - today).total_seconds() < 20
 
     def test_release_hold(self):
@@ -1633,13 +1637,12 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                       patron, None, pool)
 
     def test_update_licensepool_for_identifier(self):
-        """Test the RBDigital implementation of the update_availability method
-        defined by the CirculationAPI interface.
-        """
+        # Test the RBDigital implementation of the update_availability method
+        # defined by the CirculationAPI interface.
 
         # Update a LicensePool that doesn't exist yet, and it gets created.
         identifier = self._identifier(identifier_type=Identifier.RB_DIGITAL_ID)
-        isbn = identifier.identifier.encode("ascii")
+        isbn = identifier.identifier
 
         # The BibliographicCoverageProvider gets called for a new license pool.
         self.api.queue_response(200, content=json.dumps({}))
@@ -1670,7 +1673,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         pool.patrons_in_hold_queue = 3
         assert None == pool.last_checked
 
-        isbn = pool.identifier.identifier.encode("ascii")
+        isbn = pool.identifier.identifier
 
         pool, is_new, circulation_changed = self.api.update_licensepool_for_identifier(
             isbn, False, 'eaudio'
@@ -1753,7 +1756,7 @@ class TestCirculationMonitor(RBDigitalAPITest):
 
         # Modify the data so that it appears to be talking about the
         # book we just created.
-        new_identifier = pool_ebook.identifier.identifier.encode("ascii")
+        new_identifier = pool_ebook.identifier.identifier
         datastr = datastr.replace("9781781107041", new_identifier)
         monitor.api.queue_response(status_code=200, content=datastr)
 
@@ -1846,9 +1849,8 @@ class TestRBFulfillmentInfo(RBDigitalAPITest):
 class TestAudiobookManifest(RBDigitalAPITest):
 
     def test_constructor(self):
-        """A reasonable RBdigital manifest becomes a reasonable
-        AudiobookManifest object.
-        """
+        # A reasonable RBdigital manifest becomes a reasonable
+        # AudiobookManifest object.
 
         patron_bearer_token = 'd1544585ade0abcd7908ba0e'
 
@@ -1878,22 +1880,22 @@ class TestAudiobookManifest(RBDigitalAPITest):
         # generate this alternative is treated as an error.
         with pytest.raises(TypeError) as excinfo:
             AudiobookManifest(book)
-        assert "__init__() takes exactly 3 arguments (2 given)" in str(excinfo.value)
+        assert "__init__() missing 1 required positional argument: 'fulfill_part_url'" in str(excinfo.value)
 
         manifest = AudiobookManifest(book, fulfill_part_url)
 
         # We know about a lot of metadata.
         assert 'http://bib.schema.org/Audiobook' == manifest.metadata['@type']
-        assert u'Sharyn McCrumb' == manifest.metadata['author']
-        assert u'Award-winning, New York Times best-selling novelist Sharyn McCrumb crafts absorbing, lyrical tales featuring the rich culture and lore of Appalachia. In the compelling...' == manifest.metadata['description']
+        assert 'Sharyn McCrumb' == manifest.metadata['author']
+        assert 'Award-winning, New York Times best-selling novelist Sharyn McCrumb crafts absorbing, lyrical tales featuring the rich culture and lore of Appalachia. In the compelling...' == manifest.metadata['description']
         assert 52710.0 == manifest.metadata['duration']
-        assert u'9781449871789' == manifest.metadata['identifier']
-        assert u'Barbara Rosenblat' == manifest.metadata['narrator']
-        assert u'Recorded Books, Inc.' == manifest.metadata['publisher']
-        assert u'' == manifest.metadata['rbdigital:encryptionKey']
+        assert '9781449871789' == manifest.metadata['identifier']
+        assert 'Barbara Rosenblat' == manifest.metadata['narrator']
+        assert 'Recorded Books, Inc.' == manifest.metadata['publisher']
+        assert '' == manifest.metadata['rbdigital:encryptionKey']
         assert False == manifest.metadata['rbdigital:hasDrm']
         assert 316314528 == manifest.metadata['schema:contentSize']
-        assert u'The Ballad of Frankie Silver' == manifest.metadata['title']
+        assert 'The Ballad of Frankie Silver' == manifest.metadata['title']
 
         # We know about 21 items in the reading order.
         assert 21 == len(manifest.readingOrder)
@@ -1921,7 +1923,7 @@ class TestAudiobookManifest(RBDigitalAPITest):
         expected_downloadUrl = downloadUrl[len(api.PRODUCTION_BASE_URL):]
 
         expected_proxied_url = '{}/rbdproxy/{}?{}'.format(
-            fulfill_part_url(0), patron_bearer_token, urllib.urlencode({'url': expected_downloadUrl})
+            fulfill_part_url(0), patron_bearer_token, urllib.parse.urlencode({'url': expected_downloadUrl})
         )
 
         assert expected_proxied_url == first_proxied['href']
@@ -1985,27 +1987,27 @@ class TestRBDigitalRepresentationExtractor(RBDigitalAPITest):
         assert 27 == metadata.published.day
 
         [author1, author2, narrator] = metadata.contributors
-        assert u"Mccall Smith, Alexander" == author1.sort_name
-        assert u"Alexander Mccall Smith" == author1.display_name
+        assert "Mccall Smith, Alexander" == author1.sort_name
+        assert "Alexander Mccall Smith" == author1.display_name
         assert [Contributor.AUTHOR_ROLE] == author1.roles
-        assert u"Wilder, Thornton" == author2.sort_name
-        assert u"Thornton Wilder" == author2.display_name
+        assert "Wilder, Thornton" == author2.sort_name
+        assert "Thornton Wilder" == author2.display_name
         assert [Contributor.AUTHOR_ROLE] == author2.roles
 
-        assert u"Guskin, Laura Flanagan" == narrator.sort_name
-        assert u"Laura Flanagan Guskin" == narrator.display_name
+        assert "Guskin, Laura Flanagan" == narrator.sort_name
+        assert "Laura Flanagan Guskin" == narrator.display_name
         assert [Contributor.NARRATOR_ROLE] == narrator.roles
 
-        subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
+        subjects = sorted(metadata.subjects, key=lambda x: x.identifier or "")
 
         weight = Classification.TRUSTED_DISTRIBUTOR_WEIGHT
-        assert ([(None, u"FICTION / Humorous / General", Subject.BISAC, weight),
+        assert ([(None, "FICTION / Humorous / General", Subject.BISAC, weight),
 
-            (u'adult', None, Classifier.RBDIGITAL_AUDIENCE, weight),
+            ('adult', None, Classifier.RBDIGITAL_AUDIENCE, weight),
 
-            (u'humorous-fiction', None, Subject.RBDIGITAL, weight),
-            (u'mystery', None, Subject.RBDIGITAL, weight),
-            (u'womens-fiction', None, Subject.RBDIGITAL, weight)
+            ('humorous-fiction', None, Subject.RBDIGITAL, weight),
+            ('mystery', None, Subject.RBDIGITAL, weight),
+            ('womens-fiction', None, Subject.RBDIGITAL, weight)
          ] ==
             [(x.identifier, x.name, x.type, x.weight) for x in subjects])
 
@@ -2265,7 +2267,7 @@ class TestRBDProxyController(ControllerTest):
                                                None, allow_persistent_token=True,
                                                collection=collection, allow_empty_token=True)
                 credential.credential = token
-                credential.expires = datetime.datetime.utcnow()+datetime.timedelta(minutes=30)
+                credential.expires = utc_now()+datetime.timedelta(minutes=30)
                 return credential
 
             def patron_fulfillment_request(self, patron, url, reauthorize=None):

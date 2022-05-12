@@ -1,5 +1,5 @@
 
-from urllib import urlopen
+from urllib.request import urlopen
 import feedparser
 import os
 
@@ -10,7 +10,7 @@ class TestFeed(CirculationIntegrationTest):
     def test_grouped_feed(self):
         feed_url = self.url
         feed = urlopen(feed_url).read()
-        feed = feedparser.parse(unicode(feed))
+        feed = feedparser.parse(str(feed))
         entries = feed['entries']
         assert len(entries) > 20
         # spot-check an entry
@@ -30,7 +30,7 @@ class TestFeed(CirculationIntegrationTest):
             path = "eng/Romance"
         feed_url = "%sfeed/%s" % (self.url, path)
         feed = urlopen(feed_url).read()
-        feed = feedparser.parse(unicode(feed))
+        feed = feedparser.parse(str(feed))
         entries = feed['entries']
         assert len(entries) > 20
         # spot-check an entry

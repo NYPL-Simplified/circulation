@@ -6,7 +6,6 @@ from enum import Enum
 from api.saml.metadata.model import SAMLAttributeType, SAMLSubjectJSONDecoder
 from core.model import Credential, DataSource, DataSourceConstants, Patron
 from core.util import first_or_default, is_session
-from core.util.string_helpers import is_string
 
 
 class ProQuestCredentialType(Enum):
@@ -135,7 +134,7 @@ class ProQuestCredentialManager(object):
             raise ValueError(
                 '"duration" argument must be an instance of datetime.timedelta class'
             )
-        if not is_string(token) or not token:
+        if not isinstance(token, str) or not token:
             raise ValueError('"token" argument must be a non-empty string')
 
         self._logger.debug(

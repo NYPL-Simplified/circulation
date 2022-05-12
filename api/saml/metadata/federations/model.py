@@ -2,7 +2,6 @@ from sqlalchemy import ARRAY, Column, DateTime, ForeignKey, Integer, String, Tex
 from sqlalchemy.orm import relationship
 
 from core.model import Base
-from core.util.string_helpers import is_string
 
 
 class SAMLFederation(Base):
@@ -31,9 +30,9 @@ class SAMLFederation(Base):
         :param certificate: Certificate used to validate metadata
         :type certificate: str
         """
-        if not federation_type or not is_string(federation_type):
+        if not federation_type or not isinstance(federation_type, str):
             raise ValueError("Argument 'federation_type' must be a non-empty string")
-        if not idp_metadata_service_url or not is_string(idp_metadata_service_url):
+        if not idp_metadata_service_url or not isinstance(idp_metadata_service_url, str):
             raise ValueError(
                 "Argument 'idp_metadata_service_url' must be a non-empty string"
             )
@@ -106,11 +105,11 @@ class SAMLFederatedIdentityProvider(Base):
                     SAMLFederation
                 )
             )
-        if not entity_id or not is_string(entity_id):
+        if not entity_id or not isinstance(entity_id, str):
             raise ValueError("Argument 'entity_id' must be a non-empty string")
-        if not display_name or not is_string(display_name):
+        if not display_name or not isinstance(display_name, str):
             raise ValueError("Argument 'display_name' must be a non-empty string")
-        if not xml_metadata or not is_string(xml_metadata):
+        if not xml_metadata or not isinstance(xml_metadata, str):
             raise ValueError("Argument 'xml_metadata' must be a non-empty string")
 
         self.federation = federation
