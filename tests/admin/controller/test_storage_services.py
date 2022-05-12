@@ -6,7 +6,7 @@ from core.model import (
     ExternalIntegration,
 )
 from core.s3 import S3Uploader, MockS3Uploader
-from .test_controller import SettingsControllerTest
+from test_controller import SettingsControllerTest
 
 class TestStorageServices(SettingsControllerTest):
     def test_storage_service_management(self):

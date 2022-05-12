@@ -12,7 +12,7 @@ from flask_babel import lazy_gettext as _
 import json
 from pypostalcode import PostalCodeDatabase
 import re
-import urllib.request, urllib.parse, urllib.error
+import urllib
 import uszipcode
 import os
 
@@ -54,7 +54,7 @@ class GeographicValidator(Validator):
             flagged = False
             if value == "everywhere":
                 locations["US"].append(value)
-            elif len(value) and isinstance(value, str):
+            elif len(value) and isinstance(value, basestring):
                 if len(value) == 2:
                     # Is it a US state or Canadian province abbreviation?
                     if value in CA_PROVINCES:
@@ -63,7 +63,7 @@ class GeographicValidator(Validator):
                         locations["US"].append(value)
                     else:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. state or Canadian province abbreviation.', value=value))
-                elif value in list(CA_PROVINCES.values()):
+                elif value in CA_PROVINCES.values():
                     locations["CA"].append(value)
                 elif self.is_zip(value, "CA"):
                     # Is it a Canadian zipcode?
@@ -131,7 +131,7 @@ class GeographicValidator(Validator):
 
     def find_location_through_registry(self, value, db):
         for nation in ["US", "CA"]:
-            service_area_object = urllib.parse.quote('{"%s": "%s"}' % (nation, value))
+            service_area_object = urllib.quote('{"%s": "%s"}' % (nation, value))
             registry_check = self.ask_registry(service_area_object, db)
             if registry_check and isinstance(registry_check, ProblemDetail):
                 return registry_check

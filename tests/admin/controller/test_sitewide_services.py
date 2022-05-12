@@ -7,7 +7,7 @@ from core.model import (
     ExternalIntegration,
 )
 from core.s3 import S3Uploader, MockS3Uploader
-from .test_controller import SettingsControllerTest
+from test_controller import SettingsControllerTest
 
 class TestSitewideServices(SettingsControllerTest):
     def test_sitewide_service_management(self):

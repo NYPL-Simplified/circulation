@@ -33,7 +33,6 @@ import socket
 import ssl
 import tempfile
 from api.sip.dialect import GenericILS
-from core.util.datetime_helpers import utc_now
 
 # SIP2 defines a large number of fields which are used in request and
 # response messages. This library focuses on defining the response
@@ -358,11 +357,11 @@ class SIPClient(Constants):
         tmp_ssl_key_path = None
         if self.ssl_cert:
             fd, tmp_ssl_cert_path = tempfile.mkstemp()
-            os.write(fd, self.ssl_cert.encode("utf-8"))
+            os.write(fd, self.ssl_cert)
             os.close(fd)
         if self.ssl_key:
             fd, tmp_ssl_key_path = tempfile.mkstemp()
-            os.write(fd, self.ssl_key.encode("utf-8"))
+            os.write(fd, self.ssl_key)
             os.close(fd)
         connection = self.make_insecure_connection()
         connection = ssl.wrap_socket(
@@ -409,7 +408,7 @@ class SIPClient(Constants):
             response = self.read_message()
             try:
                 parsed = parser(response)
-            except RequestResend as e:
+            except RequestResend, e:
                 # Instead of a response, we got a request to resend the data.
                 # Generate a new checksum but do not include or increment
                 # the sequence number.
@@ -610,7 +609,7 @@ class SIPClient(Constants):
         # 14-character string into a dictionary of booleans.
         try:
             parsed = self.parse_patron_status(response.get('patron_status'))
-        except ValueError as e:
+        except ValueError, e:
             parsed = {}
         response['patron_status_parsed'] = parsed
         return response
@@ -716,7 +715,7 @@ class SIPClient(Constants):
 
         :return: A 14-element dictionary mapping flag names to boolean values.
         """
-        if (not isinstance(status_string, (bytes, str))
+        if (not isinstance(status_string, basestring)
             or len(status_string) != 14):
             raise ValueError(
                 "Patron status must be a 14-character string."
@@ -730,7 +729,7 @@ class SIPClient(Constants):
 
     def now(self):
         """Return the current time, formatted as SIP expects it."""
-        now = utc_now()
+        now = datetime.datetime.utcnow()
         return datetime.datetime.strftime(now, "%Y%m%d0000%H%M%S")
 
     def summary(self, hold_items=False, overdue_items=False,

@@ -1,4 +1,5 @@
 import pytest
+import base64
 import json
 import flask
 from Crypto.PublicKey import RSA
@@ -19,7 +20,6 @@ from core.model import (
     create,
     get_one,
 )
-import base64
 from api.circulation import FulfillmentInfo
 
 from core.testing import DatabaseTest
@@ -84,7 +84,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         # constructor has been stored in initialization_exceptions.
         e = shared_collection.initialization_exceptions[self._default_collection.id]
         assert isinstance(e, CannotLoadConfiguration)
-        assert "doomed!" == str(e)
+        assert "doomed!" == e.message
 
     def test_api_for_licensepool(self):
         collection = self._collection(protocol=ODLAPI.NAME)
@@ -154,7 +154,7 @@ class TestSharedCollectionAPI(DatabaseTest):
 
         # Here's an auth document with a valid key.
         key = RSA.generate(2048)
-        public_key = key.publickey().exportKey().decode("utf-8")
+        public_key = key.publickey().exportKey()
         encryptor = PKCS1_OAEP.new(key)
         auth_response = json.dumps({"public_key": { "type": "RSA", "value": public_key },
                                     "links": [{"href": "http://library.org", "rel": "start"}]})
@@ -163,7 +163,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         # An IntegrationClient has been created.
         client = get_one(self._db, IntegrationClient, url=IntegrationClient.normalize_url("http://library.org/"))
         decrypted_secret = encryptor.decrypt(base64.b64decode(response.get("metadata", {}).get("shared_secret")))
-        assert client.shared_secret == decrypted_secret.decode("utf-8")
+        assert client.shared_secret == decrypted_secret
 
     def test_borrow(self):
         # This client is registered, but isn't one of the allowed URLs for the collection

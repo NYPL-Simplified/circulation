@@ -13,9 +13,6 @@ from core.lcp.credential import LCPCredentialFactory
 from core.model import ExternalIntegration, LicensePoolDeliveryMechanism, get_one, Loan, Collection, LicensePool, \
     DeliveryMechanism
 from core.model.configuration import HasExternalIntegration, ConfigurationStorage, ConfigurationFactory
-from core.util.datetime_helpers import (
-    utc_now,
-)
 
 
 class LCPFulfilmentInfo(FulfillmentInfo):
@@ -184,7 +181,7 @@ class LCPAPI(BaseCirculationAPI, HasExternalIntegration):
         :rtype: LoanInfo
         """
         days = self.collection.default_loan_period(patron.library)
-        today = utc_now()
+        today = datetime.datetime.utcnow()
         expires = today + datetime.timedelta(days=days)
         loan = get_one(self._db, Loan, patron=patron, license_pool=licensepool, on_multiple='interchangeable')
 
@@ -267,7 +264,7 @@ class LCPAPI(BaseCirculationAPI, HasExternalIntegration):
         :return: List of patron's loans
         :rtype: List[LoanInfo]
         """
-        now = utc_now()
+        now = datetime.datetime.utcnow()
         loans = self._db\
             .query(Loan)\
             .join(LicensePool)\

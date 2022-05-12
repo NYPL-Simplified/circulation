@@ -1,6 +1,6 @@
 import os
 import logging
-import urllib.parse
+import urlparse
 
 import flask
 from flask import (
@@ -10,7 +10,7 @@ from flask import (
 )
 from flask_sqlalchemy_session import flask_scoped_session
 from sqlalchemy.orm import sessionmaker
-from .config import Configuration
+from config import Configuration
 from core.model import (
     ConfigurationSetting,
     SessionManager,
@@ -44,12 +44,12 @@ def initialize_database(autoinitialize=True):
     _db.commit()
     logging.getLogger().info("Application debug mode==%r" % app.debug)
 
-from . import routes
-from .admin import routes
+import routes
+import admin.routes
 
 def run(url=None):
-    base_url = url or 'http://localhost:6500/'
-    scheme, netloc, path, parameters, query, fragment = urllib.parse.urlparse(base_url)
+    base_url = url or u'http://localhost:6500/'
+    scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(base_url)
     if ':' in netloc:
         host, port = netloc.split(':')
         port = int(port)

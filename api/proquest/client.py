@@ -15,6 +15,7 @@ from core.model.configuration import (
     ConfigurationStorage,
 )
 from core.util import is_session
+from core.util.string_helpers import is_string
 
 
 class ProQuestAPIClientConfiguration(ConfigurationGrouping):
@@ -146,11 +147,11 @@ class ProQuestBook(object):
         :param content_type: Content type
         :type content_type: Optional[str]
         """
-        if link is not None and not isinstance(link, str):
+        if link is not None and not is_string(link):
             raise ValueError("Argument 'link' must be a string")
         if content is not None and not isinstance(content, bytes):
             raise ValueError("Argument 'content' must be a bytes string")
-        if content_type is not None and not isinstance(content_type, str):
+        if content_type is not None and not is_string(content_type):
             raise ValueError("Argument 'content_type' must be a string")
         if link is not None and content is not None:
             raise ValueError(
@@ -568,7 +569,7 @@ class ProQuestAPIClient(object):
         """
         if not is_session(db):
             raise ValueError('"db" argument must be a valid SQLAlchemy session')
-        if not affiliation_id or not isinstance(affiliation_id, str):
+        if not affiliation_id or not is_string(affiliation_id):
             raise ValueError('"affiliation_id" argument must be a non-empty string')
 
         self._logger.info(
@@ -620,9 +621,9 @@ class ProQuestAPIClient(object):
         """
         if not is_session(db):
             raise ValueError('"db" argument must be a valid SQLAlchemy session')
-        if not token or not isinstance(token, str):
+        if not token or not is_string(token):
             raise ValueError('"token" argument must be a non-empty string')
-        if not document_id or not isinstance(document_id, str):
+        if not document_id or not is_string(document_id):
             raise ValueError('"document_id" must be a non-empty string')
 
         self._logger.info(

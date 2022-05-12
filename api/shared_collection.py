@@ -1,5 +1,6 @@
 import logging
 import flask
+import base64
 import json
 from flask_babel import lazy_gettext as _
 
@@ -9,11 +10,10 @@ from core.model import (
     IntegrationClient,
     get_one,
 )
-from .circulation_exceptions import *
-from .config import Configuration
+from circulation_exceptions import *
+from config import Configuration
 from core.config import CannotLoadConfiguration
 from core.util.http import HTTP
-import base64
 
 class SharedCollectionAPI(object):
     """Logic for circulating books to patrons of libraries on other
@@ -50,10 +50,10 @@ class SharedCollectionAPI(object):
                 api = None
                 try:
                     api = api_map[collection.protocol](_db, collection)
-                except CannotLoadConfiguration as e:
+                except CannotLoadConfiguration, e:
                     self.log.error(
                         "Error loading configuration for %s: %s",
-                        collection.name, str(e)
+                        collection.name, e.message
                     )
                     self.initialization_exceptions[collection.id] = e
                 if api:
@@ -64,7 +64,7 @@ class SharedCollectionAPI(object):
         """When you see a Collection that implements protocol X, instantiate
         API class Y to handle that collection.
         """
-        from .odl import ODLAPI
+        from odl import ODLAPI
         return {
             ODLAPI.NAME: ODLAPI,
         }
@@ -94,7 +94,7 @@ class SharedCollectionAPI(object):
         auth_response = do_get(auth_document_url, allowed_response_codes=["2xx", "3xx"])
         try:
             auth_document = json.loads(auth_response.content)
-        except ValueError as e:
+        except ValueError, e:
             raise RemoteInitiatedServerError(
                 _("Authentication document at %(auth_document_url)s was not valid JSON.",
                   auth_document_url=auth_document_url),
@@ -137,8 +137,8 @@ class SharedCollectionAPI(object):
         if not client:
             client, ignore = IntegrationClient.register(self._db, start_url)
 
-        shared_secret = client.shared_secret.encode("utf-8")
-        encrypted_secret = encryptor.encrypt(shared_secret)
+        shared_secret = client.shared_secret
+        encrypted_secret = encryptor.encrypt(str(shared_secret))
         return dict(metadata=dict(shared_secret=base64.b64encode(encrypted_secret)))
 
     def check_client_authorization(self, collection, client):

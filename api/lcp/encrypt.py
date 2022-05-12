@@ -464,7 +464,7 @@ class LCPEncryptor(object):
         except Exception as exception:
             self._logger.exception('An unhandled exception occurred during running a local lcpencrypt binary')
 
-            raise LCPEncryptionException(str(exception), inner_exception=exception)
+            raise LCPEncryptionException(exception.message, inner_exception=exception)
 
         self._logger.info(
             'Finished running a local lcpencrypt binary. File path: {0}. Identifier: {1}. Result: {2}'.format(

@@ -1,56 +1,48 @@
-# Circulation Docker
-This directory contains `Dockerfile`s and a `docker-compose.yml` file for Library Simplified's [Circulation Manager](https://github.com/NYPL-Simplified/circulation_manager).
+# circulation-docker
+These are the Docker images for Library Simplified's [Circulation Manager](https://github.com/NYPL-Simplified/circulation_manager). They are updated via [pull requests to the `NYPL-Simplified/circulation-docker` GitHub repo](https://github.com/NYPL-Simplified/circulation-docker/pulls).
 
 #### Contents:
 - What is the Circulation Manager?
-- Docker Images
 - Using This Image
 - Environment Variables
-- Building New Images
+- Notes on Earlier Version
+- Additional Configuration
 - Contributing
-- License
 
 ---
 
 ## What is the Circulation Manager?
 
-The Circulation Manager is the main connection between a library's collection and Library Simplified's various client-side applications. It handles user authentication, combines licensed works with open access content from the [OA Content Server](https://github.com/NYPL-Simplified/content_server), pulls in updated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
-
-## Docker Images
+The circulation manager is the main connection between a library's collection and Library Simplified's various client-side applications. It handles user authentication, combines licensed works with open access content from the [OA Content Server](https://github.com/NYPL-Simplified/content_server), pulls in updated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
 
 The Dockerfiles in this directory create two distinct but necessary containers to deploy the Circulation Manager:
   - `circ-webapp` (**deprecated:** `circ-deploy`): a container that launches the API and admin interface [using Nginx and uWSGI](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Nginx-&-uWSGI)
   - `circ-scripts`: a container that schedules and runs important cron jobs at recommended intervals
-  - `circ-exec`: a container similar to `circ-scripts` but only runs one job and then stops
 
 To avoid database lockups, `circ-scripts` should be deployed as a single instance.
 
-## Using These Images
+## Using This Image
 
-You will need **a PostgreSQL instance URL** in the format `postgres://[username]:[password]@[host]:[port]/[database_name]`. Check the `./docker-compose.yml` file for an example. With this URL, you can create containers for both the web application (`circ-webapp`) and for the background cron jobs that import and update books and otherwise keep the app running smoothly (`circ-scripts`). Either container can be used to initialize or migrate the database. During the first deployment against a brand new database, the first container run can use the default `SIMPLIFIED_DB_TASK='auto'` or be run manually with `SIMPLIFIED_DB_TASK='init'`. See the "Environment Variables" section below for more information.
+You will need **a PostgreSQL instance url** in the format `postgres://[username]:[password]@[host]:[port]/[database_name]`. With this URL, you can created containers for both the web application (`circ-webapp`) and for the background cron jobs that import and update books and otherwise keep the app running smoothly (`circ-scripts`). Either container can be used to initialize or migrate the database. During the first deployment against a brand new database, the first container run can use the default `SIMPLIFIED_DB_TASK='auto'` or be run manually with `SIMPLIFIED_DB_TASK='init'`. See the "Environment Variables" section below for mroe information.
 
-### circ-webapp (**deprecated name:** circ-deploy)
+### circ-webapp (**deprecated:** circ-deploy)
 
-Once the webapp Docker image is built, we can run it in a container with the following command.
-
-```sh
+```
 # See the section "Environment Variables" below for more information
 # about the values listed here and their alternatives.
-$ docker run --name webapp -d \
-    --p 80:80 \
+$ docker run --name webapp \
+    -d -p 80:80 \
     -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
     nypl/circ-webapp:2.1
 ```
 
-Navigate to `http://localhost/admin` in your browser to visit the web admin for the Circulation Manager. In the admin, you can add or update configuration information. If you have not yet created an admin authorization protocol before, you'll need to do that before you can set other configuration.
+Navigate to `http://localhost/admin` to in your browser to input or update configuration information. If you have not yet created an admin authorization protocol before, you'll need to do that before you can set other configuration.
 
 For troubleshooting information and installation directions for the entire Circulation Manager tool suite, please review [the full deployment instructions](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Quickstart-with-Docker).
 
 ### circ-scripts
 
-Once the scripts Docker image is built, we can run it in a container with the following command.
-
-```sh
+```
 # See the section "Environment Variables" below for more information
 # about the values listed here and their alternatives.
 $ docker run --name scripts -d \
@@ -71,10 +63,10 @@ Unlike the `circ-scripts` image, which runs constantly and executes every possib
 
 Because containers based on `circ-exec` are built, run their job, and are destroyed, it's important to configure an external log aggregator to find &#42;.log files in `/var/log/simplified/${SIMPLIFIED_SCRIPT_NAME}.log`.
 
-```sh
+```
 # See the section "Environment Variables" below for more information
 # about the values listed here and their alternatives.
-$ docker run --name search_index_refresh -it \
+$ docker run --name refresh-materialized-views -it \
     -e SIMPLIFIED_SCRIPT_NAME='refresh_materialized_views' \
     -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
     nypl/circ-exec:2.1
@@ -84,6 +76,10 @@ $ docker run --name search_index_refresh -it \
 
 Environment variables can be set with the `-e VARIABLE_KEY='variable_value'` option on the `docker run` command. `SIMPLIFIED_PRODUCTION_DATABASE` is the only required environment variable.
 
+### `SIMPLIFIED_CONFIGURATION_FILE`
+
+*Optional.* The full path to a configuration file in the container. Configuration is now held in the database and accessed via an administrative interface at `/admin`, so you probably don't need this. If you do, use [this documentation](https://github.com/NYPL-Simplified/Simplified/wiki/Configuration) to create the JSON file for your particular library's configuration. If you're unfamiliar with JSON, you can use [this JSON Formatter & Validator](https://jsonformatter.curiousconcept.com/#) to validate your configuration file.
+
 ### `SIMPLIFIED_DB_TASK`
 
 *Optional.* Performs a task against the database at container runtime. Options are:
@@ -91,6 +87,7 @@ Environment variables can be set with the `-e VARIABLE_KEY='variable_value'` opt
   - `ignore` : Does nothing.
   - `init` : Initializes the app against a brand new database. If you are running a circulation manager for the first time ever, use this value to set up an Elasticsearch alias and account for the database schema for future migrations.
   - `migrate` : Migrates an existing database against a new release. Use this value when switching from one stable version to another.
+
 
 ### `SIMPLIFIED_PRODUCTION_DATABASE`
 
@@ -104,23 +101,15 @@ Environment variables can be set with the `-e VARIABLE_KEY='variable_value'` opt
 
 *Optional. Applies to `circ-scripts` only.* The time zone that cron should use to run scheduled scripts--usually the time zone of the library or libraries on the circulation manager instance. This value should be selected according to [Debian-system time zone options](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). This value allows scripts to be run at ideal times.
 
-### `UWSGI_PROCESSES`
-
-*Optional.* The number of processes to use when running uWSGI. This value can be updated in `docker-compose.yml` or added directly in `Dockerfile.webapp`. Defaults to 6.
-
-### `UWSGI_THREADS`
-
-*Optional.* The number of threads to use when running uWSGI. This value can be updated in `docker-compose.yml` or added directly in `Dockerfile.webapp`. Defaults to 2.
-
 ## Building new images
 
-If you plan to work with stable versions of the Circulation Manager, we strongly recommend using the latest stable versions of circ-webapp and circ-scripts [published to Docker Hub](https://hub.docker.com/u/nypl/). However, there may come a time in development when you want to build Docker containers for a particular version of the Circulation Manager. If so, please use the instructions below.
+If you plan to work with stable versions of the Circulation Manager, we strongly recommend using the latest stable versions of circ-webapp and circ-scripts [published to Docker Hub](https://hub.docker.com/r/nypl/). However, there may come a time in development when you want to build Docker containers for a particular version of the Circulation Manager. If so, please use the instructions below.
 
 We recommend you install at least version 18.06 of the Docker engine and version 1.24 of Docker Compose.
 
-### `.webapp` and `.scripts` images
+### > `.webapp` and `.scripts`
 
-Determine which image you would like to build and update the tag and `Dockerfile` listed below accordingly.
+Determine which container you would like to build and update the tag and Dockerfile listed below accordingly.
 
 ```sh
 $ docker build --build-arg version=YOUR_DESIRED_BRANCH_OR_COMMIT \
@@ -133,13 +122,17 @@ You must run this command with the `--no-cache` option or the code in the contai
 
 That's it! Run your containers as detailed in [the Quickstart documentation](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Quickstart-with-Docker). Keep in mind that you may need to run migrations or configuration if you are using an existing version of the database.
 
-### Local Testing With docker-compose
+### > local testing with docker-compose
 
 The entirety of the setup described in [the Quickstart documentation](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Quickstart-with-Docker) can be run at once using `version=$YOUR_DESIRED_BRANCH_OR_COMMIT docker-compose up`. This can be great for locally testing feature branches and/or the success of new Docker builds.
 
 [This reference](https://docs.docker.com/compose/reference/up/) has a lot of fantastic information about options and settings for `docker-compose up`, but `-d` will run the containers in the background. [`docker-compose run`](https://docs.docker.com/compose/reference/run/) allows you to run the application with commands and settings other than those set in the Dockerfiles, to further support testing.
 
-If you're using Docker for Mac, keep an eye on the size of your /Users/[your-machine-username]/Library/Containers/com.docker.docker/Data/com.docker.driver.amd64-linux/Docker.qcow2 file, which can get quite large during local testing. Regularly deleting it will remove all existing containers but also avoid slowdowns from its ballooning size.
+If you're using Docker for Mac, keep an eye on the size of your /Users/courteneyervin/Library/Containers/com.docker.docker/Data/com.docker.driver.amd64-linux/Docker.qcow2 file, which can get quite large during local testing. Regularly deleting it will remove all existing containers but also avoid slowdowns from its ballooning size.
+
+## Additional Configuration
+
+If you would like to use different tools to handle deployment for the LS Circulation Manager, you are more than welcome to do so! We would love to support more deployment configurations; feel free to contribute any changes you may make to [the official Docker build repository](https://github.com/NYPL-Simplified/circulation-docker)!
 
 ## Contributing
 
@@ -153,7 +146,7 @@ Before you start to code, we recommend discussing your plans through a [GitHub i
 ## License
 
 ```
-Copyright © 2021 The New York Public Library, Astor, Lenox, and Tilden Foundations
+Copyright © 2015 The New York Public Library, Astor, Lenox, and Tilden Foundations
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

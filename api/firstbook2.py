@@ -5,16 +5,17 @@ import requests
 import logging
 import time
 
-from .authenticator import (
+from authenticator import (
     BasicAuthenticationProvider,
     PatronData,
 )
-from .config import (
+from config import (
     Configuration,
     CannotLoadConfiguration,
 )
-from .circulation_exceptions import RemoteInitiatedServerError
-import urllib.parse
+from circulation_exceptions import RemoteInitiatedServerError
+import urlparse
+import urllib
 from core.model import (
     get_one_or_create,
     ExternalIntegration,
@@ -95,18 +96,17 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
         url = self.root + jwt
         try:
             response = self.request(url)
-        except requests.exceptions.ConnectionError as e:
+        except requests.exceptions.ConnectionError, e:
             raise RemoteInitiatedServerError(
-                str(e),
+                unicode(e),
                 self.NAME
             )
-        content = response.content.decode("utf8")
         if response.status_code != 200:
             msg = "Got unexpected response code %d. Content: %s" % (
-                response.status_code, content
+                response.status_code, response.content
             )
             raise RemoteInitiatedServerError(msg, self.NAME)
-        if self.SUCCESS_MESSAGE in content:
+        if self.SUCCESS_MESSAGE in response.content:
             return True
         return False
 
@@ -120,7 +120,7 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
             pin=pin,
             iat=now,
         )
-        return jwt.encode(payload, self.secret, algorithm=self.ALGORITHM).decode("utf-8")
+        return jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
 
     def request(self, url):
         """Make an HTTP request.
@@ -134,10 +134,6 @@ class MockFirstBookResponse(object):
 
     def __init__(self, status_code, content):
         self.status_code = status_code
-        # Guarantee that the response content is always a bytestring,
-        # as it would be in real life.
-        if isinstance(content, str):
-            content = content.encode("utf8")
         self.content = content
 
 class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
@@ -170,7 +166,7 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
             return MockFirstBookResponse(
                 self.failure_status_code, "Error %s" % self.failure_status_code
             )
-        parsed = urllib.parse.urlparse(url)
+        parsed = urlparse.urlparse(url)
         token = parsed.path.split("/")[-1]
         barcode, pin = self._decode(token)
 
@@ -185,7 +181,7 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
         # First Book's job.
 
         # The JWT must be signed with the shared secret.
-        payload = jwt.decode(token, self.secret, algorithms=self.ALGORITHM)
+        payload = jwt.decode(token, self.secret, algorithm=self.ALGORITHM)
 
         # The 'iat' field in the payload must be a recent timestamp.
         assert (time.time()-int(payload['iat'])) < 2

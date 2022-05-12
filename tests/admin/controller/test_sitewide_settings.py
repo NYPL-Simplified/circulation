@@ -7,7 +7,7 @@ from core.model import (
     AdminRole,
     ConfigurationSetting
 )
-from .test_controller import SettingsControllerTest
+from test_controller import SettingsControllerTest
 from werkzeug.datastructures import ImmutableMultiDict, MultiDict
 import flask
 
@@ -82,7 +82,7 @@ class TestSitewideSettings(SettingsControllerTest):
 
         # The setting was created.
         setting = ConfigurationSetting.sitewide(self._db, Configuration.DATABASE_LOG_LEVEL)
-        assert setting.key == response.get_data(as_text=True)
+        assert setting.key == response.response[0]
         assert "10" == setting.value
 
     def test_sitewide_settings_post_edit(self):
@@ -98,7 +98,7 @@ class TestSitewideSettings(SettingsControllerTest):
             assert response.status_code == 200
 
         # The setting was changed.
-        assert setting.key == response.get_data(as_text=True)
+        assert setting.key == response.response[0]
         assert "ERROR" == setting.value
 
     def test_sitewide_setting_delete(self):

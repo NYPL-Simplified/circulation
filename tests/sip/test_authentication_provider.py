@@ -120,7 +120,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         assert "863718" == patrondata.permanent_id
         assert "Booth Excessive Fines Test" == patrondata.personal_name
         assert 100 == patrondata.fines
-        assert datetime(2019, 10, 4) == patrondata.authorization_expires
+        assert datetime(2019, 10, 04) == patrondata.authorization_expires
 
         # We happen to know that this patron can't borrow books due to
         # excessive fines, but that information doesn't show up as a

@@ -8,7 +8,7 @@ from sqlalchemy.orm.session import Session
 
 from flask_babel import lazy_gettext as _
 
-from .circulation import (
+from circulation import (
     LoanInfo,
     HoldInfo,
     FulfillmentInfo,
@@ -22,7 +22,7 @@ from core.model import (
     Identifier
 )
 
-from .selftest import (
+from selftest import (
     HasSelfTests,
     SelfTestResult,
 )
@@ -32,7 +32,7 @@ from core.monitor import (
 )
 from core.util.http import HTTP
 
-from .circulation_exceptions import *
+from circulation_exceptions import *
 
 from core.model import (
     get_one_or_create,
@@ -73,11 +73,6 @@ from core.config import (
 
 from core.testing import DatabaseTest
 
-from core.util.datetime_helpers import (
-    from_timestamp,
-    strptime_utc,
-    utc_now,
-)
 from core.util.http import (
     HTTP,
     BadResponseException,
@@ -219,17 +214,17 @@ class OdiloRepresentationExtractor(object):
 
         if published:
             try:
-                published = strptime_utc(published, "%Y%m%d")
+                published = datetime.datetime.strptime(published, "%Y%m%d")
             except ValueError as e:
-                cls.log.warn('Cannot parse publication date from: ' + published + ', message: ' + str(e))
+                cls.log.warn('Cannot parse publication date from: ' + published + ', message: ' + e.message)
 
         # yyyyMMdd --> record last modification date
         last_update = book.get('modificationDate')
         if last_update:
             try:
-                last_update = strptime_utc(last_update, "%Y%m%d")
+                last_update = datetime.datetime.strptime(last_update, "%Y%m%d")
             except ValueError as e:
-                cls.log.warn('Cannot parse last update date from: ' + last_update + ', message: ' + str(e))
+                cls.log.warn('Cannot parse last update date from: ' + last_update + ', message: ' + e.message)
 
         language = book.get('language', 'spa')
 
@@ -323,7 +318,7 @@ class OdiloRepresentationExtractor(object):
 
 class OdiloAPI(BaseCirculationAPI, HasSelfTests):
     log = logging.getLogger("Odilo API")
-    LIBRARY_API_BASE_URL = "library_api_base_url"
+    LIBRARY_API_BASE_URL = u"library_api_base_url"
 
     NAME = ExternalIntegration.ODILO
     DESCRIPTION = _("Integrate an Odilo library collection.")
@@ -366,7 +361,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
 
     # maps a 2-tuple (media_type, drm_mechanism) to the internal string used in Odilo API to describe that setup.
     delivery_mechanism_to_internal_format = {
-        v: k for k, v in list(OdiloRepresentationExtractor.format_data_for_odilo_format.items())
+        v: k for k, v in OdiloRepresentationExtractor.format_data_for_odilo_format.iteritems()
         }
 
     error_to_exception = {
@@ -473,7 +468,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
         # problems, so it's useful to give a helpful error message if
         # Odilo doesn't provide anything more specific.
         generic_error = "%s may not be the right base URL. Response document was: %r" % (
-            self.library_api_base_url, response.content.decode("utf-8")
+            self.library_api_base_url, response.content
         )
         generic_exception = BadResponseException(
             self.TOKEN_ENDPOINT, generic_error
@@ -539,7 +534,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
         """
         if not any(url.startswith(protocol)
                    for protocol in ('http://', 'https://')):
-            url = self.library_api_base_url.decode("utf-8") + url
+            url = self.library_api_base_url + url
         return url
 
     def get(self, url, extra_headers={}, exception_on_401=False):
@@ -548,7 +543,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
             extra_headers = {}
         headers = dict(Authorization="Bearer %s" % self.token)
         headers.update(extra_headers)
-        status_code, headers, content = self._do_get(self.library_api_base_url.decode("utf-8") + url, headers)
+        status_code, headers, content = self._do_get(self.library_api_base_url + url, headers)
         if status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
@@ -646,7 +641,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
             d = None
         else:
             # OdiloAPI dates are timestamps in milliseconds
-            d = from_timestamp(float(data[field_name]) / 1000.0)
+            d = datetime.datetime.utcfromtimestamp(float(data[field_name]) / 1000.0)
         return d
 
     @classmethod
@@ -833,7 +828,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
             credential.expires = None
         else:
             expires_in = (odilo_data['expiresIn'] * 0.9)
-            credential.expires = utc_now() + datetime.timedelta(seconds=expires_in)
+            credential.expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in)
 
     def get_metadata(self, record_id):
         identifier = record_id
@@ -910,9 +905,9 @@ class OdiloCirculationMonitor(CollectionMonitor, TimelineMonitor):
 
         self.log.info("Starting recently_changed_ids, start: " + str(start) + ", cutoff: " + str(cutoff))
 
-        start_time = utc_now()
+        start_time = datetime.datetime.now()
         updated, new = self.all_ids(start)
-        finish_time = utc_now()
+        finish_time = datetime.datetime.now()
 
         time_elapsed = finish_time - start_time
         self.log.info("recently_changed_ids finished in: " + str(time_elapsed))
@@ -999,15 +994,15 @@ class MockOdiloAPI(OdiloAPI):
             _db, Collection,
             name="Test Odilo Collection",
             create_method_kwargs=dict(
-                external_account_id='library_id_123',
+                external_account_id=u'library_id_123',
             )
         )
         integration = collection.create_external_integration(
             protocol=ExternalIntegration.ODILO
         )
-        integration.username = 'username'
-        integration.password = 'password'
-        integration.setting(OdiloAPI.LIBRARY_API_BASE_URL).value = 'http://library_api_base_url/api/v2'
+        integration.username = u'username'
+        integration.password = u'password'
+        integration.setting(OdiloAPI.LIBRARY_API_BASE_URL).value = u'http://library_api_base_url/api/v2'
         library.collections.append(collection)
 
         return collection

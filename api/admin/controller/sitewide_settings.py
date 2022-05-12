@@ -33,19 +33,19 @@ class SitewideConfigurationSettingsController(SettingsController):
         self.require_system_admin()
         setting = ConfigurationSetting.sitewide(self._db, flask.request.form.get("key"))
 
-        error = self.validate_form_fields(setting, list(flask.request.form.keys()))
+        error = self.validate_form_fields(setting, flask.request.form.keys())
         if error:
             return error
 
         setting = ConfigurationSetting.sitewide(self._db, flask.request.form.get("key"))
         setting.value = flask.request.form.get("value")
-        return Response(str(setting.key), 200)
+        return Response(unicode(setting.key), 200)
 
     def process_delete(self, key):
         self.require_system_admin()
         setting = ConfigurationSetting.sitewide(self._db, key)
         setting.value = None
-        return Response(str(_("Deleted")), 200)
+        return Response(unicode(_("Deleted")), 200)
 
     def validate_form_fields(self, setting, fields):
 
@@ -58,7 +58,7 @@ class SitewideConfigurationSettingsController(SettingsController):
             if not flask.request.form.get(field):
                 return MISSING_FIELD_MESSAGES.get(field)
 
-        [setting] = [s for s in Configuration.SITEWIDE_SETTINGS if s.get("key") == setting.key]
+        [setting] = filter(lambda s: s.get("key") == setting.key, Configuration.SITEWIDE_SETTINGS)
         error = self.validate_formats([setting])
         if error:
             return error

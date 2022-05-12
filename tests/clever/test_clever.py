@@ -17,7 +17,6 @@ from core.model import (
     get_one,
     get_one_or_create,
 )
-from core.util.datetime_helpers import utc_now
 from core.util.problem_detail import ProblemDetail
 from core.testing import DatabaseTest
 
@@ -77,7 +76,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         assert patron == self.api.authenticated_patron(self._db, "test")
 
         # If the token is expired, the patron has to log in again.
-        credential.expires = utc_now() - datetime.timedelta(days=1)
+        credential.expires = datetime.datetime.now() - datetime.timedelta(days=1)
         assert None == self.api.authenticated_patron(self._db, "test")
 
     def test_remote_exchange_code_for_bearer_token(self):

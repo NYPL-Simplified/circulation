@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import os
@@ -69,35 +70,30 @@ from core.opds_import import (
 from core.testing import DatabaseTest
 
 from core.util import LanguageCodes
-from core.util.datetime_helpers import (
-    datetime_utc,
-    strptime_utc,
-    utc_now,
-)
 from core.util.xmlparser import XMLParser
 from core.util.http import (
     HTTP,
     RemoteIntegrationException,
 )
-from core.util.string_helpers import base64
 
-from .authenticator import Authenticator
 
-from .circulation import (
+from authenticator import Authenticator
+
+from circulation import (
     APIAwareFulfillmentInfo,
     LoanInfo,
     FulfillmentInfo,
     HoldInfo,
     BaseCirculationAPI
 )
-from .circulation_exceptions import *
+from circulation_exceptions import *
 
-from .selftest import (
+from selftest import (
     HasCollectionSelfTests,
     SelfTestResult,
 )
 
-from .web_publication_manifest import (
+from web_publication_manifest import (
     FindawayManifest,
     SpineItem,
 )
@@ -127,7 +123,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
           "default": PRODUCTION_BASE_URL,
           "required": True,
           "format": "url",
-          "allowed": list(SERVER_NICKNAMES.keys()),
+          "allowed": SERVER_NICKNAMES.keys(),
         },
     ] + BaseCirculationAPI.SETTINGS
 
@@ -208,8 +204,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
 
     @property
     def authorization_headers(self):
-        authorization = b":".join([self.username, self.password, self.library_id])
-        authorization = authorization.decode("utf-8").encode("utf_16_le")
+        authorization = u":".join([self.username, self.password, self.library_id])
+        authorization = authorization.encode("utf_16_le")
         authorization = base64.standard_b64encode(authorization)
         return dict(Authorization="Basic " + authorization)
 
@@ -227,7 +223,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             return
 
         def _count_events():
-            now = utc_now()
+            now = datetime.utcnow()
             five_minutes_ago = now - timedelta(minutes=5)
             count = len(list(self.recent_activity(since=five_minutes_ago)))
             return "Found %d event(s)" % count
@@ -269,6 +265,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         """
         if not self.token:
             self.token = self.refresh_bearer_token()
+
         headers = dict(extra_headers)
         headers['Authorization'] = "Bearer " + self.token
         headers['Library'] = self.library_id
@@ -330,7 +327,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         try:
             return CheckoutResponseParser(
                 licensepool.collection).process_all(response.content)
-        except etree.XMLSyntaxError as e:
+        except etree.XMLSyntaxError, e:
             raise RemoteInitiatedServerError(
                 response.content, self.SERVICE_NAME
             )
@@ -574,7 +571,7 @@ class Axis360CirculationMonitor(CollectionMonitor, TimelineMonitor):
 
     PROTOCOL = ExternalIntegration.AXIS_360
 
-    DEFAULT_START_TIME = datetime_utc(1970, 1, 1)
+    DEFAULT_START_TIME = datetime(1970, 1, 1)
 
     def __init__(self, _db, collection, api_class=Axis360API):
         super(Axis360CirculationMonitor, self).__init__(_db, collection)
@@ -624,22 +621,22 @@ class Axis360CirculationMonitor(CollectionMonitor, TimelineMonitor):
 
 class MockAxis360API(Axis360API):
     @classmethod
-    def mock_collection(cls, _db, name="Test Axis 360 Collection"):
+    def mock_collection(self, _db, name="Test Axis 360 Collection"):
         """Create a mock Axis 360 collection for use in tests."""
         library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
             name=name,
             create_method_kwargs=dict(
-                external_account_id='c',
+                external_account_id=u'c',
             )
         )
         integration = collection.create_external_integration(
             protocol=ExternalIntegration.AXIS_360
         )
-        integration.username = 'a'
-        integration.password = 'b'
-        integration.url = "http://axis.test/"
+        integration.username = u'a'
+        integration.password = u'b'
+        integration.url = u"http://axis.test/"
         library.collections.append(collection)
         return collection
 
@@ -774,17 +771,7 @@ class Axis360Parser(XMLParser):
 
     SHORT_DATE_FORMAT = "%m/%d/%Y"
     FULL_DATE_FORMAT_IMPLICIT_UTC = "%m/%d/%Y %I:%M:%S %p"
-    FULL_DATE_FORMAT_EXPLICIT_UTC = "%m/%d/%Y %I:%M:%S %p +00:00"
-
-    def _pd(self, date):
-        """Stupid function to parse a date."""
-        if date is None:
-            return date
-        try:
-            return strptime_utc(date, self.FULL_DATE_FORMAT_IMPLICIT_UTC)
-        except ValueError:
-            pass
-        return strptime_utc(date, self.FULL_DATE_FORMAT_EXPLICIT_UTC)
+    FULL_DATE_FORMAT = "%m/%d/%Y %I:%M:%S %p +00:00"
 
     def _xpath1_boolean(self, e, target, ns, default=False):
         text = self.text_of_optional_subtag(e, target, ns)
@@ -797,7 +784,15 @@ class Axis360Parser(XMLParser):
 
     def _xpath1_date(self, e, target, ns):
         value = self.text_of_optional_subtag(e, target, ns)
-        return self._pd(value)
+        if value is None:
+            return value
+        try:
+            attempt = datetime.strptime(
+                value, self.FULL_DATE_FORMAT_IMPLICIT_UTC)
+            value += ' +00:00'
+        except ValueError:
+            pass
+        return datetime.strptime(value, self.FULL_DATE_FORMAT)
 
 class BibliographicParser(Axis360Parser):
 
@@ -812,7 +807,7 @@ class BibliographicParser(Axis360Parser):
     log = logging.getLogger("Axis 360 Bibliographic Parser")
 
     @classmethod
-    def parse_list(cls, l):
+    def parse_list(self, l):
         """Turn strings like this into lists:
 
         FICTION / Thrillers; FICTION / Suspense; FICTION / General
@@ -848,8 +843,14 @@ class BibliographicParser(Axis360Parser):
         availability_updated = self.text_of_optional_subtag(
             availability, 'axis:updateDate', ns)
         if availability_updated:
-            # NOTE: We don't actually do anything with this.
-            availability_updated = self._pd(availability_updated)
+            try:
+                attempt = datetime.strptime(
+                    availability_updated, self.FULL_DATE_FORMAT_IMPLICIT_UTC)
+                availability_updated += ' +00:00'
+            except ValueError:
+                pass
+            availability_updated = datetime.strptime(
+                    availability_updated, self.FULL_DATE_FORMAT)
 
         circulation_data.licenses_owned=total_copies
         circulation_data.licenses_available=available_copies
@@ -980,9 +981,8 @@ class BibliographicParser(Axis360Parser):
         publication_date = self.text_of_optional_subtag(
             element, 'axis:publicationDate', ns)
         if publication_date:
-            publication_date = strptime_utc(
-                publication_date, self.SHORT_DATE_FORMAT
-            )
+            publication_date = datetime.strptime(
+                publication_date, self.SHORT_DATE_FORMAT)
 
         series = self.text_of_optional_subtag(element, 'axis:series', ns)
         publisher = self.text_of_optional_subtag(element, 'axis:publisher', ns)
@@ -1275,9 +1275,10 @@ class CheckoutResponseParser(ResponseParser):
 
         if expiration_date is not None:
             expiration_date = expiration_date.text
-            expiration_date = self._pd(expiration_date)
+            expiration_date = datetime.strptime(
+                expiration_date, self.FULL_DATE_FORMAT)
 
-        loan_start = utc_now()
+        loan_start = datetime.utcnow()
         loan = LoanInfo(
             collection=self.collection, data_source_name=DataSource.AXIS_360,
             identifier_type=self.id_type, identifier=None,
@@ -1309,10 +1310,10 @@ class HoldResponseParser(ResponseParser):
             try:
                 queue_position = int(queue_position.text)
             except ValueError:
-                print("Invalid queue position: %s" % queue_position)
+                print "Invalid queue position: %s" % queue_position
                 queue_position = None
 
-        hold_start = utc_now()
+        hold_start = datetime.utcnow()
         # NOTE: The caller needs to fill in Collection -- we have no idea
         # what collection this is.
         hold = HoldInfo(
@@ -1504,7 +1505,7 @@ class JSONResponseParser(ResponseParser):
         else:
             try:
                 parsed = json.loads(data)
-            except ValueError as e:
+            except ValueError, e:
                 # It's not JSON.
                 raise RemoteInitiatedServerError(
                     "Invalid response from Axis 360 (was expecting JSON): %s" % data,
@@ -1569,7 +1570,7 @@ class Axis360FulfillmentInfoResponseParser(JSONResponseParser):
             date = date[:date.rindex('.')]
 
         try:
-            date = strptime_utc(date, "%Y-%m-%d %H:%M:%S")
+            date = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
         except ValueError:
             raise RemoteInitiatedServerError(
                 "Could not parse expiration date: %s" % date,
@@ -1644,7 +1645,7 @@ class AxisNowManifest(object):
         self.book_vault_uuid = book_vault_uuid
         self.isbn = isbn
 
-    def __str__(self):
+    def __unicode__(self):
         data = dict(isbn=self.isbn, book_vault_uuid=self.book_vault_uuid)
         return json.dumps(data, sort_keys=True)
 
@@ -1665,6 +1666,6 @@ class Axis360FulfillmentInfo(APIAwareFulfillmentInfo):
         response = self.api.get_fulfillment_info(transaction_id)
         parser = Axis360FulfillmentInfoResponseParser(self.api)
         manifest, expires = parser.parse(response.content, license_pool)
-        self._content = str(manifest)
+        self._content = unicode(manifest)
         self._content_type = manifest.MEDIA_TYPE
         self._content_expires = expires

@@ -131,7 +131,7 @@ class SAMLFederatedIdentityProviderLoader(object):
 
         self._validator.validate(federation, metadata)
 
-        parsing_results = self._parser.parse(metadata)
+        parsing_results = self._parser.parse(bytes(metadata))
 
         for parsing_result in parsing_results:
             idp = parsing_result.provider
@@ -151,7 +151,7 @@ class SAMLFederatedIdentityProviderLoader(object):
             else:
                 display_name = idp.entity_id
 
-            xml_metadata = tostring(parsing_result.xml_node, encoding="unicode")
+            xml_metadata = tostring(parsing_result.xml_node)
             federated_idp = SAMLFederatedIdentityProvider(
                 federation, idp.entity_id.strip(), display_name.strip(), xml_metadata
             )

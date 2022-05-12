@@ -1,11 +1,12 @@
+import base64
 import datetime
 import email
 import json
 import logging
 import os
-import pytz
 import sys
-import urllib.parse
+import urllib
+import urlparse
 from collections import defaultdict
 from time import mktime
 from wsgiref.handlers import format_date_time
@@ -21,12 +22,12 @@ from flask_babel import lazy_gettext as _
 from lxml import etree
 from sqlalchemy.orm import eagerload
 
-from .adobe_vendor_id import (
+from adobe_vendor_id import (
     AdobeVendorIDController,
     DeviceManagementProtocolController,
     AuthdataUtility,
 )
-from .annotations import (
+from annotations import (
     AnnotationWriter,
     AnnotationParser,
 )
@@ -35,15 +36,15 @@ from api.rbdigital import (
     RBDProxyException,
 )
 from api.saml.controller import SAMLController
-from .authenticator import (
+from authenticator import (
     Authenticator,
     CirculationPatronProfileStorage,
     OAuthController,
 )
-from .base_controller import BaseCirculationManagerController
-from .circulation import CirculationAPI, FulfillmentInfo
-from .circulation_exceptions import *
-from .config import (
+from base_controller import BaseCirculationManagerController
+from circulation import CirculationAPI, FulfillmentInfo
+from circulation_exceptions import *
+from config import (
     Configuration,
     CannotLoadConfiguration,
 )
@@ -106,10 +107,6 @@ from core.opds import (
 from core.opensearch import OpenSearchDocument
 from core.user_profile import ProfileController as CoreProfileController
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
-from core.util.datetime_helpers import (
-    from_timestamp,
-    utc_now,
-)
 from core.util.http import (
     HTTP,
     RemoteIntegrationException,
@@ -118,9 +115,8 @@ from core.util.opds_writer import (
     OPDSFeed,
 )
 from core.util.problem_detail import ProblemDetail
-from core.util.string_helpers import base64
-from .custom_index import CustomIndexView
-from .lanes import (
+from custom_index import CustomIndexView
+from lanes import (
     load_lanes,
     ContributorFacets,
     ContributorLane,
@@ -135,17 +131,17 @@ from .lanes import (
     CrawlableCustomListBasedLane,
     CrawlableFacets,
 )
-from .odl import ODLAPI
-from .opds import (
+from odl import ODLAPI
+from opds import (
     CirculationManagerAnnotator,
     LibraryAnnotator,
     SharedCollectionAnnotator,
     LibraryLoanAndHoldAnnotator,
     SharedCollectionLoanAndHoldAnnotator,
 )
-from .problem_details import *
-from .shared_collection import SharedCollectionAPI
-from .testing import MockCirculationAPI, MockSharedCollectionAPI
+from problem_details import *
+from shared_collection import SharedCollectionAPI
+from testing import MockCirculationAPI, MockSharedCollectionAPI
 
 class CirculationManager(object):
 
@@ -282,7 +278,7 @@ class CirculationManager(object):
             url = url.strip()
             if url == "*":
                 return url
-            scheme, netloc, path, parameters, query, fragment = urllib.parse.urlparse(url)
+            scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
             if scheme and netloc:
                 return scheme + "://" + netloc
             else:
@@ -296,7 +292,7 @@ class CirculationManager(object):
                 if domain:
                     patron_web_domains.add(domain)
 
-        from .registry import Registration
+        from registry import Registration
         for setting in self._db.query(
             ConfigurationSetting).filter(
             ConfigurationSetting.key==Registration.LIBRARY_REGISTRATION_WEB_CLIENT):
@@ -333,7 +329,7 @@ class CirculationManager(object):
         try:
             self._external_search = self.setup_search()
             self.external_search_initialization_exception = None
-        except Exception as e:
+        except Exception, e:
             self.log.error(
                 "Exception initializing search engine: %s", e
             )
@@ -496,11 +492,11 @@ class CirculationManager(object):
         if registry:
             try:
                 authdata = AuthdataUtility.from_config(library, _db)
-            except CannotLoadConfiguration as e:
+            except CannotLoadConfiguration, e:
                 short_client_token_initialization_exceptions[library.id] = e
                 self.log.error(
                     "Short Client Token configuration for %s is present but not working. This may be cause for concern. Original error: %s",
-                    library.name, str(e)
+                    library.name, e
                 )
         self.short_client_token_initialization_exceptions = short_client_token_initialization_exceptions
         return authdata
@@ -668,25 +664,22 @@ class CirculationManagerController(BaseCirculationManagerController):
         if last_modified.microsecond:
             last_modified = last_modified.replace(microsecond=0)
 
+        # TODO: This can be cleaned up significantly in Python 3.
         if_modified_since = flask.request.headers.get('If-Modified-Since')
         if not if_modified_since:
             return None
 
-        try:
-            parsed_if_modified_since = email.utils.parsedate_to_datetime(
-                if_modified_since
-            )
-        except TypeError:
-            # Parse error.
-            return None
-        if not parsed_if_modified_since:
+        if_modified_since_tuple = email.utils.parsedate(
+            if_modified_since
+        )
+        if not if_modified_since_tuple:
             return None
 
-        # "[I]f the date is conforming to the RFCs it will represent a
-        # time in UTC but with no indication of the actual source
-        # timezone of the message the date comes from."
-        if parsed_if_modified_since.tzinfo is None:
-            parsed_if_modified_since = parsed_if_modified_since.replace(tzinfo=pytz.UTC)
+        parsed_if_modified_since = datetime.datetime.fromtimestamp(
+            mktime(if_modified_since_tuple)
+        )
+        if not parsed_if_modified_since:
+            return None
 
         if parsed_if_modified_since >= last_modified:
             return Response(status=304)
@@ -707,7 +700,7 @@ class CirculationManagerController(BaseCirculationManagerController):
         else:
             try:
                 lane_identifier = int(lane_identifier)
-            except ValueError as e:
+            except ValueError, e:
                 pass
 
             if isinstance(lane_identifier, int):
@@ -1169,7 +1162,7 @@ class OPDSFeedController(CirculationManagerController):
         # We'll call this one way if there is no query string in the
         # request arguments, and another way if there is a query
         # string.
-        make_url_kwargs = dict(list(facets.items()))
+        make_url_kwargs = dict(facets.items())
         make_url = lambda: self.url_for(
             'lane_search', lane_identifier=lane_identifier,
             library_short_name=library_short_name,
@@ -1301,7 +1294,7 @@ class MARCRecordController(CirculationManagerController):
         exporter = None
         try:
             exporter = MARCExporter.from_config(library)
-        except CannotLoadConfiguration as e:
+        except CannotLoadConfiguration, e:
             body += "<p>" + _("No MARC exporter is currently configured for this library.") + "</p>"
 
         if len(library.cachedmarcfiles) < 1 and exporter:
@@ -1318,7 +1311,7 @@ class MARCRecordController(CirculationManagerController):
 
         # TODO: By default the MARC script only caches one level of lanes,
         # so sorting by priority is good enough.
-        lanes = sorted(list(files_by_lane.keys()), key=lambda x: x.priority if x else -1)
+        lanes = sorted(files_by_lane.keys(), key=lambda x: x.priority if x else -1)
 
         for lane in lanes:
             files = files_by_lane[lane]
@@ -1384,7 +1377,7 @@ class LoanController(CirculationManagerController):
             credential = self.manager.auth.get_credential_from_header(header)
             try:
                 self.circulation.sync_bookshelf(patron, credential)
-            except Exception as e:
+            except Exception, e:
                 # If anything goes wrong, omit the sync step and just
                 # display the current active loans, as we understand them.
                 self.manager.log.error(
@@ -1426,38 +1419,38 @@ class LoanController(CirculationManagerController):
             loan, hold, is_new = self.circulation.borrow(
                 patron, credential, pool, mechanism
             )
-        except NoOpenAccessDownload as e:
+        except NoOpenAccessDownload, e:
             problem_doc = NO_LICENSES.detailed(
                 _("Couldn't find an open-access download link for this book."),
                 status_code=404
             )
-        except PatronAuthorizationFailedException as e:
+        except PatronAuthorizationFailedException, e:
             problem_doc = INVALID_CREDENTIALS
-        except (PatronLoanLimitReached, PatronHoldLimitReached) as e:
-            problem_doc = e.as_problem_detail_document().with_debug(str(e))
-        except DeliveryMechanismError as e:
+        except (PatronLoanLimitReached, PatronHoldLimitReached), e:
+            problem_doc = e.as_problem_detail_document().with_debug(unicode(e))
+        except DeliveryMechanismError, e:
             return BAD_DELIVERY_MECHANISM.with_debug(
-                str(e), status_code=e.status_code
+                unicode(e), status_code=e.status_code
             )
-        except OutstandingFines as e:
+        except OutstandingFines, e:
             problem_doc = OUTSTANDING_FINES.detailed(
                 _("You must pay your $%(fine_amount).2f outstanding fines before you can borrow more books.", fine_amount=patron.fines)
             )
-        except AuthorizationExpired as e:
+        except AuthorizationExpired, e:
             return e.as_problem_detail_document(debug=False)
-        except AuthorizationBlocked as e:
+        except AuthorizationBlocked, e:
             return e.as_problem_detail_document(debug=False)
-        except CannotLoan as e:
-            problem_doc = CHECKOUT_FAILED.with_debug(str(e))
-        except CannotHold as e:
-            problem_doc = HOLD_FAILED.with_debug(str(e))
-        except CannotRenew as e:
-            problem_doc = RENEW_FAILED.with_debug(str(e))
-        except NotFoundOnRemote as e:
+        except CannotLoan, e:
+            problem_doc = CHECKOUT_FAILED.with_debug(unicode(e))
+        except CannotHold, e:
+            problem_doc = HOLD_FAILED.with_debug(unicode(e))
+        except CannotRenew, e:
+            problem_doc = RENEW_FAILED.with_debug(unicode(e))
+        except NotFoundOnRemote, e:
             problem_doc = NOT_FOUND_ON_REMOTE
-        except CirculationException as e:
+        except CirculationException, e:
             # Generic circulation error.
-            problem_doc = CHECKOUT_FAILED.with_debug(str(e))
+            problem_doc = CHECKOUT_FAILED.with_debug(unicode(e))
 
         if problem_doc:
             return problem_doc
@@ -1635,7 +1628,7 @@ class LoanController(CirculationManagerController):
                 "fulfill", license_pool_id=requested_license_pool.id,
                 mechanism_id=mechanism.delivery_mechanism.id,
                 library_short_name=library.short_name,
-                part=str(part), _external=True
+                part=unicode(part), _external=True
             )
 
         try:
@@ -1643,24 +1636,24 @@ class LoanController(CirculationManagerController):
                 patron, credential, requested_license_pool, mechanism,
                 part=part, fulfill_part_url=fulfill_part_url
             )
-        except DeliveryMechanismConflict as e:
-            return DELIVERY_CONFLICT.detailed(str(e))
-        except NoActiveLoan as e:
+        except DeliveryMechanismConflict, e:
+            return DELIVERY_CONFLICT.detailed(e.message)
+        except NoActiveLoan, e:
             return NO_ACTIVE_LOAN.detailed(
                     _('Can\'t fulfill loan because you have no active loan for this book.'),
                     status_code=e.status_code
             )
-        except CannotFulfill as e:
+        except CannotFulfill, e:
             return CANNOT_FULFILL.with_debug(
-                str(e), status_code=e.status_code
+                unicode(e), status_code=e.status_code
             )
-        except FormatNotAvailable as e:
+        except FormatNotAvailable, e:
             return NO_ACCEPTABLE_FORMAT.with_debug(
-                str(e), status_code=e.status_code
+                unicode(e), status_code=e.status_code
             )
-        except DeliveryMechanismError as e:
+        except DeliveryMechanismError, e:
             return BAD_DELIVERY_MECHANISM.with_debug(
-                str(e), status_code=e.status_code
+                unicode(e), status_code=e.status_code
             )
 
         # A subclass of FulfillmentInfo may want to bypass the whole
@@ -1684,7 +1677,7 @@ class LoanController(CirculationManagerController):
             if isinstance(feed, Response):
                 return feed
             if isinstance(feed, OPDSFeed):
-                content = str(feed)
+                content = unicode(feed)
             else:
                 content = etree.tostring(feed)
             status_code = 200
@@ -1706,7 +1699,7 @@ class LoanController(CirculationManagerController):
                 try:
                     status_code, headers, content = do_get(fulfillment.content_link, headers=encoding_header)
                     headers = dict(headers)
-                except RemoteIntegrationException as e:
+                except RemoteIntegrationException, e:
                     return e.as_problem_detail_document(debug=False)
             else:
                 status_code = 200
@@ -1771,21 +1764,21 @@ class LoanController(CirculationManagerController):
         if loan:
             try:
                 self.circulation.revoke_loan(patron, credential, pool)
-            except RemoteRefusedReturn as e:
+            except RemoteRefusedReturn, e:
                 title = _("Loan deleted locally but remote refused. Loan is likely to show up again on next sync.")
                 return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, status_code=503)
-            except CannotReturn as e:
+            except CannotReturn, e:
                 title = _("Loan deleted locally but remote failed.")
-                return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, 503).with_debug(str(e))
+                return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, 503).with_debug(unicode(e))
         elif hold:
             if not self.circulation.can_revoke_hold(pool, hold):
                 title = _("Cannot release a hold once it enters reserved state.")
                 return CANNOT_RELEASE_HOLD.detailed(title, 400)
             try:
                 self.circulation.release_hold(patron, credential, pool)
-            except CannotReleaseHold as e:
+            except CannotReleaseHold, e:
                 title = _("Hold released locally but remote failed.")
-                return CANNOT_RELEASE_HOLD.detailed(title, 503).with_debug(str(e))
+                return CANNOT_RELEASE_HOLD.detailed(title, 503).with_debug(unicode(e))
 
         work = pool.work
         annotator = self.manager.annotator(None)
@@ -1904,7 +1897,7 @@ class WorkController(CirculationManagerController):
         if languages:
             languages = languages.split(',')
         if audiences:
-            audiences = [urllib.parse.unquote_plus(a) for a in audiences.split(',')]
+            audiences = [urllib.unquote_plus(a) for a in audiences.split(',')]
 
         return languages, audiences
 
@@ -2025,7 +2018,7 @@ class WorkController(CirculationManagerController):
             )
         except ValueError as e:
             # No related books were found.
-            return NO_SUCH_LANE.detailed(str(e))
+            return NO_SUCH_LANE.detailed(e.message)
 
         facets = self.manager.load_facets_from_request(
             worklist=lane, base_class=FeaturedFacets,
@@ -2067,7 +2060,7 @@ class WorkController(CirculationManagerController):
                 library=library, work=work, display_name=lane_name,
                 novelist_api=novelist_api
             )
-        except CannotLoadConfiguration as e:
+        except CannotLoadConfiguration, e:
             # NoveList isn't configured.
             return NO_SUCH_LANE.detailed(_("Recommendations not available"))
 
@@ -2217,7 +2210,7 @@ class AnalyticsController(CirculationManagerController):
             if isinstance(pools, ProblemDetail):
                 return pools
             self.manager.analytics.collect_event(
-                library, pools[0], event_type, utc_now(),
+                library, pools[0], event_type, datetime.datetime.utcnow(),
                 neighborhood=neighborhood
             )
             return Response({}, 200)
@@ -2277,11 +2270,11 @@ class SharedCollectionController(CirculationManagerController):
         url = flask.request.form.get("url")
         try:
             response = self.shared_collection.register(collection, url)
-        except InvalidInputException as e:
-            return INVALID_REGISTRATION.detailed(str(e))
-        except AuthorizationFailedException as e:
-            return INVALID_CREDENTIALS.detailed(str(e))
-        except RemoteInitiatedServerError as e:
+        except InvalidInputException, e:
+            return INVALID_REGISTRATION.detailed(unicode(e))
+        except AuthorizationFailedException, e:
+            return INVALID_CREDENTIALS.detailed(unicode(e))
+        except RemoteInitiatedServerError, e:
             return e.as_problem_detail_document(debug=False)
 
         return Response(json.dumps(response), 200)
@@ -2340,13 +2333,13 @@ class SharedCollectionController(CirculationManagerController):
 
         try:
             loan = self.shared_collection.borrow(collection, client, pool, hold)
-        except AuthorizationFailedException as e:
-            return INVALID_CREDENTIALS.detailed(str(e))
-        except NoAvailableCopies as e:
-            return NO_AVAILABLE_LICENSE.detailed(str(e))
-        except CannotLoan as e:
-            return CHECKOUT_FAILED.detailed(str(e))
-        except RemoteIntegrationException as e:
+        except AuthorizationFailedException, e:
+            return INVALID_CREDENTIALS.detailed(unicode(e))
+        except NoAvailableCopies, e:
+            return NO_AVAILABLE_LICENSE.detailed(unicode(e))
+        except CannotLoan, e:
+            return CHECKOUT_FAILED.detailed(unicode(e))
+        except RemoteIntegrationException, e:
             return e.as_problem_detail_document(debug=False)
         if loan:
             return SharedCollectionLoanAndHoldAnnotator.single_item_feed(
@@ -2366,12 +2359,12 @@ class SharedCollectionController(CirculationManagerController):
 
         try:
             self.shared_collection.revoke_loan(collection, client, loan)
-        except AuthorizationFailedException as e:
-            return INVALID_CREDENTIALS.detailed(str(e))
-        except NotCheckedOut as e:
-            return NO_ACTIVE_LOAN.detailed(str(e))
-        except CannotReturn as e:
-            return COULD_NOT_MIRROR_TO_REMOTE.detailed(str(e))
+        except AuthorizationFailedException, e:
+            return INVALID_CREDENTIALS.detailed(unicode(e))
+        except NotCheckedOut, e:
+            return NO_ACTIVE_LOAN.detailed(unicode(e))
+        except CannotReturn, e:
+            return COULD_NOT_MIRROR_TO_REMOTE.detailed(unicode(e))
         return Response(_("Success"), 200)
 
     def fulfill(self, collection_name, loan_id, mechanism_id, do_get=HTTP.get_with_timeout):
@@ -2404,11 +2397,11 @@ class SharedCollectionController(CirculationManagerController):
 
         try:
             fulfillment = self.shared_collection.fulfill(collection, client, loan, mechanism)
-        except AuthorizationFailedException as e:
-            return INVALID_CREDENTIALS.detailed(str(e))
-        except CannotFulfill as e:
-            return CANNOT_FULFILL.detailed(str(e))
-        except RemoteIntegrationException as e:
+        except AuthorizationFailedException, e:
+            return INVALID_CREDENTIALS.detailed(unicode(e))
+        except CannotFulfill, e:
+            return CANNOT_FULFILL.detailed(unicode(e))
+        except RemoteIntegrationException, e:
             return e.as_problem_detail_document(debug=False)
         headers = dict()
         content = fulfillment.content
@@ -2421,7 +2414,7 @@ class SharedCollectionController(CirculationManagerController):
                 status_code = response.status_code
                 headers = dict(response.headers)
                 content = response.content
-            except RemoteIntegrationException as e:
+            except RemoteIntegrationException, e:
                 return e.as_problem_detail_document(debug=False)
         else:
             status_code = 200
@@ -2458,12 +2451,12 @@ class SharedCollectionController(CirculationManagerController):
 
         try:
             self.shared_collection.revoke_hold(collection, client, hold)
-        except AuthorizationFailedException as e:
-            return INVALID_CREDENTIALS.detailed(str(e))
-        except NotOnHold as e:
-            return NO_ACTIVE_HOLD.detailed(str(e))
-        except CannotReleaseHold as e:
-            return CANNOT_RELEASE_HOLD.detailed(str(e))
+        except AuthorizationFailedException, e:
+            return INVALID_CREDENTIALS.detailed(unicode(e))
+        except NotOnHold, e:
+            return NO_ACTIVE_HOLD.detailed(unicode(e))
+        except CannotReleaseHold, e:
+            return CANNOT_RELEASE_HOLD.detailed(unicode(e))
         return Response(_("Success"), 200)
 
 class StaticFileController(CirculationManagerController):
@@ -2492,8 +2485,8 @@ class RBDFulfillmentProxyController(CirculationManagerController):
             response = RBDigitalFulfillmentProxy.proxy(self._db, bearer, fulfillment_url,
                                                        api_class=api_class)
         except RBDProxyException as e:
-            status = e.args[0].get('status', 500)
-            message = e.args[0].get('message', 'unspecified error')
+            status = e.message.get('status', 500)
+            message = e.message.get('message', 'unspecified error')
             self.log.error('RBDProxyException: {} {}'.format(status, message))
             response = Response(
                 response=json.dumps({"message": message}),

@@ -2,7 +2,7 @@ import datetime
 
 from core.util.problem_detail import ProblemDetail
 
-from .admin.announcement_list_validator import AnnouncementListValidator
+from admin.announcement_list_validator import AnnouncementListValidator
 
 class Announcements(object):
     """Data model class for a library's announcements.
@@ -78,8 +78,8 @@ class Announcement(object):
     @property
     def is_active(self):
         """Should this announcement be displayed now?"""
-        today_local = datetime.date.today()
-        return self.start <= today_local and self.finish >= today_local
+        today = datetime.date.today()
+        return self.start <= today and self.finish >= today
 
     @property
     def for_authentication_document(self):

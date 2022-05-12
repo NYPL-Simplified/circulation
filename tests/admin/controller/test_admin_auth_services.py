@@ -12,7 +12,7 @@ from core.model import (
     ExternalIntegration,
     get_one,
 )
-from .test_controller import SettingsControllerTest
+from test_controller import SettingsControllerTest
 
 
 class TestAdminAuthServices(SettingsControllerTest):
@@ -135,7 +135,7 @@ class TestAdminAuthServices(SettingsControllerTest):
 
         # The auth service was created and configured properly.
         auth_service = ExternalIntegration.admin_authentication(self._db)
-        assert auth_service.protocol == response.get_data(as_text=True)
+        assert auth_service.protocol == response.response[0]
         assert "oauth" == auth_service.name
         assert "http://url2" == auth_service.url
         assert "username" == auth_service.username
@@ -176,7 +176,7 @@ class TestAdminAuthServices(SettingsControllerTest):
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()
             assert response.status_code == 200
 
-        assert auth_service.protocol == response.get_data(as_text=True)
+        assert auth_service.protocol == response.response[0]
         assert "oauth" == auth_service.name
         assert "http://url2" == auth_service.url
         assert "user2" == auth_service.username

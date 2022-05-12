@@ -1,16 +1,17 @@
-import datetime
-import dateutil
+
+import base64
 import json
 import uuid
+import datetime
 from flask_babel import lazy_gettext as _
-import urllib.parse
+import urlparse
 from collections import defaultdict
 import flask
 from flask import Response
 import feedparser
 from lxml import etree
-from .problem_details import NO_LICENSES
-from io import StringIO
+from problem_details import NO_LICENSES
+from StringIO import StringIO
 import re
 from uritemplate import URITemplate
 
@@ -53,30 +54,25 @@ from core.metadata_layer import (
     LicenseData,
     TimestampData,
 )
-from .circulation import (
+from circulation import (
     BaseCirculationAPI,
     LoanInfo,
     FulfillmentInfo,
     HoldInfo,
 )
 from core.analytics import Analytics
-from core.util.datetime_helpers import (
-    utc_now,
-    strptime_utc,
-)
 from core.util.http import (
     HTTP,
     BadResponseException,
     RemoteIntegrationException,
 )
-from core.util.string_helpers import base64
 from flask import url_for
 from core.testing import (
     DatabaseTest,
     MockRequestsResponse,
 )
-from .circulation_exceptions import *
-from .shared_collection import BaseSharedCollectionAPI
+from circulation_exceptions import *
+from shared_collection import BaseSharedCollectionAPI
 
 class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
     """ODL (Open Distribution to Libraries) is a specification that allows
@@ -131,6 +127,8 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
     ]
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
+
+    TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
     # Possible status values in the License Status Document:
 
@@ -229,7 +227,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
                 default_loan_period = self.collection(_db).default_loan_period(
                     loan.integration_client
                  )
-            expires = utc_now() + datetime.timedelta(
+            expires = datetime.datetime.utcnow() + datetime.timedelta(
                 days=default_loan_period
             )
             # The patron UUID is generated randomly on each loan, so the distributor
@@ -260,7 +258,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
 
         try:
             status_doc = json.loads(response.content)
-        except ValueError as e:
+        except ValueError, e:
             raise BadResponseException(url, "License Status Document was not valid JSON.")
         if status_doc.get("status") not in self.STATUS_VALUES:
             raise BadResponseException(url, "License Status Document had an unknown status value.")
@@ -360,7 +358,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         # with position 0 to check out the book.
         if ((not hold or
              hold.position > 0 or
-             (hold.end and hold.end < utc_now())) and
+             (hold.end and hold.end < datetime.datetime.utcnow())) and
             licensepool.licenses_available < 1
             ):
             raise NoAvailableCopies()
@@ -392,10 +390,10 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             _db.delete(loan)
             raise CannotLoan()
 
-        start = utc_now()
+        start = datetime.datetime.utcnow()
         expires = doc.get("potential_rights", {}).get("end")
         if expires:
-            expires = dateutil.parser.parse(expires)
+            expires = datetime.datetime.strptime(expires, self.TIME_FORMAT)
 
         # We need to set the start and end dates on our local loan since
         # the code that calls this only sets them when a new loan is created.
@@ -445,7 +443,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             raise CannotFulfill()
 
         expires = doc.get("potential_rights", {}).get("end")
-        expires = dateutil.parser.parse(expires)
+        expires = datetime.datetime.strptime(expires, self.TIME_FORMAT)
 
         links = doc.get("links", [])
         content_link = None
@@ -484,7 +482,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         ).filter(
             or_(
                 Hold.end==None,
-                Hold.end>utc_now(),
+                Hold.end>datetime.datetime.utcnow(),
                 Hold.position>0,
             )
         ).count()
@@ -519,7 +517,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             ).filter(
                 or_(
                     Loan.end==None,
-                    Loan.end>utc_now()
+                    Loan.end>datetime.datetime.utcnow()
                 )
             ).order_by(Loan.start).all()
             current_holds = _db.query(Hold).filter(
@@ -527,7 +525,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             ).filter(
                 or_(
                     Hold.end==None,
-                    Hold.end>utc_now(),
+                    Hold.end>datetime.datetime.utcnow(),
                     Hold.position>0,
                 )
             ).order_by(Hold.start).all()
@@ -537,7 +535,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             # The licenses will have to go through some number of cycles
             # before one of them gets to this hold. This leavs out the first cycle -
             # it's already started so we'll handle it separately.
-            cycles = (hold.position - licenses_reserved - 1) // pool.licenses_owned
+            cycles = (hold.position - licenses_reserved - 1) / pool.licenses_owned
 
             # Each of the owned licenses is currently either on loan or reserved.
             # Figure out which license this hold will eventually get if every
@@ -559,7 +557,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         # If the end date isn't set yet or the position just became 0, the
         # hold just became available. The patron's reservation period starts now.
         else:
-            hold.end = utc_now() + datetime.timedelta(days=default_reservation_period)
+            hold.end = datetime.datetime.utcnow() + datetime.timedelta(days=default_reservation_period)
 
     def _update_hold_position(self, hold):
         _db = Session.object_session(hold)
@@ -569,7 +567,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         ).filter(
             or_(
                 Loan.end==None,
-                Loan.end > utc_now()
+                Loan.end > datetime.datetime.utcnow()
             )
         ).count()
         holds_count = self._count_holds_before(hold)
@@ -593,7 +591,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         ).filter(
             or_(
                 Loan.end==None,
-                Loan.end>utc_now()
+                Loan.end>datetime.datetime.utcnow()
             )
         ).count()
         remaining_licenses = licensepool.licenses_owned - loans_count
@@ -603,7 +601,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         ).filter(
             or_(
                 Hold.end==None,
-                Hold.end>utc_now(),
+                Hold.end>datetime.datetime.utcnow(),
                 Hold.position>0,
             )
         ).order_by(
@@ -624,7 +622,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             new_licenses_reserved,
             new_patrons_in_hold_queue,
             analytics=self.analytics,
-            as_of=utc_now(),
+            as_of=datetime.datetime.utcnow(),
         )
 
         for hold in holds[:licensepool.licenses_reserved]:
@@ -698,7 +696,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         ).filter(
             Loan.patron==patron
         ).filter(
-            Loan.end>=utc_now()
+            Loan.end>=datetime.datetime.utcnow()
         )
 
         # Get the patron's holds. If there are any expired holds, delete them.
@@ -710,7 +708,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         )
         remaining_holds = []
         for hold in holds:
-            if hold.end and hold.end < utc_now():
+            if hold.end and hold.end < datetime.datetime.utcnow():
                 _db.delete(hold)
                 self.update_hold_queue(hold.license_pool)
             else:
@@ -765,7 +763,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
     def checkout_to_external_library(self, client, licensepool, hold=None):
         try:
             return self._checkout(client, licensepool, hold)
-        except NoAvailableCopies as e:
+        except NoAvailableCopies, e:
             return self._place_hold(client, licensepool)
 
     def checkin_from_external_library(self, client, loan):
@@ -887,8 +885,6 @@ class ODLImporter(OPDSImporter):
             if terms:
                 concurrent_checkouts = subtag(terms[0], "odl:concurrent_checkouts")
                 expires = subtag(terms[0], "odl:expires")
-                if expires:
-                    expires = dateutil.parser.parse(expires)
 
             licenses_owned += int(concurrent_checkouts or 0)
             licenses_available += int(available_checkouts or 0)
@@ -937,7 +933,7 @@ class ODLHoldReaper(CollectionMonitor):
         ).filter(
             LicensePool.collection_id==self.api.collection_id
         ).filter(
-            Hold.end<utc_now()
+            Hold.end<datetime.datetime.utcnow()
         ).filter(
             Hold.position==0
         )
@@ -969,15 +965,15 @@ class MockODLAPI(ODLAPI):
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test ODL Collection", create_method_kwargs=dict(
-                external_account_id="http://odl",
+                external_account_id=u"http://odl",
             )
         )
         integration = collection.create_external_integration(
             protocol=ODLAPI.NAME
         )
-        integration.username = 'a'
-        integration.password = 'b'
-        integration.url = 'http://metadata'
+        integration.username = u'a'
+        integration.password = u'b'
+        integration.url = u'http://metadata'
         library.collections.append(collection)
         return collection
 
@@ -1000,7 +996,7 @@ class MockODLAPI(ODLAPI):
 
     def _url_for(self, *args, **kwargs):
         del kwargs["_external"]
-        return "http://%s?%s" % ("/".join(args), "&".join(["%s=%s" % (key, val) for key, val in list(kwargs.items())]))
+        return "http://%s?%s" % ("/".join(args), "&".join(["%s=%s" % (key, val) for key, val in kwargs.items()]))
 
 
 class SharedODLAPI(BaseCirculationAPI):
@@ -1026,6 +1022,8 @@ class SharedODLAPI(BaseCirculationAPI):
 
     SUPPORTS_REGISTRATION = True
     SUPPORTS_STAGING = False
+
+    TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
     def __init__(self, _db, collection):
         if collection.protocol != self.NAME:
@@ -1089,9 +1087,9 @@ class SharedODLAPI(BaseCirculationAPI):
             hold = holds.one()
             try:
                 hold_info_response = self._get(hold.external_identifier)
-            except RemoteIntegrationException as e:
+            except RemoteIntegrationException, e:
                 raise CannotLoan()
-            feed = feedparser.parse(str(hold_info_response.content))
+            feed = feedparser.parse(unicode(hold_info_response.content))
             entries = feed.get("entries")
             if len(entries) < 1:
                 raise CannotLoan()
@@ -1110,21 +1108,21 @@ class SharedODLAPI(BaseCirculationAPI):
             checkout_url = borrow_links[0].resource.url
         try:
             response = self._get(checkout_url, allowed_response_codes=["2xx", "3xx", "403", "404"])
-        except RemoteIntegrationException as e:
+        except RemoteIntegrationException, e:
             raise CannotLoan()
         if response.status_code == 403:
             raise NoAvailableCopies()
         elif response.status_code == 404:
             if hasattr(response, 'json') and response.json().get('type', '') == NO_LICENSES.uri:
                 raise NoLicenses()
-        feed = feedparser.parse(str(response.content))
+        feed = feedparser.parse(unicode(response.content))
         entries = feed.get("entries")
         if len(entries) < 1:
             raise CannotLoan()
         entry = entries[0]
         availability = entry.get("opds_availability", {})
-        start = dateutil.parser.parse(availability.get("since"))
-        end = dateutil.parser.parse(availability.get("until"))
+        start = datetime.datetime.strptime(availability.get("since"), self.TIME_FORMAT)
+        end = datetime.datetime.strptime(availability.get("until"), self.TIME_FORMAT)
         # Get the loan base url from a link.
         info_links = [link for link in entry.get("links") if link.get("rel") == "self"]
         if len(info_links) < 1:
@@ -1177,11 +1175,11 @@ class SharedODLAPI(BaseCirculationAPI):
         info_url = loan.external_identifier
         try:
             response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "404"])
-        except RemoteIntegrationException as e:
+        except RemoteIntegrationException, e:
             raise CannotReturn()
         if response.status_code == 404:
             raise NotCheckedOut()
-        feed = feedparser.parse(str(response.content))
+        feed = feedparser.parse(unicode(response.content))
         entries = feed.get("entries")
         if len(entries) < 1:
             raise CannotReturn()
@@ -1192,7 +1190,7 @@ class SharedODLAPI(BaseCirculationAPI):
         revoke_url = revoke_links[0].get("href")
         try:
             self._get(revoke_url)
-        except RemoteIntegrationException as e:
+        except RemoteIntegrationException, e:
             raise CannotReturn()
         return True
 
@@ -1218,7 +1216,7 @@ class SharedODLAPI(BaseCirculationAPI):
         info_url = loan.external_identifier
         try:
             response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "404"])
-        except RemoteIntegrationException as e:
+        except RemoteIntegrationException, e:
             raise CannotFulfill()
         if response.status_code == 404:
             raise NotCheckedOut()
@@ -1226,10 +1224,7 @@ class SharedODLAPI(BaseCirculationAPI):
         requested_content_type = internal_format.delivery_mechanism.content_type
         requested_drm_scheme = internal_format.delivery_mechanism.drm_scheme
 
-        # The response data comes in as a byte string that we must
-        # convert into a string.
-        response_content = response.content.decode("utf-8")
-        feed = feedparser.parse(response_content)
+        feed = feedparser.parse(unicode(response.content))
         entries = feed.get("entries")
         if len(entries) < 1:
             raise CannotFulfill()
@@ -1237,13 +1232,13 @@ class SharedODLAPI(BaseCirculationAPI):
         availability = entry.get("opds_availability")
         if availability.get("status") != "available":
             raise CannotFulfill()
-        expires = dateutil.parser.parse(availability.get("until"))
+        expires = datetime.datetime.strptime(availability.get("until"), self.TIME_FORMAT)
 
         # The entry is parsed with etree to get indirect acquisitions
         parser = SharedODLImporter.PARSER_CLASS()
-        root = etree.parse(StringIO(response_content))
+        root = etree.parse(StringIO(unicode(response.content)))
 
-        fulfill_url = SharedODLImporter.get_fulfill_url(response_content, requested_content_type, requested_drm_scheme)
+        fulfill_url = SharedODLImporter.get_fulfill_url(response.content, requested_content_type, requested_drm_scheme)
         if not fulfill_url:
             raise FormatNotAvailable()
 
@@ -1251,7 +1246,7 @@ class SharedODLAPI(BaseCirculationAPI):
         # authenticate the library.
         try:
             response = self._get(fulfill_url)
-        except RemoteIntegrationException as e:
+        except RemoteIntegrationException, e:
             raise CannotFulfill()
         return FulfillmentInfo(
             licensepool.collection,
@@ -1282,11 +1277,11 @@ class SharedODLAPI(BaseCirculationAPI):
         info_url = hold.external_identifier
         try:
             response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "404"])
-        except RemoteIntegrationException as e:
+        except RemoteIntegrationException, e:
             raise CannotReleaseHold()
         if response.status_code == 404:
             raise NotOnHold()
-        feed = feedparser.parse(str(response.content))
+        feed = feedparser.parse(unicode(response.content))
         entries = feed.get("entries")
         if len(entries) < 1:
             raise CannotReleaseHold()
@@ -1300,7 +1295,7 @@ class SharedODLAPI(BaseCirculationAPI):
         revoke_url = revoke_links[0].get("href")
         try:
             self._get(revoke_url)
-        except RemoteIntegrationException as e:
+        except RemoteIntegrationException, e:
             raise CannotReleaseHold()
         return True
 
@@ -1325,7 +1320,7 @@ class SharedODLAPI(BaseCirculationAPI):
             if response.status_code == 404:
                 # 404 is returned when the loan has been deleted. Leave this loan out of the result.
                 continue
-            feed = feedparser.parse(str(response.content))
+            feed = feedparser.parse(unicode(response.content))
             entries = feed.get("entries")
             if len(entries) < 1:
                 raise CirculationException()
@@ -1334,8 +1329,8 @@ class SharedODLAPI(BaseCirculationAPI):
             if availability.get("status") != "available":
                 # This loan might be expired.
                 continue
-            start = dateutil.parser.parse(availability.get("since"))
-            end = dateutil.parser.parse(availability.get("until"))
+            start = datetime.datetime.strptime(availability.get("since"), self.TIME_FORMAT)
+            end = datetime.datetime.strptime(availability.get("until"), self.TIME_FORMAT)
 
             activity.append(
                 LoanInfo(
@@ -1354,7 +1349,7 @@ class SharedODLAPI(BaseCirculationAPI):
             if response.status_code == 404:
                 # 404 is returned when the hold has been deleted. Leave this hold out of the result.
                 continue
-            feed = feedparser.parse(str(response.content))
+            feed = feedparser.parse(unicode(response.content))
             entries = feed.get("entries")
             if len(entries) < 1:
                 raise CirculationException()
@@ -1363,8 +1358,8 @@ class SharedODLAPI(BaseCirculationAPI):
             if availability.get("status") not in ["ready", "reserved"]:
                 # This hold might be expired.
                 continue
-            start = dateutil.parser.parse(availability.get("since"))
-            end = dateutil.parser.parse(availability.get("until"))
+            start = datetime.datetime.strptime(availability.get("since"), self.TIME_FORMAT)
+            end = datetime.datetime.strptime(availability.get("until"), self.TIME_FORMAT)
             position = entry.get("opds_holds", {}).get("position")
 
             activity.append(
@@ -1388,10 +1383,7 @@ class SharedODLImporter(OPDSImporter):
     @classmethod
     def get_fulfill_url(cls, entry, requested_content_type, requested_drm_scheme):
         parser = cls.PARSER_CLASS()
-        # The entry may come from an HTTP response which is a bytestring.
-        if isinstance(entry, bytes):
-            entry = entry.decode("utf-8")
-        root = etree.parse(StringIO(entry))
+        root = etree.parse(StringIO(unicode(entry)))
 
         fulfill_url = None
         for link_tag in parser._xpath(root, 'atom:link'):
@@ -1484,13 +1476,13 @@ class MockSharedODLAPI(SharedODLAPI):
     """Mock API for tests that overrides _get and tracks requests."""
 
     @classmethod
-    def mock_collection(cls, _db):
+    def mock_collection(self, _db):
         """Create a mock ODL collection to use in tests."""
         library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test Shared ODL Collection", create_method_kwargs=dict(
-                external_account_id="http://shared-odl",
+                external_account_id=u"http://shared-odl",
             )
         )
         integration = collection.create_external_integration(

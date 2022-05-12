@@ -28,21 +28,21 @@ class Configuration(CoreConfiguration):
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
 
     # The list of patron web urls allowed to access this CM
-    PATRON_WEB_HOSTNAMES = "patron_web_hostnames"
+    PATRON_WEB_HOSTNAMES = u"patron_web_hostnames"
 
     # The name of the sitewide secret used to sign cookies for admin login.
-    SECRET_KEY = "secret_key"
+    SECRET_KEY = u"secret_key"
 
     # The name of the setting that controls how long static files are cached.
-    STATIC_FILE_CACHE_TIME = "static_file_cache_time"
+    STATIC_FILE_CACHE_TIME = u"static_file_cache_time"
 
     # The name of the setting controlling how long authentication
     # documents are cached.
-    AUTHENTICATION_DOCUMENT_CACHE_TIME = "authentication_document_cache_time"
+    AUTHENTICATION_DOCUMENT_CACHE_TIME = u"authentication_document_cache_time"
 
     # The name of a setting that turns UWSGI debugging information on
     # or off.
-    WSGI_DEBUG_KEY = "wsgi_debug"
+    WSGI_DEBUG_KEY = u"wsgi_debug"
 
     # A custom link to a Terms of Service document to be understood by
     # users of the administrative interface.
@@ -64,7 +64,7 @@ class Configuration(CoreConfiguration):
 
     # The name of the per-library setting that sets the maximum amount
     # of fines a patron can have before losing lending privileges.
-    MAX_OUTSTANDING_FINES = "max_outstanding_fines"
+    MAX_OUTSTANDING_FINES = u"max_outstanding_fines"
 
     # The name of the per-library settings that set the maximum amounts
     # of books a patron can have on loan or on hold at once.
@@ -72,24 +72,24 @@ class Configuration(CoreConfiguration):
     # to exceed the limits by checking out books directly from a distributor's
     # app. They may also get a limit exceeded error before they reach these
     # limits if a distributor has a smaller limit.)
-    LOAN_LIMIT = "loan_limit"
-    HOLD_LIMIT = "hold_limit"
+    LOAN_LIMIT = u"loan_limit"
+    HOLD_LIMIT = u"hold_limit"
 
     # The name of the per-library setting that sets the default email
     # address to use when notifying patrons of changes.
-    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
+    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = u"default_notification_email_address"
     STANDARD_NOREPLY_EMAIL_ADDRESS = "noreply@librarysimplified.org"
 
     # The name of the per-library setting that sets the email address
     # of the Designated Agent for copyright complaints
-    COPYRIGHT_DESIGNATED_AGENT_EMAIL = "copyright_designated_agent_email_address"
+    COPYRIGHT_DESIGNATED_AGENT_EMAIL = u"copyright_designated_agent_email_address"
 
     # This is the link relation used to indicate
     COPYRIGHT_DESIGNATED_AGENT_REL = "http://librarysimplified.org/rel/designated-agent/copyright"
 
     # The name of the per-library setting that sets the contact address
     # for problems with the library configuration itself.
-    CONFIGURATION_CONTACT_EMAIL = "configuration_contact_email_address"
+    CONFIGURATION_CONTACT_EMAIL = u"configuration_contact_email_address"
 
     # Name of the site-wide ConfigurationSetting containing the secret
     # used to sign bearer tokens.
@@ -690,14 +690,14 @@ class Configuration(CoreConfiguration):
 
         try:
             public, private = setting.json_value
-        except Exception as e:
+        except Exception, e:
             pass
 
         if not public or not private:
             key = RSA.generate(2048)
             encryptor = PKCS1_OAEP.new(key)
-            public = key.publickey().exportKey().decode("utf8")
-            private = key.exportKey().decode("utf8")
+            public = key.publickey().exportKey()
+            private = key.exportKey()
             setting.value = json.dumps([public, private])
         return public, private
 

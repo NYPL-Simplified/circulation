@@ -85,11 +85,11 @@ class TestLaneCreation(DatabaseTest):
         for lane in lanes:
             assert self._default_library == lane.library
             # They all are restricted to English and Spanish.
-            assert lane.languages == languages
+            assert x.languages == languages
 
             # They have no restrictions on media type -- that's handled
             # with entry points.
-            assert None == lane.media
+            assert None == x.media
 
         assert (
             ['Fiction', 'Nonfiction', 'Young Adult Fiction',
@@ -140,7 +140,7 @@ class TestLaneCreation(DatabaseTest):
 
         # Now we have six top-level lanes, with best sellers at the beginning.
         assert (
-            ['Best Sellers', 'Fiction', 'Nonfiction', 'Young Adult Fiction',
+            [u'Best Sellers', 'Fiction', 'Nonfiction', 'Young Adult Fiction',
              'Young Adult Nonfiction', 'Children and Middle Grade'] ==
             [x.display_name for x in lanes])
 
@@ -183,11 +183,11 @@ class TestLaneCreation(DatabaseTest):
         # It has two children -- one for the small English collection and
         # one for the tiny Spanish/French collection.,
         small, tiny = top_level.visible_children
-        assert 'English' == small.display_name
-        assert ['eng'] == small.languages
+        assert u'English' == small.display_name
+        assert [u'eng'] == small.languages
 
-        assert 'espa\xf1ol/fran\xe7ais' == tiny.display_name
-        assert ['spa', 'fre'] == tiny.languages
+        assert u'espa\xf1ol/fran\xe7ais' == tiny.display_name
+        assert [u'spa', u'fre'] == tiny.languages
 
         # The tiny collection has no sublanes, but the small one has
         # three.  These lanes are tested in more detail in
@@ -205,7 +205,7 @@ class TestLaneCreation(DatabaseTest):
         )
         [lane] = self._db.query(Lane).filter(Lane.parent_id==None).all()
 
-        assert "English/español/Chinese" == lane.display_name
+        assert u"English/español/Chinese" == lane.display_name
         sublanes = lane.visible_children
         assert (
             ['Fiction', 'Nonfiction', 'Children & Young Adult'] ==
@@ -243,7 +243,7 @@ class TestLaneCreation(DatabaseTest):
         assert [Edition.BOOK_MEDIUM] == lane.media
         assert parent == lane.parent
         assert ['ger'] == lane.languages
-        assert 'Deutsch' == lane.display_name
+        assert u'Deutsch' == lane.display_name
         assert [] == lane.children
 
         # No lane should be created when the language has no name.
@@ -283,7 +283,7 @@ class TestLaneCreation(DatabaseTest):
         # a top-level lane for each small collection, and a lane
         # for everything left over.
         assert (set(['Fiction', "Nonfiction", "Young Adult Fiction", "Young Adult Nonfiction",
-                 "Children and Middle Grade", 'World Languages']) ==
+                 "Children and Middle Grade", u'World Languages']) ==
             set([x.display_name for x in lanes]))
 
         [english_fiction_lane] = [x for x in lanes if x.display_name == 'Fiction']
@@ -296,8 +296,8 @@ class TestLaneCreation(DatabaseTest):
         # If the library has no holdings, we assume it has a large English
         # collection.
         m = _lane_configuration_from_collection_sizes
-        assert (['eng'], [], []) == m(None)
-        assert (['eng'], [], []) == m(Counter())
+        assert ([u'eng'], [], []) == m(None)
+        assert ([u'eng'], [], []) == m(Counter())
 
         # Otherwise, the language with the largest collection, and all
         # languages more than 10% as large, go into `large`.  All
@@ -470,8 +470,8 @@ class TestRelatedBooksLane(DatabaseTest):
         # a RecommendationLane will be included.
         self._external_integration(
             ExternalIntegration.NOVELIST,
-            goal=ExternalIntegration.METADATA_GOAL, username='library',
-            password='sure', libraries=[self._default_library]
+            goal=ExternalIntegration.METADATA_GOAL, username=u'library',
+            password=u'sure', libraries=[self._default_library]
         )
         mock_api = MockNoveListAPI(self._db)
         response = Metadata(

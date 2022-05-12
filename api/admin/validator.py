@@ -26,10 +26,10 @@ class Validator(object):
                 return error
 
     def _extract_inputs(self, settings, value, form, key="format", is_list=False, should_zip=False):
-        if not (isinstance(settings, list)):
+        if not (isinstance(settings, (list,))):
             return []
 
-        fields = [s for s in settings if s.get(key) == value and self._value(s, form)]
+        fields = filter(lambda s: s.get(key) == value and self._value(s, form), settings)
 
         if is_list:
             values = self._list_of_values(fields, form)
@@ -37,7 +37,7 @@ class Validator(object):
             values = [self._value(field, form) for field in fields]
 
         if should_zip:
-            return list(zip(fields, values))
+            return zip(fields, values)
         else:
             return values
 
@@ -46,7 +46,7 @@ class Validator(object):
         they are in a valid format.
         This method is used by individual_admin_settings and library_settings.
         """
-        if isinstance(settings, list):
+        if isinstance(settings, (list,)):
             # If :param settings is a list of objects--i.e. the LibrarySettingsController
             # is calling this method--then we need to pull out the relevant input strings
             # to validate.
@@ -89,7 +89,7 @@ class Validator(object):
     def _is_url(cls, url, allowed):
         if not url:
             return False
-        has_protocol = any([url.startswith(protocol + "://") for protocol in ("http", "https")])
+        has_protocol = any([url.startswith(protocol + "://") for protocol in "http", "https"])
         return has_protocol or (url in allowed)
 
     def validate_number(self, settings, content):
@@ -152,7 +152,7 @@ class Validator(object):
         result = []
         for field in fields:
             result += self._value(field, form)
-        return [_f for _f in result if _f]
+        return filter(None, result)
 
     def _value(self, field, form):
         # Extract the user's input for this field. If this is a sitewide setting,
@@ -164,7 +164,7 @@ class Validator(object):
             return form.get("value")
         elif len(value) == 1:
             return value[0]
-        return [x for x in value if x != None and x != ""]
+        return filter(lambda x: x != None and x != "", value)
 
 
 class PatronAuthenticationValidatorFactory(object):

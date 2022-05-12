@@ -6,12 +6,14 @@ We're keeping it around because existing iOS versions of SimplyE need the
 OPDS navigation feed it generates.
 """
 
+import datetime
+
 from flask import Response
 from flask_babel import lazy_gettext as _
 
 from sqlalchemy.orm.session import Session
 
-from .config import CannotLoadConfiguration
+from config import CannotLoadConfiguration
 from core.app_server import cdn_url_for
 from core.model import (
     get_one,
@@ -21,7 +23,6 @@ from core.model import (
     ConfigurationSetting,
     ExternalIntegration,
 )
-from core.util.datetime_helpers import utc_now
 from core.util.opds_writer import OPDSFeed
 
 class CustomIndexView(object):
@@ -144,7 +145,7 @@ class COPPAGate(CustomIndexView):
                 library, annotator, url_for
             )
         headers = { "Content-Type": OPDSFeed.NAVIGATION_FEED_TYPE }
-        return Response(str(self.navigation_feed), 200, headers)
+        return Response(unicode(self.navigation_feed), 200, headers)
 
     def _navigation_feed(self, library, annotator, url_for=None):
         """Generate an OPDS feed for navigating the COPPA age gate."""
@@ -182,7 +183,7 @@ class COPPAGate(CustomIndexView):
         if annotator:
             annotator.annotate_feed(feed, None)
 
-        now = utc_now()
+        now = datetime.datetime.utcnow()
         opds.append(OPDSFeed.E.updated(OPDSFeed._strftime(now)))
         return feed
 
@@ -191,11 +192,11 @@ class COPPAGate(CustomIndexView):
         """Create an <entry> that serves as navigation."""
         E = OPDSFeed.E
         content_tag = E.content(type="text")
-        content_tag.text = str(content)
-        now = utc_now()
+        content_tag.text = unicode(content)
+        now = datetime.datetime.utcnow()
         entry = E.entry(
             E.id(href),
-            E.title(str(title)),
+            E.title(unicode(title)),
             content_tag,
             E.updated(OPDSFeed._strftime(now))
         )

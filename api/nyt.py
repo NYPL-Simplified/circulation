@@ -1,8 +1,7 @@
 """Interface to the New York Times APIs."""
-from collections import Counter
-from datetime import datetime, timedelta
-import dateutil
 import isbnlib
+from datetime import datetime, timedelta
+from collections import Counter
 import os
 import json
 import logging
@@ -12,7 +11,7 @@ from sqlalchemy.orm.exc import (
 )
 from flask_babel import lazy_gettext as _
 
-from .config import (
+from config import (
     CannotLoadConfiguration,
     IntegrationException,
 )
@@ -41,38 +40,13 @@ class NYTAPI(object):
 
     DATE_FORMAT = "%Y-%m-%d"
 
-    # NYT best-seller lists are associated with dates, but fields like
-    # CustomEntry.first_appearance are timezone-aware datetimes. We
-    # will interpret a date as meaning midnight of that day in New
-    # York.
-    #
-    # NOTE: entries fetched before we made the datetimes
-    # timezone-aware will have their time zones set to UTC, but the
-    # difference is negligible.
-    TIME_ZONE = dateutil.tz.gettz("America/New York")
+    @classmethod
+    def parse_date(self, d):
+        return datetime.strptime(d, self.DATE_FORMAT)
 
     @classmethod
-    def parse_datetime(cls, d):
-        """Used to parse the publication date of a NYT best-seller list.
-
-        We take midnight Eastern time to be the publication time.
-        """
-        return datetime.strptime(d, cls.DATE_FORMAT).replace(
-            tzinfo=cls.TIME_ZONE
-        )
-
-    @classmethod
-    def parse_date(cls, d):
-        """Used to parse the publication date of a book.
-
-        We don't know the timezone here, so the date will end up being
-        stored as midnight UTC.
-        """
-        return cls.parse_datetime(d).date()
-
-    @classmethod
-    def date_string(cls, d):
-        return d.strftime(cls.DATE_FORMAT)
+    def date_string(self, d):
+        return d.strftime(self.DATE_FORMAT)
 
 
 class NYTBestSellerAPI(NYTAPI, HasSelfTests):
@@ -120,7 +94,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
                 metadata_client = MetadataWranglerOPDSLookup.from_config(
                     self._db
                 )
-            except CannotLoadConfiguration as e:
+            except CannotLoadConfiguration, e:
                 self.log.error(
                     "Metadata wrangler integration is not configured, proceeding without one."
                 )
@@ -163,7 +137,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
             return content
 
         diagnostic = "Response from %s was: %r" % (
-            url, representation.content.decode("utf-8") if representation.content else ""
+            url, representation.content
         )
 
         if status == 403:
@@ -189,7 +163,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
 
     def best_seller_list(self, list_info, date=None):
         """Create (but don't update) a NYTBestSellerList object."""
-        if isinstance(list_info, str):
+        if isinstance(list_info, basestring):
             list_info = self.list_info(list_info)
         return NYTBestSellerList(list_info, self.metadata_client)
 
@@ -214,8 +188,8 @@ class NYTBestSellerList(list):
 
     def __init__(self, list_info, metadata_client):
         self.name = list_info['display_name']
-        self.created = NYTAPI.parse_datetime(list_info['oldest_published_date'])
-        self.updated = NYTAPI.parse_datetime(list_info['newest_published_date'])
+        self.created = NYTAPI.parse_date(list_info['oldest_published_date'])
+        self.updated = NYTAPI.parse_date(list_info['newest_published_date'])
         self.foreign_identifier = list_info['list_name_encoded']
         if list_info['updated'] == 'WEEKLY':
             frequency = 7
@@ -272,7 +246,7 @@ class NYTBestSellerList(list):
                     self.items_by_isbn[key] = item
                     self.append(item)
                     # self.log.debug("Newly seen ISBN: %r, %s", key, len(self))
-            except ValueError as e:
+            except ValueError, e:
                 # Should only happen when the book has no identifier, which...
                 # should never happen.
                 self.log.error("No identifier for %r", li_data)
@@ -281,7 +255,7 @@ class NYTBestSellerList(list):
 
             # This is the date the *best-seller list* was published,
             # not the date the book was published.
-            list_date = NYTAPI.parse_datetime(li_data['published_date'])
+            list_date = NYTAPI.parse_date(li_data['published_date'])
             if not item.first_appearance or list_date < item.first_appearance:
                 item.first_appearance = list_date
             if (not item.most_recent_appearance
@@ -324,20 +298,16 @@ class NYTBestSellerListTitle(TitleFromExternalList):
     def __init__(self, data, medium):
         data = data
         try:
-            bestsellers_date = NYTAPI.parse_datetime(
-                data.get('bestsellers_date')
-            )
+            bestsellers_date = NYTAPI.parse_date(data.get('bestsellers_date'))
             first_appearance = bestsellers_date
             most_recent_appearance = bestsellers_date
-        except ValueError as e:
+        except ValueError, e:
             first_appearance = None
             most_recent_appearance = None
 
         try:
-            # This is the date the _book_ was published, not the date
-            # the _bestseller list_ was published.
             published_date = NYTAPI.parse_date(data.get('published_date'))
-        except ValueError as e:
+        except ValueError, e:
             published_date = None
 
         details = data['book_details']

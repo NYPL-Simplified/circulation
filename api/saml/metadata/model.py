@@ -4,13 +4,11 @@ import re
 from enum import Enum
 from json import JSONDecoder, JSONEncoder
 from json.decoder import WHITESPACE
-from core.util.datetime_helpers import (
-    from_timestamp,
-    utc_now,
-)
 
 import six
 from onelogin.saml2.constants import OneLogin_Saml2_Constants
+
+from core.util.string_helpers import is_string
 
 
 class SAMLLocalizedMetadataItem(object):
@@ -25,7 +23,7 @@ class SAMLLocalizedMetadataItem(object):
         :param language: String containing language of the actual value
         :type language: Optional[string]
         """
-        if not value and not isinstance(value, str):
+        if not value and not is_string(value):
             raise ValueError("Argument 'value' must be a non-empty string")
         self._value = value
         self._language = language
@@ -1075,10 +1073,11 @@ class SAMLSubject(object):
         if valid_till is None:
             self._valid_till = datetime.timedelta(minutes=30)
         elif isinstance(valid_till, datetime.datetime):
-            self._valid_till = valid_till - utc_now()
+            self._valid_till = valid_till - datetime.datetime.utcnow()
         elif isinstance(valid_till, int):
             self._valid_till = (
-                from_timestamp(valid_till) - utc_now()
+                datetime.datetime.utcfromtimestamp(valid_till)
+                - datetime.datetime.utcnow()
             )
         elif isinstance(valid_till, datetime.timedelta):
             self._valid_till = valid_till
@@ -1187,7 +1186,7 @@ class SAMLSubjectJSONEncoder(JSONEncoder):
         if subject.attribute_statement and subject.attribute_statement.attributes:
             result["attributes"] = {
                 attribute.name: attribute.values
-                for attribute in list(subject.attribute_statement.attributes.values())
+                for attribute in subject.attribute_statement.attributes.itervalues()
             }
 
         return result
@@ -1356,7 +1355,7 @@ class SAMLSubjectPatronIDExtractor(object):
         :rtype: Optional[str]
         """
         self._logger.info(
-            "Trying to extract a unique patron ID from {0}".format(
+            u"Trying to extract a unique patron ID from {0}".format(
                 six.ensure_text(repr(subject))
             )
         )
@@ -1383,9 +1382,9 @@ class SAMLSubjectPatronIDExtractor(object):
                 patron_id = self._extract_patron_id(patron_id_candidate)
 
         self._logger.info(
-            "Extracted a unique patron ID from {0}: {1}".format(
+            u"Extracted a unique patron ID from {0}: {1}".format(
                 six.ensure_text(repr(subject)),
-                six.ensure_text(patron_id) if patron_id else "",
+                six.ensure_text(patron_id) if patron_id else u"",
             )
         )
 

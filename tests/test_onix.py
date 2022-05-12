@@ -1,4 +1,4 @@
-from io import BytesIO
+from StringIO import StringIO
 
 from parameterized import parameterized
 
@@ -10,7 +10,6 @@ from core.model import (
     Edition,
     Identifier,
     LicensePool)
-from core.util.datetime_helpers import datetime_utc
 from . import sample_data
 
 
@@ -23,7 +22,7 @@ class TestONIXExtractor(object):
         """Parse an ONIX file into Metadata objects."""
 
         file = self.sample_data("onix_example.xml")
-        metadata_records = ONIXExtractor().parse(BytesIO(file), "MIT Press")
+        metadata_records = ONIXExtractor().parse(StringIO(file), "MIT Press")
 
         assert 2 == len(metadata_records)
 
@@ -39,7 +38,6 @@ class TestONIXExtractor(object):
         assert "9780262343664" == record.primary_identifier.identifier
         assert Identifier.ISBN == record.primary_identifier.type
         assert "eng" == record.language
-        assert datetime_utc(2017, 10, 6) == record.issued
         subjects = record.subjects
         assert 7 == len(subjects)
         assert "EDU015000" == subjects[0].identifier
@@ -77,7 +75,7 @@ class TestONIXExtractor(object):
         file = self.sample_data(file_name)
 
         # Act
-        metadata_records = ONIXExtractor().parse(BytesIO(file), 'ONIX 3 Usage Constraints Example')
+        metadata_records = ONIXExtractor().parse(StringIO(file), 'ONIX 3 Usage Constraints Example')
 
         # Assert
         assert len(metadata_records) == 1

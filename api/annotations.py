@@ -1,5 +1,6 @@
 from pyld import jsonld
 import json
+from datetime import datetime
 import os
 
 from core.model import (
@@ -11,9 +12,8 @@ from core.model import (
 from core.app_server import (
     url_for,
 )
-from core.util.datetime_helpers import utc_now
 
-from .problem_details import *
+from problem_details import *
 
 def load_document(url):
     """Retrieves JSON-LD for the given URL from a local
@@ -30,7 +30,7 @@ def load_document(url):
         doc = {
             "contextUrl": None,
             "documentUrl": url,
-            "document": data
+            "document": data.decode('utf-8')
         }
         return doc
     else:
@@ -136,7 +136,7 @@ class AnnotationParser(object):
             if 'id' in data and data['id'] is None:
                 del data['id']
             data = jsonld.expand(data)
-        except ValueError as e:
+        except ValueError, e:
             return INVALID_ANNOTATION_FORMAT
 
         if not data or not len(data) == 1:
@@ -156,7 +156,7 @@ class AnnotationParser(object):
 
         try:
             identifier, ignore = Identifier.parse_urn(_db, source)
-        except ValueError as e:
+        except ValueError, e:
             return INVALID_ANNOTATION_TARGET
 
         motivation = data.get("http://www.w3.org/ns/oa#motivatedBy")
@@ -196,6 +196,6 @@ class AnnotationParser(object):
         if content:
             annotation.content = json.dumps(content)
         annotation.active = True
-        annotation.timestamp = utc_now()
+        annotation.timestamp = datetime.now()
 
         return annotation

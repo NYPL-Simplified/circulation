@@ -1,16 +1,17 @@
 from flask_babel import lazy_gettext as _
 import requests
 import logging
-from .authenticator import (
+from authenticator import (
     BasicAuthenticationProvider,
     PatronData,
 )
-from .config import (
+from config import (
     Configuration,
     CannotLoadConfiguration,
 )
-from .circulation_exceptions import RemoteInitiatedServerError
-import urllib.parse
+from circulation_exceptions import RemoteInitiatedServerError
+import urlparse
+import urllib
 from core.model import (
     get_one_or_create,
     ExternalIntegration,
@@ -85,22 +86,21 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
 
     def remote_pin_test(self, barcode, pin):
         url = self.root + "&accesscode=%s&pin=%s" % tuple(map(
-            urllib.parse.quote, (barcode, pin)
+            urllib.quote, (barcode, pin)
         ))
         try:
             response = self.request(url)
-        except requests.exceptions.ConnectionError as e:
+        except requests.exceptions.ConnectionError, e:
             raise RemoteInitiatedServerError(
-                str(e),
+                unicode(e),
                 self.NAME
             )
-        content = response.content.decode("utf8")
         if response.status_code != 200:
             msg = "Got unexpected response code %d. Content: %s" % (
-                response.status_code, content
+                response.status_code, response.content
             )
             raise RemoteInitiatedServerError(msg, self.NAME)
-        if self.SUCCESS_MESSAGE in content:
+        if self.SUCCESS_MESSAGE in response.content:
             return True
         return False
 
@@ -116,10 +116,6 @@ class MockFirstBookResponse(object):
 
     def __init__(self, status_code, content):
         self.status_code = status_code
-        # Guarantee that the response content is always a bytestring,
-        # as it would be in real life.
-        if isinstance(content, str):
-            content = content.encode("utf8")
         self.content = content
 
 class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
@@ -147,7 +143,7 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
             return MockFirstBookResponse(
                 self.failure_status_code, "Error %s" % self.failure_status_code
             )
-        qa = urllib.parse.parse_qs(url)
+        qa = urlparse.parse_qs(url)
         if 'accesscode' in qa and 'pin' in qa:
             [code] = qa['accesscode']
             [pin] = qa['pin']

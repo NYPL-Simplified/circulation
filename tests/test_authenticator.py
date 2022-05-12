@@ -9,8 +9,8 @@ import json
 import os
 from money import Money
 import re
-import urllib.request, urllib.parse, urllib.error
-import urllib.parse
+import urllib
+import urlparse
 import flask
 from flask import url_for, Flask
 from core.opds import OPDSFeed
@@ -27,7 +27,6 @@ from core.model import (
     Session,
 )
 
-from core.util.datetime_helpers import utc_now
 from core.util.problem_detail import (
     ProblemDetail,
 )
@@ -68,7 +67,7 @@ from api.problem_details import *
 from api.testing import VendorIDTest
 
 from core.testing import DatabaseTest
-from .test_controller import ControllerTest
+from test_controller import ControllerTest
 
 class MockAuthenticationProvider(object):
     """An AuthenticationProvider that always authenticates requests for
@@ -187,7 +186,7 @@ class TestPatronData(AuthenticatorTest):
 
     def setup_method(self):
         super(TestPatronData, self).setup_method()
-        self.expiration_time = utc_now()
+        self.expiration_time = datetime.datetime.utcnow()
         self.data = PatronData(
             permanent_id="1",
             authorization_identifier="2",
@@ -351,7 +350,7 @@ class TestPatronData(AuthenticatorTest):
         to authenticate a patron), we are very careful about modifying
         data already in the database.
         """
-        now = utc_now()
+        now = datetime.datetime.now()
 
         # If the only thing we know about a patron is that a certain
         # string authenticated them, we set
@@ -659,23 +658,24 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         assert mock_catalog == authenticator.authentication_document_annotator
 
     def test_config_succeeds_when_no_providers_configured(self):
-        # You can call from_config even when there are no authentication
-        # providers configured.
+        """You can call from_config even when there are no authentication
+        providers configured.
 
-        # This should not happen in normal usage, but there will be an
-        # interim period immediately after a library is created where
-        # this will be its configuration.
-
+        This should not happen in normal usage, but there will be an
+        interim period immediately after a library is created where
+        this will be its configuration.
+        """
         authenticator = LibraryAuthenticator.from_config(
             self._db, self._default_library
         )
         assert [] == list(authenticator.providers)
 
     def test_configuration_exception_during_from_config_stored(self):
-        # If the initialization of an AuthenticationProvider from config
-        # raises CannotLoadConfiguration or ImportError, the exception
-        # is stored with the LibraryAuthenticator rather than being
-        # propagated.
+        """If the initialization of an AuthenticationProvider from config
+        raises CannotLoadConfiguration or ImportError, the exception
+        is stored with the LibraryAuthenticator rather than being
+        propagated.
+        """
 
         # Create an integration destined to raise CannotLoadConfiguration..
         misconfigured = self._external_integration(
@@ -698,11 +698,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # initialization_exceptions.
         not_configured = auth.initialization_exceptions[misconfigured.id]
         assert isinstance(not_configured, CannotLoadConfiguration)
-        assert 'First Book server not configured.' == str(not_configured)
+        assert 'First Book server not configured.' == not_configured.message
 
         not_found = auth.initialization_exceptions[unknown.id]
         assert isinstance(not_found, ImportError)
-        assert "No module named 'unknown protocol'" == str(not_found)
+        assert 'No module named unknown protocol' == not_found.message
 
     def test_register_fails_when_integration_has_wrong_goal(self):
         integration = self._external_integration(
@@ -1074,7 +1074,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         # A token is created and signed with the bearer token.
         token1 = authenticator.create_bearer_token(oauth1.NAME, "some token")
-        assert ("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbiI6InNvbWUgdG9rZW4iLCJpc3MiOiJvYXV0aDEifQ.toy4qdoziL99SN4q9DRMdN-3a0v81CfVjwJVFNUt_mk" ==
+        assert ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJvYXV0aDEiLCJ0b2tlbiI6InNvbWUgdG9rZW4ifQ.Ve-bbEN4mdWQdR-VA6gbrK2xOz2KRbmPhttmTTCA0ng" ==
             token1)
 
         # Varying the name of the OAuth provider varies the bearer
@@ -1168,7 +1168,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             Configuration.WEB_CSS_FILE: "http://style.css",
         }
 
-        for rel, value in link_config.items():
+        for rel, value in link_config.iteritems():
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
         ConfigurationSetting.for_library(
@@ -1198,7 +1198,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             Configuration.HELP_URI, library).value = "custom:uri"
 
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
-        base_url.value = 'http://circulation-manager/'
+        base_url.value = u'http://circulation-manager/'
 
         # Configure three announcements: two active and one
         # inactive.
@@ -1520,7 +1520,7 @@ class TestAuthenticationProvider(AuthenticatorTest):
         """Even if your card has expired, you can log in -- you just can't
         borrow books.
         """
-        yesterday = utc_now() - datetime.timedelta(days=1)
+        yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
 
         expired = PatronData(permanent_id="1", authorization_identifier="2",
                              authorization_expires=yesterday)
@@ -1996,7 +1996,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         [result] = list(provider._run_self_tests(_db))
         assert _db == provider.called_with
         assert False == result.success
-        assert "Nope" == result.exception.args[0]
+        assert "Nope" == result.exception.message
 
         # If we can authenticate a test patron, the patron and their
         # password are passed into the next test.
@@ -2252,7 +2252,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         'out-of-date' data and the PatronData containing 'up-to-date'
         data.
         """
-        now = utc_now()
+        now = datetime.datetime.utcnow()
         long_ago = now - datetime.timedelta(hours=10000)
         patron = self._patron()
         patron.last_external_sync = long_ago
@@ -2302,7 +2302,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         assert "new username" == patron.username
         assert "new authorization identifier" == patron.authorization_identifier
         assert (
-            utc_now()-patron.last_external_sync
+            datetime.datetime.utcnow()-patron.last_external_sync
         ).total_seconds() < 10
 
     def test_success_with_immediate_patron_sync(self):
@@ -2327,7 +2327,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         assert "new username" == patron.username
         assert "new authorization identifier" == patron.authorization_identifier
         assert (
-            utc_now()-patron.last_external_sync
+            datetime.datetime.utcnow()-patron.last_external_sync
         ).total_seconds() < 10
 
     def test_failure_when_remote_authentication_returns_problemdetail(self):
@@ -2536,7 +2536,7 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
         patron = self._patron()
         provider = MockOAuth(self._default_library)
         in_twenty_days = (
-            utc_now() + datetime.timedelta(
+            datetime.datetime.utcnow() + datetime.timedelta(
                 days=provider.token_expiration_days
             )
         )
@@ -2731,20 +2731,20 @@ class TestOAuthController(AuthenticatorTest):
         self.controller = OAuthController(self.auth)
 
     def test_oauth_authentication_redirect(self):
-        # Test the controller method that sends patrons off to the OAuth
-        # provider, where they're supposed to log in.
-
+        """Test the controller method that sends patrons off to the OAuth
+        provider, where they're supposed to log in.
+        """
         params = dict(provider=self.oauth1.NAME)
         response = self.controller.oauth_authentication_redirect(params, self._db)
         assert 302 == response.status_code
-        expected_state = dict(provider=self.oauth1.NAME, redirect_uri="", )
-        expected_state = urllib.parse.quote(json.dumps(expected_state))
+        expected_state = dict(redirect_uri="", provider=self.oauth1.NAME)
+        expected_state = urllib.quote(json.dumps(expected_state))
         assert "http://oauth1.com/?state=" + expected_state == response.location
 
         params = dict(provider=self.oauth2.NAME, redirect_uri="http://foo.com/")
         response = self.controller.oauth_authentication_redirect(params, self._db)
         assert 302 == response.status_code
-        expected_state = urllib.parse.quote(json.dumps(params))
+        expected_state = urllib.quote(json.dumps(params))
         assert "http://oauth2.org/?state=" + expected_state == response.location
 
         # If we don't recognize the OAuth provider you get sent to
@@ -2755,8 +2755,8 @@ class TestOAuthController(AuthenticatorTest):
         response = self.controller.oauth_authentication_redirect(params, self._db)
         assert 302 == response.status_code
         assert response.location.startswith("http://foo.com/#")
-        fragments = urllib.parse.parse_qs(
-            urllib.parse.urlparse(response.location).fragment
+        fragments = urlparse.parse_qs(
+            urlparse.urlparse(response.location).fragment
         )
         error = json.loads(fragments.get('error')[0])
         assert UNKNOWN_OAUTH_PROVIDER.uri == error.get('type')
@@ -2770,7 +2770,7 @@ class TestOAuthController(AuthenticatorTest):
         params = dict(code="foo", state=json.dumps(dict(provider=self.oauth1.NAME)))
         response = self.controller.oauth_authentication_callback(self._db, params)
         assert 302 == response.status_code
-        fragments = urllib.parse.parse_qs(urllib.parse.urlparse(response.location).fragment)
+        fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
         token = fragments.get("access_token")[0]
         provider_name, provider_token = self.auth.decode_bearer_token(token)
         assert self.oauth1.NAME == provider_name
@@ -2780,7 +2780,7 @@ class TestOAuthController(AuthenticatorTest):
         params = dict(code="foo", state=json.dumps(dict(provider=self.oauth2.NAME)))
         response = self.controller.oauth_authentication_callback(self._db, params)
         assert 302 == response.status_code
-        fragments = urllib.parse.parse_qs(urllib.parse.urlparse(response.location).fragment)
+        fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
         token = fragments.get("access_token")[0]
         provider_name, provider_token = self.auth.decode_bearer_token(token)
         assert self.oauth2.NAME == provider_name
@@ -2801,7 +2801,7 @@ class TestOAuthController(AuthenticatorTest):
         params = dict(code="foo", state=json.dumps(dict(provider=("not_an_oauth_provider"))))
         response = self.controller.oauth_authentication_callback(self._db, params)
         assert 302 == response.status_code
-        fragments = urllib.parse.parse_qs(urllib.parse.urlparse(response.location).fragment)
+        fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
         assert None == fragments.get('access_token')
         error = json.loads(fragments.get('error')[0])
         assert UNKNOWN_OAUTH_PROVIDER.uri == error.get('type')

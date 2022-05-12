@@ -1,6 +1,6 @@
 import json
 import os
-import urllib.parse
+import urlparse
 
 import requests
 from flask_babel import lazy_gettext as _
@@ -190,7 +190,7 @@ class LCPServer(object):
         rights_fields = [
             license_start, license_end, configuration.max_printable_pages, configuration.max_copiable_pages]
 
-        if any([rights_field is not None and rights_field != '' for rights_field in rights_fields]):
+        if any(map(lambda rights_field: rights_field is not None and rights_field != '', rights_fields)):
             partial_license['rights'] = {}
 
         if license_start:
@@ -224,7 +224,7 @@ class LCPServer(object):
         :rtype: Dict
         """
         json_payload = json.dumps(payload, cls=json_encoder)
-        url = urllib.parse.urljoin(configuration.lcpserver_url, path)
+        url = urlparse.urljoin(configuration.lcpserver_url, path)
         response = requests.request(
             method,
             url,

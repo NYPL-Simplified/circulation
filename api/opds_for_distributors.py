@@ -1,3 +1,5 @@
+
+import base64
 import datetime
 import feedparser
 import json
@@ -27,20 +29,18 @@ from core.metadata_layer import (
     TimestampData,
 )
 from core.selftest import HasSelfTests
-from .circulation import (
+from circulation import (
     BaseCirculationAPI,
     LoanInfo,
     FulfillmentInfo,
 )
-from core.util.datetime_helpers import utc_now
 from core.util.http import HTTP
-from core.util.string_helpers import base64
 from core.testing import (
     DatabaseTest,
     MockRequestsResponse,
 )
-from .config import IntegrationException
-from .circulation_exceptions import *
+from config import IntegrationException
+from circulation_exceptions import *
 
 class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
     NAME = "OPDS for Distributors"
@@ -125,7 +125,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
 
             try:
                 auth_doc = json.loads(response.content)
-            except Exception as e:
+            except Exception, e:
                 raise LibraryAuthorizationFailedException("Could not load authentication document from %s" % current_url)
             auth_types = auth_doc.get('authentication', [])
             credentials_types = [t for t in auth_types if t['type'] == "http://opds-spec.org/auth/oauth/client_credentials"]
@@ -151,15 +151,14 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
             if not access_token or not expires_in:
                 raise LibraryAuthorizationFailedException(
                     "Document retrieved from %s is not a bearer token: %s" % (
-                        # Response comes in as a byte string.
-                        self.auth_url, token_response.content.decode("utf-8")
+                        self.auth_url, token_response.content
                     )
                 )
             credential.credential = access_token
             expires_in = expires_in
             # We'll avoid edge cases by assuming the token expires 75%
             # into its useful lifetime.
-            credential.expires = utc_now() + datetime.timedelta(seconds=expires_in*0.75)
+            credential.expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in*0.75)
         return Credential.lookup(_db, self.data_source_name,
                                  "OPDS For Distributors Bearer Token",
                                  patron=None,
@@ -195,12 +194,12 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
                 license_pool_id=licensepool.id,
             )
             _db.delete(loan)
-        except Exception as e:
+        except Exception, e:
             # The patron didn't have this book checked out.
             pass
 
     def checkout(self, patron, pin, licensepool, internal_format):
-        now = utc_now()
+        now = datetime.datetime.utcnow()
         return LoanInfo(
             licensepool.collection,
             licensepool.data_source.name,
@@ -233,7 +232,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
 
                 # Build a application/vnd.librarysimplified.bearer-token
                 # document using information from the credential.
-                now = utc_now()
+                now = datetime.datetime.utcnow()
                 expiration = int((credential.expires - now).total_seconds())
                 token_document = dict(
                     token_type="Bearer",
@@ -367,7 +366,7 @@ class OPDSForDistributorsReaperMonitor(OPDSForDistributorsImportMonitor):
         identifiers, failures = Identifier.parse_urns(
             self._db, self.seen_identifiers
         )
-        identifier_ids = [x.id for x in list(identifiers.values())]
+        identifier_ids = [x.id for x in identifiers.values()]
 
         # At this point we've gone through the feed and collected all the identifiers.
         # If there's anything we didn't see, we know it's no longer available.
@@ -403,14 +402,14 @@ class MockOPDSForDistributorsAPI(OPDSForDistributorsAPI):
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test OPDS For Distributors Collection", create_method_kwargs=dict(
-                external_account_id="http://opds",
+                external_account_id=u"http://opds",
             )
         )
         integration = collection.create_external_integration(
             protocol=OPDSForDistributorsAPI.NAME
         )
-        integration.username = 'a'
-        integration.password = 'b'
+        integration.username = u'a'
+        integration.password = u'b'
         library.collections.append(collection)
         return collection
 

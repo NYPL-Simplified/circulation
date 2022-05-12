@@ -20,7 +20,7 @@ from core.testing import (
     MockRequestsResponse,
 )
 from core.util.http import HTTP
-from .test_controller import SettingsControllerTest
+from test_controller import SettingsControllerTest
 
 class TestLibraryRegistration(SettingsControllerTest):
     """Test the process of registering a library with a RemoteRegistry."""

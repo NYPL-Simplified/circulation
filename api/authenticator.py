@@ -3,7 +3,7 @@ import importlib
 import json
 import logging
 import re
-import urllib.request, urllib.parse, urllib.error
+import urllib
 from abc import ABCMeta
 
 import flask
@@ -24,7 +24,7 @@ from api.announcements import Announcements
 from api.custom_patron_catalog import CustomPatronCatalog
 from api.opds import LibraryAnnotator
 from api.saml.configuration.model import SAMLSettings
-from .config import (
+from config import (
     Configuration,
     CannotLoadConfiguration,
     IntegrationException,
@@ -51,14 +51,13 @@ from core.util.authentication_for_opds import (
     AuthenticationForOPDSDocument,
     OPDSAuthenticationFlow,
 )
-from core.util.datetime_helpers import utc_now
 from core.util.http import RemoteIntegrationException
 from core.util.problem_detail import (
     ProblemDetail,
     json as pd_json,
 )
-from .problem_details import *
-from .util.patron import PatronUtility
+from problem_details import *
+from util.patron import PatronUtility
 
 
 class CannotCreateLocalPatron(Exception):
@@ -83,7 +82,7 @@ class PatronData(object):
     # Used to distinguish between "value has been unset" and "value
     # has not changed".
     class NoValue(object):
-        def __bool__(self):
+        def __nonzero__(self):
             """We want this object to act like None or False."""
             return False
     NO_VALUE = NoValue()
@@ -336,7 +335,7 @@ class PatronData(object):
             # We got a complete dataset from the ILS, which is what an
             # external sync does, so we can reset the timer on
             # external sync.
-            patron.last_external_sync = utc_now()
+            patron.last_external_sync = datetime.datetime.utcnow()
 
     def set_value(self, patron, field_name, value):
         if value is None:
@@ -441,7 +440,7 @@ class PatronData(object):
             personal_name=self.personal_name,
             email_address = self.email_address
         )
-        data = dict((k, scrub(v)) for k, v in list(data.items()))
+        data = dict((k, scrub(v)) for k, v in data.items())
 
         # Handle the data items that aren't just strings.
 
@@ -610,7 +609,7 @@ class LibraryAuthenticator(object):
         for integration in integrations:
             try:
                 authenticator.register_provider(integration, analytics)
-            except (ImportError, CannotLoadConfiguration) as e:
+            except (ImportError, CannotLoadConfiguration), e:
                 # These are the two types of error that might be caused
                 # by misconfiguration, as opposed to bad code.
                 logging.error(
@@ -765,7 +764,7 @@ class LibraryAuthenticator(object):
             )
         try:
             provider = provider_class(self.library, integration, analytics)
-        except RemoteIntegrationException as e:
+        except RemoteIntegrationException, e:
             raise CannotLoadConfiguration(
                 "Could not instantiate %s authentication provider for library %s, possibly due to a network connection problem." % (
                     provider_class, self.library.short_name
@@ -822,9 +821,9 @@ class LibraryAuthenticator(object):
         """An iterator over all registered AuthenticationProviders."""
         if self.basic_auth_provider:
             yield self.basic_auth_provider
-        for provider in list(self.oauth_providers_by_name.values()):
+        for provider in self.oauth_providers_by_name.values():
             yield provider
-        for provider in list(self.saml_providers_by_name.values()):
+        for provider in self.saml_providers_by_name.values():
             yield provider
 
     def authenticated_patron(self, _db, header):
@@ -845,7 +844,7 @@ class LibraryAuthenticator(object):
             # BasicAuthenticationProvider.
             return self.basic_auth_provider.authenticated_patron(_db, header)
         elif (self.oauth_providers_by_name
-              and isinstance(header, (bytes, str))
+              and isinstance(header, basestring)
               and 'bearer' in header.lower()):
 
             # The patron wants to use an
@@ -854,7 +853,7 @@ class LibraryAuthenticator(object):
                 provider_name, provider_token = self.decode_bearer_token_from_header(
                     header
                 )
-            except jwt.exceptions.InvalidTokenError as e:
+            except jwt.exceptions.InvalidTokenError, e:
                 return INVALID_OAUTH_BEARER_TOKEN
             provider = self.oauth_provider_lookup(provider_name)
             if isinstance(provider, ProblemDetail):
@@ -866,7 +865,7 @@ class LibraryAuthenticator(object):
             # into a Patron.
             return provider.authenticated_patron(_db, provider_token)
         elif (self.saml_providers_by_name
-              and isinstance(header, (bytes, str))
+              and isinstance(header, basestring)
               and 'bearer' in header.lower()):
 
             # The patron wants to use an
@@ -875,7 +874,7 @@ class LibraryAuthenticator(object):
                 provider_name, provider_token = self.decode_bearer_token_from_header(
                     header
                 )
-            except jwt.exceptions.InvalidTokenError as e:
+            except jwt.exceptions.InvalidTokenError, e:
                 return INVALID_SAML_BEARER_TOKEN
             provider = self.saml_provider_lookup(provider_name)
             if isinstance(provider, ProblemDetail):
@@ -923,7 +922,7 @@ class LibraryAuthenticator(object):
             or not provider_name in self.oauth_providers_by_name):
             # The patron neglected to specify a provider, or specified
             # one we don't support.
-            possibilities = ", ".join(list(self.oauth_providers_by_name.keys()))
+            possibilities = ", ".join(self.oauth_providers_by_name.keys())
             return UNKNOWN_OAUTH_PROVIDER.detailed(
                 UNKNOWN_OAUTH_PROVIDER.detail +
                 _(" The known providers are: %s") % possibilities
@@ -944,7 +943,7 @@ class LibraryAuthenticator(object):
             or not provider_name in self.saml_providers_by_name):
             # The patron neglected to specify a provider, or specified
             # one we don't support.
-            possibilities = ", ".join(list(self.saml_providers_by_name.keys()))
+            possibilities = ", ".join(self.saml_providers_by_name.keys())
             return UNKNOWN_SAML_PROVIDER.detailed(
                 UNKNOWN_SAML_PROVIDER.detail +
                 _(" The known providers are: %s") % possibilities
@@ -972,7 +971,7 @@ class LibraryAuthenticator(object):
         )
         return jwt.encode(
             payload, self.bearer_token_signing_secret, algorithm='HS256'
-        ).decode("utf-8")
+        )
 
     def decode_bearer_token_from_header(self, header):
         """Extract auth provider name and access token from an Authenticate
@@ -1078,7 +1077,7 @@ class LibraryAuthenticator(object):
         if css_file:
             links.append(dict(rel="stylesheet", type="text/css", href=css_file))
 
-        library_name = self.library_name or str(_("Library"))
+        library_name = self.library_name or unicode(_("Library"))
         auth_doc_url = self.authentication_document_url(library)
         doc = AuthenticationForOPDSDocument(
             id=auth_doc_url, title=library_name,
@@ -1193,7 +1192,7 @@ class LibraryAuthenticator(object):
             # If we can load the setting as JSON, it is either a list
             # of place names or a GeoJSON object.
             setting = json.loads(setting)
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError), e:
             # The most common outcome -- treat the value as a single place
             # name by turning it into a list.
             setting = [setting]
@@ -1380,7 +1379,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         if regexp:
             try:
                 regexp = re.compile(regexp)
-            except Exception as e:
+            except Exception, e:
                 self.log.error(
                     "Could not configure external type regular expression: %r", e
                 )
@@ -1390,7 +1389,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         field = ConfigurationSetting.for_library_and_externalintegration(
             _db, self.LIBRARY_IDENTIFIER_FIELD, library, integration
         ).value
-        if isinstance(field, (bytes, str)):
+        if isinstance(field, basestring):
             field = field.strip()
         self.library_identifier_field = field
 
@@ -1412,7 +1411,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         elif self.library_identifier_restriction_type == self.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE:
             self.library_identifier_restriction = None
         else:
-            if isinstance(restriction, (bytes, str)):
+            if isinstance(restriction, basestring):
                 self.library_identifier_restriction = restriction.strip()
             else:
                 self.library_identifier_restriction = restriction
@@ -1667,51 +1666,51 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
 
     # Identifiers can be presumed invalid if they don't match
     # this regular expression.
-    IDENTIFIER_REGULAR_EXPRESSION = 'identifier_regular_expression'
+    IDENTIFIER_REGULAR_EXPRESSION = u'identifier_regular_expression'
 
     # Passwords can be presumed invalid if they don't match this regular
     # expression.
-    PASSWORD_REGULAR_EXPRESSION = 'password_regular_expression'
+    PASSWORD_REGULAR_EXPRESSION = u'password_regular_expression'
 
     # The client should prefer one keyboard over another.
-    IDENTIFIER_KEYBOARD = 'identifier_keyboard'
-    PASSWORD_KEYBOARD = 'password_keyboard'
+    IDENTIFIER_KEYBOARD = u'identifier_keyboard'
+    PASSWORD_KEYBOARD = u'password_keyboard'
 
     # Constants describing different types of keyboards.
-    DEFAULT_KEYBOARD = "Default"
-    EMAIL_ADDRESS_KEYBOARD = "Email address"
-    NUMBER_PAD = "Number pad"
-    NULL_KEYBOARD = "No input"
+    DEFAULT_KEYBOARD = u"Default"
+    EMAIL_ADDRESS_KEYBOARD = u"Email address"
+    NUMBER_PAD = u"Number pad"
+    NULL_KEYBOARD = u"No input"
 
     # The identifier and password can have a maximum
     # supported length.
-    IDENTIFIER_MAXIMUM_LENGTH = "identifier_maximum_length"
-    PASSWORD_MAXIMUM_LENGTH = "password_maximum_length"
+    IDENTIFIER_MAXIMUM_LENGTH = u"identifier_maximum_length"
+    PASSWORD_MAXIMUM_LENGTH = u"password_maximum_length"
 
     # The client should use a certain string when asking for a patron's
     # "identifier" and "password"
-    IDENTIFIER_LABEL = 'identifier_label'
-    PASSWORD_LABEL = 'password_label'
-    DEFAULT_IDENTIFIER_LABEL = "Barcode"
-    DEFAULT_PASSWORD_LABEL = "PIN"
+    IDENTIFIER_LABEL = u'identifier_label'
+    PASSWORD_LABEL = u'password_label'
+    DEFAULT_IDENTIFIER_LABEL = u"Barcode"
+    DEFAULT_PASSWORD_LABEL = u"PIN"
 
     # If the identifier label is one of these strings, it will be
     # automatically localized. Otherwise, the same label will be displayed
     # to everyone.
     COMMON_IDENTIFIER_LABELS = {
-        "Barcode": _("Barcode"),
-        "Email Address": _("Email Address"),
-        "Username": _("Username"),
-        "Library Card": _("Library Card"),
-        "Card Number": _("Card Number"),
+        u"Barcode": _("Barcode"),
+        u"Email Address": _("Email Address"),
+        u"Username": _("Username"),
+        u"Library Card": _("Library Card"),
+        u"Card Number": _("Card Number"),
     }
 
     # If the password label is one of these strings, it will be
     # automatically localized. Otherwise, the same label will be
     # displayed to everyone.
     COMMON_PASSWORD_LABELS = {
-        "Password": _("Password"),
-        "PIN": _("PIN"),
+        u"Password": _("Password"),
+        u"PIN": _("PIN"),
     }
 
     IDENTIFIER_BARCODE_FORMAT = "identifier_barcode_format"
@@ -2216,9 +2215,9 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             self.password_label
         )
         flow_doc = dict(
-            description=str(self.DISPLAY_NAME),
-            labels=dict(login=str(localized_identifier_label),
-                        password=str(localized_password_label)),
+            description=unicode(self.DISPLAY_NAME),
+            labels=dict(login=unicode(localized_identifier_label),
+                        password=unicode(localized_password_label)),
             inputs = dict(login=login_inputs,
                           password=password_inputs)
         )
@@ -2555,7 +2554,7 @@ class OAuthController(object):
             provider=provider.NAME, redirect_uri=redirect_uri
         )
         state = json.dumps(state)
-        state = urllib.parse.quote(state)
+        state = urllib.quote(state)
         return redirect(provider.external_authenticate_url(state, _db))
 
     def oauth_authentication_callback(self, _db, params):
@@ -2583,7 +2582,7 @@ class OAuthController(object):
         if not code or not state:
             return INVALID_OAUTH_CALLBACK_PARAMETERS
 
-        state = json.loads(urllib.parse.unquote(state))
+        state = json.loads(urllib.unquote(state))
         client_redirect_uri = state.get('redirect_uri') or ""
         provider_name = state.get('provider')
         provider = self.authenticator.oauth_provider_lookup(provider_name)
@@ -2616,7 +2615,7 @@ class OAuthController(object):
             access_token=simplified_token,
             patron_info=patron_info
         )
-        return redirect(client_redirect_uri + "#" + urllib.parse.urlencode(params))
+        return redirect(client_redirect_uri + "#" + urllib.urlencode(params))
 
     def _redirect_with_error(self, redirect_uri, pd):
         """Redirect the patron to the given URL, with the given ProblemDetail
@@ -2633,13 +2632,15 @@ class OAuthController(object):
             pd.debug_message
         )
         params = dict(error=problem_detail_json)
-        return redirect_uri + "#" + urllib.parse.urlencode(params)
+        return redirect_uri + "#" + urllib.urlencode(params)
 
 
-class BaseSAMLAuthenticationProvider(AuthenticationProvider, BearerTokenSigner, metaclass=ABCMeta):
+class BaseSAMLAuthenticationProvider(AuthenticationProvider, BearerTokenSigner):
     """
     Base class for SAML authentication providers
     """
+
+    __metaclass__ = ABCMeta
 
     NAME = 'SAML 2.0'
 

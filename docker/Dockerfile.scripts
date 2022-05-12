@@ -20,7 +20,6 @@ ARG version
 ARG repo="NYPL-Simplified/circulation"
 
 ENV SIMPLIFIED_DB_TASK "auto"
-# Set the local timezone in /docker/simplified_cron.sh
 ENV TZ=US/Eastern
 
 # Copy over all Library Simplified build files for this image

@@ -3,7 +3,7 @@ import logging
 
 from api.saml.metadata.federations.model import SAMLFederation
 from core.monitor import Monitor
-from core.util.datetime_helpers import utc_now
+
 
 class SAMLMetadataMonitor(Monitor):
     SERVICE_NAME = "SAML Metadata Monitor"
@@ -37,7 +37,7 @@ class SAMLMetadataMonitor(Monitor):
         for new_identity_provider in new_identity_providers:
             self._db.add(new_identity_provider)
 
-        saml_federation.last_updated_at = utc_now()
+        saml_federation.last_updated_at = datetime.datetime.utcnow()
 
         self._logger.info("Finished processing {0}".format(saml_federation))
 

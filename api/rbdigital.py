@@ -1,3 +1,4 @@
+import base64
 from collections import defaultdict
 import datetime
 from dateutil.relativedelta import relativedelta
@@ -11,19 +12,19 @@ import re
 import requests
 from sqlalchemy.orm.session import Session
 import string
-import urllib.parse
+import urlparse
 import uuid
 
-from .circulation import (
+from circulation import (
     APIAwareFulfillmentInfo,
     BaseCirculationAPI,
     FulfillmentInfo,
     HoldInfo,
     LoanInfo,
 )
-from .circulation_exceptions import *
+from circulation_exceptions import *
 
-from .config import Configuration
+from config import Configuration
 
 from core.analytics import Analytics
 
@@ -77,11 +78,6 @@ from core.monitor import (
 
 from core.testing import DatabaseTest
 from core.util import LanguageCodes
-from core.util.datetime_helpers import (
-    datetime_utc,
-    strptime_utc,
-    utc_now,
-)
 
 from core.util.http import (
     BadResponseException,
@@ -96,9 +92,8 @@ from core.util.personal_names import (
 from core.util.web_publication_manifest import (
     AudiobookManifest as CoreAudiobookManifest
 )
-from core.util.string_helpers import random_string
 
-from .selftest import (
+from selftest import (
     HasSelfTests,
     SelfTestResult,
 )
@@ -194,6 +189,10 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             raise CannotLoadConfiguration(
                 "RBDigital configuration is incomplete."
             )
+
+        # Use utf8 instead of unicode encoding
+        self.library_id = self.library_id.encode('utf8')
+        self.token = self.token.encode('utf8')
 
         # Convert the nickname for a server into an actual URL.
         base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
@@ -298,7 +297,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 params=None, verbosity='complete'):
         """Make an HTTP request.
         """
-        if verbosity not in list(self.RESPONSE_VERBOSITY.values()):
+        if verbosity not in self.RESPONSE_VERBOSITY.values():
             verbosity = self.RESPONSE_VERBOSITY[2]
 
         headers = dict(extra_headers)
@@ -322,7 +321,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             disallowed_response_codes=disallowed_response_codes
         )
         if (response.content
-            and 'Invalid Basic Token or permission denied' in response.content.decode("utf-8")):
+            and 'Invalid Basic Token or permission denied' in response.content):
             raise BadResponseException(
                 url, "Permission denied. This may be a temporary rate-limiting issue, or the credentials for this collection may be wrong.",
                 debug_message=response.content,
@@ -375,7 +374,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         patron_rbdigital_id = self.patron_remote_identifier(patron)
         (item_rbdigital_id, item_media) = self.validate_item(licensepool)
 
-        today = utc_now()
+        today = datetime.datetime.utcnow()
 
         library = patron.library
 
@@ -450,9 +449,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 if isinstance(resp_obj, dict):
                     message = resp_obj.get('message', None)
 
-        except Exception as e:
+        except Exception, e:
             self.log.error("Item circulation request failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(str(e), action)
+            raise RemoteInitiatedServerError(e.message, action)
 
         self.validate_response(response=response, message=message, action=action)
 
@@ -568,21 +567,21 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # successful holds return a numeric transaction id
         try:
             transaction_id = int(resp_obj)
-        except Exception as e:
+        except Exception, e:
             self.log.error("Item hold request failed: %r", e, exc_info=e)
-            raise CannotHold(str(e))
+            raise CannotHold(e.message)
 
         self.log.debug("Patron %s/%s reserved item %s with transaction id %s.", patron.authorization_identifier,
             patron_rbdigital_id, item_rbdigital_id, resp_obj)
 
-        now = utc_now()
+        today = datetime.datetime.now()
 
         hold = HoldInfo(
             self.collection,
             DataSource.RB_DIGITAL,
             identifier_type=licensepool.identifier.type,
             identifier=item_rbdigital_id,
-            start_date=now,
+            start_date=today,
             # RBDigital sets hold expirations to 2050-12-31, as a "forever"
             end_date=None,
             hold_position=None,
@@ -787,7 +786,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # Credential.lookup() expects to pass a Credential to this refresh method
         def refresh_credential(credential):
             if lifetime is not None:
-                credential.expires = (utc_now() + datetime.timedelta(seconds=lifetime))
+                credential.expires = (datetime.datetime.utcnow() + datetime.timedelta(seconds=lifetime))
             else:
                 credential.expires = None
 
@@ -1101,7 +1100,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # account with the patron's email address, they'll be able to
         # recover their password. If not, at least we didn't claim
         # their barcode, and they can make a new account if they want.
-        post_args['password'] = random_string(8)
+        post_args['password'] = os.urandom(8).encode('hex')
         return post_args
 
     def dummy_patron_identifier(self, authorization_identifier):
@@ -1110,7 +1109,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         :return: A random identifier based on the input identifier.
         """
-        alphabet = string.digits + string.ascii_uppercase
+        alphabet = string.digits + string.uppercase
         addendum = "".join(random.choice(alphabet) for x in range(6))
         return authorization_identifier + addendum
 
@@ -1158,7 +1157,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         message = resp_dict.get('message', None)
         try:
             self.validate_response(response, message, action=action)
-        except (PatronNotFoundOnRemote, NotFoundOnRemote) as e:
+        except (PatronNotFoundOnRemote, NotFoundOnRemote), e:
             # That's okay.
             return None
 
@@ -1193,9 +1192,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 # if we failed, then we got back a dictionary with an error message
                 if isinstance(resp_obj, dict):
                     message = resp_obj.get('message', None)
-        except Exception as e:
-            self.log.error("Patron checkouts failed: %r", str(e), exc_info=e)
-            raise RemoteInitiatedServerError(str(e), action)
+        except Exception, e:
+            self.log.error("Patron checkouts failed: %r", e, exc_info=e)
+            raise RemoteInitiatedServerError(e.message, action)
 
         self.validate_response(response=response, message=message, action=action)
 
@@ -1228,7 +1227,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # of the fulfillment URL.
         expires = item.get('expiration', None)
         if expires:
-            expires = strptime_utc(expires, self.EXPIRATION_DATE_FORMAT).date()
+            expires = datetime.datetime.strptime(
+                expires, self.EXPIRATION_DATE_FORMAT
+            ).date()
 
         identifier, made_new = Identifier.for_foreign_id(
             self._db, foreign_identifier_type=Identifier.RB_DIGITAL_ID,
@@ -1279,9 +1280,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 # if we failed, then we got back a dictionary with an error message
                 if isinstance(resp_obj, dict):
                     message = resp_obj.get('message', None)
-        except Exception as e:
-            self.log.error("Patron holds failed: %r", str(e), exc_info=e)
-            raise RemoteInitiatedServerError(str(e), action)
+        except Exception, e:
+            self.log.error("Patron holds failed: %r", e, exc_info=e)
+            raise RemoteInitiatedServerError(e.message, action)
 
         self.validate_response(response=response, message=message, action=action)
 
@@ -1294,9 +1295,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             authors = item.get('authors', None)
             expires = item.get('expiration', None)
             if expires:
-                expires = strptime_utc(
-                    expires, self.EXPIRATION_DATE_FORMAT
-                ).date()
+                expires = datetime.datetime.strptime(expires, self.EXPIRATION_DATE_FORMAT).date()
 
             identifier = Identifier.from_asin(self._db, isbn, autocreate=False)
             # Note: if RBDigital knows about a patron's checked-out item that wasn't
@@ -1442,7 +1441,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         try:
             respdict = response.json()
-        except Exception as e:
+        except Exception, e:
             raise BadResponseException("availability_search", "RBDigital availability response not parseable.")
 
         if not respdict:
@@ -1484,7 +1483,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         try:
             resplist = response.json()
-        except Exception as e:
+        except Exception, e:
             raise BadResponseException(url, "RBDigital all catalog response not parseable.")
 
         return response.json()
@@ -1661,7 +1660,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         try:
             resplist = response.json()
-        except Exception as e:
+        except Exception, e:
             raise BadResponseException(url, "RBDigital availability response not parsable.")
         return resplist
 
@@ -1684,7 +1683,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         try:
             respdict = response.json()
-        except Exception as e:
+        except Exception, e:
             raise BadResponseException(url, "RBDigital isbn search response not parseable.")
 
         if not respdict:
@@ -1761,7 +1760,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         :param today: A date to use instead of the current date, for use in tests.
         """
-        today = today or utc_now()
+        today = today or datetime.datetime.utcnow()
         time_ago = relativedelta(months=months)
 
         delta = self.get_delta(from_date=(today - time_ago), to_date=today)
@@ -1909,7 +1908,7 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
 
         try:
             part = int(part)
-        except ValueError as e:
+        except ValueError, e:
             raise CannotPartiallyFulfill(
                 _('"%(part)s" is not a valid part number', part=part),
             )
@@ -1965,7 +1964,7 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
             if self.fulfillment_proxy and fulfillment_proxy.use_proxy_links:
                 self._content = fulfillment_proxy.proxied_manifest(self.manifest)
             else:
-                self._content = str(self.manifest)
+                self._content = unicode(self.manifest)
         else:
             # We have some other kind of file. The download link
             # points to an access document for that file.
@@ -1997,7 +1996,7 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
         # Now that we've found the download URL, the client has 15
         # minutes to use it. Set it to expire in 14 minutes to be
         # conservative.
-        expires = utc_now() + datetime.timedelta(minutes=14)
+        expires = datetime.datetime.utcnow() + datetime.timedelta(minutes=14)
         return content_type, content_link, expires
 
 class MockRBDigitalAPI(RBDigitalAPI):
@@ -2009,13 +2008,13 @@ class MockRBDigitalAPI(RBDigitalAPI):
             _db, Collection,
             name="Test RBDigital Collection",
             create_method_kwargs=dict(
-                external_account_id='library_id_123',
+                external_account_id=u'library_id_123',
             )
         )
         integration = collection.create_external_integration(
             protocol=ExternalIntegration.RB_DIGITAL
         )
-        integration.password = 'abcdef123hijklm'
+        integration.password = u'abcdef123hijklm'
         library.collections.append(collection)
         for library in _db.query(Library):
             for key, value in (
@@ -2160,9 +2159,8 @@ class RBDigitalRepresentationExtractor(object):
 
             publisher = book.get('publisher', None)
             if 'publicationDate' in book:
-                published = strptime_utc(
-                    book['publicationDate'][:10], cls.DATE_FORMAT
-                )
+                published = datetime.datetime.strptime(
+                    book['publicationDate'][:10], cls.DATE_FORMAT)
             else:
                 published = None
 
@@ -2355,9 +2353,9 @@ class RBDigitalBibliographicCoverageProvider(BibliographicCoverageProvider):
         try:
             response_dictionary = self.api.get_metadata_by_isbn(identifier)
         except BadResponseException as error:
-            return self.failure(identifier, str(error))
+            return self.failure(identifier, error.message)
         except IOError as error:
-            return self.failure(identifier, str(error))
+            return self.failure(identifier, error.message)
 
         if not response_dictionary:
             message = "Cannot find RBDigital metadata for %r" % identifier
@@ -2465,7 +2463,7 @@ class RBDigitalCirculationMonitor(CollectionMonitor):
     we hear from the metadata wrangler.
     """
     SERVICE_NAME = "RBDigital CirculationMonitor"
-    DEFAULT_START_TIME = datetime_utc(1970, 1, 1)
+    DEFAULT_START_TIME = datetime.datetime(1970, 1, 1)
     DEFAULT_BATCH_SIZE = 50
 
     PROTOCOL = ExternalIntegration.RB_DIGITAL
@@ -2715,7 +2713,7 @@ class RBDigitalFulfillmentProxy(object):
         return Response(
             response=response.content,
             status=response.status_code,
-            headers=list(response.headers.items())
+            headers=response.headers.items()
         )
 
     # The `_remove_api_base_url` and `_add_api_base_url` methods are used
@@ -2745,9 +2743,9 @@ class RBDigitalFulfillmentProxy(object):
     @staticmethod
     def _make_proxy_url(url, token):
         # Transform a fulfillment URL to its proxy form
-        url_components = urllib.parse.urlsplit(url)
+        url_components = urlparse.urlsplit(url)
         new_path = '{}/rbdproxy/{}'.format(url_components.path, token)
-        url = urllib.parse.urlunparse((
+        url = urlparse.urlunparse((
             url_components.scheme,
             url_components.netloc,
             new_path,
@@ -2784,7 +2782,7 @@ class RBDigitalFulfillmentProxy(object):
     def proxied_manifest(self, manifest):
         # Ensure that we have a token with enough time to allow
         # upcoming proxy requests to be completed.
-        proxy_expires = (utc_now() +
+        proxy_expires = (datetime.datetime.utcnow() +
                          datetime.timedelta(seconds=self.api.PROXY_BEARER_GRACE_PERIOD))
         credential = self.api._patron_credential(self.api.BEARER_TOKEN_PROPERTY, self.patron)
         token = credential.credential if credential else None

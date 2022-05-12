@@ -1,25 +1,29 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 import json
 import os
 import sys
-
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from api.overdrive import OverdriveAPI                      # noqa: E402
-from core.model import (Collection, ExternalIntegration)    # noqa: E402
-from core.scripts import IdentifierInputScript              # noqa: E402
-
+from core.model import (
+    Collection,
+    ExternalIntegration,
+)
+from core.scripts import IdentifierInputScript
+from api.overdrive import OverdriveAPI
 
 class OverdriveRawBibliographicScript(IdentifierInputScript):
     def run(self):
         args = self.parse_command_line(self._db)
-        for collection in Collection.by_protocol(self._db, ExternalIntegration.OVERDRIVE):
+        for collection in Collection.by_protocol(
+            self._db, ExternalIntegration.OVERDRIVE
+        ):
             overdrive = OverdriveAPI(self._db, collection)
             for identifier in args.identifiers:
                 data = overdrive.metadata_lookup(identifier)
-                print(json.dumps(data, sort_keys=True, indent=4, separators=(',', ': ')), "\n")
-
+                print json.dumps(data, sort_keys=True, indent=4,
+                                 separators=(',', ': '))
+                print
 
 OverdriveRawBibliographicScript().run()

@@ -167,9 +167,9 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             sip.disconnect()
             return info
 
-        except IOError as e:
+        except IOError, e:
             raise RemoteIntegrationException(
-                self.server or 'unknown server', str(e)
+                self.server or 'unknown server', e.message
             )
 
     def _remote_patron_lookup(self, patron_or_patrondata):
@@ -328,7 +328,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             try:
                 date_value = datetime.strptime(value, format)
                 break
-            except ValueError as e:
+            except ValueError, e:
                 continue
         return date_value
 

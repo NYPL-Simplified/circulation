@@ -4,7 +4,7 @@ import random
 import time
 import numpy
 from threading import Thread
-from urllib.parse import urlencode, quote
+from urllib import urlencode, quote
 
 import random
 import requests
@@ -26,29 +26,29 @@ class QueryTimingThread(Thread):
                 self.exceptions.append((url, exception))
 
     def do_query(self, url):
-        print(url)
+        print url
         try:
             response = requests.get(url)
             return None
-        except Exception as e:
+        except Exception, e:
             return e
 
     def report(self):
-        print("")
-        print("Timing results for %s" % self.urls[0])
-        print("------------------")
+        print ""
+        print "Timing results for %s" % self.urls[0]
+        print "------------------"
         # print "Total time elapsed: %s" % numpy.sum(self.elapsed)
-        print("Mean time elapsed: %.2f" % numpy.mean(self.elapsed))
-        print("Median time elapsed: %.2f" % numpy.median(self.elapsed))
+        print "Mean time elapsed: %.2f" % numpy.mean(self.elapsed)
+        print "Median time elapsed: %.2f" % numpy.median(self.elapsed)
         m = numpy.argmax(self.elapsed)
-        print("Max time elapsed: %.2f" % self.elapsed[m])
-        print("Max url: %s" % self.urls[m])
-        print("Raw data:")
+        print "Max time elapsed: %.2f" % self.elapsed[m]
+        print "Max url: %s" % self.urls[m]
+        print "Raw data:"
         for i, url in enumerate(self.urls):
-            print("(%.2f) %s" % (self.elapsed[i], url))
+            print "(%.2f) %s" % (self.elapsed[i], url)
         for (url, e) in self.exceptions:
-            print("Exception: %s: %s" % (url, e))
-        print("")
+            print "Exception: %s: %s" % (url, e)
+        print ""
 
 size = 50
 pages = 10

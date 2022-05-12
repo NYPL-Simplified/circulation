@@ -77,31 +77,31 @@ class TestSAMLSettingsValidator(ControllerTest):
                 None,
             ),
             (
-                "correct_patron_id_regular_expression",
-                fixtures.CORRECT_XML_WITH_ONE_SP,
-                fixtures.CORRECT_XML_WITH_IDP_1,
-                r"(?P<patron_id>.+)@university\.org",
-                None,
+                    "correct_patron_id_regular_expression",
+                    fixtures.CORRECT_XML_WITH_ONE_SP,
+                    fixtures.CORRECT_XML_WITH_IDP_1,
+                    r"(?P<patron_id>.+)@university\.org",
+                    None,
             ),
             (
-                "correct_patron_id_regular_expression_without_patron_id_named_group",
-                fixtures.CORRECT_XML_WITH_ONE_SP,
-                fixtures.CORRECT_XML_WITH_IDP_1,
-                r"(?P<patron>.+)@university\.org",
-                SAML_INCORRECT_PATRON_ID_REGULAR_EXPRESSION.detailed(
-                    "SAML patron ID regular expression '(?P<patron>.+)@university\\.org' "
-                    "does not have mandatory named group 'patron_id'"
-                ),
+                    "correct_patron_id_regular_expression_without_patron_id_named_group",
+                    fixtures.CORRECT_XML_WITH_ONE_SP,
+                    fixtures.CORRECT_XML_WITH_IDP_1,
+                    r"(?P<patron>.+)@university\.org",
+                    SAML_INCORRECT_PATRON_ID_REGULAR_EXPRESSION.detailed(
+                        u"SAML patron ID regular expression '(?P<patron>.+)@university\\.org' "
+                        u"does not have mandatory named group 'patron_id'"
+                    ),
             ),
             (
-                "incorrect_patron_id_regular_expression",
-                fixtures.CORRECT_XML_WITH_ONE_SP,
-                fixtures.CORRECT_XML_WITH_IDP_1,
-                r"[",
-                SAML_INCORRECT_PATRON_ID_REGULAR_EXPRESSION.detailed(
-                    "SAML patron ID regular expression '[' has an incorrect format: "
-                    "unterminated character set at position 0"
-                ),
+                    "incorrect_patron_id_regular_expression",
+                    fixtures.CORRECT_XML_WITH_ONE_SP,
+                    fixtures.CORRECT_XML_WITH_IDP_1,
+                    r"[",
+                    SAML_INCORRECT_PATRON_ID_REGULAR_EXPRESSION.detailed(
+                        u"SAML patron ID regular expression '[' has an incorrect format: "
+                        u"unexpected end of regular expression"
+                    ),
             ),
         ]
     )

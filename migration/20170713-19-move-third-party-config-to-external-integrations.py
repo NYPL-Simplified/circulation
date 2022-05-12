@@ -67,7 +67,7 @@ try:
         log_import(integration)
 
     # Import NYT configuration.
-    nyt_conf = Configuration.integration('New York Times')
+    nyt_conf = Configuration.integration(u'New York Times')
     if nyt_conf:
         integration = EI(protocol=EI.NYT, goal=EI.METADATA_GOAL)
         _db.add(integration)
@@ -93,12 +93,12 @@ try:
 
             if other_libraries:
                 other_libraries = unicode(json.dumps(other_libraries))
-                integration.set_setting('other_libraries', other_libraries)
+                integration.set_setting(u'other_libraries', other_libraries)
             integration.libraries.append(node_library)
             log_import(integration)
 
         # Import short client token configuration.
-        integration = EI(protocol='Short Client Token', goal=EI.DRM_GOAL)
+        integration = EI(protocol=u'Short Client Token', goal=EI.DRM_GOAL)
         _db.add(integration)
         integration.set_setting(
             AuthdataUtility.VENDOR_ID_KEY, vendor_id
@@ -136,12 +136,12 @@ try:
 
         auth_domain = Configuration.policy('admin_authentication_domain')
         if auth_domain:
-            integration.set_setting('domains', json.dumps([auth_domain]))
+            integration.set_setting(u'domains', json.dumps([auth_domain]))
 
         log_import(integration)
 
     # Import Patron Web Client configuration.
-    patron_web_client_conf = Configuration.integration('Patron Web Client', {})
+    patron_web_client_conf = Configuration.integration(u'Patron Web Client', {})
     patron_web_client_url = patron_web_client_conf.get('url')
     if patron_web_client_url:
         setting = ConfigurationSetting.sitewide(
@@ -150,24 +150,24 @@ try:
         log_import(setting)
 
     # Import analytics configuration.
-    policies = Configuration.get("policies", {})
-    analytics_modules = policies.get("analytics", ["core.local_analytics_provider"])
+    policies = Configuration.get(u"policies", {})
+    analytics_modules = policies.get(u"analytics", ["core.local_analytics_provider"])
 
     if "api.google_analytics_provider" in analytics_modules:
-        google_analytics_conf = Configuration.integration("Google Analytics Provider", {})
-        tracking_id = google_analytics_conf.get("tracking_id")
+        google_analytics_conf = Configuration.integration(u"Google Analytics Provider", {})
+        tracking_id = google_analytics_conf.get(u"tracking_id")
 
-        integration = EI(protocol="api.google_analytics_provider", goal=EI.ANALYTICS_GOAL)
+        integration = EI(protocol=u"api.google_analytics_provider", goal=EI.ANALYTICS_GOAL)
         _db.add(integration)
         integration.url = "http://www.google-analytics.com/collect"
 
         for library in LIBRARIES:
             ConfigurationSetting.for_library_and_externalintegration(
-                _db, "tracking_id", library, integration).value = tracking_id
+                _db, u"tracking_id", library, integration).value = tracking_id
             library.integrations += [integration]
 
     if "core.local_analytics_provider" in analytics_modules:
-        integration = EI(protocol="core.local_analytics_provider", goal=EI.ANALYTICS_GOAL)
+        integration = EI(protocol=u"core.local_analytics_provider", goal=EI.ANALYTICS_GOAL)
         _db.add(integration)
 
 finally:

@@ -14,7 +14,7 @@ from core.model import (
     get_one,
     Library,
 )
-from .test_controller import SettingsControllerTest
+from test_controller import SettingsControllerTest
 
 class TestAnalyticsServices(SettingsControllerTest):
 
@@ -215,7 +215,7 @@ class TestAnalyticsServices(SettingsControllerTest):
             goal=ExternalIntegration.ANALYTICS_GOAL,
             protocol=GoogleAnalyticsProvider.__module__
         )
-        assert service.id == int(response.get_data())
+        assert service.id == int(response.response[0])
         assert GoogleAnalyticsProvider.__module__ == service.protocol
         assert "http://test" == service.url
         assert [library] == service.libraries
@@ -266,7 +266,7 @@ class TestAnalyticsServices(SettingsControllerTest):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
             assert response.status_code == 200
 
-        assert ga_service.id == int(response.get_data())
+        assert ga_service.id == int(response.response[0])
         assert GoogleAnalyticsProvider.__module__ == ga_service.protocol
         assert "http://test" == ga_service.url
         assert [l2] == ga_service.libraries

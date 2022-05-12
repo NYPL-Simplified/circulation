@@ -5,11 +5,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import aliased
 from flask_babel import lazy_gettext as _
+import time
 import elasticsearch
 import logging
 
 import core.classifier as genres
-from .config import (
+from config import (
     CannotLoadConfiguration,
     Configuration,
 )
@@ -47,7 +48,7 @@ from core.model import (
 )
 
 from core.util import LanguageCodes
-from .novelist import NoveListAPI
+from novelist import NoveListAPI
 
 def load_lanes(_db, library):
     """Return a WorkList that reflects the current lane structure of the
@@ -75,7 +76,7 @@ def load_lanes(_db, library):
         to_expunge = [top_level]
     else:
         to_expunge = [x for x in top_level.children if isinstance(x, Lane)]
-    list(map(_db.expunge, to_expunge))
+    map(_db.expunge, to_expunge)
     return top_level
 
 
@@ -95,7 +96,7 @@ def _lane_configuration_from_collection_sizes(estimates):
     if not estimates:
         # There are no holdings. Assume we have a large English
         # collection and nothing else.
-        return ['eng'], [], []
+        return [u'eng'], [], []
 
     large = []
     small = []
@@ -205,7 +206,7 @@ def lane_from_genres(_db, library, genres, display_name=None,
             genredata = GenreData(genres[0], False)
         fiction = genredata.is_fiction
 
-        if genres[0] in list(genre_lane_instructions.keys()):
+        if genres[0] in genre_lane_instructions.keys():
             instructions = genre_lane_instructions[genres[0]]
             if not display_name and "display_name" in instructions:
                 display_name = instructions.get('display_name')
@@ -255,7 +256,7 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
     TODO: If there are multiple large collections, their top-level lanes do
     not have distinct display names.
     """
-    if isinstance(languages, str):
+    if isinstance(languages, basestring):
         languages = [languages]
 
     ADULT = Classifier.AUDIENCES_ADULT
@@ -307,7 +308,7 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
         adult_fiction_sublanes.append(adult_fiction_best_sellers)
 
     for genre in fiction_genres:
-        if isinstance(genre, str):
+        if isinstance(genre, basestring):
             genre_name = genre
         else:
             genre_name = genre.get("name")
@@ -348,7 +349,7 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
         # "Life Strategies" is a YA-specific genre that should not be
         # included in the Adult Nonfiction lane.
         if genre != genres.Life_Strategies:
-            if isinstance(genre, str):
+            if isinstance(genre, basestring):
                 genre_name = genre
             else:
                 genre_name = genre.get("name")
@@ -648,7 +649,7 @@ def create_world_languages_lane(
     complete_language_set = set()
     for list in (small_languages, tiny_languages):
         for languageset in list:
-            if isinstance(languageset, str):
+            if isinstance(languageset, basestring):
                 complete_language_set.add(languageset)
             else:
                 complete_language_set.update(languageset)
@@ -684,7 +685,7 @@ def create_lane_for_small_collection(_db, library, parent, languages, priority=0
 
     :param parent: The parent of the new lane.
     """
-    if isinstance(languages, str):
+    if isinstance(languages, basestring):
         languages = [languages]
 
     ADULT = Classifier.AUDIENCES_ADULT
@@ -756,7 +757,7 @@ def create_lane_for_tiny_collection(_db, library, parent, languages, priority=0)
     if not languages:
         return None
 
-    if isinstance(languages, str):
+    if isinstance(languages, basestring):
         languages = [languages]
 
     try:
@@ -1152,7 +1153,7 @@ class RelatedBooksLane(WorkBasedLane):
             )
             if recommendation_lane.recommendations:
                 yield recommendation_lane
-        except CannotLoadConfiguration as e:
+        except CannotLoadConfiguration, e:
             # NoveList isn't configured. This isn't fatal -- we just won't
             # use this sublane.
             pass

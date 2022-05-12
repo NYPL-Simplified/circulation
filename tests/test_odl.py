@@ -2,10 +2,11 @@ import pytest
 import os
 import json
 import datetime
-import dateutil
 import re
-import urllib.parse
-from pdb import set_trace
+import base64
+import urllib
+import urlparse
+
 from core.testing import DatabaseTest
 from core.metadata_layer import TimestampData
 from core.model import (
@@ -34,16 +35,10 @@ from api.odl import (
     SharedODLImporter,
 )
 from api.circulation_exceptions import *
-from core.util.datetime_helpers import (
-    datetime_utc,
-    strptime_utc,
-    utc_now,
-)
 from core.util.http import (
     BadResponseException,
     RemoteIntegrationException,
 )
-from core.util.string_helpers import base64
 
 class BaseODLTest(object):
     base_path = os.path.split(__file__)[0]
@@ -52,7 +47,7 @@ class BaseODLTest(object):
     @classmethod
     def get_data(cls, filename):
         path = os.path.join(cls.resource_path, filename)
-        return open(path, "rb").read()
+        return open(path).read()
 
 class TestODLAPI(DatabaseTest, BaseODLTest):
 
@@ -80,10 +75,10 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         response = self.api.get_license_status_document(loan)
         requested_url = self.api.requests[0][0]
 
-        parsed = urllib.parse.urlparse(requested_url)
+        parsed = urlparse.urlparse(requested_url)
         assert "https" == parsed.scheme
         assert "loan.feedbooks.net" == parsed.netloc
-        params = urllib.parse.parse_qs(parsed.query)
+        params = urlparse.parse_qs(parsed.query)
 
         assert self.license.identifier == params.get("id")[0]
 
@@ -94,15 +89,15 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert len(patron_id) > 0
 
         # Loans expire in 21 days by default.
-        now = utc_now()
+        now = datetime.datetime.utcnow()
         after_expiration = now + datetime.timedelta(days=23)
-        expires = urllib.parse.unquote_plus(params.get("expires")[0])
-        expires = dateutil.parser.parse(expires)
+        expires = urllib.unquote_plus(params.get("expires")[0])
+        expires = datetime.datetime.strptime(expires, "%Y-%m-%dT%H:%M:%S.%fZ")
         assert expires > now
         assert expires < after_expiration
 
-        notification_url = urllib.parse.unquote_plus(params.get("notification_url")[0])
-        assert ("http://odl_notify?library_short_name=%s&loan_id=%s" % (self._default_library.short_name, loan.id) ==
+        notification_url = urllib.unquote_plus(params.get("notification_url")[0])
+        assert ("http://odl_notify?loan_id=%s&library_short_name=%s" % (loan.id, self._default_library.short_name) ==
             notification_url)
 
         # With an existing loan.
@@ -133,7 +128,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_available = 6
         loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = "http://loan/" + self._str
-        loan.end = utc_now() + datetime.timedelta(days=3)
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         # The patron returns the book successfully.
         lsd = json.dumps({
@@ -167,12 +162,12 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_available = 0
         loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = "http://loan/" + self._str
-        loan.end = utc_now() + datetime.timedelta(days=3)
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         # Another patron has the book on hold.
         patron_with_hold = self._patron()
         self.pool.patrons_in_hold_queue = 1
-        hold, ignore = self.pool.on_hold_to(patron_with_hold, start=utc_now(), end=None, position=1)
+        hold, ignore = self.pool.on_hold_to(patron_with_hold, start=datetime.datetime.utcnow(), end=None, position=1)
 
         # The first patron returns the book successfully.
         lsd = json.dumps({
@@ -208,7 +203,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_available = 6
         loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
-        loan.end = utc_now() + datetime.timedelta(days=3)
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         lsd = json.dumps({
             "status": "active",
@@ -231,7 +226,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         # Not checked out according to the distributor.
         loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
-        loan.end = utc_now() + datetime.timedelta(days=3)
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         lsd = json.dumps({
             "status": "revoked",
@@ -247,7 +242,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         # Not fulfilled yet, but no return link from the distributor.
         loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
-        loan.end = utc_now() + datetime.timedelta(days=3)
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         lsd = json.dumps({
             "status": "ready",
@@ -298,9 +293,9 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert self.pool.data_source.name == loan.data_source_name
         assert self.pool.identifier.type == loan.identifier_type
         assert self.pool.identifier.identifier == loan.identifier
-        assert loan.start_date > utc_now() - datetime.timedelta(minutes=1)
-        assert loan.start_date < utc_now() + datetime.timedelta(minutes=1)
-        assert datetime_utc(3017, 10, 21, 11, 12, 13) == loan.end_date
+        assert loan.start_date > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+        assert loan.start_date < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+        assert datetime.datetime(3017, 10, 21, 11, 12, 13) == loan.end_date
         assert loan_url == loan.external_identifier
         assert 1 == self._db.query(Loan).count()
 
@@ -323,7 +318,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_reserved = 1
         self.pool.patrons_in_hold_queue = 1
         self.license.remaining_checkouts = 5
-        self.pool.on_hold_to(self.patron, start=utc_now() - datetime.timedelta(days=1), position=0)
+        self.pool.on_hold_to(self.patron, start=datetime.datetime.utcnow() - datetime.timedelta(days=1), position=0)
 
         # The patron checks out the book.
         loan_url = self._str
@@ -346,9 +341,9 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert self.pool.data_source.name == loan.data_source_name
         assert self.pool.identifier.type == loan.identifier_type
         assert self.pool.identifier.identifier == loan.identifier
-        assert loan.start_date > utc_now() - datetime.timedelta(minutes=1)
-        assert loan.start_date < utc_now() + datetime.timedelta(minutes=1)
-        assert datetime_utc(3017, 10, 21, 11, 12, 13) == loan.end_date
+        assert loan.start_date > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+        assert loan.start_date < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+        assert datetime.datetime(3017, 10, 21, 11, 12, 13) == loan.end_date
         assert loan_url == loan.external_identifier
         assert 1 == self._db.query(Loan).count()
 
@@ -368,7 +363,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_available = 1
         existing_loan, ignore = self.license.loan_to(self.patron)
         existing_loan.external_identifier = self._str
-        existing_loan.end = utc_now() + datetime.timedelta(days=3)
+        existing_loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         pytest.raises(
             AlreadyCheckedOut, self.api.checkout,
@@ -380,9 +375,9 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
     def test_checkout_expired_hold(self):
         # The patron was at the beginning of the hold queue, but the hold already expired.
         self.pool.licenses_owned = 1
-        yesterday = utc_now() - datetime.timedelta(days=1)
+        yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
         hold, ignore = self.pool.on_hold_to(self.patron, start=yesterday, end=yesterday, position=0)
-        other_hold, ignore = self.pool.on_hold_to(self._patron(), start=utc_now())
+        other_hold, ignore = self.pool.on_hold_to(self._patron(), start=datetime.datetime.utcnow())
 
         pytest.raises(
             NoAvailableCopies, self.api.checkout,
@@ -404,7 +399,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
 
         self._db.delete(existing_loan)
 
-        now = utc_now()
+        now = datetime.datetime.utcnow()
         yesterday = now - datetime.timedelta(days=1)
         last_week = now - datetime.timedelta(weeks=1)
 
@@ -456,7 +451,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_owned = 1
         self.pool.licenses_available = 1
         self.license.remaining_checkouts = 1
-        self.license.expires = utc_now() - datetime.timedelta(weeks=1)
+        self.license.expires = datetime.datetime.utcnow() - datetime.timedelta(weeks=1)
 
         pytest.raises(
             NoLicenses, self.api.checkout,
@@ -467,7 +462,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_owned = 1
         self.pool.licenses_available = 1
         self.license.remaining_checkouts = 0
-        self.license.expires = utc_now() + datetime.timedelta(weeks=1)
+        self.license.expires = datetime.datetime.utcnow() + datetime.timedelta(weeks=1)
 
         pytest.raises(
             NoLicenses, self.api.checkout,
@@ -507,7 +502,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         # Fulfill a loan in a way that gives access to a license file.
         loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
-        loan.end = utc_now() + datetime.timedelta(days=3)
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         lsd = json.dumps({
             "status": "ready",
@@ -527,7 +522,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert self.pool.data_source.name == fulfillment.data_source_name
         assert self.pool.identifier.type == fulfillment.identifier_type
         assert self.pool.identifier.identifier == fulfillment.identifier
-        assert datetime_utc(2017, 10, 21, 11, 12, 13) == fulfillment.content_expires
+        assert datetime.datetime(2017, 10, 21, 11, 12, 13) == fulfillment.content_expires
         assert "http://acsm" == fulfillment.content_link
         assert DeliveryMechanism.ADOBE_DRM == fulfillment.content_type
 
@@ -536,7 +531,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         # file.
         loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
-        loan.end = utc_now() + datetime.timedelta(days=3)
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         audiobook = MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE
 
@@ -558,7 +553,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert self.pool.data_source.name == fulfillment.data_source_name
         assert self.pool.identifier.type == fulfillment.identifier_type
         assert self.pool.identifier.identifier == fulfillment.identifier
-        assert datetime_utc(2017, 10, 21, 11, 12, 13) == fulfillment.content_expires
+        assert datetime.datetime(2017, 10, 21, 11, 12, 13) == fulfillment.content_expires
         assert "http://manifest" == fulfillment.content_link
         assert audiobook == fulfillment.content_type
 
@@ -569,7 +564,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.license.concurrent_checkouts = 7
         loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
-        loan.end = utc_now() + datetime.timedelta(days=3)
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         lsd = json.dumps({
             "status": "revoked",
@@ -588,7 +583,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert 0 == self._db.query(Loan).count()
 
     def test_count_holds_before(self):
-        now = utc_now()
+        now = datetime.datetime.utcnow()
         yesterday = now - datetime.timedelta(days=1)
         tomorrow = now + datetime.timedelta(days=1)
         last_week = now - datetime.timedelta(weeks=1)
@@ -619,7 +614,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert 4 == self.api._count_holds_before(hold)
 
     def test_update_hold_end_date(self):
-        now = utc_now()
+        now = datetime.datetime.utcnow()
         tomorrow = now + datetime.timedelta(days=1)
         yesterday = now - datetime.timedelta(days=1)
         next_week = now + datetime.timedelta(days=7)
@@ -752,7 +747,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert next_week + datetime.timedelta(days=25) == hold.end
 
     def test_update_hold_position(self):
-        now = utc_now()
+        now = datetime.datetime.utcnow()
         yesterday = now - datetime.timedelta(days=1)
         tomorrow = now + datetime.timedelta(days=1)
 
@@ -811,7 +806,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_available = 0
         self.pool.licenses_reserved = 1
         self.pool.patrons_in_hold_queue = 0
-        last_update = utc_now() - datetime.timedelta(minutes=5)
+        last_update = datetime.datetime.utcnow() - datetime.timedelta(minutes=5)
         self.work.last_update_time = last_update
         self.api.update_hold_queue(self.pool)
         assert 1 == self.pool.licenses_available
@@ -822,8 +817,8 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
 
         # If there are holds, a license will get reserved for the next hold
         # and its end date will be set.
-        hold, ignore = self.pool.on_hold_to(self.patron, start=utc_now(), position=1)
-        later_hold, ignore = self.pool.on_hold_to(self._patron(), start=utc_now() + datetime.timedelta(days=1), position=2)
+        hold, ignore = self.pool.on_hold_to(self.patron, start=datetime.datetime.utcnow(), position=1)
+        later_hold, ignore = self.pool.on_hold_to(self._patron(), start=datetime.datetime.utcnow() + datetime.timedelta(days=1), position=2)
         self.api.update_hold_queue(self.pool)
 
         # The pool's licenses were updated.
@@ -833,7 +828,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
 
         # And the first hold changed.
         assert 0 == hold.position
-        assert hold.end - utc_now() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
+        assert hold.end - datetime.datetime.utcnow() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
 
         # The later hold is the same.
         assert 2 == later_hold.position
@@ -848,7 +843,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert 2 == self.pool.licenses_reserved
         assert 2 == self.pool.patrons_in_hold_queue
         assert 0 == later_hold.position
-        assert later_hold.end - utc_now() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
+        assert later_hold.end - datetime.datetime.utcnow() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
 
         # Now there are no more holds. If we add another license,
         # it ends up being available.
@@ -866,10 +861,10 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         loans = []
         holds = []
         for i in range(3):
-            loan, ignore = self.license.loan_to(self._patron(), end=utc_now() + datetime.timedelta(days=1))
+            loan, ignore = self.license.loan_to(self._patron(), end=datetime.datetime.utcnow() + datetime.timedelta(days=1))
             loans.append(loan)
         for i in range(3):
-            hold, ignore = self.pool.on_hold_to(self._patron(), start=utc_now() - datetime.timedelta(days=3-i), position=i+1)
+            hold, ignore = self.pool.on_hold_to(self._patron(), start=datetime.datetime.utcnow() - datetime.timedelta(days=3-i), position=i+1)
             holds.append(hold)
         self.pool.licenses_owned = 5
         self.pool.licenses_available = 0
@@ -882,22 +877,22 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert 0 == holds[0].position
         assert 0 == holds[1].position
         assert 3 == holds[2].position
-        assert holds[0].end - utc_now() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
-        assert holds[1].end - utc_now() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
+        assert holds[0].end - datetime.datetime.utcnow() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
+        assert holds[1].end - datetime.datetime.utcnow() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
 
         # If there are more licenses that change than holds, some of them become available.
-        loans[0].end = utc_now() - datetime.timedelta(days=1)
-        loans[1].end = utc_now() - datetime.timedelta(days=1)
+        loans[0].end = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        loans[1].end = datetime.datetime.utcnow() - datetime.timedelta(days=1)
         self.api.update_hold_queue(self.pool)
         assert 3 == self.pool.licenses_reserved
         assert 1 == self.pool.licenses_available
         assert 3 == self.pool.patrons_in_hold_queue
         for hold in holds:
             assert 0 == hold.position
-            assert hold.end - utc_now() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
+            assert hold.end - datetime.datetime.utcnow() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
 
     def test_place_hold_success(self):
-        tomorrow = utc_now() + datetime.timedelta(days=1)
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
         self.pool.licenses_owned = 1
         self.license.loan_to(self._patron(), end=tomorrow)
 
@@ -908,8 +903,8 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert self.pool.data_source.name == hold.data_source_name
         assert self.pool.identifier.type == hold.identifier_type
         assert self.pool.identifier.identifier == hold.identifier
-        assert hold.start_date > utc_now() - datetime.timedelta(minutes=1)
-        assert hold.start_date < utc_now() + datetime.timedelta(minutes=1)
+        assert hold.start_date > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+        assert hold.start_date < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
         assert tomorrow == hold.end_date
         assert 1 == hold.hold_position
         assert 1 == self._db.query(Hold).count()
@@ -971,7 +966,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         # One loan.
         loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
-        loan.start = utc_now() - datetime.timedelta(days=1)
+        loan.start = datetime.datetime.utcnow() - datetime.timedelta(days=1)
         loan.end = loan.start + datetime.timedelta(days=20)
 
         activity = self.api.patron_activity(self.patron, "pin")
@@ -989,7 +984,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         license2 = self._license(pool2)
         loan2, ignore = license2.loan_to(self.patron)
         loan2.external_identifier = self._str
-        loan2.start = utc_now() - datetime.timedelta(days=4)
+        loan2.start = datetime.datetime.utcnow() - datetime.timedelta(days=4)
         loan2.end = loan2.start + datetime.timedelta(days=14)
 
         activity = self.api.patron_activity(self.patron, "pin")
@@ -1013,16 +1008,16 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert loan2.external_identifier == l2.external_identifier
 
         # If a loan is expired already, it's left out.
-        loan2.end = utc_now() - datetime.timedelta(days=2)
+        loan2.end = datetime.datetime.utcnow() - datetime.timedelta(days=2)
         activity = self.api.patron_activity(self.patron, "pin")
         assert 1 == len(activity)
         assert self.pool.identifier.identifier == activity[0].identifier
 
         # One hold.
         pool2.licenses_owned = 1
-        other_patron_loan, ignore = license2.loan_to(self._patron(), end=utc_now() + datetime.timedelta(days=1))
+        other_patron_loan, ignore = license2.loan_to(self._patron(), end=datetime.datetime.utcnow() + datetime.timedelta(days=1))
         hold, ignore = pool2.on_hold_to(self.patron)
-        hold.start = utc_now() - datetime.timedelta(days=2)
+        hold.start = datetime.datetime.utcnow() - datetime.timedelta(days=2)
         hold.end = hold.start + datetime.timedelta(days=3)
         hold.position = 3
         activity = self.api.patron_activity(self.patron, "pin")
@@ -1044,7 +1039,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self._db.delete(other_patron_loan)
         pool2.licenses_available = 0
         pool2.licenses_reserved = 1
-        hold.end = utc_now() - datetime.timedelta(days=1)
+        hold.end = datetime.datetime.utcnow() - datetime.timedelta(days=1)
         hold.position = 0
         activity = self.api.patron_activity(self.patron, "pin")
         assert 1 == len(activity)
@@ -1124,9 +1119,9 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         loan = self.api.checkout_to_external_library(self.client, self.pool)
         assert self.client == loan.integration_client
         assert self.pool == loan.license_pool
-        assert loan.start > utc_now() - datetime.timedelta(minutes=1)
-        assert loan.start < utc_now() + datetime.timedelta(minutes=1)
-        assert datetime_utc(3017, 10, 21, 11, 12, 13) == loan.end
+        assert loan.start > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+        assert loan.start < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+        assert datetime.datetime(3017, 10, 21, 11, 12, 13) == loan.end
         assert loan_url == loan.external_identifier
         assert 1 == self._db.query(Loan).count()
 
@@ -1144,9 +1139,9 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert 1 == self.pool.patrons_in_hold_queue
         assert self.client == hold.integration_client
         assert self.pool == hold.license_pool
-        assert hold.start > utc_now() - datetime.timedelta(minutes=1)
-        assert hold.start < utc_now() + datetime.timedelta(minutes=1)
-        assert hold.end > utc_now() + datetime.timedelta(days=7)
+        assert hold.start > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+        assert hold.start < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+        assert hold.end > datetime.datetime.utcnow() + datetime.timedelta(days=7)
         assert 1 == hold.position
         assert 1 == self._db.query(Hold).count()
 
@@ -1156,7 +1151,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_available = 0
         self.pool.licenses_reserved = 1
         self.pool.patrons_in_hold_queue = 1
-        hold, ignore = self.pool.on_hold_to(self.client, start=utc_now() - datetime.timedelta(days=1), position=0)
+        hold, ignore = self.pool.on_hold_to(self.client, start=datetime.datetime.utcnow() - datetime.timedelta(days=1), position=0)
 
         # The patron checks out the book.
         loan_url = self._str
@@ -1177,9 +1172,9 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         loan = self.api.checkout_to_external_library(self.client, self.pool, hold)
         assert self.client == loan.integration_client
         assert self.pool == loan.license_pool
-        assert loan.start > utc_now() - datetime.timedelta(minutes=1)
-        assert loan.start < utc_now() + datetime.timedelta(minutes=1)
-        assert datetime_utc(3017, 10, 21, 11, 12, 13) == loan.end
+        assert loan.start > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+        assert loan.start < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+        assert datetime.datetime(3017, 10, 21, 11, 12, 13) == loan.end
         assert loan_url == loan.external_identifier
         assert 1 == self._db.query(Loan).count()
 
@@ -1196,7 +1191,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.license.concurrent_checkouts = 7
         loan, ignore = self.license.loan_to(self.client)
         loan.external_identifier = "http://loan/" + self._str
-        loan.end = utc_now() + datetime.timedelta(days=3)
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         # The patron returns the book successfully.
         lsd = json.dumps({
@@ -1227,7 +1222,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
     def test_fulfill_for_external_library(self):
         loan, ignore = self.license.loan_to(self.client)
         loan.external_identifier = self._str
-        loan.end = utc_now() + datetime.timedelta(days=3)
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         lsd = json.dumps({
             "status": "ready",
@@ -1247,7 +1242,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         assert self.pool.data_source.name == fulfillment.data_source_name
         assert self.pool.identifier.type == fulfillment.identifier_type
         assert self.pool.identifier.identifier == fulfillment.identifier
-        assert datetime_utc(2017, 10, 21, 11, 12, 13) == fulfillment.content_expires
+        assert datetime.datetime(2017, 10, 21, 11, 12, 13) == fulfillment.content_expires
         assert "http://acsm" == fulfillment.content_link
         assert DeliveryMechanism.ADOBE_DRM == fulfillment.content_type
 
@@ -1366,15 +1361,7 @@ class TestODLImporter(DatabaseTest, BaseODLTest):
             license.checkout_url)
         assert ("https://license.feedbooks.net/license/status/?uuid=1" ==
             license.status_url)
-
-        # The original value for 'expires' in the ODL is:
-        # 2019-03-31T03:13:35+02:00
-        #
-        # As stored in the database, license.expires may not have the
-        # same tzinfo, but it does represent the same point in time.
-        assert datetime.datetime(
-            2019, 3, 31, 3, 13, 35, tzinfo=dateutil.tz.tzoffset("", 3600*2)
-        ) == license.expires
+        assert datetime.datetime(2019, 3, 31, 03, 13, 35) == license.expires
         assert None == license.remaining_checkouts
         assert 1 == license.concurrent_checkouts
 
@@ -1474,7 +1461,7 @@ class TestODLHoldReaper(DatabaseTest, BaseODLTest):
         api = MockODLAPI(self._db, collection)
         reaper = ODLHoldReaper(self._db, collection, api=api)
 
-        now = utc_now()
+        now = datetime.datetime.utcnow()
         yesterday = now - datetime.timedelta(days=1)
 
         pool = self._licensepool(None, collection=collection)
@@ -1559,8 +1546,8 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         assert self.pool.data_source.name == loan.data_source_name
         assert self.pool.identifier.type == loan.identifier_type
         assert self.pool.identifier.identifier == loan.identifier
-        assert datetime_utc(2018, 3, 8, 17, 41, 31) == loan.start_date
-        assert datetime_utc(2018, 3, 29, 17, 41, 30) == loan.end_date
+        assert datetime.datetime(2018, 3, 8, 17, 41, 31) == loan.start_date
+        assert datetime.datetime(2018, 3, 29, 17, 41, 30) == loan.end_date
         assert "http://localhost:6500/AL/collections/DPLA%20Exchange/loans/31" == loan.external_identifier
 
         assert ([self.pool.identifier.links[0].resource.url] ==
@@ -1578,8 +1565,8 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         assert self.pool.data_source.name == loan.data_source_name
         assert self.pool.identifier.type == loan.identifier_type
         assert self.pool.identifier.identifier == loan.identifier
-        assert datetime_utc(2018, 3, 8, 17, 41, 31) == loan.start_date
-        assert datetime_utc(2018, 3, 29, 17, 41, 30) == loan.end_date
+        assert datetime.datetime(2018, 3, 8, 17, 41, 31) == loan.start_date
+        assert datetime.datetime(2018, 3, 29, 17, 41, 30) == loan.end_date
         assert "http://localhost:6500/AL/collections/DPLA%20Exchange/loans/31" == loan.external_identifier
 
         assert ([hold.external_identifier,
@@ -1676,8 +1663,8 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         assert self.pool.identifier.type == fulfillment.identifier_type
         assert self.pool.identifier.identifier == fulfillment.identifier
         assert None == fulfillment.content_link
-        assert b"An ACSM file" == fulfillment.content
-        assert datetime_utc(2018, 3, 29, 17, 44, 11) == fulfillment.content_expires
+        assert "An ACSM file" == fulfillment.content
+        assert datetime.datetime(2018, 3, 29, 17, 44, 11) == fulfillment.content_expires
 
         assert ([loan.external_identifier,
              "http://localhost:6500/AL/collections/DPLA%20Exchange/loans/33/fulfill/2"] ==
@@ -1731,8 +1718,8 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         assert self.pool.data_source.name == hold.data_source_name
         assert self.pool.identifier.type == hold.identifier_type
         assert self.pool.identifier.identifier == hold.identifier
-        assert datetime_utc(2018, 3, 8, 18, 50, 18) == hold.start_date
-        assert datetime_utc(2018, 3, 29, 17, 44, 1) == hold.end_date
+        assert datetime.datetime(2018, 3, 8, 18, 50, 18) == hold.start_date
+        assert datetime.datetime(2018, 3, 29, 17, 44, 01) == hold.end_date
         assert 1 == hold.hold_position
         assert "http://localhost:6500/AL/collections/DPLA%20Exchange/holds/18" == hold.external_identifier
 
@@ -1791,8 +1778,8 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         assert self.pool.data_source.name == loan_info.data_source_name
         assert self.pool.identifier.type == loan_info.identifier_type
         assert self.pool.identifier.identifier == loan_info.identifier
-        assert datetime_utc(2018, 3, 8, 17, 44, 12) == loan_info.start_date
-        assert datetime_utc(2018, 3, 29, 17, 44, 11) == loan_info.end_date
+        assert datetime.datetime(2018, 3, 8, 17, 44, 12) == loan_info.start_date
+        assert datetime.datetime(2018, 3, 29, 17, 44, 11) == loan_info.end_date
         assert [loan.external_identifier] == self.api.requests
 
         # The _get method was passed a patron - this is necessary because
@@ -1818,8 +1805,8 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         assert self.pool.data_source.name == hold_info.data_source_name
         assert self.pool.identifier.type == hold_info.identifier_type
         assert self.pool.identifier.identifier == hold_info.identifier
-        assert datetime_utc(2018, 3, 8, 18, 50, 18) == hold_info.start_date
-        assert datetime_utc(2018, 3, 29, 17, 44, 1) == hold_info.end_date
+        assert datetime.datetime(2018, 3, 8, 18, 50, 18) == hold_info.start_date
+        assert datetime.datetime(2018, 3, 29, 17, 44, 01) == hold_info.end_date
         assert [hold.external_identifier] == self.api.requests[2:]
 
         # The patron's hold has been deleted on the remote.

@@ -1,9 +1,8 @@
 # encoding: utf-8
 import os
-from pdb import set_trace
+
 import pytest
 import datetime
-import dateutil
 import json
 
 from core.testing import (
@@ -12,7 +11,6 @@ from core.testing import (
 from core.testing import DummyMetadataClient
 from core.config import CannotLoadConfiguration
 from api.nyt import (
-    NYTAPI,
     NYTBestSellerAPI,
     NYTBestSellerList,
     NYTBestSellerListTitle,
@@ -62,13 +60,6 @@ class NYTBestSellerAPITest(DatabaseTest):
         super(NYTBestSellerAPITest, self).setup_method()
         self.api = DummyNYTBestSellerAPI(self._db)
         self.metadata_client = DummyMetadataClient()
-
-    def _midnight(self, *args):
-        """Create a datetime representing midnight Eastern time (the time we
-        take NYT best-seller lists to be published) on a certain date.
-        """
-        return datetime.datetime(*args, tzinfo=NYTAPI.TIME_ZONE)
-
 
 class TestNYTBestSellerAPI(NYTBestSellerAPITest):
 
@@ -126,7 +117,7 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
 
     def test_list_of_lists(self):
         all_lists = self.api.list_of_lists()
-        assert (['copyright', 'num_results', 'results', 'status'] ==
+        assert ([u'copyright', u'num_results', u'results', u'status'] ==
             sorted(all_lists.keys()))
         assert 47 == len(all_lists['results'])
 
@@ -135,9 +126,9 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
         assert "Combined Print & E-Book Fiction" == list_info['display_name']
 
     def test_request_failure(self):
-        # Verify that certain unexpected HTTP results are turned into
-        # IntegrationExceptions.
-
+        """Verify that certain unexpected HTTP results are turned into
+        IntegrationExceptions.
+        """
         self.api.api_key = "some key"
         def result_403(*args, **kwargs):
             return 403, None, None
@@ -152,8 +143,8 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
         try:
             self.api.request("some path")
             raise Exception("Expected an IntegrationException!")
-        except IntegrationException as e:
-            assert "Unknown API error (status 500)" == str(e)
+        except IntegrationException, e:
+            assert "Unknown API error (status 500)" == e.message
             assert e.debug_message.startswith("Response from")
             assert e.debug_message.endswith("was: 'bad value'")
 
@@ -164,7 +155,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
     """
 
     def test_creation(self):
-        # Just creating a list doesn't add any items to it.
+        """Just creating a list doesn't add any items to it."""
         list_name = "combined-print-and-e-book-fiction"
         l = self.api.best_seller_list(list_name)
         assert True == isinstance(l, NYTBestSellerList)
@@ -187,8 +178,8 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
 
         assert 20 == len(l)
         assert True == all([isinstance(x, NYTBestSellerListTitle) for x in l])
-        assert self._midnight(2011, 2, 13) == l.created
-        assert self._midnight(2015, 2, 1) == l.updated
+        assert datetime.datetime(2011, 2, 13) == l.created
+        assert datetime.datetime(2015, 2, 1) == l.updated
         assert list_name == l.foreign_identifier
 
         # Let's do a spot check on the list items.
@@ -205,13 +196,13 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         assert "Riverhead" == title.metadata.publisher
         assert ("A psychological thriller set in London is full of complications and betrayals." ==
             title.annotation)
-        assert self._midnight(2015, 1, 17) == title.first_appearance
-        assert self._midnight(2015, 2, 1) == title.most_recent_appearance
+        assert datetime.datetime(2015, 1, 17) == title.first_appearance
+        assert datetime.datetime(2015, 2, 1) == title.most_recent_appearance
 
     def test_historical_dates(self):
-        # This list was published 208 times since the start of the API,
-        # and we can figure out when.
-
+        """This list was published 208 times since the start of the API,
+        and we can figure out when.
+        """
         list_name = "combined-print-and-e-book-fiction"
         l = self.api.best_seller_list(list_name)
         dates = list(l.all_dates)
@@ -233,14 +224,11 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
                        for x in custom.entries])
 
         assert 20 == len(custom.entries)
-
-        # The publication of a NYT best-seller list is treated as
-        # midnight Eastern time on the publication date.
-        jan_17 = self._midnight(2015, 1, 17)
+        january_17 = datetime.datetime(2015, 1, 17)
         assert (True ==
-            all([x.first_appearance == jan_17 for x in custom.entries]))
+            all([x.first_appearance == january_17 for x in custom.entries]))
 
-        feb_1 = self._midnight(2015, 2, 1)
+        feb_1 = datetime.datetime(2015, 2, 1)
         assert (True ==
             all([x.most_recent_appearance == feb_1 for x in custom.entries]))
 
@@ -287,15 +275,15 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         ]
         assert [("ISBN", "9780698185395")] == sorted(equivalent_identifiers)
 
-        assert datetime.date(2015, 2, 1) == edition.published
+        assert datetime.datetime(2015, 2, 1, 0, 0) == edition.published
         assert "Paula Hawkins" == edition.author
         assert "Hawkins, Paula" == edition.sort_author
         assert "Riverhead" == edition.publisher
 
     def test_to_edition_sets_sort_author_name_if_obvious(self):
         [contributor], ignore = Contributor.lookup(
-            self._db, "Hawkins, Paula")
-        contributor.display_name = "Paula Hawkins"
+            self._db, u"Hawkins, Paula")
+        contributor.display_name = u"Paula Hawkins"
 
         title = NYTBestSellerListTitle(self.one_list_title, Edition.BOOK_MEDIUM)
         edition = title.to_edition(self._db, self.metadata_client)

@@ -1,4 +1,5 @@
 # encoding=utf8
+import base64
 import calendar
 import datetime
 import email
@@ -6,6 +7,7 @@ import json
 import os
 import random
 import time
+import urllib
 from contextlib import contextmanager
 from decimal import Decimal
 from time import mktime
@@ -13,7 +15,8 @@ from wsgiref.handlers import format_date_time
 
 import feedparser
 import flask
-import urllib.parse
+import urlparse
+
 import pytest
 from flask import Response as FlaskResponse
 from flask import url_for
@@ -128,16 +131,11 @@ from core.problem_details import *
 from core.testing import DummyHTTPClient, MockRequestsResponse
 from core.user_profile import ProfileController, ProfileStorage
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
-from core.util.datetime_helpers import (
-    datetime_utc,
-    from_timestamp,
-    utc_now,
-)
 from core.util.flask_util import Response
 from core.util.http import RemoteIntegrationException
 from core.util.opds_writer import OPDSFeed
 from core.util.problem_detail import ProblemDetail
-from core.util.string_helpers import base64
+
 
 class ControllerTest(VendorIDTest):
     """A test that requires a functional app server."""
@@ -148,6 +146,7 @@ class ControllerTest(VendorIDTest):
         'unittestuser:unittestpassword'
     )
     invalid_auth = 'Basic ' + base64.b64encode('user1:password2')
+
     valid_credentials = dict(
         username="unittestuser", password="unittestpassword"
     )
@@ -180,7 +179,7 @@ class ControllerTest(VendorIDTest):
 
     def set_base_url(self, _db):
         base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY)
-        base_url.value = 'http://test-circulation-manager/'
+        base_url.value = u'http://test-circulation-manager/'
 
     def circulation_manager_setup(self, _db):
         """Set up initial Library arrangements for this test.
@@ -244,7 +243,7 @@ class ControllerTest(VendorIDTest):
         # Set a convenient default lane.
         [self.english_adult_fiction] = [
             x for x in self.library.lanes
-            if x.display_name=='Fiction' and x.languages==['eng']
+            if x.display_name=='Fiction' and x.languages==[u'eng']
         ]
 
         return self.manager
@@ -512,7 +511,7 @@ class TestCirculationManager(CirculationControllerTest):
         # The reason why is stored here.
         ex = circulation.external_search_initialization_exception
         assert isinstance(ex, Exception)
-        assert "doomed!" == str(ex)
+        assert "doomed!" == ex.message
 
     def test_exception_during_short_client_token_initialization_is_stored(self):
 
@@ -533,7 +532,7 @@ class TestCirculationManager(CirculationControllerTest):
         # configuration was stored here.
         ex = self.manager.short_client_token_initialization_exceptions[self.library.id]
         assert isinstance(ex, CannotLoadConfiguration)
-        assert str(ex).startswith("Short Client Token configuration is incomplete")
+        assert ex.message.startswith("Short Client Token configuration is incomplete")
 
     def test_setup_adobe_vendor_id_does_not_override_existing_configuration(self):
         # Our circulation manager is perfectly happy with its Adobe Vendor ID
@@ -894,7 +893,7 @@ class TestBaseController(CirculationControllerTest):
         """A patron can authenticate even if their credentials have
         expired -- they just can't create loans or holds.
         """
-        one_year_ago = utc_now() - datetime.timedelta(days=365)
+        one_year_ago = datetime.datetime.utcnow() - datetime.timedelta(days=365)
         with self.request_context_with_library("/"):
             patron = self.controller.authenticated_patron(
                 self.valid_credentials
@@ -922,11 +921,11 @@ class TestBaseController(CirculationControllerTest):
         # Without quotes, some iOS versions don't recognize the header value.
 
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
-        base_url.value = 'http://url'
+        base_url.value = u'http://url'
 
         with self.request_context_with_library("/"):
             response = self.controller.authenticate()
-            assert response.headers['WWW-Authenticate'] == 'Basic realm="Library card"'
+            assert response.headers['WWW-Authenticate'] == u'Basic realm="Library card"'
 
         with self.request_context_with_library("/", headers={"X-Requested-With": "XMLHttpRequest"}):
             response = self.controller.authenticate()
@@ -938,12 +937,24 @@ class TestBaseController(CirculationControllerTest):
         # and it is _not_ earlier than the 'last modified' date known by
         # the server.
 
-        now_datetime = utc_now()
-        now_string = email.utils.format_datetime(now_datetime)
+        # We need to do a lot of Python manipulation get the
+        # current time UTC as an int, an HTTP-compatible string, and a
+        # datetime.
+        #
+        # TODO: This can be cleaned up significantly in Python 3.
+        now_int = calendar.timegm(time.gmtime())
+        now_string = email.utils.formatdate(now_int)
+        now_datetime = datetime.datetime.utcfromtimestamp(now_int)
 
-        # To make the test more realistic, set a meaningless
-        # microseconds value of 'now'.
+        # To make the test more realistic, set the microseconds value of 'now'.
         now_datetime = now_datetime.replace(microsecond=random.randint(0, 999999))
+
+        # If all of that was correct, we ended up with a datetime
+        # that's very close to the one we can get with
+        # datetime.datetime.utcnow(). If it's off (due to a
+        # localtime/GMT confusion) it'll be significantly off.
+        cross_check = datetime.datetime.utcnow()
+        assert abs(now_datetime - cross_check).total_seconds() < 5
 
         with self.app.test_request_context(
             headers={"If-Modified-Since": now_string}
@@ -953,7 +964,7 @@ class TestBaseController(CirculationControllerTest):
 
         # Try with a few specific values that comply to a greater or lesser
         # extent with the date-format spec.
-        very_old = datetime_utc(2000, 1, 1)
+        very_old = datetime.datetime(2000, 1, 1)
         for value in [
                 "Thu, 01 Aug 2019 10:00:40 -0000",
                 "Thu, 01 Aug 2019 10:00:40",
@@ -1075,7 +1086,7 @@ class TestBaseController(CirculationControllerTest):
             self._default_library, "bad identifier type", i1.identifier
         )
         assert NO_LICENSES.uri == problem_detail.uri
-        expect = "The item you're asking about (bad identifier type/%s) isn't in this collection." % i1.identifier
+        expect = u"The item you're asking about (bad identifier type/%s) isn't in this collection." % i1.identifier
         assert expect == problem_detail.detail
 
         # Try an identifier that would work except that it's not in a
@@ -1490,14 +1501,14 @@ class TestIndexController(CirculationControllerTest):
             assert "http://cdn/default/groups/" == response.headers['location']
 
     def test_authentication_document(self):
-        # Test the ability to retrieve an Authentication For OPDS document.
+        """Test the ability to retrieve an Authentication For OPDS document."""
         library_name = self.library.short_name
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
             response = self.manager.index_controller.authentication_document()
             assert 200 == response.status_code
             assert AuthenticationForOPDSDocument.MEDIA_TYPE == response.headers['Content-Type']
-            data = response.get_data(as_text=True)
+            data = response.data
             assert self.manager.auth.create_authentication_document() == data
 
             # Make sure we got the A4OPDS document for the right library.
@@ -1509,7 +1520,7 @@ class TestIndexController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
             response = self.manager.index_controller.authentication_document()
-            assert "Cached value" != response.get_data(as_text=True)
+            assert response.data != "Cached value"
 
         # Enable the A4OPDS document cache and verify that it's working.
         self.manager.authentication_for_opds_documents.max_age = 3600
@@ -1518,12 +1529,12 @@ class TestIndexController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/?debug", headers=dict(Authorization=self.invalid_auth)):
             response = self.manager.index_controller.authentication_document()
-            assert cached_value == response.get_data(as_text=True)
+            assert cached_value == response.data
 
             # Note that WSGI debugging data was not provided, even
             # though we requested it, since WSGI debugging is
             # disabled.
-            assert '_debug' not in response.get_data(as_text=True)
+            assert '_debug' not in response.data
 
         # When WSGI debugging is enabled and requested, an
         # authentication document includes some extra information in a
@@ -1541,7 +1552,7 @@ class TestIndexController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
             response = self.manager.index_controller.authentication_document()
-            assert '_debug' not in response.get_data(as_text=True)
+            assert '_debug' not in response.data
 
     def test_public_key_integration_document(self):
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
@@ -1558,7 +1569,7 @@ class TestIndexController(CirculationControllerTest):
         assert 200 == response.status_code
         assert 'application/opds+json' == response.headers.get('Content-Type')
 
-        data = json.loads(response.get_data(as_text=True))
+        data = json.loads(response.data)
         assert 'RSA' == data.get('public_key', {}).get('type')
         assert 'public key' == data.get('public_key', {}).get('value')
 
@@ -1568,7 +1579,7 @@ class TestIndexController(CirculationControllerTest):
         key_setting.value = None
         ConfigurationSetting.for_library(
             Configuration.KEY_PAIR, self.library
-        ).value = 'ignore me'
+        ).value = u'ignore me'
 
         with self.app.test_request_context('/'):
             response = self.manager.index_controller.public_key_document()
@@ -1576,7 +1587,7 @@ class TestIndexController(CirculationControllerTest):
         assert 200 == response.status_code
         assert 'application/opds+json' == response.headers.get('Content-Type')
 
-        data = json.loads(response.get_data(as_text=True))
+        data = json.loads(response.data)
         assert 'http://test-circulation-manager/' == data.get('id')
         key = data.get('public_key')
         assert 'RSA' == key['type']
@@ -1785,7 +1796,8 @@ class TestLoanController(CirculationControllerTest):
                 self.pool.id, do_get=http.do_get
             )
             assert 200 == response.status_code
-            assert "I am an ACSM file" == response.get_data(as_text=True)
+            assert (["I am an ACSM file"] ==
+                response.response)
             assert http.requests == [fulfillable_mechanism.resource.url]
 
             # But we can't use some other mechanism -- we're stuck with
@@ -1829,8 +1841,8 @@ class TestLoanController(CirculationControllerTest):
                     pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
-                    utc_now(),
-                    utc_now() + datetime.timedelta(seconds=3600),
+                    datetime.datetime.utcnow(),
+                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
                 )
             )
             response = self.manager.loans.borrow(
@@ -1987,8 +1999,8 @@ class TestLoanController(CirculationControllerTest):
                     pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
-                    utc_now(),
-                    utc_now() + datetime.timedelta(seconds=3600),
+                    datetime.datetime.utcnow(),
+                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
                     1,
                 )
             )
@@ -2045,8 +2057,8 @@ class TestLoanController(CirculationControllerTest):
                     pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
-                    utc_now(),
-                    utc_now() + datetime.timedelta(seconds=3600),
+                    datetime.datetime.utcnow(),
+                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
                     1,
                 )
             )
@@ -2150,8 +2162,8 @@ class TestLoanController(CirculationControllerTest):
             # Ensure that the library short name is the first segment
             # of the path of the fulfillment url. We cannot perform
             # patron authentication without it.
-            expected_path = urllib.parse.urlparse(expect).path
-            part_url_path = urllib.parse.urlparse(part_url).path
+            expected_path = urlparse.urlparse(expect).path
+            part_url_path = urlparse.urlparse(part_url).path
             assert expected_path.startswith("/{}/".format(library_short_name))
             assert part_url_path.startswith("/{}/".format(library_short_name))
 
@@ -2244,7 +2256,7 @@ class TestLoanController(CirculationControllerTest):
                 self.pool.identifier.type,
                 self.pool.identifier.identifier,
                 None, "text/html", "here's your book",
-                utc_now(),
+                datetime.datetime.utcnow(),
             )
 
         # Now we're able to fulfill the book even without
@@ -2256,7 +2268,7 @@ class TestLoanController(CirculationControllerTest):
                 self.pool.id, self.mech2.delivery_mechanism.id
             )
 
-            assert "here's your book" == response.get_data(as_text=True)
+            assert "here's your book" == response.data
             assert [] == self._db.query(Loan).all()
 
     def test_revoke_loan(self):
@@ -2349,8 +2361,8 @@ class TestLoanController(CirculationControllerTest):
                     pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
-                    utc_now(),
-                    utc_now() + datetime.timedelta(seconds=3600),
+                    datetime.datetime.utcnow(),
+                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
                 )
             )
             response = self.manager.loans.borrow(
@@ -2397,7 +2409,7 @@ class TestLoanController(CirculationControllerTest):
             patron = self.controller.authenticated_patron(
                 self.valid_credentials
             )
-        now = utc_now()
+        now = datetime.datetime.utcnow()
         patron.last_loan_activity_sync = now
 
         # Make a request -- it doesn't have If-Modified-Since, but our
@@ -2436,7 +2448,7 @@ class TestLoanController(CirculationControllerTest):
         ):
             patron = self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.sync()
-            assert not "<entry>" in response.get_data(as_text=True)
+            assert not "<entry>" in response.data
             assert response.headers['Cache-Control'].startswith('private,')
 
             # patron.last_loan_activity_sync was set to the moment the
@@ -2472,15 +2484,15 @@ class TestLoanController(CirculationControllerTest):
             overdrive_pool.collection, overdrive_pool.data_source,
             overdrive_pool.identifier.type,
             overdrive_pool.identifier.identifier,
-            utc_now(),
-            utc_now() + datetime.timedelta(seconds=3600)
+            datetime.datetime.utcnow(),
+            datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
         )
         self.manager.d_circulation.add_remote_hold(
             bibliotheca_pool.collection, bibliotheca_pool.data_source,
             bibliotheca_pool.identifier.type,
             bibliotheca_pool.identifier.identifier,
-            utc_now(),
-            utc_now() + datetime.timedelta(seconds=3600),
+            datetime.datetime.utcnow(),
+            datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
             0,
         )
 
@@ -2492,14 +2504,14 @@ class TestLoanController(CirculationControllerTest):
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.sync()
-            assert '<entry>' not in response.get_data(as_text=True)
+            assert '<entry>' not in response.data
 
         # patron.last_loan_activity_sync was not changed as the result
         # of this request, since we didn't go to the vendor APIs.
         assert patron.last_loan_activity_sync == new_sync_time
 
         # Change it now, to a timestamp far in the past.
-        long_ago = datetime_utc(2000, 1, 1)
+        long_ago = datetime.datetime(2000, 1, 1)
         patron.last_loan_activity_sync = long_ago
 
         # This ensures that when we request the loans feed again, the
@@ -2527,9 +2539,9 @@ class TestLoanController(CirculationControllerTest):
             borrow_link = [x for x in bibliotheca_links if x['rel'] == 'http://opds-spec.org/acquisition/borrow'][0]['href']
             bibliotheca_revoke_links = [x for x in bibliotheca_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
 
-            assert urllib.parse.quote("%s/fulfill" % overdrive_pool.id) in fulfill_link
-            assert urllib.parse.quote("%s/revoke" % overdrive_pool.id) in revoke_link
-            assert urllib.parse.quote("%s/%s/borrow" % (bibliotheca_pool.identifier.type, bibliotheca_pool.identifier.identifier)) in borrow_link
+            assert urllib.quote("%s/fulfill" % overdrive_pool.id) in fulfill_link
+            assert urllib.quote("%s/revoke" % overdrive_pool.id) in revoke_link
+            assert urllib.quote("%s/%s/borrow" % (bibliotheca_pool.identifier.type, bibliotheca_pool.identifier.identifier)) in borrow_link
             assert 0 == len(bibliotheca_revoke_links)
 
             # Since we went out the the vendor APIs,
@@ -2551,7 +2563,7 @@ class TestAnnotationController(CirculationControllerTest):
             assert 200 == response.status_code
 
             # We've been given an annotation container with no items.
-            container = json.loads(response.get_data(as_text=True))
+            container = json.loads(response.data)
             assert [] == container['first']['items']
             assert 0 == container['total']
 
@@ -2574,7 +2586,7 @@ class TestAnnotationController(CirculationControllerTest):
             motivation=Annotation.IDLING,
         )
         annotation.active = True
-        annotation.timestamp = utc_now()
+        annotation.timestamp = datetime.datetime.now()
 
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
@@ -2583,7 +2595,7 @@ class TestAnnotationController(CirculationControllerTest):
             assert 200 == response.status_code
 
             # We've been given an annotation container with one item.
-            container = json.loads(response.get_data(as_text=True))
+            container = json.loads(response.data)
             assert 1 == container['total']
             item = container['first']['items'][0]
             assert annotation.motivation == item['motivation']
@@ -2610,7 +2622,7 @@ class TestAnnotationController(CirculationControllerTest):
             motivation=Annotation.IDLING,
         )
         annotation.active = True
-        annotation.timestamp = utc_now()
+        annotation.timestamp = datetime.datetime.now()
 
         other_annotation, ignore = create(
             self._db, Annotation,
@@ -2626,7 +2638,7 @@ class TestAnnotationController(CirculationControllerTest):
             assert 200 == response.status_code
 
             # We've been given an annotation container with one item.
-            container = json.loads(response.get_data(as_text=True))
+            container = json.loads(response.data)
             assert 1 == container['total']
             item = container['first']['items'][0]
             assert annotation.motivation == item['motivation']
@@ -2636,7 +2648,7 @@ class TestAnnotationController(CirculationControllerTest):
             for method in ['GET', 'HEAD', 'OPTIONS']:
                 assert method in allow_header
 
-            assert 'Accept-Post' not in list(response.headers.keys())
+            assert 'Accept-Post' not in response.headers.keys()
             assert AnnotationWriter.CONTENT_TYPE == response.headers['Content-Type']
             expected_etag = 'W/"%s"' % annotation.timestamp
             assert expected_etag == response.headers['ETag']
@@ -2678,7 +2690,7 @@ class TestAnnotationController(CirculationControllerTest):
             assert data['target']['selector'] == selector
 
             # The response contains the annotation in the db.
-            item = json.loads(response.get_data(as_text=True))
+            item = json.loads(response.data)
             assert str(annotation.id) in item['id']
             assert annotation.motivation == item['motivation']
 
@@ -2700,7 +2712,7 @@ class TestAnnotationController(CirculationControllerTest):
             assert 200 == response.status_code
 
             # We've been given a single annotation item.
-            item = json.loads(response.get_data(as_text=True))
+            item = json.loads(response.data)
             assert str(annotation.id) in item['id']
             assert annotation.motivation == item['motivation']
 
@@ -2904,7 +2916,7 @@ class TestWorkController(CirculationControllerTest):
         # The Response served by Mock.page becomes the response to the
         # incoming request.
         assert 200 == response.status_code
-        assert "An OPDS feed" == response.get_data(as_text=True)
+        assert "An OPDS feed" == response.data
 
         # Now check all the keyword arguments that were passed into
         # page().
@@ -2946,8 +2958,8 @@ class TestWorkController(CirculationControllerTest):
         # created during the original request.
         library = self._default_library
         route, url_kwargs = lane.url_arguments
-        url_kwargs.update(dict(list(facets.items())))
-        url_kwargs.update(dict(list(pagination.items())))
+        url_kwargs.update(dict(facets.items()))
+        url_kwargs.update(dict(pagination.items()))
         with self.request_context_with_library(""):
             expect_url = self.manager.opds_feeds.url_for(
                 route, lane_identifier=None,
@@ -3017,7 +3029,7 @@ class TestWorkController(CirculationControllerTest):
             ).data
 
         assert 200 == response.status_code
-        assert expect == response.get_data()
+        assert expect == response.data
         assert OPDSFeed.ENTRY_TYPE == response.headers['Content-Type']
 
     def test_permalink_does_not_return_fulfillment_links_for_authenticated_patrons_without_loans(self):
@@ -3062,7 +3074,7 @@ class TestWorkController(CirculationControllerTest):
             response = self.manager.work_controller.permalink(identifier_type, identifier)
 
         assert 200 == response.status_code
-        assert expect == response.get_data()
+        assert expect == response.data
         assert OPDSFeed.ENTRY_TYPE == response.headers['Content-Type']
 
     def test_permalink_returns_fulfillment_links_for_authenticated_patrons_with_loans(self):
@@ -3110,7 +3122,7 @@ class TestWorkController(CirculationControllerTest):
             response = self.manager.work_controller.permalink(identifier_type, identifier)
 
         assert 200 == response.status_code
-        assert expect == response.get_data()
+        assert expect == response.data
         assert OPDSFeed.ENTRY_TYPE == response.headers['Content-Type']
 
     def test_permalink_returns_fulfillment_links_for_authenticated_patrons_with_fulfillment(self):
@@ -3146,8 +3158,8 @@ class TestWorkController(CirculationControllerTest):
                 pool.collection, pool.data_source.name,
                 pool.identifier.type,
                 pool.identifier.identifier,
-                utc_now(),
-                utc_now() + datetime.timedelta(seconds=3600),
+                datetime.datetime.utcnow(),
+                datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
             )
             self.manager.d_circulation.queue_checkout(
                 pool,
@@ -3200,7 +3212,7 @@ class TestWorkController(CirculationControllerTest):
             response = self.manager.work_controller.permalink(identifier_type, identifier)
 
         assert 200 == response.status_code
-        assert expect == response.get_data()
+        assert expect == response.data
         assert OPDSFeed.ENTRY_TYPE == response.headers['Content-Type']
 
     def test_recommendations(self):
@@ -3293,7 +3305,7 @@ class TestWorkController(CirculationControllerTest):
         # The return value of Mock.page was used as the response
         # to the incoming request.
         assert 200 == response.status_code
-        assert "A bunch of titles" == response.get_data(as_text=True)
+        assert "A bunch of titles" == response.data
 
         kwargs = Mock.called_with
         assert self._db == kwargs.pop('_db')
@@ -3325,8 +3337,8 @@ class TestWorkController(CirculationControllerTest):
         # context, _plus_ the Facets, Pagination and Lane created
         # during the original request.
         route, url_kwargs = lane.url_arguments
-        url_kwargs.update(dict(list(facets.items())))
-        url_kwargs.update(dict(list(pagination.items())))
+        url_kwargs.update(dict(facets.items()))
+        url_kwargs.update(dict(pagination.items()))
         with self.request_context_with_library(""):
             expect_url = self.manager.work_controller.url_for(
                 route, library_short_name=library.short_name,
@@ -3439,7 +3451,7 @@ class TestWorkController(CirculationControllerTest):
             'Around the World'
         ]
         assert "Same author and series" == same_series_entry['title']
-        expected_series_link = 'series/%s/eng/Adult' % urllib.parse.quote("Around the World")
+        expected_series_link = 'series/%s/eng/Adult' % urllib.quote("Around the World")
         assert same_series_href.endswith(expected_series_link)
 
         # Here's the sublane for books by this contributor.
@@ -3447,7 +3459,7 @@ class TestWorkController(CirculationControllerTest):
             'John Bull'
         ]
         assert "Same author and series" == same_contributor_entry['title']
-        expected_contributor_link = urllib.parse.quote('contributor/John Bull/eng/')
+        expected_contributor_link = urllib.quote('contributor/John Bull/eng/')
         assert same_contributor_href.endswith(expected_contributor_link)
 
         # Here's the sublane for recommendations from NoveList.
@@ -3456,7 +3468,7 @@ class TestWorkController(CirculationControllerTest):
         ]
         assert "Same author and series" == recommended_entry['title']
         work_url = "/works/%s/%s/" % (identifier.type, identifier.identifier)
-        expected = urllib.parse.quote(work_url + 'recommendations')
+        expected = urllib.quote(work_url + 'recommendations')
         assert True == recommended_href.endswith(expected)
 
         # Finally, let's pass in a mock feed class so we can look at the
@@ -3477,7 +3489,7 @@ class TestWorkController(CirculationControllerTest):
         # The return value of Mock.groups was used as the response
         # to the incoming request.
         assert 200 == response.status_code
-        assert "An OPDS feed" == response.get_data(as_text=True)
+        assert "An OPDS feed" == response.data
 
         # Verify that groups() was called with the arguments we expect.
         kwargs = Mock.called_with
@@ -3517,7 +3529,7 @@ class TestWorkController(CirculationControllerTest):
         # created during the original request.
         library = self._default_library
         route, url_kwargs = lane.url_arguments
-        url_kwargs.update(dict(list(facets.items())))
+        url_kwargs.update(dict(facets.items()))
         with self.request_context_with_library(""):
             expect_url = self.manager.work_controller.url_for(
                 route, lane_identifier=None,
@@ -3535,7 +3547,7 @@ class TestWorkController(CirculationControllerTest):
         assert 200 == response.status_code
         assert "text/uri-list" == response.headers['Content-Type']
         for i in Complaint.VALID_TYPES:
-            assert i in response.get_data(as_text=True)
+            assert i in response.data
 
     def test_report_problem_post_success(self):
         error_type = random.choice(list(Complaint.VALID_TYPES))
@@ -3660,7 +3672,7 @@ class TestWorkController(CirculationControllerTest):
         # The return value of Mock.page() is the response to the
         # incoming request.
         assert 200 == response.status_code
-        assert "An OPDS feed" == response.get_data(as_text=True)
+        assert "An OPDS feed" == response.data
 
         kwargs = self.called_with
         assert self._db == kwargs.pop('_db')
@@ -3730,7 +3742,7 @@ class TestOPDSFeedController(CirculationControllerTest):
 
     BOOKS = list(CirculationControllerTest.BOOKS) + [
         ["english_2", "Totally American", "Uncle Sam", "eng", False],
-        ["french_1", "Très Français", "Marianne", "fre", False],
+        ["french_1", u"Très Français", "Marianne", "fre", False],
     ]
 
     def test_feed(self):
@@ -3811,7 +3823,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             for i in links:
                 rel = i['rel']
                 href = i['href']
-                if isinstance(by_rel.get(rel), (bytes, str)):
+                if isinstance(by_rel.get(rel), basestring):
                     by_rel[rel] = [by_rel[rel]]
                 if isinstance(by_rel.get(rel), list):
                     by_rel[rel].append(href)
@@ -3835,7 +3847,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             expected_pagination_key = [
                 last_item.sort_title, last_item.sort_author, last_item.id
             ]
-            expect = "key=%s" % urllib.parse.quote_plus(
+            expect = "key=%s" % urllib.quote_plus(
                 json.dumps(expected_pagination_key)
             )
             assert expect in next_link
@@ -3880,7 +3892,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             )
 
         assert isinstance(response, Response)
-        assert "An OPDS feed" == response.get_data(as_text=True)
+        assert "An OPDS feed" == response.data
 
         # Now check all the keyword arguments that were passed into
         # page().
@@ -3996,7 +4008,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             # The Response returned by Mock.groups() has been converted
             # into a Flask response.
             assert 200 == response.status_code
-            assert "A grouped feed" == response.get_data(as_text=True)
+            assert "A grouped feed" == response.data
 
             # While we're in request context, generate the URL we
             # expect to be used for this feed.
@@ -4104,7 +4116,7 @@ class TestOPDSFeedController(CirculationControllerTest):
 
     def _set_update_times(self):
         """Set the last update times so we can create a crawlable feed."""
-        now = utc_now()
+        now = datetime.datetime.now()
 
         def _set(work, time):
             """Set all fields used when calculating a work's update date for
@@ -4129,8 +4141,8 @@ class TestOPDSFeedController(CirculationControllerTest):
         # term, you get an OpenSearch document.
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.search(None)
-            assert response.headers['Content-Type'] == 'application/opensearchdescription+xml'
-            assert "OpenSearchDescription" in response.get_data(as_text=True)
+            assert response.headers['Content-Type'] == u'application/opensearchdescription+xml'
+            assert "OpenSearchDescription" in response.data
 
     def test_search(self):
         # Test the search() controller method.
@@ -4223,7 +4235,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             expect_url = self.manager.opds_feeds.url_for(
                 'lane_search', lane_identifier=None,
                 library_short_name=library.short_name,
-                **dict(list(facets.items())), q=query
+                q=query, **dict(facets.items())
             )
         assert expect_url == kwargs.pop('url')
 
@@ -4269,7 +4281,7 @@ class TestOPDSFeedController(CirculationControllerTest):
         with self.request_context_with_library("/?q=t"):
             problem = circulation.opds_feeds.search(None)
             assert REMOTE_INTEGRATION_FAILED.uri == problem.uri
-            assert ('The search index for this site is not properly configured.' ==
+            assert (u'The search index for this site is not properly configured.' ==
                 problem.detail)
 
     def test__qa_feed(self):
@@ -4685,7 +4697,7 @@ class TestCrawlableFeed(CirculationControllerTest):
 
         # The result of page() was served as an OPDS feed.
         assert 200 == response.status_code
-        assert "An OPDS feed" == response.get_data(as_text=True)
+        assert "An OPDS feed" == response.data
 
         # Verify the arguments passed in to page().
         out_kwargs = self.page_called_with
@@ -4741,7 +4753,7 @@ class TestCrawlableFeed(CirculationControllerTest):
 
 class TestMARCRecordController(CirculationControllerTest):
     def test_download_page_with_exporter_and_files(self):
-        now = utc_now()
+        now = datetime.datetime.now()
         yesterday = now - datetime.timedelta(days=1)
 
         library = self._default_library
@@ -4786,7 +4798,7 @@ class TestMARCRecordController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
             assert 200 == response.status_code
-            html = response.get_data(as_text=True)
+            html = response.data
             assert ("Download MARC files for %s" % library.name) in html
 
             assert "<h3>All Books</h3>" in html
@@ -4798,7 +4810,7 @@ class TestMARCRecordController(CirculationControllerTest):
             assert '<a href="http://mirror2">Full file - last updated %s</a>' % yesterday.strftime("%B %-d, %Y") in html
 
     def test_download_page_with_exporter_but_no_files(self):
-        now = utc_now()
+        now = datetime.datetime.now()
         yesterday = now - datetime.timedelta(days=1)
 
         library = self._default_library
@@ -4810,7 +4822,7 @@ class TestMARCRecordController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
             assert 200 == response.status_code
-            html = response.get_data(as_text=True)
+            html = response.data
             assert ("Download MARC files for %s" % library.name) in html
             assert "MARC files aren't ready" in html
 
@@ -4820,13 +4832,13 @@ class TestMARCRecordController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
             assert 200 == response.status_code
-            html = response.get_data(as_text=True)
+            html = response.data
             assert ("Download MARC files for %s" % library.name) in html
             assert ("No MARC exporter is currently configured") in html
 
         # If the exporter was deleted after some MARC files were cached,
         # they will still be available to download.
-        now = utc_now()
+        now = datetime.datetime.now()
         rep, ignore = create(
             self._db, Representation,
             url="http://mirror1", mirror_url="http://mirror1",
@@ -4840,7 +4852,7 @@ class TestMARCRecordController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
             assert 200 == response.status_code
-            html = response.get_data(as_text=True)
+            html = response.data
             assert ("Download MARC files for %s" % library.name) in html
             assert "No MARC exporter is currently configured" in html
             assert '<h3>All Books</h3>' in html
@@ -4998,12 +5010,12 @@ class TestDeviceManagementProtocolController(ControllerTest):
             # We got a list of device IDs.
             assert (self.controller.DEVICE_ID_LIST_MEDIA_TYPE ==
                 response.headers['Content-Type'])
-            assert "device1\ndevice2" == response.get_data(as_text=True)
+            assert "device1\ndevice2" == response.data
 
             # We got a URL Template (see test_link_template_header())
             # that explains how to address any particular device ID.
             expect = self.controller.link_template_header
-            for k, v in list(expect.items()):
+            for k, v in expect.items():
                 assert response.headers[k] == v
 
     def device_id_list_handler_bad_auth(self):
@@ -5023,7 +5035,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
             assert 405 == response.status_code
 
     def test_device_id_list_handler_too_many_simultaneous_registrations(self):
-        # We only allow registration of one device ID at a time.
+        """We only allow registration of one device ID at a time."""
         headers = dict(self.auth)
         headers['Content-Type'] = self.controller.DEVICE_ID_LIST_MEDIA_TYPE
         with self.request_context_with_library(
@@ -5160,7 +5172,7 @@ class TestSharedCollectionController(ControllerTest):
             response = self.manager.shared_collection_controller.info(self.collection.name)
             assert 200 == response.status_code
             assert response.headers.get("Content-Type").startswith("application/opds+json")
-            links = json.loads(response.get_data(as_text=True)).get("links")
+            links = json.loads(response.data).get("links")
             [register_link] = [link for link in links if link.get("rel") == "register"]
             assert "/collections/%s/register" % self.collection.name in register_link.get("href")
 
@@ -5195,11 +5207,11 @@ class TestSharedCollectionController(ControllerTest):
             api.queue_register(dict(shared_secret="secret"))
             response = self.manager.shared_collection_controller.register(self.collection.name)
             assert 200 == response.status_code
-            assert "secret" == json.loads(response.get_data(as_text=True)).get("shared_secret")
+            assert "secret" == json.loads(response.data).get("shared_secret")
 
     def test_loan_info(self):
-        now = utc_now()
-        tomorrow = utc_now() + datetime.timedelta(days=1)
+        now = datetime.datetime.utcnow()
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
 
         other_client, ignore = IntegrationClient.register(self._db, "http://otherlibrary")
         other_client_loan, ignore = create(
@@ -5238,8 +5250,8 @@ class TestSharedCollectionController(ControllerTest):
             availability = entry.get("opds_availability")
             since = availability.get("since")
             until = availability.get("until")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ") == until
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/loans/%s/revoke" % (self.collection.name, loan.id) in revoke_url
             [fulfill_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"]
@@ -5248,8 +5260,8 @@ class TestSharedCollectionController(ControllerTest):
             assert "/collections/%s/loans/%s" % (self.collection.name, loan.id)
 
     def test_borrow(self):
-        now = utc_now()
-        tomorrow = utc_now() + datetime.timedelta(days=1)
+        now = datetime.datetime.utcnow()
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
         loan, ignore = create(
             self._db, Loan, license_pool=self.pool, integration_client=self.client,
             start=now, end=tomorrow,
@@ -5292,8 +5304,8 @@ class TestSharedCollectionController(ControllerTest):
             availability = entry.get("opds_availability")
             since = availability.get("since")
             until = availability.get("until")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ") == until
             assert "available" == availability.get("status")
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/loans/%s/revoke" % (self.collection.name, loan.id) in revoke_url
@@ -5328,8 +5340,8 @@ class TestSharedCollectionController(ControllerTest):
             since = availability.get("since")
             until = availability.get("until")
             assert "available" == availability.get("status")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ") == until
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/loans/%s/revoke" % (self.collection.name, loan.id) in revoke_url
             [fulfill_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"]
@@ -5346,8 +5358,8 @@ class TestSharedCollectionController(ControllerTest):
             availability = entry.get("opds_availability")
             since = availability.get("since")
             until = availability.get("until")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ") == until
             assert "reserved" == availability.get("status")
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/holds/%s/revoke" % (self.collection.name, hold.id) in revoke_url
@@ -5356,8 +5368,8 @@ class TestSharedCollectionController(ControllerTest):
             assert "/collections/%s/holds/%s" % (self.collection.name, hold.id)
 
     def test_revoke_loan(self):
-        now = utc_now()
-        tomorrow = utc_now() + datetime.timedelta(days=1)
+        now = datetime.datetime.utcnow()
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
         loan, ignore = create(
             self._db, Loan, license_pool=self.pool, integration_client=self.client,
             start=now, end=tomorrow,
@@ -5397,8 +5409,8 @@ class TestSharedCollectionController(ControllerTest):
             assert NO_ACTIVE_LOAN.uri == response.uri
 
     def test_fulfill(self):
-        now = utc_now()
-        tomorrow = utc_now() + datetime.timedelta(days=1)
+        now = datetime.datetime.utcnow()
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
         loan, ignore = create(
             self._db, Loan, license_pool=self.pool, integration_client=self.client,
             start=now, end=tomorrow,
@@ -5441,7 +5453,7 @@ class TestSharedCollectionController(ControllerTest):
                 self.pool.identifier.type,
                 self.pool.identifier.identifier,
                 "http://content", "text/html", None,
-                utc_now(),
+                datetime.datetime.utcnow(),
             )
 
             api.queue_fulfill(fulfillment_info)
@@ -5455,7 +5467,7 @@ class TestSharedCollectionController(ControllerTest):
                 return MockRequestsResponse(200, content="Content")
             response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id, do_get=do_get_success)
             assert 200 == response.status_code
-            assert "Content" == response.get_data(as_text=True)
+            assert "Content" == response.data
             assert "text/html" == response.headers.get("Content-Type")
 
             fulfillment_info.content_link = None
@@ -5463,12 +5475,12 @@ class TestSharedCollectionController(ControllerTest):
             api.queue_fulfill(fulfillment_info)
             response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id)
             assert 200 == response.status_code
-            assert "Content" == response.get_data(as_text=True)
+            assert "Content" == response.data
             assert "text/html" == response.headers.get("Content-Type")
 
     def test_hold_info(self):
-        now = utc_now()
-        tomorrow = utc_now() + datetime.timedelta(days=1)
+        now = datetime.datetime.utcnow()
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
 
         other_client, ignore = IntegrationClient.register(self._db, "http://otherlibrary")
         other_client_hold, ignore = create(
@@ -5507,8 +5519,8 @@ class TestSharedCollectionController(ControllerTest):
             availability = entry.get("opds_availability")
             since = availability.get("since")
             until = availability.get("until")
-            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%S+00:00") == since
-            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%S+00:00") == until
+            assert datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ") == since
+            assert datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ") == until
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/holds/%s/revoke" % (self.collection.name, hold.id) in revoke_url
             assert [] == [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"]
@@ -5516,8 +5528,8 @@ class TestSharedCollectionController(ControllerTest):
             assert "/collections/%s/holds/%s" % (self.collection.name, hold.id)
 
     def test_revoke_hold(self):
-        now = utc_now()
-        tomorrow = utc_now() + datetime.timedelta(days=1)
+        now = datetime.datetime.utcnow()
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
         hold, ignore = create(
             self._db, Hold, license_pool=self.pool, integration_client=self.client,
             start=now, end=tomorrow,
@@ -5625,7 +5637,7 @@ class TestProfileController(ControllerTest):
             patron.synchronize_annotations = True
             response = self.manager.profiles.protocol()
             assert "200 OK" == response.status
-            data = json.loads(response.get_data(as_text=True))
+            data = json.loads(response.data)
             settings = data['settings']
             assert True == settings[ProfileStorage.SYNCHRONIZE_ANNOTATIONS]
 
@@ -5842,7 +5854,7 @@ class TestStaticFileController(CirculationControllerTest):
 
         directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "files", "images")
         filename = "blue.jpg"
-        with open(os.path.join(directory, filename), "rb") as f:
+        with open(os.path.join(directory, filename)) as f:
             expected_content = f.read()
 
         with self.app.test_request_context("/"):
@@ -5859,7 +5871,7 @@ class TestStaticFileController(CirculationControllerTest):
     def test_image(self):
         directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
         filename = "CleverLoginButton280.png"
-        with open(os.path.join(directory, filename), "rb") as f:
+        with open(os.path.join(directory, filename)) as f:
             expected_content = f.read()
 
         with self.app.test_request_context("/"):

@@ -1,12 +1,11 @@
-#!/usr/bin/env python3
-"""Run self tests on every one of a library's integrations that supports self-tests."""
+#!/usr/bin/env python
+"""Run self tests on every one of a library's integrations that supports
+self-tests.
+"""
 import os
 import sys
-
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
-
-from api.selftest import RunSelfTestsScript     # noqa: E402
-
+from api.selftest import RunSelfTestsScript
 RunSelfTestsScript().run()

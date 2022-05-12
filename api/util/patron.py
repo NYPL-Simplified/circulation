@@ -1,11 +1,9 @@
 import datetime
-import dateutil
 from money import Money
 from api.config import Configuration
 from api.circulation_exceptions import *
 from core.model.patron import Patron
 from core.util import MoneyUtility
-from core.util.datetime_helpers import utc_now
 
 class PatronUtility(object):
     """Apply circulation-specific logic to Patron model objects."""
@@ -24,7 +22,7 @@ class PatronUtility(object):
             # This patron has never been synced.
             return True
 
-        now = utc_now()
+        now = datetime.datetime.utcnow()
         if cls.has_borrowing_privileges(patron):
             # A patron who has borrowing privileges gets synced every twelve
             # hours. Their account is unlikely to change rapidly.
@@ -49,7 +47,7 @@ class PatronUtility(object):
         try:
             cls.assert_borrowing_privileges(patron)
             return True
-        except CannotLoan as e:
+        except CannotLoan, e:
             return False
 
     @classmethod
@@ -104,10 +102,10 @@ class PatronUtility(object):
         # (server) local time here instead of UTC. This is to make it
         # less likely that a patron's authorization will expire before
         # they think it should.
-        now_local = datetime.datetime.now(tz=dateutil.tz.tzlocal())
+        now = datetime.datetime.now()
         if (patron.authorization_expires
             and cls._to_date(patron.authorization_expires)
-            < cls._to_date(now_local)):
+            < cls._to_date(now)):
             return False
         return True
 

@@ -54,64 +54,64 @@ circulation = CirculationAPI(_db, overdrive=overdrive, threem=threem,
                              axis=axis)
 
 activity = circulation.patron_activity(patron, pin)
-print('-' * 80)
+print '-' * 80
 for i in activity:
-    print(i)
-print('-' * 80)
+    print i
+print '-' * 80
 
 licensepool = borrow_pool
 mechanism = licensepool.delivery_mechanisms[0]
 try:
     circulation.fulfill(patron, pin, licensepool, mechanism)
-except NoActiveLoan as e:
-    print(" No active loan...")
+except NoActiveLoan, e:
+    print " No active loan..."
 circulation.borrow(patron, pin, licensepool, mechanism, email)
-print("Attempting to borrow", licensepool.work)
-print("Initial revoke loan")
-print(circulation.revoke_loan(patron, pin, licensepool))
-print("Fulfill with no loan")
+print "Attempting to borrow", licensepool.work
+print "Initial revoke loan"
+print circulation.revoke_loan(patron, pin, licensepool)
+print "Fulfill with no loan"
 try:
     circulation.fulfill(patron, pin, licensepool, mechanism)
-except NoActiveLoan as e:
-    print(" Exception as expected.")
-print("Borrow")
-print(circulation.borrow(patron, pin, licensepool, mechanism, email))
-print("Borrow again!")
-print(circulation.borrow(patron, pin, licensepool, mechanism, email))
-print("Fulfill with loan")
-print(circulation.fulfill(patron, pin, licensepool, mechanism))
+except NoActiveLoan, e:
+    print " Exception as expected."
+print "Borrow"
+print circulation.borrow(patron, pin, licensepool, mechanism, email)
+print "Borrow again!"
+print circulation.borrow(patron, pin, licensepool, mechanism, email)
+print "Fulfill with loan"
+print circulation.fulfill(patron, pin, licensepool, mechanism)
 
 
 licensepool = hold_pool
-print("Attempting to place hold on", licensepool.work)
-print("Initial release hold")
-print("", circulation.release_hold(patron, pin, licensepool))
-print("Creating hold.")
-print("", circulation.borrow(patron, pin, licensepool, mechanism, email))
-print("Creating hold again!")
+print "Attempting to place hold on", licensepool.work
+print "Initial release hold"
+print "", circulation.release_hold(patron, pin, licensepool)
+print "Creating hold."
+print "", circulation.borrow(patron, pin, licensepool, mechanism, email)
+print "Creating hold again!"
 try:
-    print(circulation.borrow(patron, pin, licensepool, mechanism, email))
-except CannotLoan as e:
-    print(" Exception as expected.")
-print("Attempt to fulfill hold.")
+    print circulation.borrow(patron, pin, licensepool, mechanism, email)
+except CannotLoan, e:
+    print " Exception as expected."
+print "Attempt to fulfill hold."
 try:
-    print(circulation.fulfill(patron, pin, licensepool, mechanism))
-except NoActiveLoan as e:
-    print(" Exception as expected")
+    print circulation.fulfill(patron, pin, licensepool, mechanism)
+except NoActiveLoan, e:
+    print " Exception as expected"
 
 activity = circulation.patron_activity(patron, pin)
-print('-' * 80)
+print '-' * 80
 for i in activity:
-    print(i)
-print('-' * 80)
+    print i
+print '-' * 80
 
-print("Revoke loan")
-print(circulation.revoke_loan(patron, pin, licensepool))
-print("Revoke already revoked loan")
-print(circulation.revoke_loan(patron, pin, licensepool))
+print "Revoke loan"
+print circulation.revoke_loan(patron, pin, licensepool)
+print "Revoke already revoked loan"
+print circulation.revoke_loan(patron, pin, licensepool)
 
-print("Release hold.")
-print(circulation.release_hold(patron, pin, licensepool))
-print("Release nonexistent hold.")
-print(circulation.release_hold(patron, pin, licensepool))
+print "Release hold."
+print circulation.release_hold(patron, pin, licensepool)
+print "Release nonexistent hold."
+print circulation.release_hold(patron, pin, licensepool)
 

@@ -10,7 +10,6 @@ from api.lcp.server import LCPServerConfiguration, LCPServer
 from core.model import ExternalIntegration, DataSource
 from core.model.configuration import HasExternalIntegration, ConfigurationStorage, ConfigurationAttribute, \
     ConfigurationFactory
-from core.util.datetime_helpers import utc_now
 from tests.lcp import fixtures
 from tests.lcp.database_test import DatabaseTest
 
@@ -312,7 +311,7 @@ class TestLCPAPI(DatabaseTest):
         lcp_api = LCPAPI(self._db, self._lcp_collection)
         patron = self._patron()
         days = self._lcp_collection.default_loan_period(patron.library)
-        start_date = utc_now()
+        start_date = datetime.datetime.utcnow()
         end_date = start_date + datetime.timedelta(days=days)
         data_source = DataSource.lookup(self._db, DataSource.LCP, autocreate=True)
         data_source_name = data_source.name
@@ -359,7 +358,7 @@ class TestLCPAPI(DatabaseTest):
         lcp_api = LCPAPI(self._db, self._lcp_collection)
         patron = self._patron()
         days = self._lcp_collection.default_loan_period(patron.library)
-        start_date = utc_now()
+        start_date = datetime.datetime.utcnow()
         end_date = start_date + datetime.timedelta(days=days)
         data_source = DataSource.lookup(self._db, DataSource.LCP, autocreate=True)
         data_source_name = data_source.name
@@ -408,7 +407,7 @@ class TestLCPAPI(DatabaseTest):
         lcp_api = LCPAPI(self._db, self._lcp_collection)
         patron = self._patron()
         days = self._lcp_collection.default_loan_period(patron.library)
-        today = utc_now()
+        today = datetime.datetime.utcnow()
         expires = today + datetime.timedelta(days=days)
         data_source = DataSource.lookup(self._db, DataSource.LCP, autocreate=True)
         data_source_name = data_source.name
@@ -454,7 +453,7 @@ class TestLCPAPI(DatabaseTest):
         # 1. Correct loan
         patron = self._patron()
         days = self._lcp_collection.default_loan_period(patron.library)
-        today = utc_now()
+        today = datetime.datetime.utcnow()
         expires = today + datetime.timedelta(days=days)
         data_source = DataSource.lookup(self._db, DataSource.LCP, autocreate=True)
         data_source_name = data_source.name
