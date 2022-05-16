@@ -256,7 +256,7 @@ RUN chmod 664 /etc/cron.d/circulation \
  && crontab /etc/cron.d/circulation \
  && touch /var/log/cron.log
 
-CMD ["scripts"]
+CMD ["scripts", "|& tee -a /var/log/cron.log 2>$1"]
 
 ###############################################################################
 ## cm_scripts_local - local dev version of scripts, relies on host mounted code
