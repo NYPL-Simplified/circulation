@@ -1,0 +1,2 @@
+CREATE INDEX ix_cachedfeeds_license_pool_id ON cachedfeeds USING btree (license_pool_id);
+ALTER TABLE ONLY cachedfeeds ADD CONSTRAINT cachedfeeds_license_pool_id_fkey FOREIGN KEY (license_pool_id) REFERENCES licensepools(id);

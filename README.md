@@ -1,229 +1,168 @@
 # Library Simplified Circulation Manager
 
-![Build Status](https://github.com/nypl-simplified/circulation/actions/workflows/test.yml/badge.svg?branch=develop) [![GitHub Release](https://img.shields.io/github/release/nypl-simplified/circulation.svg?style=flat)]()
+![Build Status](https://github.com/nypl-simplified/circulation/actions/workflows/test.yml/badge.svg?branch=develop) ![GitHub Release](https://img.shields.io/github/release/nypl-simplified/circulation.svg?style=flat)
 
-Table of contents
-=================
+## Table of contents
 
 * [Overview](#Overview)
 * [Git Branch Workflow](#git-branch-workflow)
-* [Getting Started / Set Up](#getting-started--set-up)
-  * [Docker](#docker-setup)
-  * [Manual](#manual)
-  * [Adding Collections](#adding-collections-to-the-circulation-manager-admin)
+* [Development](#Development)
+    * [Installation](#Installation)
+    * [Operation](#Operation)
+    * [Testing](#Testing)
+    * [Making Code Changes](#making-code-changes)
+    * [Adding Collections to the Circulation Manager Admin](#adding-collections-to-the-circulation-manager-admin)
 * [Generating Documentation](#generating-documentation)
-* [Testing](#testing)
-* [Debugging](#debugging)
-* [Contributing](#contributing)
-* [License](#license)
+* [Continuous Integration](#continuous-integration)
+* [Contributing](#Contributing)
+* [License](#License)
 * [Appendix](#appendix)
 
 ## Overview
 
-Default Branch: `develop`
-
-This is the Circulation Manager for [Library Simplified](https://www.librarysimplified.org/). The Circulation Manager is the main connection between a library's collection and Library Simplified's various client-side applications, including SimplyE. It handles user authentication, combines licensed works with open access content, pulls in updated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
-
-It depends on [Library Simplified Server Core](https://github.com/NYPL-Simplified/server_core) as a git submodule.
+This is the Circulation Manager for [Library Simplified](https://www.librarysimplified.org/). The Circulation Manager is the main connection between a library's collection and Library Simplified's various client-side applications, including SimplyE. It handles user authentication, combines licensed works with open access content, pulls in updated book information from distributor APIs and secondary sources, and serves up available books in appropriately organized <a href="https://opds.io" target="_blank">OPDS</a> feeds.
 
 ## Git Branch Workflow
 
-| Branch  | Python Version |
-| ------- | -------------- |
-| develop | Python 3       |
-| main    | Python 3       |
-| python2 | Python 2       |
-
 The default branch is `develop` and that's the working branch that should be used when branching off for bug fixes or new features. Once a feature branch pull request is merged into `develop`, the changes can be merged to `main` to create releases.
 
-Python 2 stopped being supported after January 1st, 2020 but there is still a `python2` branch which can be used. As of May 2021, development will be done in the `develop` and `main` branches.
+Branches whose name follows the pattern `<organization>-deploy-<env>` are protected, and are used as part of CI/CD processes for the named organization. These branches include:
 
-There are additional protected branches that are used for _NYPL-specific_ deployments to keep in mind.
+* `nypl-deploy-qa`
+* `nypl-deploy-production`
+* `openebooks-deploy-qa`
+* `openebooks-deploy-production`
+* `bpl-deploy-qa`
+* `bpl-deploy-production`
 
-| Branch                 |
-| ---------------------- |
-| nypl-deploy-qa         |
-| nypl-deploy-production |
-| openebooks-deploy-qa   |
-| openebooks-deploy-qa   |
-| bpl-deploy-qa          |
-| bpl-deploy-production  |
+## Development
 
+The preferred method for running an instance of the Circulation Manager is via Docker containers. If for whatever reason you cannot run a containerized version of the Circulation Manager, initial instructions for a direct installation can be found in [docs/NonDockerInstallation.md](./docs/NonDockerInstallation.md).
 
-## Getting Started / Set Up
-To get this project up and running locally, you can follow the [Docker](#docker-setup) setup or the [Manual](#manual-setup) setup. The Docker setup will take care of many of the pre-requisites for you. Once you're set up, you can proceed with [adding collections](#adding-collections-to-the-circulation-manager-admin).
+### Installation
 
-### **Docker Setup**
----
-***Note**: For more in depth information on using Docker images for deployment, check out the [Docker README](/docker/README.md) in the `/docker` directory.*
+The recommended way to get a local development environment is via [Docker](https://www.docker.com/products/docker-desktop). If you need to perform a direct installation, please see the [Non-Docker Installation](./docs/NonDockerInstallation.md) document.
 
-Before proceeding, ensure you have [Docker](https://docs.docker.com/get-docker/) installed for your environment.
+_**Note:** The Circulation Manager containers should build and run on both amd64- and arm64-based machines. However, due to differences in the containerized version of ElasticSearch that we currently depend on, it is necessary to use a different Docker Compose file (`docker-compose.arm64.yml`) to orchestrate the cluster on arm64 machines, including those using Apple's M1 chip series. If you use the `make` commands below to control the local cluster this difference won't matter, as it will choose the correct compose file based on your machine's architecture. However, if you run the `docker-compose` commands directly on an arm64-based machine, please make sure to use the correct compose file, via `docker-compose --file docker-compose.arm64.yml <COMMAND>`._
 
-Clone this repo:
+#### Docker
 
-```bash
-  git clone git@github.com:NYPL-Simplified/circulation.git
+In addition to installing Docker Desktop (link above), you'll also need an account at [Docker Hub](https://hub.docker.com). Docker works by downloading base machine images to build on top of, and the majority of those are available from Docker Hub. However, the Docker Engine can only locate and pull images on behalf of an authenticated user.
+
+Once you've created an account (or using an account you already have), you'll need to sign in via your Docker Desktop installation. You should be able to do that from the top right corner of the Docker Desktop dashboard window.
+
+#### Make
+
+A [`Makefile`](./Makefile) is provided to help manage the local containers for the Circulation Manager. If you don't currently have `make` on your system, it should be available from your system's package manager (`apt`, `brew`, etc.) You can also run the recipes in the Makefile by hand, by copying and pasting the commands to your shell, if you can't get or would prefer not to install `make` itself.
+
+#### Cloning the repository and building images
+
+The following shell commands will clone this repo and build Docker images for the Circulation Manager web application and a PostgreSQL database:
+
+```shell
+git clone https://github.com/NYPL-Simplified/circulation.git
+cd ./circulation
+make build
 ```
 
-Go to the `docker` directory:
+### Operation
 
-```bash
-  cd circulation/docker
+Once the images are successfully built, you can start a local cluster with:
+
+```shell
+make up
 ```
 
-Build the containers:
+The first time you start the cluster, the database container will run the initialization script [`localdev_postgres_init.sh`](./docker/localdev_postgres_init.sh), which creates dev and test databases, installs PostgreSQL extensions, and creates credentialed users. Since the PostgreSQL data directory is persisted in a Docker Volume, subsequent startups will not re-initialize the database. The webapp container will wait to start its webserver until the database is available and accepting connections. If you want to observe the initialization process, use `make up-watch` instead of `make up`, to keep your terminal attached to the output of the running containers.
 
-```bash
-  docker compose build
+If you have previously run a version of the containerized Circulation Manager, it is possible you'll have a Docker volume remaining to persist the PostgreSQL data directory. If that is the case, and the database in that directory is not configured correctly, you could see output from `make up-watch` like:
+
+```Text
+cm_local_db        | PostgreSQL Database directory appears to contain a database; Skipping initialization
+
+[...]
+
+cm_local_db        | 2021-11-19 22:20:06.563 UTC [74] FATAL:  password authentication failed for user "simplified"
+cm_local_db        | 2021-11-19 22:20:06.563 UTC [74] DETAIL:  Role "simplified" does not exist.
+
+[...]
+
+cm_local_webapp    | --- Database unavailable, sleeping 5 seconds
 ```
 
-Run the containers:
+If so, run `make clean` to remove the existing volume, then `make up-watch` again--you should see the database initialization process occur.
 
-```bash
-  docker compose up -d
+While the cluster is running (and after the web server has started), you should be able to access the API endpoints at `http://localhost`, and the administrative web app at `http://localhost/admin/`. The first time you attempt to sign in to the admin app a user will be created with the credentials you supply.
+
+Other lifecycle management commands (a full list is available via `make help`):
+
+* `make stop` / `make start` - after running `make up`, you can pause and unpause the cluster without destroying the containers
+* `make down` - stops the cluster and removes the containers and virtual network
+* `make clean` - stops the cluster, removes the containers and virtual network, and the db volume
+* `make full-clean` - same as `make clean`, but also deletes the Docker images for the cluster
+
+#### Accessing the Containers
+
+While the cluster is running, you can access the containers with these commands:
+
+* `make db-session` - Starts a `psql` session on the database container as the superuser
+* `make webapp-shell` - Open a bash shell on the webapp container
+* `make webapp-py-repl` - Open a Python REPL session on the webapp container, in the project's virtualenv
+* `make scripts-shell` - Open a bash shell on the scripts container
+* `make scripts-py-repl` - Open a Python REPL session on the scripts container, in the project's virtualenv
+
+### Testing
+
+While you have a running cluster, you can start the test suite with:
+
+```shell
+make test
 ```
 
-Confirm all of the containers are running successfully:
+That will run the entire test suite via `pytest`. If you instead would like to use the `-x` option to `pytest` to exit at the first error or failure, you can use:
 
-```bash
-  docker ps -a
+```shell
+make test-x
 ```
 
-Finally, open the administration panel at http://localhost:80/admin to view the Circulation Manager Administration app. 
+#### Running Specific Tests
 
-### **Manual Setup**
----
-#### **Python Set Up**
+You can ignore the `Makefile` and directly issue the `pytest` command to the webapp container via `docker exec`, as follows:
 
-If you do not have Python 3 installed, and you are running MacOS or Linux, you can use [Homebrew](https://brew.sh/)\* to install it by running the command `$ brew install python3`.
-
-\*If you do not yet have Homebrew, you can install it by running the following:
-
-```
-$ /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```shell
+docker exec -it cm_local_webapp pipenv run pytest tests
 ```
 
-While you're at it, go ahead and install the following required dependencies:
+That gives you access to all of the standard options to `pytest`, allowing variations like:
 
-- `$ brew install pkg-config libffi`
-- `$ brew install libxmlsec1`
-- `$ brew install libjpeg`
+```shell
+# Fail fast with -x
+docker exec -it --env TESTING=1 cm_local_webapp pipenv run pytest -x tests
 
-You will need to set up a local virtual environment to install packages and run the project. If you haven't done so before, use pip to install virtualenv – `$ pip install virtualenv` – before creating the virtual environment in the root of the circulation repository:
+# Run a particular test class
+docker exec -it --env TESTING=1 cm_local_webapp pipenv \run pytest tests/test_decorators.py::TestDecorators
 
-```sh
-$ python -m venv env
+# Run a specific test method
+docker exec -it --env TESTING=1 cm_local_webapp pipenv run pytest tests/test_decorators.py::TestDecorators::test_uses_location_from_ip
+
+# Turn off the warnings output
+docker exec -it --env TESTING=1 cm_local_webapp pipenv run pytest --disable-warnings tests
 ```
 
-As mentioned above, this application depends on [Library Simplified Server Core](https://github.com/NYPL-Simplified/server_core) as a git submodule. To set that up, in the repository, run:
+The full set of options to the `pytest` executable is available at [https://docs.pytest.org/en/6.2.x/usage.html](https://docs.pytest.org/en/6.2.x/usage.html)
 
-- `$ git submodule init`
-- `$ git submodule update`
+### Making Code Changes
 
-#### **Python Version**
+The Docker containers for local development of the web app and script runner (`cm_local_webapp` and `cm_local_scripts`, respectively) do not have copies of the codebase in their virtualized file systems. Instead, the local directory that this repo is checked out to is made available to the container as a read-only [bind mount](https://docs.docker.com/storage/bind-mounts/), at `/home/simplified/circulation`. The setting of that bind mount occurs via `docker-compose`, and can be seen in the `webapp` and `scripts` sections of `docker-compose.yml` and `docker-compose.arm64.yml`.
 
-It is important to know that only certain versions of Python 3 will work with this application. One such version is Python 3.6.5. Check to see which version you currently have installed by running `$ python -V`.
+Because those host mounts occur through Docker Compose, they will not be present if you directly create a container from the built images via `docker run`, unless you specify the bind mount via command line options, as with:
 
-If you're using a version of Python that doesn't work, install [pyenv](https://github.com/pyenv/pyenv-installer) using command `$ curl https://pyenv.run | bash`, then install the version of Python you want to work with, ie `$ pyenv install python3.6.5`, and then run `$ pyenv global 3.6.5`. Check the current version again with `$ python -V` to make sure it's correct before proceeding.
-
-#### **Elasticsearch Set Up**
-
-The circulation manager requires Elasticsearch. If you don't have Elasticsearch, check out instructions in the [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions), or simply read on.
-
-1. Download it [here](https://www.elastic.co/downloads/past-releases/elasticsearch-6-8-6).
-2. `cd` into the `elasticsearch-[version number]` directory.
-3. Run `$ sudo bin/elasticsearch-plugin install analysis-icu`
-4. Run `$ ./bin/elasticsearch`.
-5. You may be prompted to download [Java SE](https://www.oracle.com/java/technologies/javase-downloads.html). If so, go ahead and do so.
-6. Check `http://localhost:9200` to make sure the Elasticsearch server is running.
-
-#### **Database Set Up**
-
-The databases should be created next. To find instructions for how to do so, check out the [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions), or simply read on.
-
-1. Download and install [Postgres](https://www.postgresql.org/download/) if you don't have it already.
-2. Use the command `$ psql` to access the Postgresql client.
-3. Within the session, run the following commands, adding your own password in lieu of the [password] placeholders:
-
-```sh
-CREATE DATABASE simplified_circulation_test;
-CREATE DATABASE simplified_circulation_dev;
-
-CREATE USER simplified with password '[password]';
-grant all privileges on database simplified_circulation_dev to simplified;
-
-CREATE USER simplified_test with password '[password]';
-grant all privileges on database simplified_circulation_test to simplified_test;
-
---Add pgcrypto to any circulation manager databases.
-\c simplified_circulation_dev
-create extension pgcrypto;
-\c simplified_circulation_test
-create extension pgcrypto;
+```shell
+docker run -d --rm --mount type=bind,source="$(pwd)",target=/home/simplified/circulation \
+  --entrypoint tail circulation_webapp:latest -f /dev/null
 ```
 
-Then, add the following database URLS as environment variables at the end of the `/env/bin/activate` file within the circulation repo, including the password you created earlier:
-
-```
-export SIMPLIFIED_PRODUCTION_DATABASE="postgres://simplified:[password]@localhost:5432/simplified_circulation_dev"
-export SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:[password]@localhost:5432/simplified_circulation_test"
-```
-
-#### **Running the Application**
-
-Activate the virtual environment:
-
-```sh
-$ source env/bin/activate
-```
-
-And install the dependencies:
-
-```sh
-$ pip install -r requirements-dev.txt
-```
-
-Run the application with:
-
-```sh
-$ python app.py
-```
-
-Then, navigate to `http://localhost:6500/`.
-
-#### **Note on HTTP/S in development**
-
-When deployed, the application should be run behind a secure proxy responsible for SSL termination. 
-
-While developing locally, if it becomes necessary to observe app code serving HTTP/S requests, it is possible to start the Flask/Werkzeug development server with an ad-hoc SSL context (see [werkzeug.serving.run_simple()](https://werkzeug.palletsprojects.com/en/2.0.x/serving/#werkzeug.serving.run_simple) for more details). These ad-hoc certs work because of the pyopenssl package.
-
-To have the server listen for HTTP/S requests, supply an https:// URL on start:
-
-```sh
-$ python app.py https://localhost:6500/
-```
-
-Also note that this does not fully replicate secure requests as they would appear on a deployed app instance. In particular, the X-Forwarded-* headers may be different, since you are hitting the application server directly rather than through one or more proxy layers.
-
-#### **Python Installation Issues**
-
-When running the `pip install ...` command, you may run into installation issues. The [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions) instructions say to install some packages through brew such as `libxmlsec1`. On newer macos machines, you may encounter an error such as:
-
-```sh
-error: command '/usr/bin/clang' failed with exit code 1
-  ----------------------------------------
-ERROR: Failed building wheel for xmlsec
-Failed to build dm.xmlsec.binding xmlsec
-ERROR: Could not build wheels for xmlsec which use PEP 517 and cannot be installed directly
-```
-
-This typically happens after installing packages through brew and then running the `pip install` command.
-
-This [blog post](https://mbbroberg.fun/clang-error-in-pip/) explains and shows a fix for this issue. Start by trying the `xcode-select --install` command. If it does not work, you can try adding the following to your `~/.zshrc` or `~/.bashrc` file, depending on what you use:
-
-```sh
-export CPPFLAGS="-DXMLSEC_NO_XKMS=1"
-```
+With the local directory as a bind mount, you should be able to make changes on your host machine, and see them reflected in the behavior of the container.
 
 ### Adding Collections to the Circulation Manager Admin
 
@@ -242,96 +181,6 @@ To view the documentation _locally_, go into the `/docs` directory and run `make
 This project runs all the unit tests through Github Actions for new pull requests and when merging into the default `develop` branch. The relevant file can be found in `.github/workflows/test.yml`. When contributing updates or fixes, it's required for the test Github Action to pass for all python 3 environments. Run the `tox` command locally before pushing changes to make sure you find any failing tests before committing them.
 
 As mentioned above, Github Actions is also used to build and deploy Sphinx documentation to Github Pages. The relevant file can be found in `.github/workflows/docks.yml`.
-
-## Testing
-
-The Github Actions CI service runs the unit tests against Python 3.6, 3.7, and 3.8 automatically using [tox](https://tox.readthedocs.io/en/latest/).
-
-To run `pytest` unit tests locally, install `tox`.
-
-```sh
-pip install tox
-```
-
-Tox has an environment for each python version and an optional `-docker` factor that will automatically use docker to
-deploy service containers used for the tests. You can select the environment you would like to test with the tox `-e`
-flag.
-
-### Environments
-
-| Environment | Python Version |
-| ----------- | -------------- |
-| py36        | Python 3.6     |
-| py37        | Python 3.7     |
-| py38        | Python 3.8     |
-
-All of these environments are tested by default when running tox. To test one specific environment you can use the `-e`
-flag.
-
-Test Python 3.8
-
-```
-tox -e py38
-```
-
-You need to have the Python versions you are testing against installed on your local system. `tox` searches the system for installed Python versions, but does not install new Python versions. If `tox` doesn't find the Python version its looking for it will give an `InterpreterNotFound` errror.
-
-[Pyenv](https://github.com/pyenv/pyenv) is a useful tool to install multiple Python versions, if you need to install missing Python versions in your system for local testing.
-
-### Docker
-
-If you install `tox-docker` tox will take care of setting up all the service containers necessary to run the unit tests
-and pass the correct environment variables to configure the tests to use these services. Using `tox-docker` is not required, but it is the recommended way to run the tests locally, since it runs the tests in the same way they are run on the Github Actions CI server.
-
-```
-pip install tox-docker
-```
-
-The docker functionality is included in a `docker` factor that can be added to the environment. To run an environment
-with a particular factor you add it to the end of the environment.
-
-Test with Python 3.8 using docker containers for the services.
-
-```
-tox -e py38-docker
-```
-
-### Local services
-
-If you already have elastic search or postgres running locally, you can run them instead by setting the
-following environment variables:
-
-- `SIMPLIFIED_TEST_DATABASE`
-- `SIMPLIFIED_TEST_ELASTICSEARCH`
-
-Make sure the ports and usernames are updated to reflect the local configuration.
-
-```sh
-# Set environment variables
-export SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:9005/simplified_circulation_test"
-export SIMPLIFIED_TEST_ELASTICSEARCH="http://localhost:9006"
-
-# Run tox
-tox -e py38
-```
-
-### Override `pytest` arguments
-
-If you wish to pass additional arguments to `pytest` you can do so through `tox`. The default argument passed to `pytest`
-is `tests`, however you can override this. Every argument passed after a `--` to the `tox` command line will the passed
-to `pytest`, overriding the default.
-
-Only run the `test_cdn` tests with Python 3.6 using docker.
-
-```sh
-tox -e py36-docker -- tests/test_google_analytics_provider.py
-```
-
-## Debugging
-
-If you are served an error message on the admin home screen, you may need to run `npm install` in the api/admin directory of the circulation repo. If you're running the application locally, you can also try running the same command in the root directory of the circulation-web repo.
-
-The latter command will only work if the circulation-web and circulation repos are linked using npm link. You can find more information on how to do this in the circulation-web repo's [README](https://github.com/NYPL-Simplified/circulation-web/blob/main/README.md).
 
 ## Contributing
 

@@ -27,7 +27,7 @@
 
 FROM golang AS lcpencrypt
 LABEL maintainer="Library Simplified <info@librarysimplified.org>"
-RUN go get -v github.com/readium/readium-lcp-server/lcpencrypt
+RUN go install -v github.com/readium/readium-lcp-server/lcpencrypt@latest
 
 ###############################################################################
 ## cm_local_db - standalone stage to build a postgres server for local dev
@@ -238,10 +238,16 @@ COPY --chown=simplified:simplified . /home/simplified/circulation/
 
 FROM circulation_base AS cm_scripts_base
 
+ENV SIMPLIFIED_STATIC_DIR /simplified_static
+
 # By default cron is not installed in the base Ubuntu image, so we add it here.
+# Also need to add a non-empty static resource directory so the app doesn't raise
+# an exception on start.
 RUN apt-get update \
  && apt-get install --yes --no-install-recommends cron \
  && apt-get clean --yes \
+ && mkdir -p ${SIMPLIFIED_STATIC_DIR} \
+ && touch ${SIMPLIFIED_STATIC_DIR}/empty_file \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 COPY ./docker/simplified_crontab /etc/cron.d/circulation
@@ -250,7 +256,7 @@ RUN chmod 664 /etc/cron.d/circulation \
  && crontab /etc/cron.d/circulation \
  && touch /var/log/cron.log
 
-CMD ["scripts"]
+CMD ["scripts", "|& tee -a /var/log/cron.log 2>$1"]
 
 ###############################################################################
 ## cm_scripts_local - local dev version of scripts, relies on host mounted code

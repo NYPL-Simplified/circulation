@@ -1,0 +1,34 @@
+<feed xmlns:app="http://www.w3.org/2007/app" xmlns:bibframe="http://bibframe.org/vocab/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:drm="http://librarysimplified.org/terms/drm" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:schema="http://schema.org/" xmlns:simplified="http://librarysimplified.org/terms/" xmlns="http://www.w3.org/2005/Atom">
+<id>https://s3.amazonaws.com/open.minitex.org/librevox</id>
+<title>Librivox Audiobooks</title>
+<updated>2019-08-19T00:00:00Z</updated>
+<link rel="self" href="https://s3.amazonaws.com/open.minitex.org/librevox"/>
+<entry>
+  <title>Zhitiia Sviatykh, v. 12 - August</title>
+  <id>urn:uuid:836f559f-3bfd-4b33-96f7-0bd1878a5dab</id>
+  <updated>2008-11-24T13:27:00Z</updated>
+  <link href="https://api.archivelab.org/books/kniga_zitij_svjatyh_na_mesjac_avgust_eu_0811_librivox/opds_audio_manifest" type="application/audiobook+json" rel="http://opds-spec.org/acquisition/open-access"/>
+  <link href="https://archive.org/services/img/kniga_zitij_svjatyh_na_mesjac_avgust_eu_0811_librivox" type="image/jpeg" rel="http://opds-spec.org/image"/>
+  <link href="https://archive.org/services/img/kniga_zitij_svjatyh_na_mesjac_avgust_eu_0811_librivox" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>
+  <dcterms:issued>2008</dcterms:issued>
+  <published>2008-11-24T00:00:00Z</published>
+  <author>
+  <name>Dimitrij, Saint Metropolitan of Rostov</name>
+  </author>
+  <category term="librivox" label="librivox"/>
+  <category term="literature" label="literature"/>
+  <category term="audiobook" label="audiobook"/>
+  <category term="Книга житій святыхъ на мѣсяцъ август" label="Книга житій святыхъ на мѣсяцъ август"/>
+  <category term="Dimitriĭ" label="Dimitriĭ"/>
+  <category term="Saint Metropolitan of Rostov" label="Saint Metropolitan of Rostov"/>
+  <category term="Святитель Димитрій Ростовскій" label="Святитель Димитрій Ростовскій"/>
+  <category term="religion" label="religion"/>
+  <category term="orthodox" label="orthodox"/>
+  <category term="saints" label="saints"/>
+  <category term="Church Slavonic" label="Church Slavonic"/>
+  <dcterms:publisher>LibriVox</dcterms:publisher>
+  <summary type="html">
+  Librivox recording of Жития Святых, т. 12 - август , Zhitiia Sviatykh, v. 12 - August (“The Book of Lives of the Saints for the Month of August”) by Dimitriĭ, Saint Metropolitan of Rostov. Read by Euthymius . Жития и похвалы святых подобятся светлостию звездам: якоже бо звезды положением на небеси утвержденны суть, всю же поднебесную просвещают, тыяжде и от Индиан зрятся, ни сокрываются от скифов, землю озаряют, и морю светят, и плавающих корабли управляют: ихже имен аще и не вемы множества ради, обаче светлей доброте их чудимся. Сице и светлость святых, аще и затворены суть мощи их во гробех, но силы их в поднебесней земными пределы не суть определенны: чудимся тех житию, и удивляемся славе, еюже Бог угодившыя Ему прославляет. [St. Symeon Metaphrastes on the Lives of the Saints, 10th century A. D. ENGLISH TRANSLATION: The lives and the eulogies of the Saints resemble, by their luminosity, the stars: for as the stars, firmly studded in the firmament as they are, illume the entire universe, and the same stars are beheld by the Indians, and are not hid from the Scythians, and shed their radiance over the earth and the seas, and show the way to the ships: and even if we know not their names for their multitude’s sake, we as yet admire their brilliant loveliness. So, too, doeth the brilliance of the Saints, even when their relics are shut under a tombstone, yet their miracles in the entire universe are not bound by earthly confines: we admire their lives and wonder at the glory wherewith God glorifieth those who have pleased Him. This succinct description is found as introduction to each of the 12 volumes of the Church Slavonic Lives.] For further information, including links to M4B audio book, online text, reader information, RSS feeds, CD cover or other formats (if available), please go to the LibriVox catalog page for this recording. For more free audiobooks, or to become a volunteer reader, please visit librivox.org . M4B audio book, part 1 (153MB) M4B audio book, part 2 (154MB) M4B audio book, part 3 (134MB)
+  </summary>
+</entry>
+</feed>

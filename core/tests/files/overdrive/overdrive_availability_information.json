@@ -1,0 +1,21 @@
+{
+    "accounts": [
+        {
+            "copiesAvailable": 1,
+            "copiesOwned": 3,
+            "id": -1
+        }
+    ],
+    "availabilityType": "Normal",
+    "available": false,
+    "copiesAvailable": 1,
+    "copiesOwned": 3,
+    "links": {
+        "self": {
+            "href": "https://api.overdrive.com/v2/collections/v1L1BCgAAAA2C/products/2a005d55-a417-4053-b90d-7a38ca6d2065/availability",
+            "type": "application/vnd.overdrive.api+json"
+        }
+    },
+    "numberOfHolds": 10,
+    "reserveId": "2a005d55-a417-4053-b90d-7a38ca6d2065"
+}

@@ -22,10 +22,12 @@ from core.model import (
     LicensePool,
     LicensePoolDeliveryMechanism,
     LinkRelations,
+    Loan,
     MediaTypes,
     Representation,
     Subject,
     create,
+    get_one,
 )
 
 from core.metadata_layer import (
@@ -58,7 +60,6 @@ from api.axis import (
     AxisCollectionReaper,
     AxisNowManifest,
     BibliographicParser,
-    CheckinResponseParser,
     CheckoutResponseParser,
     HoldReleaseResponseParser,
     HoldResponseParser,
@@ -412,50 +413,6 @@ class TestAxis360API(Axis360Test):
         assert 0 == pool.patrons_in_hold_queue
         assert pool.last_checked is not None
 
-    def test_checkin_success(self):
-        # Verify that we can make a request to the EarlyCheckInTitle
-        # endpoint and get a good response.
-        edition, pool = self._edition(
-            identifier_type=Identifier.AXIS_360_ID,
-            data_source_name=DataSource.AXIS_360,
-            with_license_pool=True
-        )
-        data = self.sample_data("checkin_success.xml")
-        self.api.queue_response(200, content=data)
-        patron = self._patron()
-        barcode = self._str
-        patron.authorization_identifier = barcode
-        response = self.api.checkin(patron, 'pin', pool)
-        assert response == True
-
-        # Verify the format of the HTTP request that was made.
-        [request] = self.api.requests
-        [url, args, kwargs] = request
-        data = kwargs.pop('data')
-        assert kwargs['method'] == 'GET'
-        expect = (
-            '/EarlyCheckInTitle/v3?itemID=%s&patronID=%s' % (
-                pool.identifier.identifier, barcode
-            )
-        )
-        assert expect in url
-
-    def test_checkin_failure(self):
-        # Verify that we correctly handle failure conditions sent from
-        # the EarlyCheckInTitle endpoint.
-        edition, pool = self._edition(
-            identifier_type=Identifier.AXIS_360_ID,
-            data_source_name=DataSource.AXIS_360,
-            with_license_pool=True
-        )
-        data = self.sample_data("checkin_failure.xml")
-        self.api.queue_response(200, content=data)
-        patron = self._patron()
-        patron.authorization_identifier = self._str
-        pytest.raises(
-            NotFoundOnRemote, self.api.checkin, patron, 'pin', pool
-        )
-
     def test_place_hold(self):
         edition, pool = self._edition(
             identifier_type=Identifier.AXIS_360_ID,
@@ -524,13 +481,6 @@ class TestAxis360API(Axis360Test):
         # trigger another API request, so we won't do that; that's
         # tested in TestAxis360FulfillmentInfo.
 
-        # If the title is checked out but Axis provides no fulfillment
-        # info, the exception is CannotFulfill.
-        pool.identifier.identifier = '0015176429'
-        data = self.sample_data("availability_without_fulfillment.xml")
-        self.api.queue_response(200, content=data)
-        pytest.raises(CannotFulfill, fulfill)
-
         # If we ask to fulfill an audiobook, we get an AudiobookFulfillmentInfo.
         #
         # Change our test LicensePool's identifier to match the data we're about
@@ -542,6 +492,74 @@ class TestAxis360API(Axis360Test):
         self.api.queue_response(200, content=data)
         fulfillment = fulfill(internal_format="irrelevant")
         assert isinstance(fulfillment, Axis360FulfillmentInfo)
+
+    def test_fulfill_without_subsequent_availability_call(self):
+        """
+        GIVEN: A patron requesting loan fulfillmlent
+        WHEN:  Fulfilling the loan
+        THEN:  The transaction_id is saved to loan.external_identifier
+        """
+        _, pool = self._edition(
+            identifier_type=Identifier.AXIS_360_ID,
+            identifier_id='0015176429',
+            data_source_name=DataSource.AXIS_360,
+            with_license_pool=True
+        )
+
+        patron = self._patron()
+        patron.authorization_identifier = "a barcode"
+        # Ensure a Loan exists for this patron for future calls
+        create(self._db, Loan, patron=patron, license_pool=pool)
+        data = self.sample_data("availability_with_axisnow_fulfillment.xml")
+        data = data.replace(b"0016820953", pool.identifier.identifier.encode("utf8"))
+        self.api.queue_response(200, content=data)
+
+        # Ensure loan.external_identifier is set after the first fulfillment
+        loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
+        first_fulfillment = self.api.fulfill(patron, "pin", pool, "AxisNow")
+        assert loan.external_identifier == first_fulfillment.key
+
+        second_fulfillment = self.api.fulfill(patron, "pin", pool, "AxisNow")
+
+        # Verify that we get fulfillment information,
+        # rather than just that no exception is raised.
+        assert isinstance(second_fulfillment, Axis360FulfillmentInfo)
+
+        # Verify that only one API call has been made (to availability)
+        assert len(self.api.requests) == 1
+
+        # Verify that the fulfillment ID from the previous availability call is
+        # cached in Loan.external_identifier.
+        loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
+        assert loan.external_identifier == second_fulfillment.key
+
+    def test_fulfill_raises_cannotfulfill(self):
+        """
+        GIVEN: A patron requesting loan fulfillment
+        WHEN:  Loan fulfillment provides no fulfillment information
+        THEN:  CannotFulfill is raised
+        """
+        _, pool = self._edition(
+            identifier_type=Identifier.AXIS_360_ID,
+            identifier_id='0015176429',
+            data_source_name=DataSource.AXIS_360,
+            with_license_pool=True
+        )
+
+        patron = self._patron()
+        patron.authorization_identifier = "a barcode"
+
+        def fulfill(internal_format="not AxisNow"):
+            return self.api.fulfill(
+                patron, "pin", licensepool=pool,
+                internal_format=internal_format
+            )
+
+        # If the title is checked out but Axis provides no fulfillment
+        # info, the exception is CannotFulfill.
+        data = self.sample_data("availability_without_fulfillment.xml")
+        self.api.queue_response(200, content=data)
+        pytest.raises(CannotFulfill, fulfill)
 
     def test_fulfill_anonymously(self):
         # Normally, an attempt to fulfill a book with no authenticated
@@ -1293,24 +1311,6 @@ class TestRaiseExceptionOnError(TestResponseParser):
             parser.process_all(data)
         assert "Internal Server Error" in str(excinfo.value)
 
-
-    def test_ignore_error_codes(self):
-        # A parser subclass can decide not to raise exceptions
-        # when encountering specific error codes.
-        data = self.sample_data("internal_server_error.xml")
-        retval = object()
-        class IgnoreISE(HoldReleaseResponseParser):
-            def process_one(self, e, namespaces):
-                self.raise_exception_on_error(
-                    e, namespaces, ignore_error_codes = [5000]
-                )
-                return retval
-        # Unlike in test_internal_server_error, no exception is
-        # raised, because we told the parser to ignore this particular
-        # error code.
-        parser = IgnoreISE(None)
-        assert retval == parser.process_all(data)
-
     def test_internal_server_error(self):
         data = self.sample_data("invalid_error_code.xml")
         parser = HoldReleaseResponseParser(None)
@@ -1324,28 +1324,6 @@ class TestRaiseExceptionOnError(TestResponseParser):
         with pytest.raises(RemoteInitiatedServerError) as excinfo:
             parser.process_all(data)
         assert "No status code!" in str(excinfo.value)
-
-
-class TestCheckinResponseParser(TestResponseParser):
-
-    def test_parse_checkin_success(self):
-        # The response parser raises an exception if there's a problem,
-        # and returne True otherwise.
-        #
-        # "Book is not on loan" is not treated as a problem.
-        for filename in (
-            "checkin_success.xml",
-            "checkin_not_checked_out.xml"
-        ):
-            data = self.sample_data(filename)
-            parser = CheckinResponseParser(self._default_collection)
-            parsed = parser.process_all(data)
-            assert parsed == True
-
-    def test_parse_checkin_failure(self):
-        data = self.sample_data("checkin_failure.xml")
-        parser = CheckinResponseParser(self._default_collection)
-        pytest.raises(NotFoundOnRemote, parser.process_all, data)
 
 
 class TestCheckoutResponseParser(TestResponseParser):
@@ -1757,6 +1735,9 @@ class TestAxis360FulfillmentInfo(Axis360Test):
         assert DeliveryMechanism.FINDAWAY_DRM == fulfillment.content_type
         assert isinstance(fulfillment.content, str)
 
+        # Findaway manifests can't be cached
+        assert fulfillment.can_cache_manifest is False
+
         # The manifest document combines information from the
         # fulfillment document and the metadata document.
         for required in (
@@ -1796,6 +1777,9 @@ class TestAxis360FulfillmentInfo(Axis360Test):
         assert (
             '{"book_vault_uuid": "1c11c31f-81c2-41bb-9179-491114c3f121", "isbn": "9780547351551"}' ==
             fulfillment.content)
+
+        # AxisNow manifests can be cached
+        assert fulfillment.can_cache_manifest is True
 
         # The content expiration date also comes from the fulfillment
         # document.

@@ -2235,14 +2235,21 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             inputs = dict(login=login_inputs,
                           password=password_inputs)
         )
+
+        flow_doc["links"] = []
         if self.LOGIN_BUTTON_IMAGE:
             # TODO: I'm not sure if logo is appropriate for this, since it's a button
             # with the logo on it rather than a plain logo. Perhaps we should use plain
             # logos instead.
-            flow_doc["links"] = [dict(rel="logo", href=url_for("static_image", filename=self.LOGIN_BUTTON_IMAGE, _external=True))]
+            flow_doc["links"].append(
+                dict(rel="logo", href=url_for("static_image", filename=self.LOGIN_BUTTON_IMAGE, _external=True))
+            )
+
         flow_doc["type"] = type
         if type == self.FLOW_TYPE_OAUTH:
-            flow_doc["links"] = [dict(rel="authenticate", href=url_for("http_basic_auth_token", _external=True))]
+            flow_doc["links"].append(
+                dict(rel="authenticate", href=url_for("http_basic_auth_token", _external=True))
+            )
 
         return flow_doc
 
@@ -2678,9 +2685,42 @@ class BasicAuthTempTokenController(object):
     """A controller that handles requests for issuing temporary tokens
     to HTTP Basic Auth credentials.
     """
+    TOKEN_DURATION = datetime.timedelta(seconds=3600)
+    DO_NOT_GENERATE_NEW_TOKEN_PERIOD = TOKEN_DURATION.seconds - 60
 
     def __init__(self, authenticator):
         self.authenticator = authenticator
+
+    def get_or_create_token(self, _db, patron):
+        """
+        Retrieve a patron's Credential or create a new one.
+        """
+        data_source = None
+        token_type = BasicAuthenticationProvider.TOKEN_TYPE
+        refesher_method = None
+        token_time_remaining = 0
+
+        credential = Credential.lookup(_db, data_source, token_type, patron, refesher_method)
+        if credential.expires:
+            # The Credential's expiration time is stored and the lifetime of the Credential (one hour) is known,
+            # so the creation time can be calculated
+            token_time_remaining = (credential.expires - utc_now()).total_seconds()
+
+        if (
+            BasicAuthTempTokenController.TOKEN_DURATION.seconds
+            >= token_time_remaining >=
+            BasicAuthTempTokenController.DO_NOT_GENERATE_NEW_TOKEN_PERIOD
+        ):
+            # Use the existing token if it's been requested within a minute since creation
+            inner_token = credential
+        else:
+            # Patron didn't have an existing token or is requesting a new one,
+            # create a temporary inner token with a lifetime of 1 hour
+            inner_token, _ = Credential.temporary_token_create(
+                _db, data_source, token_type, patron, BasicAuthTempTokenController.TOKEN_DURATION
+            )
+
+        return inner_token
 
     def basic_auth_temp_token(self, params, _db):
         """Generate and return a temporary token from HTTP Basic Auth credentials.
@@ -2688,27 +2728,22 @@ class BasicAuthTempTokenController(object):
         patron = self.authenticator.authenticated_patron(_db, flask.request.authorization)
 
         if isinstance(patron, ProblemDetail):
-            # There was a problem turning the authorization header
-            # into a valid patron.
+            # There was a problem turning the authorization header into a valid patron.
             return patron
 
         if isinstance(patron, Patron):
-            # Create a temporary inner token with a lifetime of 1 hour
-            duration = datetime.timedelta(seconds=3600)
-            data_source = None
-            provider = BasicAuthenticationProvider.BEARER_TOKEN_PROVIDER_NAME
-            token_type = BasicAuthenticationProvider.TOKEN_TYPE
-            inner_token, _ = Credential.temporary_token_create(
-                _db, data_source, token_type, patron, duration
-            )
-
+            inner_token = self.get_or_create_token(_db, patron)
+            
             # Wrap the inner token with the provider name
-            outer_token = self.authenticator.create_bearer_token(provider, inner_token.credential)
+            outer_token = self.authenticator.create_bearer_token(
+                BasicAuthenticationProvider.BEARER_TOKEN_PROVIDER_NAME,
+                inner_token.credential
+            )
 
             data = dict(
                 access_token=outer_token,
                 token_type="bearer",
-                expires_in=duration.seconds
+                expires_in=BasicAuthTempTokenController.TOKEN_DURATION.seconds
             )
 
             return flask.jsonify(data)
