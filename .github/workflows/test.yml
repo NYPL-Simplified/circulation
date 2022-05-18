@@ -49,3 +49,8 @@ jobs:
         with:
           files: ./coverage-api.xml,./coverage-core.xml
           verbose: true
+
+      - name: Upload test duration artifact
+        uses: actions/upload-artifact@v3
+        with:
+          path: test_*_durations.txt
