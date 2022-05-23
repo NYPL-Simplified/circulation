@@ -48,7 +48,7 @@ class TestDocumentationController:
             # Assert that schemas are present with test value
             assert testSpec['components']['schemas']['OPDSFeedResponse']\
                 ['properties']['link']['$ref']\
-                    == '#/components/schema/OPDSLink'
+                    == '#/components/schemas/OPDSLink'
 
     def test_addComponent_string(self, test_controller):
         test_controller.addComponent(
