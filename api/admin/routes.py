@@ -629,14 +629,24 @@ def individual_admins():
             application/json:
               schema: IndividualAdminResponse
         403:
-          description: Unauthorized for admin endpoints
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
           content:
-            application/json:
-              schema: ProblemResponse
+            text/html:
+              example: |
+                403 ERROR: Unauthorized for Operation. Try Again <link>
         5XX:
-          description: Unspecified Internal Error
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
           content:
-            application/json:
+            text/html:
+              example: An internal error occurred
               schema: ProblemResponse
     post:
       tags:
@@ -672,17 +682,38 @@ def individual_admins():
               schema: 
                 type: string
                 example: new_user@example.com
-        400:
+        403:
           description: |
-            One of the following endpoint-specific errors
-            * `INCOMPLETE_CONFIGURATION` If initial setup is performed with providing a password
-            * `INCOMPLETE_CONFIGURATION` If an email is removed without replacement
-            * `INVALID_EMAIL` If an admin email is set to an invalid format
-            * `UNKNOWN_ROLE` If a role code is provided that is not in the allowed list
-            * `LIBRARY_NOT_FOUND` If a provided library code is not recognized
-            * `MISSING_PGCRYPTO_EXTENSION` If the database is not configured with the pgcrypto extension
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              example: |
+                403 ERROR: Unauthorized for Operation. Try Again <link>
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
           content:
             application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
               schema: ProblemResponse
     """
     return app.manager.admin_individual_admin_settings_controller.process_individual_admins()
@@ -1017,6 +1048,39 @@ def custom_lists():
           content:
             text/html:
               example: 1234
+        403:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              example: |
+                403 ERROR: Unauthorized for Operation. Try Again <link>
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/missing-custom-list`
+            * `http://librarysimplified.org/terms/problem/cannot-change-library-for-custom-list`
+            * `http://librarysimplified.org/terms/problem/custom-list-name-already-in-use`
+            * `http://librarysimplified.org/terms/problem/missing-collection`
+            * `http://librarysimplified.org/terms/problem/collection-not-associated-with-library`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
         4XX:
           description: |
             One of the following endpoint-specific errors
@@ -1103,17 +1167,38 @@ def custom_list(list_id):
           content:
             text/html:
               example: 1234
+        403:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              example: |
+                403 ERROR: Unauthorized for Operation. Try Again <link>
         4XX:
           description: |
-            One of the following endpoint-specific errors
-            * `AdminNotAuthorized`: Current admin cannot perform this operation for this library
-            * `MISSING_CUSTOM_LIST`: No list could be found for provided identifier
-            * `CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST`: Library on existing list does not currently active library
-            * `CUSTOM_LIST_NAME_ALREADY_IN_USE`: List contains a duplicate name (which must be unique)
-            * `MISSING_COLLECTION`: A collection cannot be found by the supplied identifier
-            * `COLLECTION_NOT_ASSOCIATED_WITH_LIBRARY`: The specified collection is associated with a different library
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/missing-custom-list`
+            * `http://librarysimplified.org/terms/problem/cannot-change-library-for-custom-list`
+            * `http://librarysimplified.org/terms/problem/custom-list-name-already-in-use`
+            * `http://librarysimplified.org/terms/problem/missing-collection`
+            * `http://librarysimplified.org/terms/problem/collection-not-associated-with-library`
           content:
             application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
               schema: ProblemResponse
     delete:
       tags:
@@ -1144,13 +1229,34 @@ def custom_list(list_id):
           content:
             text/html:
               example: Deleted
+        403:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              example: |
+                403 ERROR: Unauthorized for Operation. Try Again <link>
         4XX:
           description: |
-            One of the following endpoint-specific errors
-            * `AdminNotAuthorized`: Current admin cannot perform this operation for this library
-            * `MISSING_CUSTOM_LIST`: No list could be found for provided identifier
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/missing-custom-list`
           content:
             application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
               schema: ProblemResponse
     """
     return app.manager.admin_custom_lists_controller.custom_list(list_id)
@@ -1226,18 +1332,39 @@ def lanes():
           content:
             text/html:
               example: 1234
+        403:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              example: |
+                403 ERROR: Unauthorized for Operation. Try Again <link>
         4XX:
           description: |
-            One of the following endpoint-specific errors
-            * `AdminNotAuthorized`: Current admin cannot perform this operation for this library
-            * `NO_DISPLAY_NAME_FOR_LANE`: A `display_name` must be configured for the lane
-            * `NO_CUSTOM_LISTS_FOR_LANE`: A lane must have one or more lists configured
-            * `MISSING_LANE`: If an `id` is specified it must reference a lane which already exists, or if a parent lane is referenced, this lane must also exist
-            * `CANNOT_EDIT_DEFAULT_LANE`: A default lane cannot be updated
-            * `LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS`: Lanes without parents, or the same parent, cannot share the same display name
-            * `MISSING_CUSTOM_LIST`: All lists referenced by the lane must exist
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/no-display-name-for-lane`
+            * `http://librarysimplified.org/terms/problem/no-custom-lists-for-lane`
+            * `http://librarysimplified.org/terms/problem/missing-lane`
+            * `http://librarysimplified.org/terms/problem/cannot-edit-default-lane`
+            * `http://librarysimplified.org/terms/problem/lane-with-parent-and-display-name-already-exists`
+            * `http://librarysimplified.org/terms/problem/missing-custom-list`
           content:
             application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
               schema: ProblemResponse
     """
     return app.manager.admin_lanes_controller.lanes()
@@ -1280,14 +1407,35 @@ def lane(lane_identifier):
           content:
             text/html:
               example: Deleted
+        403:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              example: |
+                403 ERROR: Unauthorized for Operation. Try Again <link>
         4XX:
           description: |
-            One of the following endpoint-specific errors
-            * `AdminNotAuthorized`: Current admin cannot perform this operation for this library
-            * `MISSING_LANE`: Requested lane could not be found in the current library
-            * `CANNOT_EDIT_DEFAULT_LANE`: Requested lane is a default lane, which cannot be modified
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/missing-lane`
+            * `http://librarysimplified.org/terms/problem/cannot-edit-default-lane`
           content:
             application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
               schema: ProblemResponse
     """
     return app.manager.admin_lanes_controller.lane(lane_identifier)
@@ -1331,14 +1479,35 @@ def lane_show(lane_identifier):
           content:
             text/html:
               example: Success
+        403:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              example: |
+                403 ERROR: Unauthorized for Operation. Try Again <link>
         4XX:
           description: |
-            One of the following endpoint-specific errors
-            * `AdminNotAuthorized`: Current admin cannot perform this operation for this library
-            * `MISSING_LANE`: Requested lane could not be found in the current library
-            * `CANNOT_SHOW_LANE_WITH_HIDDEN_PARENT`: The parent of the current lane is hidden, and this lane cannot be made visible
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/missing-lane`
+            * `http://librarysimplified.org/terms/problem/cannot-show-lane-with-hidden-parent`
           content:
             application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
               schema: ProblemResponse
     """
     return app.manager.admin_lanes_controller.show_lane(lane_identifier)
@@ -1381,14 +1550,34 @@ def lane_hide(lane_identifier):
           content:
             text/html:
               example: Success
+        403:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              example: |
+                403 ERROR: Unauthorized for Operation. Try Again <link>
         4XX:
           description: |
-            One of the following endpoint-specific errors
-            * `AdminNotAuthorized`: Current admin cannot perform this operation for this library
-            * `MISSING_LANE`: Requested lane could not be found in the current library
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this lane are:
+            * `http://librarysimplified.org/terms/problem/missing-lane`
           content:
             application/json:
               schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
     """
     return app.manager.admin_lanes_controller.hide_lane(lane_identifier)
 
@@ -1439,6 +1628,15 @@ def reset_lanes():
           content:
             text/html:
               example: Success
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
     """
     return app.manager.admin_lanes_controller.reset()
 
@@ -1482,7 +1680,15 @@ def change_lane_order():
           content:
             text/html:
               example: Success
-          
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
     """
     return app.manager.admin_lanes_controller.change_order()
 

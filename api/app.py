@@ -81,7 +81,6 @@ def initialize_database(autoinitialize=True):
 
 from . import routes
 from .admin import routes
-from .documentation import routes
 
 def run(url=None):
     base_url = url or 'http://localhost:6500/'
