@@ -801,7 +801,7 @@ class AuthdataUtility(object):
         if exp:
             payload['exp'] = self.numericdate(exp) # Expiration Time
         return base64.encodebytes(
-            jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
+            jwt.encode(payload, self.secret, algorithm=self.ALGORITHM).encode()
         )
 
     @classmethod
