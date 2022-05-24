@@ -75,8 +75,8 @@ RUN apt-get update \
     ca-certificates \
     gnupg \
  && curl -sSL ${NODESOURCE_KEYFILE} | apt-key add - \
- && echo "deb https://deb.nodesource.com/node_10.x bionic main" >> /etc/apt/sources.list.d/nodesource.list \
- && echo "deb-src https://deb.nodesource.com/node_10.x bionic main" >> /etc/apt/sources.list.d/nodesource.list \
+ && echo "deb https://deb.nodesource.com/node_14.x jammy main" >> /etc/apt/sources.list.d/nodesource.list \
+ && echo "deb-src https://deb.nodesource.com/node_14.x jammy main" >> /etc/apt/sources.list.d/nodesource.list \
  && apt-get update \
  && apt-get install --yes --no-install-recommends \
     build-essential \
