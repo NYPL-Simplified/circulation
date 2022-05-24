@@ -805,6 +805,10 @@ class MetaToModelUtility(object):
                     self.log.error(pool.license_exception)
             return
 
+        # If the collection is accessed later than here
+        # a TypeError: can't escape str to binary is raised
+        collection = pools[0].collection if pools else None
+
         # If we fetched the representation and it hasn't changed,
         # the previously mirrored version is fine. Don't mirror it
         # again.
@@ -865,7 +869,6 @@ class MetaToModelUtility(object):
             )
 
         # Mirror it.
-        collection = pools[0].collection if pools else None
         mirror.mirror_one(representation, mirror_to=mirror_url, collection=collection)
 
         # If we couldn't mirror an open/protected access link representation, suppress
