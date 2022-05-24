@@ -129,9 +129,8 @@ RUN python3 -m venv ${SIMPLIFIED_VENV} \
  && ${SIMPLIFIED_VENV}/bin/python3 -m textblob.download_corpora \
  && mv /root/nltk_data /usr/lib
 
-# Copy over the Python requirements files for both CM and core
+# Copy over the Python requirements files
 COPY --chown=simplified:simplified ./requirements*.txt ./
-COPY --chown=simplified:simplified ./core/requirements*.txt ./core/
 
 # Keep there from being a clash between dm.xmlsec and libssl.
 ENV CPPFLAGS="-DXMLSEC_NO_XKMS=1"
