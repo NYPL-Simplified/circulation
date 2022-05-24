@@ -862,7 +862,7 @@ class AuthdataUtility(object):
     def _decode(self, authdata):
         # First, decode the authdata without checking the signature.
         decoded = jwt.decode(
-            authdata, algorithm=self.ALGORITHM,
+            authdata, algorithms=self.ALGORITHM,
             options=dict(verify_signature=False)
         )
 
@@ -878,7 +878,7 @@ class AuthdataUtility(object):
         # We know the secret for this library, so we can re-decode the
         # secret and require signature valudation this time.
         secret = self.secrets_by_library_uri[library_uri]
-        decoded = jwt.decode(authdata, secret, algorithm=self.ALGORITHM)
+        decoded = jwt.decode(authdata, secret, algorithms=self.ALGORITHM)
         if not 'sub' in decoded:
             raise jwt.exceptions.DecodeError("No subject specified.")
         return library_uri, decoded['sub']
