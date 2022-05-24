@@ -136,7 +136,7 @@ COPY --chown=simplified:simplified ./requirements*.txt ./
 ENV CPPFLAGS="-DXMLSEC_NO_XKMS=1"
 
 # Install the Python dependencies
-RUN ${SIMPLIFIED_VENV}/bin/python3 -m pip install -U wheel \
+RUN ${SIMPLIFIED_VENV}/bin/python3 -m pip install -U wheel pip setuptools \
  && ${SIMPLIFIED_VENV}/bin/python3 -m pip install -r ./requirements.txt
 
 # We're switching to gunicorn for the wsgi server, and supervisor for process management,
