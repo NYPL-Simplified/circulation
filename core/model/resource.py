@@ -12,7 +12,7 @@ from PIL import Image
 import re
 import requests
 from sqlalchemy import (
-    Binary,
+    LargeBinary,
     Column,
     DateTime,
     Float,
@@ -565,7 +565,7 @@ class Representation(Base, MediaTypes):
     image_width = Column(Integer, index=True)
 
     # The content of the representation itself.
-    content = Column(Binary)
+    content = Column(LargeBinary)
 
     # Instead of being stored in the database, the content of the
     # representation may be stored on a local file relative to the
