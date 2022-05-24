@@ -688,7 +688,7 @@ class CirculationManagerController(BaseCirculationManagerController):
             parsed_if_modified_since = email.utils.parsedate_to_datetime(
                 if_modified_since
             )
-        except TypeError:
+        except (TypeError, ValueError):
             # Parse error.
             return None
         if not parsed_if_modified_since:
