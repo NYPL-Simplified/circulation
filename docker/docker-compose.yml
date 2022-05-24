@@ -36,8 +36,8 @@ services:
     environment:
       UWSGI_PROCESSES: 6
       UWSGI_THREADS: 2
-      SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:password@db:5432/simplified_circulation_dev
-      SIMPLIFIED_TEST_DATABASE: postgres://simplified_test:password@db:5432/simplified_circulation_test
+      SIMPLIFIED_PRODUCTION_DATABASE: postgresql://simplified:password@db:5432/simplified_circulation_dev
+      SIMPLIFIED_TEST_DATABASE: postgresql://simplified_test:password@db:5432/simplified_circulation_test
     ports:
       - 80:80
     depends_on:
@@ -52,7 +52,7 @@ services:
       args:
         - version
     environment:
-      SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:password@db:5432/simplified_circulation_dev
+      SIMPLIFIED_PRODUCTION_DATABASE: postgresql://simplified:password@db:5432/simplified_circulation_dev
     depends_on:
       - db
     volumes:
