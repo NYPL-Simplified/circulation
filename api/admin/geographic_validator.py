@@ -24,8 +24,8 @@ class GeographicValidator(Validator):
         # library would otherwise download. This is done because the host for this file can
         # be flaky. There is an issue for this in the underlying library here:
         # https://github.com/MacHu-GWU/uszipcode-project/issues/40
-        db_file_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "uszipcode")
-        return uszipcode.SearchEngine(simple_zipcode=True, db_file_dir=db_file_path)
+        db_file_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "uszipcode", "simple_db.sqlite")
+        return uszipcode.SearchEngine(db_file_path=db_file_path)
 
     def validate_geographic_areas(self, values, db):
         # Note: the validator does not recognize data from US territories other than Puerto Rico.
