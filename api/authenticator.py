@@ -989,6 +989,13 @@ class LibraryAuthenticator(object):
                 )
             )
 
+        # If there is an unsubscribe link, add it here
+        unsubscribe_uri = Configuration.unsubscribe_email_uri(library)
+        if unsubscribe_uri:
+            links.append(
+                dict(rel=Configuration.HELP_UNSUBSCRIBE_URI, href=unsubscribe_uri)
+            )
+
         # Add a rel="help" link for every type of URL scheme that
         # leads to library-specific help.
         for type, uri in Configuration.help_uris(library):

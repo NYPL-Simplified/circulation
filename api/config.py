@@ -165,6 +165,10 @@ class Configuration(CoreConfiguration):
     # OPDS documents but are not registered with IANA.
     AUTHENTICATION_FOR_OPDS_LINKS = ['register']
 
+    # The link relation used to indicate the related link provides marketing email
+    # unsubscribe options. This is distinguished from a "1-click" unsubscribe option
+    HELP_UNSUBSCRIBE_URI = "http://librarysimplified.org/rel/email/unsubscribe/options"
+
     # We support three different ways of integrating help processes.
     # All three of these will be sent out as links with rel='help'
     HELP_EMAIL = 'help-email'
@@ -278,6 +282,14 @@ class Configuration(CoreConfiguration):
             "description": _("A custom help integration like Helpstack, e.g. 'helpstack:nypl.desk.com'."),
             "category": "Patron Support",
             "level": CoreConfiguration.SYS_ADMIN_ONLY
+        },
+        {
+            "key": HELP_UNSUBSCRIBE_URI,
+            "label": _("Email (Un)Subscription Management URL"),
+            "description": _("A URL for patrons to manage (or delete) any email subscriptions associated with their account."),
+            "format": "url",
+            "category": "Patron Support",
+            "level": CoreConfiguration.SYS_ADMIN_OR_MANAGER
         },
         {
             "key": COPYRIGHT_DESIGNATED_AGENT_EMAIL,
@@ -657,6 +669,18 @@ class Configuration(CoreConfiguration):
             yield type, value
 
     @classmethod
+    def _help_uri_with_fallback(cls, library, key):
+        for setting in [key, cls.HELP_WEB, cls.HELP_URI]:
+            value = ConfigurationSetting.for_library(setting, library).value
+
+            if value:
+                return value
+
+    @classmethod
+    def unsubscribe_email_uri(cls, library):
+        return cls._help_uri_with_fallback(library, cls.HELP_UNSUBSCRIBE_URI)
+
+    @classmethod
     def _email_uri_with_fallback(cls, library, key):
         """Try to find a certain email address configured for the given
         purpose. If not available, use the general patron support
@@ -666,9 +690,9 @@ class Configuration(CoreConfiguration):
         """
         for setting in [key, Configuration.HELP_EMAIL]:
             value = ConfigurationSetting.for_library(setting, library).value
-            if not value:
-                continue
-            return cls._as_mailto(value)
+
+            if value:
+                return cls._as_mailto(value)
 
     @classmethod
     def copyright_designated_agent_uri(cls, library):
