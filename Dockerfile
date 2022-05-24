@@ -80,6 +80,7 @@ RUN apt-get update \
  && apt-get update \
  && apt-get install --yes --no-install-recommends \
     build-essential \
+    pkg-config \
     software-properties-common \
     language-pack-en \
     git \
