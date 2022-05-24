@@ -908,7 +908,7 @@ class LibraryAuthenticator(object):
         )
         return jwt.encode(
             payload, self.bearer_token_signing_secret, algorithm='HS256'
-        ).decode("utf-8")
+        )
 
     def decode_bearer_token_from_header(self, header):
         """Extract auth provider name and access token from an Authenticate
