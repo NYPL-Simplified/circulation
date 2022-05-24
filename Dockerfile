@@ -139,11 +139,6 @@ ENV CPPFLAGS="-DXMLSEC_NO_XKMS=1"
 RUN ${SIMPLIFIED_VENV}/bin/python3 -m pip install -U wheel pip setuptools \
  && ${SIMPLIFIED_VENV}/bin/python3 -m pip install -r ./requirements.txt
 
-# We're switching to gunicorn for the wsgi server, and supervisor for process management,
-# so we'll remove uWSGI here, add supervisor here, and then install gunicorn only for the
-# images that need it.
-RUN ${SIMPLIFIED_VENV}/bin/python3 -m pip uninstall --yes uWSGI
-
 # Make sure we rotate our logs appropriately
 COPY docker/logrotate.conf /etc/logrotate.conf
 
