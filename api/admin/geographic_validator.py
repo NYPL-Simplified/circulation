@@ -74,7 +74,7 @@ class GeographicValidator(Validator):
                         # the registry won't recognize the name of the place to which it corresponds.
                         registry_response = self.find_location_through_registry(formatted, db)
                         if registry_response:
-                            locations["CA"].append(formatted);
+                            locations["CA"].append(formatted)
                         else:
                             return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s" (%(formatted)s).  Try entering the name of a larger area.', value=value, formatted=formatted))
                     except:
@@ -94,7 +94,7 @@ class GeographicValidator(Validator):
                     info = self.look_up_zip(value, "US")
                     if not info:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. zipcode.', value=value))
-                    locations["US"].append(value);
+                    locations["US"].append(value)
                 else:
                     flagged = True
 
