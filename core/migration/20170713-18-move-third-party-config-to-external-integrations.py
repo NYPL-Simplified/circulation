@@ -79,7 +79,7 @@ try:
         ]
         for k, v in list(s3_conf.items()):
             if k not in S3_SETTINGS:
-                log.warn('No ExternalIntegration goal for "%s" S3 bucket' % k)
+                log.warning('No ExternalIntegration goal for "%s" S3 bucket' % k)
                 continue
             integration.setting(str(k)).value = str(v)
 

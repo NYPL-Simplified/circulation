@@ -1110,7 +1110,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         if not self.identifies_patrons and rel != OPDSFeed.OPEN_ACCESS_REL:
             return
         if isinstance(delivery_mechanism, LicensePoolDeliveryMechanism):
-            logging.warn("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
+            logging.warning("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
             delivery_mechanism = delivery_mechanism.delivery_mechanism
         format_types = AcquisitionFeed.format_types(delivery_mechanism)
         if not format_types:
@@ -1387,7 +1387,7 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
                      rel=OPDSFeed.ACQUISITION_REL):
         """Create a new fulfillment link."""
         if isinstance(delivery_mechanism, LicensePoolDeliveryMechanism):
-            logging.warn("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
+            logging.warning("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
             delivery_mechanism = delivery_mechanism.delivery_mechanism
         format_types = AcquisitionFeed.format_types(delivery_mechanism)
         if not format_types:

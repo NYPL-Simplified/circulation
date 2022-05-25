@@ -221,7 +221,7 @@ class OdiloRepresentationExtractor(object):
             try:
                 published = strptime_utc(published, "%Y%m%d")
             except ValueError as e:
-                cls.log.warn('Cannot parse publication date from: ' + published + ', message: ' + str(e))
+                cls.log.warning('Cannot parse publication date from: ' + published + ', message: ' + str(e))
 
         # yyyyMMdd --> record last modification date
         last_update = book.get('modificationDate')
@@ -229,7 +229,7 @@ class OdiloRepresentationExtractor(object):
             try:
                 last_update = strptime_utc(last_update, "%Y%m%d")
             except ValueError as e:
-                cls.log.warn('Cannot parse last update date from: ' + last_update + ', message: ' + str(e))
+                cls.log.warning('Cannot parse last update date from: ' + last_update + ', message: ' + str(e))
 
         language = book.get('language', 'spa')
 
@@ -255,7 +255,7 @@ class OdiloRepresentationExtractor(object):
             elif format_received == cls.ACSM and file_format:
                 medium = cls.set_format(format_received + '_' + file_format.upper(), formats)
             else:
-                cls.log.warn('Unrecognized format received: ' + format_received)
+                cls.log.warning('Unrecognized format received: ' + format_received)
 
         if not medium:
             medium = Edition.BOOK_MEDIUM
@@ -849,7 +849,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
             msg = 'Cannot retrieve metadata for record: ' + record_id + ' response http ' + status_code
             if content:
                 msg += ' content: ' + content
-            self.log.warn(msg)
+            self.log.warning(msg)
             return None
 
     def get_availability(self, record_id):
@@ -863,7 +863,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
             msg = 'Cannot retrieve availability for record: ' + record_id + ' response http ' + status_code
             if content:
                 msg += ' content: ' + content
-            self.log.warn(msg)
+            self.log.warning(msg)
             return None
 
     @staticmethod

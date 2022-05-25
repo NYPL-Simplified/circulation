@@ -219,7 +219,7 @@ class Resource(Base):
 
         # Humans have voted positively on this Resource, and now it's
         # being rejected regardless.
-        logging.warn("Rejecting Resource with positive votes: %r", self)
+        logging.warning("Rejecting Resource with positive votes: %r", self)
 
         # Make the voted_quality negative without impacting the weight
         # of existing votes so the value can be restored relatively

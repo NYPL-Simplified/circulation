@@ -403,7 +403,7 @@ class CirculationManager(object):
         else:
             search = ExternalSearchIndex(self._db)
             if not search:
-                self.log.warn("No external search server configured.")
+                self.log.warning("No external search server configured.")
                 return None
             return search
 
@@ -481,7 +481,7 @@ class CirculationManager(object):
             node_value = adobe.password
             if vendor_id and node_value:
                 if new_adobe_vendor_id:
-                    self.log.warn(
+                    self.log.warning(
                         "Multiple libraries define an Adobe Vendor ID integration. This is not supported and the last library seen will take precedence."
                     )
                 new_adobe_vendor_id = AdobeVendorIDController(
@@ -492,7 +492,7 @@ class CirculationManager(object):
                     self.auth
                 )
             else:
-                self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
+                self.log.warning("Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
         if new_adobe_vendor_id:
             self.adobe_vendor_id = new_adobe_vendor_id
 
