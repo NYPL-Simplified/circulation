@@ -26,6 +26,12 @@ class TestURLUtility:
                 id="wildcard_subdomains"
             ),
             pytest.param(
+                "capacitor://test.vercel.app",
+                ["capacitor://*.vercel.app", "capacitor://localhost"],
+                True,
+                id="multiple_patterns"
+            ),
+            pytest.param(
                 "http://librarysimplified.org",
                 ["https://librarysimplified.org"],
                 False,
