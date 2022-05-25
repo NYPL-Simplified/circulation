@@ -84,7 +84,7 @@ RUN apt-get update \
     software-properties-common \
     language-pack-en \
     git \
-    python3.10 \
+    python3.9 \
     python3-dev \
     python3-setuptools \
     python3-venv \
