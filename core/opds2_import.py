@@ -1,16 +1,16 @@
 import logging
 
-import webpub_manifest_parser.opds2.ast as opds2_ast
+import core.util.webpub_manifest_parser.opds2.ast as opds2_ast
 from flask_babel import lazy_gettext as _
 from io import StringIO
 from urllib.parse import urljoin, urlparse
-from webpub_manifest_parser.errors import BaseError
-from webpub_manifest_parser.opds2.parsers import OPDS2DocumentParserFactory
-from webpub_manifest_parser.opds2.registry import (
+from core.util.webpub_manifest_parser.errors import BaseError
+from core.util.webpub_manifest_parser.opds2.parsers import OPDS2DocumentParserFactory
+from core.util.webpub_manifest_parser.opds2.registry import (
     OPDS2LinkRelationsRegistry,
     OPDS2MediaTypesRegistry,
 )
-from webpub_manifest_parser.utils import encode, first_or_default
+from core.util.webpub_manifest_parser.utils import encode, first_or_default
 
 from .metadata_layer import (
     CirculationData,
