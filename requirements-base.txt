@@ -103,7 +103,6 @@ uszipcode==1.0.1
 # watchtower is for Cloudwatch logging integration
 watchtower==0.8.0
 wcag-contrast-ratio==0.9
-webpub-manifest-parser==0.0.4
 websocket-client==0.57.0
 Werkzeug==2.0.3
 # xmlsec is required for SAML authentication
