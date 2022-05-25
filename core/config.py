@@ -462,8 +462,7 @@ class Configuration(ConfigurationConstants):
                 url
             )
 
-        # Calling __to_string__ will hide the password.
-        logging.info("Connecting to database: %s" % url_obj.__to_string__())
+        logging.info("Connecting to database: %s" % url_obj.render_as_string(hide_password=True))
         return url
 
     @classmethod
