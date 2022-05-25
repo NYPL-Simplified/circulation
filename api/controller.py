@@ -2519,7 +2519,7 @@ class StaticFileController(CirculationManagerController):
         cache_timeout = ConfigurationSetting.sitewide(
             self._db, Configuration.STATIC_FILE_CACHE_TIME
         ).int_value
-        return flask.send_from_directory(directory, filename, cache_timeout=cache_timeout)
+        return flask.send_from_directory(directory, filename, max_age=cache_timeout)
 
 
 class RBDFulfillmentProxyController(CirculationManagerController):
