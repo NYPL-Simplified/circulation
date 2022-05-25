@@ -40,8 +40,8 @@ def fast_query_count(query):
     count_q = statement.with_only_columns(new_columns).order_by(None)
     count = query.session.execute(count_q).scalar()
 
-    if query._limit and query._limit < count:
-        return query._limit
+    if query._limit_clause and query._limit_clause < count:
+        return query._limit_clause
 
     return count
 
