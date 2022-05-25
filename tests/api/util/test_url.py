@@ -14,6 +14,18 @@ class TestURLUtility:
                 id="simplest_full_match"
             ),
             pytest.param(
+                "capacitor://localhost",
+                ["capacitor://localhost"],
+                True,
+                id="simplest_full_match"
+            ),
+            pytest.param(
+                "capacitor://test.vercel.app",
+                ["capacitor://*.vercel.app"],
+                True,
+                id="wildcard_subdomains"
+            ),
+            pytest.param(
                 "http://librarysimplified.org",
                 ["https://librarysimplified.org"],
                 False,
