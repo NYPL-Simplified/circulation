@@ -60,7 +60,7 @@ urllib3==1.24.3
 uWSGI==2.0.19.1
 # watchtower is for Cloudwatch logging integration
 watchtower==0.8.0
-Werkzeug==2.0.3
+Werkzeug==1.0.1
 webpub-manifest-parser==0.0.4
 
 # Theses dependencies are only used in our tests. Ideally they would get moved out to
