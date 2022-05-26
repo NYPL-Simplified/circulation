@@ -137,16 +137,16 @@ That gives you access to all of the standard options to `pytest`, allowing varia
 
 ```shell
 # Fail fast with -x
-docker exec -it --env TESTING=1 cm_local_webapp pipenv run pytest -x tests
+docker exec -it --env TESTING=1 cm_local_webapp /usr/local/bin/runinvenv /simplified_venv pytest -x tests
 
 # Run a particular test class
-docker exec -it --env TESTING=1 cm_local_webapp pipenv \run pytest tests/test_decorators.py::TestDecorators
+docker exec -it --env TESTING=1 cm_local_webapp /usr/local/bin/runinvenv /simplified_venv pytest tests/test_controller.py::TestCirculationManager
 
 # Run a specific test method
-docker exec -it --env TESTING=1 cm_local_webapp pipenv run pytest tests/test_decorators.py::TestDecorators::test_uses_location_from_ip
+docker exec -it --env TESTING=1 cm_local_webapp /usr/local/bin/runinvenv /simplified_venv pytest tests/test_controller.py::TestCirculationManager::test_exception_during_external_search_initialization_is_stored
 
 # Turn off the warnings output
-docker exec -it --env TESTING=1 cm_local_webapp pipenv run pytest --disable-warnings tests
+docker exec -it --env TESTING=1 cm_local_webapp /usr/local/bin/runinvenv /simplified_venv pytest --disable-warnings tests
 ```
 
 The full set of options to the `pytest` executable is available at [https://docs.pytest.org/en/6.2.x/usage.html](https://docs.pytest.org/en/6.2.x/usage.html)
