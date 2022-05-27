@@ -181,3 +181,48 @@ class TestConfiguration(DatabaseTest):
         # Initializing the Configuration object modifies the corresponding
         # object in core, so that core code will behave appropriately.
         assert Configuration.DEFAULT_OPDS_FORMAT == CoreConfiguration.DEFAULT_OPDS_FORMAT
+
+    def test__help_uri_with_fallback_provided_key_success(self):
+        unsubscribe_value = 'http://example.org/unsubscribe'
+
+        ConfigurationSetting.for_library(
+            Configuration.HELP_UNSUBSCRIBE_URI, self._default_library).value\
+                = unsubscribe_value
+
+        assert Configuration._help_uri_with_fallback(
+            self._default_library, Configuration.HELP_UNSUBSCRIBE_URI)\
+                == unsubscribe_value
+
+    def test__help_uri_with_fallback_missing_key(self):
+        help_value = 'http://example.org/help'
+
+        ConfigurationSetting.for_library(
+            Configuration.HELP_WEB, self._default_library).value\
+                = help_value
+
+        assert Configuration._help_uri_with_fallback(
+            self._default_library, Configuration.HELP_UNSUBSCRIBE_URI)\
+            == help_value
+
+    def test__email_uri_with_fallback_provided_key_success(self):
+        contact_email = 'contact@example.org'
+
+        ConfigurationSetting.for_library(
+            Configuration.CONFIGURATION_CONTACT_EMAIL, self._default_library).value\
+                = contact_email
+
+        assert Configuration._email_uri_with_fallback(
+            self._default_library, Configuration.CONFIGURATION_CONTACT_EMAIL)\
+                == f'mailto:{contact_email}'
+
+    def test__email_uri_with_fallback_missing_key(self):
+        help_email = 'help@example.org'
+
+        ConfigurationSetting.for_library(
+            Configuration.HELP_EMAIL, self._default_library).value\
+                = help_email
+
+        assert Configuration._email_uri_with_fallback(
+            self._default_library, Configuration.CONFIGURATION_CONTACT_EMAIL)\
+            == f'mailto:{help_email}'
+
