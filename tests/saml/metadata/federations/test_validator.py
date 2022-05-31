@@ -1,8 +1,10 @@
 import datetime
 import os
 
+from mock import patch
 import pytest
 from freezegun import freeze_time
+from onelogin.saml2.utils import OneLogin_Saml2_Utils
 from parameterized import parameterized
 
 import tests.saml.fixtures
@@ -162,6 +164,17 @@ class TestSAMLMetadataSignatureValidator(object):
                 tests.saml.fixtures.FEDERATED_METADATA_WITH_INVALID_SIGNATURE,
                 SAMLFederatedMetadataValidationError,
             ),
+            (
+                "with_valid_signature",
+                tests.saml.fixtures.FEDERATED_METADATA_CERTIFICATE.strip(),
+                open(
+                    os.path.join(
+                        os.path.dirname(os.path.abspath(__file__)),
+                        "../../../files/saml/incommon-metadata-idp-only.xml",
+                    )
+                ).read(),
+                None,
+            ),
         ]
     )
     def test_validate(self, _, certificate, metadata, expected_exception):
@@ -171,6 +184,9 @@ class TestSAMLMetadataSignatureValidator(object):
             incommon.FEDERATION_TYPE, incommon.IDP_METADATA_SERVICE_URL
         )
         federation.certificate = certificate
+
+        mockOneLoginValidate = patch.object(OneLogin_Saml2_Utils, 'validate_metadata_sign')
+        mockOneLoginValidate.side_effect = expected_exception
 
         # Act, assert
         if expected_exception:
