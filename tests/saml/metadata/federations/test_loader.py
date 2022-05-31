@@ -41,7 +41,7 @@ class TestSAMLMetadataLoader(object):
         xml_metadata = metadata_loader.load_idp_metadata(url)
 
         # Assert
-        urlopen_mock.assert_called_with(url)
+        urlopen_mock.assert_called_with(url, timeout=None)
         assert fixtures.CORRECT_XML_WITH_IDP_1 == xml_metadata
 
     @patch("urllib.request.urlopen")
@@ -58,7 +58,7 @@ class TestSAMLMetadataLoader(object):
         xml_metadata = metadata_loader.load_idp_metadata(url)
 
         # Assert
-        urlopen_mock.assert_called_with(url)
+        urlopen_mock.assert_called_with(url, timeout=None)
         assert fixtures.CORRECT_XML_WITH_MULTIPLE_IDPS == xml_metadata
 
 
