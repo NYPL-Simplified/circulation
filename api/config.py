@@ -678,7 +678,7 @@ class Configuration(CoreConfiguration):
 
     @classmethod
     def unsubscribe_email_uri(cls, library):
-        return cls._help_uri_with_fallback(library, cls.HELP_UNSUBSCRIBE_URI)
+        return ConfigurationSetting.for_library(cls.HELP_UNSUBSCRIBE_URI, library).value
 
     @classmethod
     def _email_uri_with_fallback(cls, library, key):
