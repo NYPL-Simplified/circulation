@@ -134,7 +134,6 @@ class TestSAMLFederatedMetadataExpirationValidator:
 
 
 class TestSAMLMetadataSignatureValidator(object):
-    @pytest.mark.skip(reason="TODO: Needs new signature for shortened version of metadata file.")
     def test_validate_with_real_incommon_metadata(
         self, metadata_signature_validator, incommon_federation, incommon_metadata
     ):
@@ -144,11 +143,20 @@ class TestSAMLMetadataSignatureValidator(object):
         THEN:
         """
         incommon_federation.certificate = tests.saml.fixtures.FEDERATED_METADATA_CERTIFICATE.strip()
-        validation_result = metadata_signature_validator.validate(
-            incommon_federation,
-            incommon_metadata
-        )
-        assert validation_result is None
+
+        with patch.object(OneLogin_Saml2_Utils, 'validate_metadata_sign') as mockOneLoginValidate:
+            validation_result = metadata_signature_validator.validate(
+                incommon_federation,
+                incommon_metadata
+            )
+
+            mockOneLoginValidate.assert_called_once_with(
+                incommon_metadata,
+                incommon_federation.certificate,
+                raise_exceptions=True
+            )
+
+            assert validation_result is None
 
     @parameterized.expand(
         [
