@@ -1246,6 +1246,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             Configuration.HELP_WEB, library).value = "http://library.help/"
         ConfigurationSetting.for_library(
             Configuration.HELP_URI, library).value = "custom:uri"
+        ConfigurationSetting.for_library(
+            Configuration.HELP_UNSUBSCRIBE_URI, library).value = 'http://library.unsubscribe/'
 
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
         base_url.value = 'http://circulation-manager/'
@@ -1315,10 +1317,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # We also need to test that the links got pulled in
             # from the configuration.
             (about, alternate, copyright, help_uri, help_web, help_email,
-             copyright_agent, profile, loans, license, logo, privacy_policy, register, start,
-             stylesheet, terms_of_service) = sorted(
-                 doc['links'], key=lambda x: (x['rel'], x['href'])
-             )
+             copyright_agent, unsubscribe_link, profile, loans, license, logo,
+             privacy_policy, register, start, stylesheet, terms_of_service)\
+                 = sorted(doc['links'], key=lambda x: (x['rel'], x['href']))
             assert "http://terms" == terms_of_service['href']
             assert "http://privacy" == privacy_policy['href']
             assert "http://copyright" == copyright['href']
@@ -1360,6 +1361,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             assert "http://library.help/" == help_web['href']
             assert "text/html" == help_web['type']
             assert "mailto:help@library" == help_email['href']
+
+            # We also have an unsubscribe link
+            assert 'http://library.unsubscribe/' == unsubscribe_link['href']
 
             # Since no special address was given for the copyright
             # designated agent, the help address was reused.
