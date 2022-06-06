@@ -41,6 +41,7 @@ class URLUtility(object):
 
         Examples of valid domain_list entries:
 
+            ```
             http://librarysimplified.org
             https://librarysimplified.org
             https://www.librarysimplified.org
@@ -48,6 +49,7 @@ class URLUtility(object):
             https://alpha.bravo.charlie.librarysimplified.org
             https://*.charlie.librarysimplified.org
             capacitor://*.vercel.app
+            ```
 
         Note that the entry `http://*.librarysimplified.org` WILL NOT match
         the URL of the root domain `http://librarysimplified.org`. To match the root
