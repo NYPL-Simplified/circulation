@@ -288,7 +288,7 @@ def admin_change_password():
       description: |
         Sets the password from form data for the current admin. This requires a CSRF token.
       security:
-        - BearerAuth
+        - BasicAuth: []
       parameters:
         - X-CSRF-Token
       requestBody:
@@ -325,7 +325,7 @@ def work_details(identifier_type, identifier):
         The work returned is NOT cached, meaning any changes will appear immediately in this endpoint,
         it also includes any relevant links for updating the work record
       security:
-        - BasicAuth
+        - BasicAuth: []
       parameters:
         - in: path
           name: library_short_name
@@ -621,7 +621,7 @@ def individual_admins():
       summary: Fetch list of site administrators
       description: Get a list of all site administrators with details, accessible to all admins
       security:
-        - BearerAuth
+        - BasicAuth: []
       responses:
         200:
           description: List of currently authorized admins
@@ -659,7 +659,7 @@ def individual_admins():
         * Managers of specific library managers can manage managers and librarians within their library
         * Librarians have no special permissions
       security:
-        - BearerAuth
+        - BasicAuth: []
       parameters:
         - X-CSRF-Token
       requestBody:
@@ -732,7 +732,7 @@ def individual_admin(email):
       summary: Delete administrator by email address
       description: In order to execute this operation the current user must be a) a site admin and b) have sitewide library permissions
       security:
-        - BearerAuth
+        - BasicAuth: []
       parameters:
         - X-CSRF-Token
         - in: path
@@ -995,7 +995,7 @@ def custom_lists():
         These are structured as objects with an id, name and an array of collections.
         Each collection within the list is returned as a basic object.
       security:
-        - BasicAuth
+        - BasicAuth: []
       parameters:
         - in: path
           name: library_short_name
@@ -1025,7 +1025,7 @@ def custom_lists():
 
         If during this process a work is newly added to this list, associated lanes and counts will also be updated.
       security:
-        - BasicAuth
+        - BasicAuth: []
       parameters:
         - X-CSRF-Token
         - in: path
@@ -1116,7 +1116,7 @@ def custom_list(list_id):
         This feed is annotated in the context of the admin control which includes a search link for each lane.
         Each individual work should also be annotated with the available admin actions in the feed.
       security:
-        - BasicAuth
+        - BasicAuth: []
       parameters:
         - in: path
           name: library_short_name
@@ -1144,7 +1144,7 @@ def custom_list(list_id):
         This differs from the create/update endpoint that does not allow for the specification of these `deletedEntries`, 
         otherwise the functionality of the endpoints are the same.
       security:
-        - BasicAuth
+        - BasicAuth: []
       parameters:
         - X-CSRF-Token
         - in: path
@@ -1211,7 +1211,7 @@ def custom_list(list_id):
 
         This change is immediately persisted in the database.
       security:
-        - BasicAuth
+        - BasicAuth: []
       parameters:
         - X-CSRF-Token
         - in: path
@@ -1282,7 +1282,7 @@ def lanes():
         This will recursively fetch all lanes nested within a library's top-level lanes, 
         returning a full representation of the lane structure.        
       security:
-        - BasicAuth
+        - BasicAuth: []
       parameters:
         - in: path
           name: library_short_name
@@ -1309,7 +1309,7 @@ def lanes():
 
         The created lane can be a top-level lane, or a sublane (if a parent_id is provided).
       security:
-        - BasicAuth
+        - BasicAuth: []
       parameters:
         - X-CSRF-Token
         - in: path
@@ -1389,7 +1389,7 @@ def lane(lane_identifier):
         Default lanes cannot be deleted, and all sublanes within the deleted lane are
         also recursively deleted.
       security:
-        - BasicAuth
+        - BasicAuth: []
       parameters:
         - X-CSRF-Token
         - in: path
@@ -1461,7 +1461,7 @@ def lane_show(lane_identifier):
         If the parent of the lane is hidden this opperation will return an error, 
         and if the lane is already visible the action has no effect
       security:
-        - BasicAuth
+        - BasicAuth: []
       parameters:
         - X-CSRF-Token
         - in: path
@@ -1532,7 +1532,7 @@ def lane_hide(lane_identifier):
 
         If the lane is already visible the action has no effect
       security:
-        - BasicAuth
+        - BasicAuth: []
       parameters:
         - X-CSRF-Token
         - in: path
@@ -1615,7 +1615,7 @@ def reset_lanes():
         WARNING: This can be extremely destructive! All new lanes will be visible and all existing
         lanes will be deleted.
       security:
-        - BasicAuth
+        - BasicAuth: []
       parameters:
         - X-CSRF-Token
         - in: path
@@ -1662,7 +1662,7 @@ def change_lane_order():
 
         This operation requires that the current user have library manager permissions
       security:
-        - BasicAuth
+        - BasicAuth: []
       parameters:
         - X-CSRF-Token
         - in: path
