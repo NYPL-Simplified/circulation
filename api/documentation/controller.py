@@ -18,7 +18,9 @@ class OpenAPIController:
     def __init__(self):
         self.spec = self.generateSpecBase()
     
-    def addComponent(self, componentType, schemaName, schemaType, schemaProps):
+    def addComponent(self,
+        componentType, schemaName, schemaType, schemaProps,
+        requiredFields=None):
         addComponentFunc = getattr(self.spec.components, componentType)
 
         schemaProps = {'properties': schemaProps} if schemaType == 'object' else schemaProps
@@ -27,6 +29,9 @@ class OpenAPIController:
             'type': schemaType,
             **schemaProps
         }
+
+        if requiredFields:
+            schemaComponent['required'] = requiredFields
 
         addComponentFunc(
             schemaName,
@@ -78,10 +83,7 @@ class OpenAPIController:
         self.addComponent(
             'schema', 'SiteAdminPost', 'object',
             {
-                'email': {
-                    'type': 'string',
-                    'required': True
-                },
+                'email': {'type': 'string'},
                 'password': {
                     'type': 'string',
                     'format': 'password'
@@ -90,7 +92,8 @@ class OpenAPIController:
                     'type': 'array',
                     'items': {'$ref': '#/components/schemas/AdminRole'}
                 }
-            }
+            },
+            requiredFields=['email']
         )
 
         self.addComponent(
@@ -98,10 +101,10 @@ class OpenAPIController:
             {
                 'password': {
                     'type': 'string',
-                    'format': 'password',
-                    'required': True
+                    'format': 'password'
                 }
-            }
+            },
+            requiredFields=['password']
         )
 
         self.addComponent(
@@ -117,10 +120,11 @@ class OpenAPIController:
         self.addComponent(
             'schema', 'AtomCategory', 'object',
             {
-                'schema': {'type': 'string', 'required': True},
-                'term': {'type': 'string', 'required': True},
-                'label': {'type': 'string', 'required': True}
-            }
+                'schema': {'type': 'string'},
+                'term': {'type': 'string'},
+                'label': {'type': 'string'}
+            },
+            requiredFields=['schema', 'term', 'label']
         )
 
         self.addComponent(
@@ -144,23 +148,21 @@ class OpenAPIController:
         self.addComponent(
             'schema', 'OPDSLink', 'object',
             {
-                'rel': {
-                    '$ref': '#/components/schemas/OPDSRelations',
-                    'required': True
-                },
-                'href': {'type': 'string', 'required': True},
-                'type': {'type': 'string', 'required': True}
-            }
+                'rel': {'$ref': '#/components/schemas/OPDSRelations'},
+                'href': {'type': 'string'},
+                'type': {'type': 'string'}
+            },
+            requiredFields=['rel', 'href', 'type']
         )
 
         self.addComponent(
             'schema', 'OPDSEntry', 'object',
             {
-                'atom:id': {'type': 'string', 'required': True},
+                'atom:id': {'type': 'string'},
                 'dc:identifier': {'type': 'string'},
-                'atom:updated': {'type': 'string', 'required': True},
+                'atom:updated': {'type': 'string'},
                 'dc:issued': {'type': 'string'},
-                'atom:title': {'type': 'string', 'required': True},
+                'atom:title': {'type': 'string'},
                 'atom:author': {'type': 'string',},
                 'atom:rights': {'type': 'string'},
                 'atom:summary': {'type': 'string'},
@@ -170,7 +172,8 @@ class OpenAPIController:
                 'opds:price': {'type': 'string'},
                 'atom:category': {'$ref': '#/components/schemas/AtomCategory'},
                 'opds:link': {'$ref': '#/components/schemas/OPDSLink'}
-            }
+            },
+            requiredFields=['atom:id', 'atom:updated', 'atom:title']
         )
 
         self.addComponent(
@@ -221,10 +224,10 @@ class OpenAPIController:
             {
                 'id': {
                     'type': 'string',
-                    'required': True,
                     'description': 'A URN identifying the work of the entry'
                 }
-            }
+            },
+            requiredFields=['id']
         )
 
         self.addComponent(
@@ -237,24 +240,25 @@ class OpenAPIController:
         self.addComponent(
             'schema', 'CustomListUpsertPost', 'object',
             {
-                'id': {'type': 'string', 'required': True},
-                'name': {'type': 'string', 'required': True},
+                'id': {'type': 'string'},
+                'name': {'type': 'string'},
                 'entries': {
                     'type': 'array',
-                    'items': {'$ref': '#/components/schema/ListEntry'}
+                    'items': {'$ref': '#/components/schemas/ListEntry'}
                 },
                 'collections': {
                     'type': 'array',
                     'items': {'$ref': '#/components/schemas/ListCollection'}
                 }
-            }
+            },
+            requiredFields=['id', 'name']
         )
 
         self.addComponent(
             'schema', 'CustomListUpdatePost', 'object',
             {
-                'id': {'type': 'string', 'required': True},
-                'name': {'type': 'string', 'required': True},
+                'id': {'type': 'string'},
+                'name': {'type': 'string'},
                 'entries': {
                     'type': 'array',
                     'items': {'$ref': '#/components/schema/ListEntry'}
@@ -267,7 +271,8 @@ class OpenAPIController:
                     'type': 'array',
                     'items': {'$ref': '#/components/schemas/ListEntry'}
                 }
-            }
+            },
+            requiredFields=['id', 'name']
         )
 
         self.addComponent(
@@ -316,13 +321,14 @@ class OpenAPIController:
             {
                 'id': {'type': 'string'},
                 'parent_id': {'type': 'string'},
-                'display_name': {'type': 'string', 'required': True},
+                'display_name': {'type': 'string'},
                 'custom_list_ids': {
                     'type': 'array',
                     'items': {'type': 'string'}
                 },
                 'inherit_parent_restrictions': {'type': 'boolean'}
-            }
+            },
+            requiredFields=['display_name']
         )
 
         self.addComponent(
@@ -381,7 +387,6 @@ class OpenAPIController:
             info={
                 'version': cls.DOC_VERSION,
                 'title': 'Library Simplified Circulation Manager',
-                'summary': 'Loan and hold management system for digital content for libraries participating in the Library Simplified project.',
                 'description': 'The Circulation Manager is the main connection between a library\'s collection and Library Simplified\'s various client-side applications, including SimplyE. It handles user authentication, combines licensed works with open access content, maintains book metadata, and serves up available books in appropriately organized OPDS feeds.',
                 'termsOfService': 'https://librarysimplified.org',
                 'contact': {
@@ -391,7 +396,7 @@ class OpenAPIController:
                 },
                 'license': {
                     'name': 'Apache License 2.0',
-                    'identifier': 'Apache-2.0'
+                    'url': 'http://www.apache.org/licenses/LICENSE-2.0'
                 }
             },
             servers=[

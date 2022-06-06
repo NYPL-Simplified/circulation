@@ -268,9 +268,9 @@ def admin_sign_out():
         Then returns a redirect to the admin sign-in page.
 
         If no user is set in the current session only the redirect is executed
-    responses:
-      302:
-        description: Redirect to admin sign-in page
+      responses:
+        302:
+          description: Redirect to admin sign-in page
     """
     return app.manager.admin_sign_in_controller.sign_out()
 
@@ -748,7 +748,8 @@ def individual_admin(email):
             text/html:
               schema:
                 type: string
-                enum: Deleted
+                enum:
+                  - Deleted
                 example: Deleted
         403:
           description: User Unauthorized to perform admin deletions
