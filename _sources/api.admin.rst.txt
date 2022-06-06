@@ -75,14 +75,6 @@ api.admin.problem\_details module
     :undoc-members:
     :show-inheritance:
 
-api.admin.routes module
------------------------
-
-.. automodule:: api.admin.routes
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 api.admin.template\_styles module
 ---------------------------------
 

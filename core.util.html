@@ -161,8 +161,9 @@ in an Authentication For OPDS document.</p>
 <dl class="method">
 <dt id="core.util.authentication_for_opds.OPDSAuthenticationFlow.authentication_flow_document">
 <code class="descname">authentication_flow_document</code><span class="sig-paren">(</span><em>_db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/authentication_for_opds.html#OPDSAuthenticationFlow.authentication_flow_document"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.authentication_for_opds.OPDSAuthenticationFlow.authentication_flow_document" title="Permalink to this definition">¶</a></dt>
-<dd><p>Convert this object into a dictionary that can be used in the
-<cite>authentication</cite> list of an Authentication For OPDS document.</p>
+<dd><p>Convert this object into a dictionary or a
+list of dictionaries that can be used in the
+<cite>authentication</cite> list of an AuthenticationFor OPDS document.</p>
 </dd></dl>
 
 </dd></dl>
@@ -864,7 +865,7 @@ rather than raising a ValueError.</p>
 
 <dl class="attribute">
 <dt id="core.util.opds_writer.AtomFeed.default_typemap">
-<code class="descname">default_typemap</code><em class="property"> = {&lt;module 'datetime' from '/opt/hostedtoolcache/Python/3.7.12/x64/lib/python3.7/datetime.py'&gt;: &lt;function AtomFeed.&lt;lambda&gt;&gt;}</em><a class="headerlink" href="#core.util.opds_writer.AtomFeed.default_typemap" title="Permalink to this definition">¶</a></dt>
+<code class="descname">default_typemap</code><em class="property"> = {&lt;module 'datetime' from '/opt/hostedtoolcache/Python/3.7.13/x64/lib/python3.7/datetime.py'&gt;: &lt;function AtomFeed.&lt;lambda&gt;&gt;}</em><a class="headerlink" href="#core.util.opds_writer.AtomFeed.default_typemap" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -1408,7 +1409,7 @@ edition of the book.</p>
 
 <dl class="attribute">
 <dt id="core.util.summary.SummaryEvaluator.bad_res">
-<code class="descname">bad_res</code><em class="property"> = {re.compile('This is'), re.compile('the [^ ]+ Collection'), re.compile('Includes')}</em><a class="headerlink" href="#core.util.summary.SummaryEvaluator.bad_res" title="Permalink to this definition">¶</a></dt>
+<code class="descname">bad_res</code><em class="property"> = {re.compile('This is'), re.compile('Includes'), re.compile('the [^ ]+ Collection')}</em><a class="headerlink" href="#core.util.summary.SummaryEvaluator.bad_res" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -2092,7 +2093,7 @@ completely different words, the difference will be 1.</p>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

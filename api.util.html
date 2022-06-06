@@ -146,6 +146,30 @@ restored.</p>
 </table>
 </dd></dl>
 
+<dl class="staticmethod">
+<dt id="api.util.url.URLUtility.url_match_in_domain_list">
+<em class="property">static </em><code class="descname">url_match_in_domain_list</code><span class="sig-paren">(</span><em>url</em>, <em>domain_list</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/url.html#URLUtility.url_match_in_domain_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.url.URLUtility.url_match_in_domain_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Attempts to match a candidate URL against a list of URL patterns, with wildcard
+matching of subdomains under a given root.</p>
+<p>To be matched against, a value in ‘domain_list’ must be of the form:</p>
+<blockquote>
+<div><cite>(http|https)://[(&lt;subdomain&gt;|*).]&lt;domain&gt;.&lt;tld&gt;</cite></div></blockquote>
+<p>Examples of valid domain_list entries:</p>
+<blockquote>
+<div><code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">http://librarysimplified.org</span>
+<span class="pre">https://librarysimplified.org</span>
+<span class="pre">https://www.librarysimplified.org</span>
+<span class="pre">https://*.librarysimplified.org</span>
+<span class="pre">https://alpha.bravo.charlie.librarysimplified.org</span>
+<span class="pre">https://*.charlie.librarysimplified.org</span>
+<span class="pre">capacitor://*.vercel.app</span>
+<span class="pre">`</span></code></div></blockquote>
+<p>Note that the entry <cite>http://*.librarysimplified.org</cite> WILL NOT match
+the URL of the root domain <cite>http://librarysimplified.org</cite>. To match the root
+domain you must also include it as a separate, non-wildcard entry.</p>
+</dd></dl>
+
 </dd></dl>
 
 </div>
@@ -219,7 +243,7 @@ restored.</p>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

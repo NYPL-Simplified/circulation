@@ -1568,11 +1568,6 @@
     <span class="c1"># Ensure that the log configuration starts in a known state.</span>
     <span class="n">LogConfiguration</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">testing</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="c1"># Drop any existing schema. It will be recreated when</span>
-    <span class="c1"># SessionManager.initialize() runs.</span>
-    <span class="n">engine</span> <span class="o">=</span> <span class="n">SessionManager</span><span class="o">.</span><span class="n">engine</span><span class="p">()</span>
-    <span class="n">Base</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">drop_all</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
-
     <span class="k">yield</span>
 
     <span class="k">if</span> <span class="s1">&#39;TESTING&#39;</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
@@ -1643,7 +1638,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

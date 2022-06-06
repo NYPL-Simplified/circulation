@@ -288,7 +288,7 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">redirect_uri</span>
 
-        <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authenticator</span><span class="o">.</span><span class="n">saml_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
+        <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authenticator</span><span class="o">.</span><span class="n">bearer_token_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_redirect_with_error</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span>
 
@@ -381,7 +381,7 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_redirect_with_error</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span>
 
-        <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authenticator</span><span class="o">.</span><span class="n">saml_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
+        <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authenticator</span><span class="o">.</span><span class="n">bearer_token_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_redirect_with_error</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span>
 
@@ -466,7 +466,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

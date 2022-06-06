@@ -34,84 +34,53 @@
             
   <h1>Source code for api.odl</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">import</span> <span class="nn">dateutil</span>
 <span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">uuid</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">import</span> <span class="nn">urllib.parse</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
-<span class="kn">import</span> <span class="nn">flask</span>
-<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
-<span class="kn">import</span> <span class="nn">feedparser</span>
-<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
-<span class="kn">from</span> <span class="nn">.problem_details</span> <span class="kn">import</span> <span class="n">NO_LICENSES</span>
 <span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">StringIO</span>
-<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">dateutil</span>
+<span class="kn">import</span> <span class="nn">feedparser</span>
+<span class="kn">import</span> <span class="nn">flask</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">url_for</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">or_</span>
 <span class="kn">from</span> <span class="nn">uritemplate</span> <span class="kn">import</span> <span class="n">URITemplate</span>
 
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">or_</span>
-
-<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">OPDSXMLParser</span><span class="p">,</span>
-    <span class="n">OPDSImporter</span><span class="p">,</span>
-    <span class="n">OPDSImportMonitor</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.monitor</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">CollectionMonitor</span><span class="p">,</span>
-    <span class="n">TimelineMonitor</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core</span> <span class="kn">import</span> <span class="n">util</span>
+<span class="kn">from</span> <span class="nn">core.analytics</span> <span class="kn">import</span> <span class="n">Analytics</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="n">CirculationData</span><span class="p">,</span> <span class="n">FormatData</span><span class="p">,</span> <span class="n">LicenseData</span><span class="p">,</span> <span class="n">TimestampData</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
-    <span class="n">Credential</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
     <span class="n">DeliveryMechanism</span><span class="p">,</span>
     <span class="n">Edition</span><span class="p">,</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
     <span class="n">Hold</span><span class="p">,</span>
     <span class="n">Hyperlink</span><span class="p">,</span>
-    <span class="n">Identifier</span><span class="p">,</span>
-    <span class="n">IntegrationClient</span><span class="p">,</span>
     <span class="n">LicensePool</span><span class="p">,</span>
     <span class="n">Loan</span><span class="p">,</span>
     <span class="n">MediaTypes</span><span class="p">,</span>
+    <span class="n">Representation</span><span class="p">,</span>
     <span class="n">RightsStatus</span><span class="p">,</span>
     <span class="n">Session</span><span class="p">,</span>
-    <span class="n">create</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">CirculationData</span><span class="p">,</span>
-    <span class="n">FormatData</span><span class="p">,</span>
-    <span class="n">IdentifierData</span><span class="p">,</span>
-    <span class="n">LicenseData</span><span class="p">,</span>
-    <span class="n">TimestampData</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">.circulation</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">BaseCirculationAPI</span><span class="p">,</span>
-    <span class="n">LoanInfo</span><span class="p">,</span>
-    <span class="n">FulfillmentInfo</span><span class="p">,</span>
-    <span class="n">HoldInfo</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.analytics</span> <span class="kn">import</span> <span class="n">Analytics</span>
-<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">utc_now</span><span class="p">,</span>
-    <span class="n">strptime_utc</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">HTTP</span><span class="p">,</span>
-    <span class="n">BadResponseException</span><span class="p">,</span>
-    <span class="n">RemoteIntegrationException</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.monitor</span> <span class="kn">import</span> <span class="n">CollectionMonitor</span><span class="p">,</span> <span class="n">IdentifierSweepMonitor</span>
+<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="n">OPDSImporter</span><span class="p">,</span> <span class="n">OPDSImportMonitor</span><span class="p">,</span> <span class="n">OPDSXMLParser</span>
+<span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="n">DatabaseTest</span><span class="p">,</span> <span class="n">MockRequestsResponse</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="n">utc_now</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span><span class="p">,</span> <span class="n">BadResponseException</span><span class="p">,</span> <span class="n">RemoteIntegrationException</span>
 <span class="kn">from</span> <span class="nn">core.util.string_helpers</span> <span class="kn">import</span> <span class="n">base64</span>
-<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">url_for</span>
-<span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">DatabaseTest</span><span class="p">,</span>
-    <span class="n">MockRequestsResponse</span><span class="p">,</span>
-<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">.circulation</span> <span class="kn">import</span> <span class="n">BaseCirculationAPI</span><span class="p">,</span> <span class="n">FulfillmentInfo</span><span class="p">,</span> <span class="n">HoldInfo</span><span class="p">,</span> <span class="n">LoanInfo</span>
 <span class="kn">from</span> <span class="nn">.circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">.shared_collection</span> <span class="kn">import</span> <span class="n">BaseSharedCollectionAPI</span>
+
 
 <div class="viewcode-block" id="ODLAPI"><a class="viewcode-back" href="../../api.html#api.odl.ODLAPI">[docs]</a><span class="k">class</span> <span class="nc">ODLAPI</span><span class="p">(</span><span class="n">BaseCirculationAPI</span><span class="p">,</span> <span class="n">BaseSharedCollectionAPI</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;ODL (Open Distribution to Libraries) is a specification that allows</span>
@@ -631,7 +600,7 @@
                 <span class="n">Loan</span><span class="o">.</span><span class="n">end</span><span class="o">&gt;</span><span class="n">utc_now</span><span class="p">()</span>
             <span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
-        <span class="n">remaining_licenses</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">-</span> <span class="n">loans_count</span>
+        <span class="n">remaining_licenses</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">licensepool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">-</span> <span class="n">loans_count</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
         <span class="n">holds</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Hold</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">Hold</span><span class="o">.</span><span class="n">license_pool_id</span><span class="o">==</span><span class="n">licensepool</span><span class="o">.</span><span class="n">id</span>
@@ -817,6 +786,7 @@
     <span class="n">NAMESPACES</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">OPDSXMLParser</span><span class="o">.</span><span class="n">NAMESPACES</span><span class="p">,</span>
                       <span class="n">odl</span><span class="o">=</span><span class="s2">&quot;http://opds-spec.org/odl&quot;</span><span class="p">)</span></div>
 
+
 <div class="viewcode-block" id="ODLImporter"><a class="viewcode-back" href="../../api.html#api.odl.ODLImporter">[docs]</a><span class="k">class</span> <span class="nc">ODLImporter</span><span class="p">(</span><span class="n">OPDSImporter</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Import information and formats from an ODL feed.</span>
 
@@ -829,6 +799,105 @@
     <span class="c1"># The media type for a License Info Docuemnt, used to get information</span>
     <span class="c1"># about the license.</span>
     <span class="n">LICENSE_INFO_DOCUMENT_MEDIA_TYPE</span> <span class="o">=</span> <span class="s1">&#39;application/vnd.odl.info+json&#39;</span>
+
+<div class="viewcode-block" id="ODLImporter.parse_license"><a class="viewcode-back" href="../../api.html#api.odl.ODLImporter.parse_license">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parse_license</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+            <span class="n">total_checkouts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+            <span class="n">concurrent_checkouts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+            <span class="n">expires</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">],</span>
+            <span class="n">checkout_link</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+            <span class="n">odl_status_link</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+            <span class="n">do_get</span><span class="p">:</span> <span class="n">Callable</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LicenseData</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Check the license&#39;s attributes passed as parameters:</span>
+<span class="sd">        - if they&#39;re correct, turn them into a LicenseData object</span>
+<span class="sd">        - otherwise, return a None</span>
+
+<span class="sd">        :param identifier: License&#39;s identifier</span>
+<span class="sd">        :param total_checkouts: Total number of checkouts before the license expires</span>
+<span class="sd">        :param concurrent_checkouts: Number of concurrent checkouts allowed for this license</span>
+<span class="sd">        :param expires: Date &amp; time until the license is valid</span>
+<span class="sd">        :param checkout_link: License&#39;s checkout link</span>
+<span class="sd">        :param odl_status_link: License Info Document&#39;s link</span>
+<span class="sd">        :param do_get: Callback performing HTTP GET method</span>
+
+<span class="sd">        :return: LicenseData if all the license&#39;s attributes are correct, None, otherwise</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">remaining_checkouts</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">available_concurrent_checkouts</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># This cycle ends in two different cases:</span>
+        <span class="c1"># - when at least one of the parameters is invalid; in this case, the method returns None.</span>
+        <span class="c1"># - when all the parameters are valid; in this case, the method returns a LicenseData object.</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">total_checkouts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">total_checkouts</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">total_checkouts</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">total_checkouts</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;License # </span><span class="si">{</span><span class="n">identifier</span><span class="si">}</span><span class="s2"> expired since &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;the total number of checkouts is </span><span class="si">{</span><span class="n">total_checkouts</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+                    <span class="k">break</span>
+
+            <span class="k">if</span> <span class="n">expires</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expires</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">):</span>
+                    <span class="n">expires</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">expires</span><span class="p">)</span>
+
+                <span class="n">expires</span> <span class="o">=</span> <span class="n">util</span><span class="o">.</span><span class="n">datetime_helpers</span><span class="o">.</span><span class="n">to_utc</span><span class="p">(</span><span class="n">expires</span><span class="p">)</span>
+                <span class="n">now</span> <span class="o">=</span> <span class="n">util</span><span class="o">.</span><span class="n">datetime_helpers</span><span class="o">.</span><span class="n">utc_now</span><span class="p">()</span>
+
+                <span class="k">if</span> <span class="n">expires</span> <span class="o">&lt;=</span> <span class="n">now</span><span class="p">:</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;License # </span><span class="si">{</span><span class="n">identifier</span><span class="si">}</span><span class="s2"> expired at </span><span class="si">{</span><span class="n">expires</span><span class="si">}</span><span class="s2"> (now is </span><span class="si">{</span><span class="n">now</span><span class="si">}</span><span class="s2">)&quot;</span>
+                    <span class="p">)</span>
+                    <span class="k">break</span>
+
+            <span class="k">if</span> <span class="n">odl_status_link</span><span class="p">:</span>
+                <span class="n">status_code</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">response</span> <span class="o">=</span> <span class="n">do_get</span><span class="p">(</span>
+                    <span class="n">odl_status_link</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{}</span>
+                <span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">status_code</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">201</span><span class="p">):</span>
+                    <span class="n">status</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+                    <span class="n">checkouts</span> <span class="o">=</span> <span class="n">status</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;checkouts&quot;</span><span class="p">,</span> <span class="p">{})</span>
+                    <span class="n">remaining_checkouts</span> <span class="o">=</span> <span class="n">checkouts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+                    <span class="n">available_concurrent_checkouts</span> <span class="o">=</span> <span class="n">checkouts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;available&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;License # </span><span class="si">{</span><span class="n">identifier</span><span class="si">}</span><span class="s2">&#39;s Info Document is not available. &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;Status link failed with </span><span class="si">{</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> code&quot;</span>
+                    <span class="p">)</span>
+                    <span class="k">break</span>
+
+            <span class="k">if</span> <span class="n">remaining_checkouts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">remaining_checkouts</span> <span class="o">=</span> <span class="n">total_checkouts</span>
+
+            <span class="k">if</span> <span class="n">remaining_checkouts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">remaining_checkouts</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">remaining_checkouts</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">remaining_checkouts</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;License # </span><span class="si">{</span><span class="n">identifier</span><span class="si">}</span><span class="s2"> expired since &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;the remaining number of checkouts is </span><span class="si">{</span><span class="n">remaining_checkouts</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+                    <span class="k">break</span>
+
+            <span class="k">if</span> <span class="n">available_concurrent_checkouts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">available_concurrent_checkouts</span> <span class="o">=</span> <span class="n">concurrent_checkouts</span>
+
+            <span class="k">return</span> <span class="n">LicenseData</span><span class="p">(</span>
+                <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
+                <span class="n">checkout_url</span><span class="o">=</span><span class="n">checkout_link</span><span class="p">,</span>
+                <span class="n">status_url</span><span class="o">=</span><span class="n">odl_status_link</span><span class="p">,</span>
+                <span class="n">expires</span><span class="o">=</span><span class="n">expires</span><span class="p">,</span>
+                <span class="n">remaining_checkouts</span><span class="o">=</span><span class="n">remaining_checkouts</span><span class="p">,</span>
+                <span class="n">concurrent_checkouts</span><span class="o">=</span><span class="n">available_concurrent_checkouts</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="kc">None</span></div>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_detail_for_elementtree_entry</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">parser</span><span class="p">,</span> <span class="n">entry_tag</span><span class="p">,</span> <span class="n">feed_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -887,11 +956,6 @@
 
             <span class="n">data</span><span class="p">[</span><span class="s1">&#39;medium&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">medium</span>
 
-            <span class="n">expires</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">remaining_checkouts</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">available_checkouts</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">concurrent_checkouts</span> <span class="o">=</span> <span class="kc">None</span>
-
             <span class="n">checkout_link</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">for</span> <span class="n">link_tag</span> <span class="ow">in</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">odl_license_tag</span><span class="p">,</span> <span class="s1">&#39;odl:tlink&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]:</span>
                 <span class="n">rel</span> <span class="o">=</span> <span class="n">link_tag</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rel&quot;</span><span class="p">)</span>
@@ -910,32 +974,33 @@
                     <span class="n">odl_status_link</span> <span class="o">=</span> <span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;href&quot;</span><span class="p">)</span>
                     <span class="k">break</span>
 
-            <span class="c1"># If we found one, retrieve it and get licensing information about this book.</span>
-            <span class="k">if</span> <span class="n">odl_status_link</span><span class="p">:</span>
-                <span class="n">ignore</span><span class="p">,</span> <span class="n">ignore</span><span class="p">,</span> <span class="n">response</span> <span class="o">=</span> <span class="n">do_get</span><span class="p">(</span><span class="n">odl_status_link</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{})</span>
-                <span class="n">status</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
-                <span class="n">checkouts</span> <span class="o">=</span> <span class="n">status</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;checkouts&quot;</span><span class="p">,</span> <span class="p">{})</span>
-                <span class="n">remaining_checkouts</span> <span class="o">=</span> <span class="n">checkouts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
-                <span class="n">available_checkouts</span> <span class="o">=</span> <span class="n">checkouts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;available&quot;</span><span class="p">)</span>
+            <span class="n">expires</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">total_checkouts</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">concurrent_checkouts</span> <span class="o">=</span> <span class="kc">None</span>
 
             <span class="n">terms</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">odl_license_tag</span><span class="p">,</span> <span class="s2">&quot;odl:terms&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">terms</span><span class="p">:</span>
+                <span class="n">total_checkouts</span> <span class="o">=</span> <span class="n">subtag</span><span class="p">(</span><span class="n">terms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;odl:total_checkouts&quot;</span><span class="p">)</span>
                 <span class="n">concurrent_checkouts</span> <span class="o">=</span> <span class="n">subtag</span><span class="p">(</span><span class="n">terms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;odl:concurrent_checkouts&quot;</span><span class="p">)</span>
                 <span class="n">expires</span> <span class="o">=</span> <span class="n">subtag</span><span class="p">(</span><span class="n">terms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;odl:expires&quot;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">expires</span><span class="p">:</span>
-                    <span class="n">expires</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">expires</span><span class="p">)</span>
 
-            <span class="n">licenses_owned</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">concurrent_checkouts</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
-            <span class="n">licenses_available</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">available_checkouts</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">license</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">parse_license</span><span class="p">(</span>
+                <span class="n">identifier</span><span class="p">,</span>
+                <span class="n">total_checkouts</span><span class="p">,</span>
+                <span class="n">concurrent_checkouts</span><span class="p">,</span>
+                <span class="n">expires</span><span class="p">,</span>
+                <span class="n">checkout_link</span><span class="p">,</span>
+                <span class="n">odl_status_link</span><span class="p">,</span>
+                <span class="n">do_get</span>
+            <span class="p">)</span>
 
-            <span class="n">licenses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">LicenseData</span><span class="p">(</span>
-                <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
-                <span class="n">checkout_url</span><span class="o">=</span><span class="n">checkout_link</span><span class="p">,</span>
-                <span class="n">status_url</span><span class="o">=</span><span class="n">odl_status_link</span><span class="p">,</span>
-                <span class="n">expires</span><span class="o">=</span><span class="n">expires</span><span class="p">,</span>
-                <span class="n">remaining_checkouts</span><span class="o">=</span><span class="n">remaining_checkouts</span><span class="p">,</span>
-                <span class="n">concurrent_checkouts</span><span class="o">=</span><span class="n">concurrent_checkouts</span><span class="p">,</span>
-            <span class="p">))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">license</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">licenses_owned</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">license</span><span class="o">.</span><span class="n">remaining_checkouts</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">licenses_available</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">license</span><span class="o">.</span><span class="n">concurrent_checkouts</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
+
+            <span class="n">licenses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">license</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;circulation&#39;</span><span class="p">):</span>
             <span class="n">data</span><span class="p">[</span><span class="s1">&#39;circulation&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
@@ -948,6 +1013,7 @@
         <span class="n">data</span><span class="p">[</span><span class="s1">&#39;circulation&#39;</span><span class="p">][</span><span class="s1">&#39;licenses_owned&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">licenses_owned</span>
         <span class="n">data</span><span class="p">[</span><span class="s1">&#39;circulation&#39;</span><span class="p">][</span><span class="s1">&#39;licenses_available&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">licenses_available</span>
         <span class="k">return</span> <span class="n">data</span></div>
+
 
 <div class="viewcode-block" id="ODLImportMonitor"><a class="viewcode-back" href="../../api.html#api.odl.ODLImportMonitor">[docs]</a><span class="k">class</span> <span class="nc">ODLImportMonitor</span><span class="p">(</span><span class="n">OPDSImportMonitor</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Import information from an ODL feed.&quot;&quot;&quot;</span>
@@ -994,11 +1060,12 @@
         <span class="n">progress</span> <span class="o">=</span> <span class="n">TimestampData</span><span class="p">(</span><span class="n">achievements</span><span class="o">=</span><span class="n">message</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">progress</span></div></div>
 
+
 <div class="viewcode-block" id="MockODLAPI"><a class="viewcode-back" href="../../api.html#api.odl.MockODLAPI">[docs]</a><span class="k">class</span> <span class="nc">MockODLAPI</span><span class="p">(</span><span class="n">ODLAPI</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Mock API for tests that overrides _get and _url_for and tracks requests.&quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="MockODLAPI.mock_collection"><a class="viewcode-back" href="../../api.html#api.odl.MockODLAPI.mock_collection">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">mock_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">mock_collection</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">ODLAPI</span><span class="o">.</span><span class="n">NAME</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a mock ODL collection to use in tests.&quot;&quot;&quot;</span>
         <span class="n">library</span> <span class="o">=</span> <span class="n">DatabaseTest</span><span class="o">.</span><span class="n">make_default_library</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">collection</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
@@ -1008,7 +1075,7 @@
             <span class="p">)</span>
         <span class="p">)</span>
         <span class="n">integration</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">create_external_integration</span><span class="p">(</span>
-            <span class="n">protocol</span><span class="o">=</span><span class="n">ODLAPI</span><span class="o">.</span><span class="n">NAME</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span>
         <span class="p">)</span>
         <span class="n">integration</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="s1">&#39;a&#39;</span>
         <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="s1">&#39;b&#39;</span>
@@ -1075,6 +1142,25 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_account_id</span>
 
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_parse_feed_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parse ODL (Atom) feed from the HTTP response.</span>
+
+<span class="sd">        :param response: HTTP response</span>
+<span class="sd">        :type response: requests.Response</span>
+
+<span class="sd">        :return: Parsed ODL (Atom) feed</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">response_content</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response_content</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Response content must be a string or byte-encoded value&quot;</span><span class="p">)</span>
+
+        <span class="n">feed</span> <span class="o">=</span> <span class="n">feedparser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">response_content</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">feed</span>
+
 <div class="viewcode-block" id="SharedODLAPI.internal_format"><a class="viewcode-back" href="../../api.html#api.odl.SharedODLAPI.internal_format">[docs]</a>    <span class="k">def</span> <span class="nf">internal_format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delivery_mechanism</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Each consolidated copy is only available in one format, so we don&#39;t need</span>
 <span class="sd">        a mapping to internal formats.</span>
@@ -1126,7 +1212,8 @@
                 <span class="n">hold_info_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="n">hold</span><span class="o">.</span><span class="n">external_identifier</span><span class="p">)</span>
             <span class="k">except</span> <span class="n">RemoteIntegrationException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">()</span>
-            <span class="n">feed</span> <span class="o">=</span> <span class="n">feedparser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">hold_info_response</span><span class="o">.</span><span class="n">content</span><span class="p">))</span>
+
+            <span class="n">feed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_feed_from_response</span><span class="p">(</span><span class="n">hold_info_response</span><span class="p">)</span>
             <span class="n">entries</span> <span class="o">=</span> <span class="n">feed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;entries&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">()</span>
@@ -1152,7 +1239,8 @@
         <span class="k">elif</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="s1">&#39;json&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="n">NO_LICENSES</span><span class="o">.</span><span class="n">uri</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">NoLicenses</span><span class="p">()</span>
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">feedparser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">))</span>
+
+        <span class="n">feed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_feed_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
         <span class="n">entries</span> <span class="o">=</span> <span class="n">feed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;entries&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">()</span>
@@ -1216,7 +1304,8 @@
             <span class="k">raise</span> <span class="n">CannotReturn</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">NotCheckedOut</span><span class="p">()</span>
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">feedparser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">))</span>
+
+        <span class="n">feed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_feed_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
         <span class="n">entries</span> <span class="o">=</span> <span class="n">feed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;entries&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CannotReturn</span><span class="p">()</span>
@@ -1321,7 +1410,8 @@
             <span class="k">raise</span> <span class="n">CannotReleaseHold</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">NotOnHold</span><span class="p">()</span>
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">feedparser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">))</span>
+
+        <span class="n">feed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_feed_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
         <span class="n">entries</span> <span class="o">=</span> <span class="n">feed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;entries&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CannotReleaseHold</span><span class="p">()</span>
@@ -1360,7 +1450,7 @@
             <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
                 <span class="c1"># 404 is returned when the loan has been deleted. Leave this loan out of the result.</span>
                 <span class="k">continue</span>
-            <span class="n">feed</span> <span class="o">=</span> <span class="n">feedparser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">))</span>
+            <span class="n">feed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_feed_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
             <span class="n">entries</span> <span class="o">=</span> <span class="n">feed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;entries&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">CirculationException</span><span class="p">()</span>
@@ -1389,7 +1479,7 @@
             <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
                 <span class="c1"># 404 is returned when the hold has been deleted. Leave this hold out of the result.</span>
                 <span class="k">continue</span>
-            <span class="n">feed</span> <span class="o">=</span> <span class="n">feedparser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">))</span>
+            <span class="n">feed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_feed_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
             <span class="n">entries</span> <span class="o">=</span> <span class="n">feed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;entries&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">CirculationException</span><span class="p">()</span>
@@ -1553,6 +1643,44 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">request_args</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">patron</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="p">))</span>
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">_process_response</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="o">=</span><span class="n">allowed_response_codes</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ODLExpiredItemsReaper"><a class="viewcode-back" href="../../api.html#api.odl.ODLExpiredItemsReaper">[docs]</a><span class="k">class</span> <span class="nc">ODLExpiredItemsReaper</span><span class="p">(</span><span class="n">IdentifierSweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Responsible for removing expired ODL licenses.&quot;&quot;&quot;</span>
+
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;ODL Expired Items Reaper&quot;</span>
+    <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ODLAPI</span><span class="o">.</span><span class="n">NAME</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ODLExpiredItemsReaper</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ODLExpiredItemsReaper.process_item"><a class="viewcode-back" href="../../api.html#api.odl.ODLExpiredItemsReaper.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">licensepool</span> <span class="ow">in</span> <span class="n">identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">:</span>
+            <span class="n">remaining_checkouts</span> <span class="o">=</span> <span class="mi">0</span>   <span class="c1"># total number of checkouts across all the licenses in the pool</span>
+            <span class="n">concurrent_checkouts</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># number of concurrent checkouts allowed across all the licenses in the pool</span>
+
+            <span class="c1"># 0 is a starting point,</span>
+            <span class="c1"># we&#39;re going through all the valid licenses in the pool and count up available checkouts.</span>
+            <span class="k">for</span> <span class="n">license_pool_license</span> <span class="ow">in</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">licenses</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">license_pool_license</span><span class="o">.</span><span class="n">is_expired</span><span class="p">:</span>
+                    <span class="n">remaining_checkouts</span> <span class="o">+=</span> <span class="n">license_pool_license</span><span class="o">.</span><span class="n">remaining_checkouts</span>
+                    <span class="n">concurrent_checkouts</span> <span class="o">+=</span> <span class="n">license_pool_license</span><span class="o">.</span><span class="n">concurrent_checkouts</span>
+
+            <span class="k">if</span> <span class="n">remaining_checkouts</span> <span class="o">!=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="ow">or</span> \
+                    <span class="n">concurrent_checkouts</span> <span class="o">!=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">licenses_available</span><span class="p">:</span>
+                <span class="n">licenses_owned</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">remaining_checkouts</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="n">licenses_available</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">concurrent_checkouts</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+                <span class="n">circulation_data</span> <span class="o">=</span> <span class="n">CirculationData</span><span class="p">(</span>
+                    <span class="n">data_source</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+                    <span class="n">primary_identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
+                    <span class="n">licenses_owned</span><span class="o">=</span><span class="n">licenses_owned</span><span class="p">,</span>
+                    <span class="n">licenses_available</span><span class="o">=</span><span class="n">licenses_available</span><span class="p">,</span>
+                    <span class="n">licenses_reserved</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">licenses_reserved</span><span class="p">,</span>
+                    <span class="n">patrons_in_hold_queue</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">patrons_in_hold_queue</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="n">circulation_data</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>
@@ -1609,7 +1737,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

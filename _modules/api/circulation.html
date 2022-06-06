@@ -198,6 +198,7 @@
     <span class="sd">&quot;&quot;&quot;A record of a technique that can be used *right now* to fulfill</span>
 <span class="sd">    a loan.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">can_cache_manifest</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span>
                  <span class="n">identifier</span><span class="p">,</span> <span class="n">content_link</span><span class="p">,</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span>
@@ -1001,21 +1002,42 @@
             <span class="k">if</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">self_hosted</span><span class="p">:</span>
                 <span class="n">fulfillment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_try_to_sign_fulfillment_link</span><span class="p">(</span><span class="n">licensepool</span><span class="p">,</span> <span class="n">fulfillment</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
-            <span class="n">internal_format</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">internal_format</span><span class="p">(</span><span class="n">delivery_mechanism</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">loan</span> <span class="ow">and</span> <span class="n">loan</span><span class="o">.</span><span class="n">cached_manifest</span><span class="p">:</span>
+                <span class="c1"># Skip the fulfill call and build out FulfillmentInfo</span>
+                <span class="c1"># using information from the Loan</span>
+                <span class="n">fulfillment</span> <span class="o">=</span> <span class="n">FulfillmentInfo</span><span class="p">(</span>
+                    <span class="n">collection</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+                    <span class="n">data_source_name</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+                    <span class="n">identifier_type</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                    <span class="n">identifier</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                    <span class="n">content_link</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">content_type</span><span class="o">=</span><span class="n">loan</span><span class="o">.</span><span class="n">cached_content_type</span><span class="p">,</span>
+                    <span class="n">content</span><span class="o">=</span><span class="n">loan</span><span class="o">.</span><span class="n">cached_manifest</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">),</span>
+                    <span class="n">content_expires</span><span class="o">=</span><span class="n">loan</span><span class="o">.</span><span class="n">end</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
+                <span class="n">internal_format</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">internal_format</span><span class="p">(</span><span class="n">delivery_mechanism</span><span class="p">)</span>
 
-            <span class="c1"># Here we _do_ pass in the vendor-specific arguments, but</span>
-            <span class="c1"># we pass them in as keyword arguments, to minimize the</span>
-            <span class="c1"># impact on implementation signatures. Most vendor APIs</span>
-            <span class="c1"># will ignore one or more of these arguments.</span>
-            <span class="n">fulfillment</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">fulfill</span><span class="p">(</span>
-                <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="o">=</span><span class="n">internal_format</span><span class="p">,</span>
-                <span class="n">part</span><span class="o">=</span><span class="n">part</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="o">=</span><span class="n">fulfill_part_url</span>
-            <span class="p">)</span>
+                <span class="c1"># Here we _do_ pass in the vendor-specific arguments, but</span>
+                <span class="c1"># we pass them in as keyword arguments, to minimize the</span>
+                <span class="c1"># impact on implementation signatures. Most vendor APIs</span>
+                <span class="c1"># will ignore one or more of these arguments.</span>
+                <span class="n">fulfillment</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">fulfill</span><span class="p">(</span>
+                    <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="o">=</span><span class="n">internal_format</span><span class="p">,</span>
+                    <span class="n">part</span><span class="o">=</span><span class="n">part</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="o">=</span><span class="n">fulfill_part_url</span>
+                <span class="p">)</span>
+
             <span class="k">if</span> <span class="ow">not</span> <span class="n">fulfillment</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span>
                 <span class="n">fulfillment</span><span class="o">.</span><span class="n">content_link</span> <span class="ow">or</span> <span class="n">fulfillment</span><span class="o">.</span><span class="n">content</span>
             <span class="p">):</span>
                 <span class="k">raise</span> <span class="n">NoAcceptableFormat</span><span class="p">()</span>
+
+            <span class="c1"># Now that the additional API calls have been made,</span>
+            <span class="c1"># fulfillment data can be saved to the loan for future retrieval</span>
+            <span class="k">if</span> <span class="n">loan</span> <span class="ow">and</span> <span class="n">fulfillment</span><span class="o">.</span><span class="n">can_cache_manifest</span><span class="p">:</span>
+                <span class="n">loan</span><span class="o">.</span><span class="n">cached_manifest</span> <span class="o">=</span> <span class="n">fulfillment</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;raw_unicode_escape&quot;</span><span class="p">)</span>
+                <span class="n">loan</span><span class="o">.</span><span class="n">cached_content_type</span> <span class="o">=</span> <span class="n">fulfillment</span><span class="o">.</span><span class="n">content_type</span>
 
         <span class="c1"># Send out an analytics event to record the fact that</span>
         <span class="c1"># a fulfillment was initiated through the circulation</span>
@@ -1665,7 +1687,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

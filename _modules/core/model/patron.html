@@ -46,6 +46,7 @@
     <span class="n">ForeignKey</span><span class="p">,</span>
     <span class="n">Index</span><span class="p">,</span>
     <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">LargeBinary</span><span class="p">,</span>
     <span class="n">String</span><span class="p">,</span>
     <span class="n">Unicode</span><span class="p">,</span>
     <span class="n">UniqueConstraint</span><span class="p">,</span>
@@ -546,11 +547,13 @@
     <span class="c1"># Some distributors (e.g. Feedbooks) may have an identifier that can</span>
     <span class="c1"># be used to check the status of a specific Loan.</span>
     <span class="n">external_identifier</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">cached_manifest</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">LargeBinary</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">cached_content_type</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
         <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;patron_id&#39;</span><span class="p">,</span> <span class="s1">&#39;license_pool_id&#39;</span><span class="p">),</span>
     <span class="p">)</span>
-    
+
     <span class="k">def</span> <span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">&lt;</span> <span class="n">other</span><span class="o">.</span><span class="n">id</span>
 
@@ -824,7 +827,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

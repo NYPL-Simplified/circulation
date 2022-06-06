@@ -597,14 +597,9 @@
             <span class="s2">&quot;create_bearer_token&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Authenticator.oauth_provider_lookup"><a class="viewcode-back" href="../../api.html#api.authenticator.Authenticator.oauth_provider_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">oauth_provider_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="Authenticator.bearer_token_provider_lookup"><a class="viewcode-back" href="../../api.html#api.authenticator.Authenticator.bearer_token_provider_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">bearer_token_provider_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">invoke_authenticator_method</span><span class="p">(</span>
-            <span class="s2">&quot;oauth_provider_lookup&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
-        <span class="p">)</span></div>
-
-<div class="viewcode-block" id="Authenticator.saml_provider_lookup"><a class="viewcode-back" href="../../api.html#api.authenticator.Authenticator.saml_provider_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">saml_provider_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">invoke_authenticator_method</span><span class="p">(</span>
-            <span class="s2">&quot;saml_provider_lookup&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+            <span class="s2">&quot;bearer_token_provider_lookup&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="Authenticator.decode_bearer_token"><a class="viewcode-back" href="../../api.html#api.authenticator.Authenticator.decode_bearer_token">[docs]</a>    <span class="k">def</span> <span class="nf">decode_bearer_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
@@ -655,7 +650,7 @@
                 <span class="p">)</span>
                 <span class="n">authenticator</span><span class="o">.</span><span class="n">initialization_exceptions</span><span class="p">[</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">e</span>
 
-        <span class="k">if</span> <span class="n">authenticator</span><span class="o">.</span><span class="n">oauth_providers_by_name</span> <span class="ow">or</span> <span class="n">authenticator</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">authenticator</span><span class="o">.</span><span class="n">providers_by_name</span> <span class="ow">or</span> <span class="n">authenticator</span><span class="o">.</span><span class="n">basic_auth_provider</span><span class="p">:</span>
             <span class="c1"># NOTE: this will immediately commit the database session,</span>
             <span class="c1"># which may not be what you want during a test. To avoid</span>
             <span class="c1"># this, you can create the bearer token signing secret as</span>
@@ -703,8 +698,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">authentication_document_annotator</span><span class="o">=</span><span class="n">authentication_document_annotator</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span> <span class="o">=</span> <span class="n">basic_auth_provider</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">providers_by_name</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bearer_token_signing_secret</span> <span class="o">=</span> <span class="n">bearer_token_signing_secret</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">initialization_exceptions</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
 
@@ -716,18 +710,18 @@
 
         <span class="k">if</span> <span class="n">oauth_providers</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="n">oauth_providers</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="p">[</span><span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">providers_by_name</span><span class="p">[</span><span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider</span>
 
         <span class="k">if</span> <span class="n">saml_providers</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="n">saml_providers</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">[</span><span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">providers_by_name</span><span class="p">[</span><span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">assert_ready_for_token_signing</span><span class="p">()</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">supports_patron_authentication</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Does this library have any way of authenticating patrons at all?&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">providers_by_name</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="kc">False</span>
 
@@ -758,14 +752,9 @@
         <span class="sd">&quot;&quot;&quot;If this LibraryAuthenticator has OAuth providers, ensure that it</span>
 <span class="sd">        also has a secret it can use to sign bearer tokens.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">bearer_token_signing_secret</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">providers_by_name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">bearer_token_signing_secret</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
-                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;OAuth providers are configured, but secret for signing bearer tokens is not.&quot;</span><span class="p">)</span>
-            <span class="p">)</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">bearer_token_signing_secret</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
-                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;SAML providers are configured, but secret for signing bearer tokens is not.&quot;</span><span class="p">)</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The secret for signing bearer tokens is not configured.&quot;</span><span class="p">)</span>
             <span class="p">)</span></div>
 
 <div class="viewcode-block" id="LibraryAuthenticator.register_provider"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.register_provider">[docs]</a>    <span class="k">def</span> <span class="nf">register_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -811,10 +800,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">register_basic_auth_provider</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
             <span class="c1"># TODO: Run a self-test, or at least check that we have</span>
             <span class="c1"># the ability to run one.</span>
-        <span class="k">elif</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">provider_class</span><span class="p">,</span> <span class="n">OAuthAuthenticationProvider</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">register_oauth_provider</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">provider_class</span><span class="p">,</span> <span class="n">BaseSAMLAuthenticationProvider</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">register_saml_provider</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">provider_class</span><span class="p">,</span> <span class="p">(</span><span class="n">OAuthAuthenticationProvider</span><span class="p">,</span> <span class="n">BaseSAMLAuthenticationProvider</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">register_bearer_token_auth_provider</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
                 <span class="s2">&quot;Authentication provider </span><span class="si">%s</span><span class="s2"> is neither a BasicAuthenticationProvider nor an OAuthAuthenticationProvider. I can create it, but not sure where to put it.&quot;</span> <span class="o">%</span> <span class="n">provider_class</span>
@@ -828,8 +815,8 @@
             <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span> <span class="o">=</span> <span class="n">provider</span></div>
 
-<div class="viewcode-block" id="LibraryAuthenticator.register_oauth_provider"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.register_oauth_provider">[docs]</a>    <span class="k">def</span> <span class="nf">register_oauth_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">):</span>
-        <span class="n">already_registered</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+<div class="viewcode-block" id="LibraryAuthenticator.register_bearer_token_auth_provider"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.register_bearer_token_auth_provider">[docs]</a>    <span class="k">def</span> <span class="nf">register_bearer_token_auth_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">):</span>
+        <span class="n">already_registered</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">providers_by_name</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
             <span class="n">provider</span><span class="o">.</span><span class="n">NAME</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">already_registered</span> <span class="ow">and</span> <span class="n">already_registered</span> <span class="o">!=</span> <span class="n">provider</span><span class="p">:</span>
@@ -838,28 +825,14 @@
                     <span class="n">provider</span><span class="o">.</span><span class="n">NAME</span>
                 <span class="p">)</span>
             <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="p">[</span><span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider</span></div>
-
-<div class="viewcode-block" id="LibraryAuthenticator.register_saml_provider"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.register_saml_provider">[docs]</a>    <span class="k">def</span> <span class="nf">register_saml_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">):</span>
-        <span class="n">already_registered</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-            <span class="n">provider</span><span class="o">.</span><span class="n">NAME</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">already_registered</span> <span class="ow">and</span> <span class="n">already_registered</span> <span class="o">!=</span> <span class="n">provider</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
-                <span class="s1">&#39;Two different SAML providers claim the name &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="p">(</span>
-                    <span class="n">provider</span><span class="o">.</span><span class="n">NAME</span>
-                <span class="p">)</span>
-            <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">[</span><span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">providers_by_name</span><span class="p">[</span><span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider</span></div>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">providers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;An iterator over all registered AuthenticationProviders.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span><span class="p">:</span>
             <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span>
-        <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
-            <span class="k">yield</span> <span class="n">provider</span>
-        <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+        <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">providers_by_name</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
             <span class="k">yield</span> <span class="n">provider</span>
 
 <div class="viewcode-block" id="LibraryAuthenticator.authenticated_patron"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.authenticated_patron">[docs]</a>    <span class="k">def</span> <span class="nf">authenticated_patron</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">header</span><span class="p">):</span>
@@ -874,51 +847,38 @@
 <span class="sd">            credentials do not authenticate any particular patron. A</span>
 <span class="sd">            ProblemDetail if an error occurs.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span>
-            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">&#39;username&#39;</span> <span class="ow">in</span> <span class="n">header</span><span class="p">):</span>
-            <span class="c1"># The patron wants to authenticate with the</span>
-            <span class="c1"># BasicAuthenticationProvider.</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span><span class="o">.</span><span class="n">authenticated_patron</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">header</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span>
-              <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span>
-              <span class="ow">and</span> <span class="s1">&#39;bearer&#39;</span> <span class="ow">in</span> <span class="n">header</span><span class="o">.</span><span class="n">lower</span><span class="p">()):</span>
+        <span class="c1"># Set provider_name and provider_token so it can be referenced</span>
+        <span class="c1"># in the basic auth provider check.</span>
+        <span class="n">provider_name</span><span class="p">,</span> <span class="n">provider_token</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
 
-            <span class="c1"># The patron wants to use an</span>
-            <span class="c1"># OAuthAuthenticationProvider. Figure out which one.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">provider_name</span><span class="p">,</span> <span class="n">provider_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decode_bearer_token_from_header</span><span class="p">(</span>
                     <span class="n">header</span>
                 <span class="p">)</span>
-            <span class="k">except</span> <span class="n">jwt</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InvalidTokenError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">jwt</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InvalidTokenError</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">INVALID_OAUTH_BEARER_TOKEN</span>
-            <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
-                <span class="c1"># There was a problem turning the provider name into</span>
-                <span class="c1"># a registered OAuthAuthenticationProvider.</span>
-                <span class="k">return</span> <span class="n">provider</span>
 
-            <span class="c1"># Ask the OAuthAuthenticationProvider to turn its token</span>
-            <span class="c1"># into a Patron.</span>
-            <span class="k">return</span> <span class="n">provider</span><span class="o">.</span><span class="n">authenticated_patron</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">provider_token</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span>
-              <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span>
-              <span class="ow">and</span> <span class="s1">&#39;bearer&#39;</span> <span class="ow">in</span> <span class="n">header</span><span class="o">.</span><span class="n">lower</span><span class="p">()):</span>
-
-            <span class="c1"># The patron wants to use an</span>
-            <span class="c1"># SAMLAuthenticationProvider. Figure out which one.</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">provider_name</span><span class="p">,</span> <span class="n">provider_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decode_bearer_token_from_header</span><span class="p">(</span>
-                    <span class="n">header</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span>
+            <span class="ow">and</span> <span class="p">(</span>
+                    <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">&#39;username&#39;</span> <span class="ow">in</span> <span class="n">header</span><span class="p">)</span>
+                    <span class="ow">or</span> <span class="n">provider_name</span> <span class="o">==</span> <span class="n">BasicAuthenticationProvider</span><span class="o">.</span><span class="n">BEARER_TOKEN_PROVIDER_NAME</span>
                 <span class="p">)</span>
-            <span class="k">except</span> <span class="n">jwt</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InvalidTokenError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">INVALID_SAML_BEARER_TOKEN</span>
-            <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
+            <span class="p">):</span>
+            <span class="c1"># The patron wants to authenticate with the BasicAuthenticationProvider.</span>
+            <span class="k">if</span> <span class="n">provider_token</span><span class="p">:</span>
+                <span class="n">header</span> <span class="o">=</span> <span class="n">provider_token</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_provider</span><span class="o">.</span><span class="n">authenticated_patron</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">header</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span> <span class="ow">and</span> <span class="s1">&#39;bearer&#39;</span> <span class="ow">in</span> <span class="n">header</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+            <span class="c1"># The patron wants to authenticate with a bearer token</span>
+            <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bearer_token_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
                 <span class="c1"># There was a problem turning the provider name into</span>
-                <span class="c1"># a registered SAMLAuthenticationProvider.</span>
+                <span class="c1"># a registered authentication provider.</span>
                 <span class="k">return</span> <span class="n">provider</span>
 
-            <span class="c1"># Ask the SAMLAuthenticationProvider to turn its token</span>
+            <span class="c1"># Ask the authentication provider to turn its token</span>
             <span class="c1"># into a Patron.</span>
             <span class="k">return</span> <span class="n">provider</span><span class="o">.</span><span class="n">authenticated_patron</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">provider_token</span><span class="p">)</span>
 
@@ -944,47 +904,23 @@
 
         <span class="k">return</span> <span class="n">credential</span></div>
 
-<div class="viewcode-block" id="LibraryAuthenticator.oauth_provider_lookup"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.oauth_provider_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">oauth_provider_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_name</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Look up the OAuthAuthenticationProvider with the given name. If that</span>
-<span class="sd">        doesn&#39;t work, return an appropriate ProblemDetail.</span>
+<div class="viewcode-block" id="LibraryAuthenticator.bearer_token_provider_lookup"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.bearer_token_provider_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">bearer_token_provider_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up the relevant bearer token authentication provider with</span>
+<span class="sd">        the given name. If that doesn&#39;t work, return an appropriate ProblemDetai.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="p">:</span>
-            <span class="c1"># We don&#39;t support OAuth at all.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">providers_by_name</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">UNKNOWN_OAUTH_PROVIDER</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
-                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;No OAuth providers are configured.&quot;</span><span class="p">)</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;No relevant providers are configured.&quot;</span><span class="p">)</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">provider_name</span>
-            <span class="ow">or</span> <span class="ow">not</span> <span class="n">provider_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="p">):</span>
-            <span class="c1"># The patron neglected to specify a provider, or specified</span>
-            <span class="c1"># one we don&#39;t support.</span>
-            <span class="n">possibilities</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="n">provider_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">providers_by_name</span><span class="p">):</span>
+            <span class="n">possibilities</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">providers_by_name</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
             <span class="k">return</span> <span class="n">UNKNOWN_OAUTH_PROVIDER</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">UNKNOWN_OAUTH_PROVIDER</span><span class="o">.</span><span class="n">detail</span> <span class="o">+</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot; The known providers are: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="n">possibilities</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_providers_by_name</span><span class="p">[</span><span class="n">provider_name</span><span class="p">]</span></div>
-
-<div class="viewcode-block" id="LibraryAuthenticator.saml_provider_lookup"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.saml_provider_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">saml_provider_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_name</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Look up the SAMLAuthenticationProvider with the given name. If that</span>
-<span class="sd">        doesn&#39;t work, return an appropriate ProblemDetail.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">:</span>
-            <span class="c1"># We don&#39;t support OAuth at all.</span>
-            <span class="k">return</span> <span class="n">UNKNOWN_SAML_PROVIDER</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
-                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;No SAML providers are configured.&quot;</span><span class="p">)</span>
-            <span class="p">)</span>
-
-        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">provider_name</span>
-            <span class="ow">or</span> <span class="ow">not</span> <span class="n">provider_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">):</span>
-            <span class="c1"># The patron neglected to specify a provider, or specified</span>
-            <span class="c1"># one we don&#39;t support.</span>
-            <span class="n">possibilities</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
-            <span class="k">return</span> <span class="n">UNKNOWN_SAML_PROVIDER</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
-                <span class="n">UNKNOWN_SAML_PROVIDER</span><span class="o">.</span><span class="n">detail</span> <span class="o">+</span>
-                <span class="n">_</span><span class="p">(</span><span class="s2">&quot; The known providers are: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="n">possibilities</span>
-            <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">saml_providers_by_name</span><span class="p">[</span><span class="n">provider_name</span><span class="p">]</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">providers_by_name</span><span class="p">[</span><span class="n">provider_name</span><span class="p">]</span></div>
 
 <div class="viewcode-block" id="LibraryAuthenticator.create_bearer_token"><a class="viewcode-back" href="../../api.html#api.authenticator.LibraryAuthenticator.create_bearer_token">[docs]</a>    <span class="k">def</span> <span class="nf">create_bearer_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_name</span><span class="p">,</span> <span class="n">provider_token</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a JSON web token with the given provider name and access</span>
@@ -1086,6 +1022,13 @@
                 <span class="nb">dict</span><span class="p">(</span><span class="n">rel</span><span class="o">=</span><span class="n">Configuration</span><span class="o">.</span><span class="n">COPYRIGHT_DESIGNATED_AGENT_REL</span><span class="p">,</span>
                      <span class="n">href</span><span class="o">=</span><span class="n">designated_agent_uri</span>
                 <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="c1"># If there is an unsubscribe link, add it here</span>
+        <span class="n">unsubscribe_uri</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">unsubscribe_email_uri</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">unsubscribe_uri</span><span class="p">:</span>
+            <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">rel</span><span class="o">=</span><span class="n">Configuration</span><span class="o">.</span><span class="n">HELP_UNSUBSCRIBE_URI</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">unsubscribe_uri</span><span class="p">)</span>
             <span class="p">)</span>
 
         <span class="c1"># Add a rel=&quot;help&quot; link for every type of URL scheme that</span>
@@ -1273,9 +1216,10 @@
     <span class="c1"># the authentication provider.</span>
     <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 
-    <span class="c1"># Each subclass MUST define a value for FLOW_TYPE. This is used in the</span>
+    <span class="c1"># Each subclass MAY define a value for FLOW_TYPE. This is used in the</span>
     <span class="c1"># Authentication for OPDS document to distinguish between</span>
-    <span class="c1"># different types of authentication.</span>
+    <span class="c1"># different types of authentication. If you don&#39;t do this you need to</span>
+    <span class="c1"># explicitly set the flow type when you create your Authentication Object.</span>
     <span class="n">FLOW_TYPE</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="c1"># If an AuthenticationProvider authenticates patrons without identifying</span>
@@ -1686,7 +1630,6 @@
 
     <span class="n">DISPLAY_NAME</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library Barcode&quot;</span><span class="p">)</span>
     <span class="n">AUTHENTICATION_REALM</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library card&quot;</span><span class="p">)</span>
-    <span class="n">FLOW_TYPE</span> <span class="o">=</span> <span class="s2">&quot;http://opds-spec.org/auth/basic&quot;</span>
     <span class="n">NAME</span> <span class="o">=</span> <span class="s1">&#39;Generic Basic Authentication provider&#39;</span>
 
     <span class="c1"># By default, patron identifiers can only contain alphanumerics and</span>
@@ -1699,6 +1642,15 @@
     <span class="c1"># Configuration settings that are common to all Basic Auth-type</span>
     <span class="c1"># authentication techniques.</span>
     <span class="c1">#</span>
+
+    <span class="c1"># Settings for basic auth bearer tokens</span>
+    <span class="n">BEARER_TOKEN_PROVIDER_NAME</span> <span class="o">=</span> <span class="s1">&#39;HTTPBasicBearerToken&#39;</span>
+    <span class="n">TOKEN_TYPE</span> <span class="o">=</span> <span class="s1">&#39;HTTP Basic&#39;</span>
+    <span class="n">HTTP_BASIC_OAUTH_ENABLED</span> <span class="o">=</span> <span class="s2">&quot;http_basic_oauth_enabled&quot;</span>
+    <span class="n">HTTP_BASIC_OAUTH_ENABLED_DEFAULT</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">FLOW_TYPE_BASIC</span> <span class="o">=</span> <span class="s1">&#39;http://opds-spec.org/auth/basic&#39;</span>
+    <span class="n">FLOW_TYPE_OAUTH</span> <span class="o">=</span> <span class="s1">&#39;http://librarysimplified.org/authtype/OAuth-Client-Credentials&#39;</span>
+
 
     <span class="c1"># Identifiers can be presumed invalid if they don&#39;t match</span>
     <span class="c1"># this regular expression.</span>
@@ -1768,6 +1720,19 @@
     <span class="p">))</span>
     <span class="n">TEST_PASSWORD_DESCRIPTION_REQUIRED</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The password for the Test Identifier.&quot;</span><span class="p">)</span>
     <span class="n">TEST_PASSWORD_DESCRIPTION_OPTIONAL</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The password for the Test Identifier (above, in previous section).&quot;</span><span class="p">)</span>
+
+    <span class="n">LIBRARY_SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">HTTP_BASIC_OAUTH_ENABLED</span><span class="p">,</span>
+          <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Enable OAuth for HTTP Basic Auth&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Enable authentication with bearer tokens generated via basic auth credentials&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
+          <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">[</span>
+              <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Disabled&quot;</span><span class="p">)</span> <span class="p">},</span>
+              <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Enabled&quot;</span><span class="p">)</span> <span class="p">},</span>
+          <span class="p">],</span>
+          <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">]</span> <span class="o">+</span> <span class="n">AuthenticationProvider</span><span class="o">.</span><span class="n">LIBRARY_SETTINGS</span>
 
     <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">TEST_IDENTIFIER</span><span class="p">,</span>
@@ -1899,6 +1864,11 @@
             <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_PASSWORD_LABEL</span>
         <span class="p">)</span>
 
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">oauth_enabled</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">HTTP_BASIC_OAUTH_ENABLED</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">bool_value</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">HTTP_BASIC_OAUTH_ENABLED_DEFAULT</span>
+
 <div class="viewcode-block" id="BasicAuthenticationProvider.remote_patron_lookup"><a class="viewcode-back" href="../../api.html#api.authenticator.BasicAuthenticationProvider.remote_patron_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">remote_patron_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron_or_patrondata</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Ask the remote for information about this patron, and then make sure</span>
 <span class="sd">        the patron belongs to the library associated with thie BasicAuthenticationProvider.&quot;&quot;&quot;</span>
@@ -1984,11 +1954,45 @@
 <div class="viewcode-block" id="BasicAuthenticationProvider.authenticate"><a class="viewcode-back" href="../../api.html#api.authenticator.BasicAuthenticationProvider.authenticate">[docs]</a>    <span class="k">def</span> <span class="nf">authenticate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">credentials</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Turn a set of credentials into a Patron object.</span>
 
-<span class="sd">        :param credentials: A dictionary with keys `username` and `password`.</span>
+<span class="sd">        :param credentials:</span>
+<span class="sd">            A dictionary with keys `username` and `password`</span>
+<span class="sd">            or a bearer token string.</span>
 
 <span class="sd">        :return: A Patron if one can be authenticated; a ProblemDetail</span>
 <span class="sd">            if an error occurs; None if the credentials are missing or wrong.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">credentials</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authenticate_from_token</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">credentials</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">credentials</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authenticate_from_credentials</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">credentials</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_authenticate_from_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">credentials</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn a bearer token into a Patron object.</span>
+
+<span class="sd">        :param credentials: A bearer token string</span>
+
+<span class="sd">        :return: A Patron if one can be looked up; a ProblemDetail</span>
+<span class="sd">            if an error occurs.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">credential</span> <span class="o">=</span> <span class="n">Credential</span><span class="o">.</span><span class="n">lookup_by_token</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">BasicAuthenticationProvider</span><span class="o">.</span><span class="n">TOKEN_TYPE</span><span class="p">,</span> <span class="n">credentials</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">credential</span><span class="p">,</span> <span class="n">Credential</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">credential</span><span class="o">.</span><span class="n">patron</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_HTTP_BASIC_BEARER_TOKEN</span>
+
+    <span class="k">def</span> <span class="nf">_authenticate_from_credentials</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">credentials</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn a dict of credentials into a Patron object.</span>
+
+<span class="sd">        :param credentials: A dictionary with keys &#39;username&#39; and &#39;password&#39;.</span>
+
+<span class="sd">        &quot;return: A Patron if one can be authenticated; a ProblemDetail</span>
+<span class="sd">            if an error occurs; None if the credentials are missing or wrong.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
         <span class="n">username</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scrub_credential</span><span class="p">(</span><span class="n">credentials</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;username&#39;</span><span class="p">))</span>
         <span class="n">password</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scrub_credential</span><span class="p">(</span><span class="n">credentials</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;password&#39;</span><span class="p">))</span>
         <span class="n">server_side_validation_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">server_side_validation</span><span class="p">(</span>
@@ -2084,7 +2088,7 @@
         <span class="c1"># we now need to update the Patron record with the account</span>
         <span class="c1"># information we just got from the source of truth.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">apply_patrondata</span><span class="p">(</span><span class="n">patrondata</span><span class="p">,</span> <span class="n">patron</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">patron</span></div>
+        <span class="k">return</span> <span class="n">patron</span>
 
 <div class="viewcode-block" id="BasicAuthenticationProvider.apply_patrondata"><a class="viewcode-back" href="../../api.html#api.authenticator.BasicAuthenticationProvider.apply_patrondata">[docs]</a>    <span class="k">def</span> <span class="nf">apply_patrondata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patrondata</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Apply a PatronData object to the given patron and make sure</span>
@@ -2237,6 +2241,16 @@
 <span class="sd">        OPDS document.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
+        <span class="n">basic_doc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_authentication_flow_document</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">FLOW_TYPE_BASIC</span><span class="p">)</span>
+        <span class="n">docs</span> <span class="o">=</span> <span class="p">[</span><span class="n">basic_doc</span><span class="p">,</span> <span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">oauth_enabled</span><span class="p">:</span>
+            <span class="n">oauth_doc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_authentication_flow_document</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">FLOW_TYPE_OAUTH</span><span class="p">)</span>
+            <span class="n">docs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">oauth_doc</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">docs</span>
+
+    <span class="k">def</span> <span class="nf">_generate_authentication_flow_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+
         <span class="n">login_inputs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">keyboard</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier_keyboard</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier_maximum_length</span><span class="p">:</span>
             <span class="n">login_inputs</span><span class="p">[</span><span class="s1">&#39;maximum_length&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier_maximum_length</span>
@@ -2263,11 +2277,22 @@
             <span class="n">inputs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">login</span><span class="o">=</span><span class="n">login_inputs</span><span class="p">,</span>
                           <span class="n">password</span><span class="o">=</span><span class="n">password_inputs</span><span class="p">)</span>
         <span class="p">)</span>
+
+        <span class="n">flow_doc</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">LOGIN_BUTTON_IMAGE</span><span class="p">:</span>
             <span class="c1"># TODO: I&#39;m not sure if logo is appropriate for this, since it&#39;s a button</span>
             <span class="c1"># with the logo on it rather than a plain logo. Perhaps we should use plain</span>
             <span class="c1"># logos instead.</span>
-            <span class="n">flow_doc</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">dict</span><span class="p">(</span><span class="n">rel</span><span class="o">=</span><span class="s2">&quot;logo&quot;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;static_image&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">LOGIN_BUTTON_IMAGE</span><span class="p">,</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">))]</span>
+            <span class="n">flow_doc</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">rel</span><span class="o">=</span><span class="s2">&quot;logo&quot;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;static_image&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">LOGIN_BUTTON_IMAGE</span><span class="p">,</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="p">)</span>
+
+        <span class="n">flow_doc</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">type</span>
+        <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">FLOW_TYPE_OAUTH</span><span class="p">:</span>
+            <span class="n">flow_doc</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">rel</span><span class="o">=</span><span class="s2">&quot;authenticate&quot;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;http_basic_auth_token&quot;</span><span class="p">,</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="p">)</span>
+
         <span class="k">return</span> <span class="n">flow_doc</span></div>
 
 
@@ -2589,7 +2614,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">redirect_uri</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;redirect_uri&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
         <span class="n">provider_name</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;provider&#39;</span><span class="p">)</span>
-        <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticator</span><span class="o">.</span><span class="n">oauth_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
+        <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticator</span><span class="o">.</span><span class="n">bearer_token_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_redirect_with_error</span><span class="p">(</span><span class="n">redirect_uri</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span>
         <span class="n">state</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
@@ -2627,7 +2652,7 @@
         <span class="n">state</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">unquote</span><span class="p">(</span><span class="n">state</span><span class="p">))</span>
         <span class="n">client_redirect_uri</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;redirect_uri&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
         <span class="n">provider_name</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;provider&#39;</span><span class="p">)</span>
-        <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticator</span><span class="o">.</span><span class="n">oauth_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
+        <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticator</span><span class="o">.</span><span class="n">bearer_token_provider_lookup</span><span class="p">(</span><span class="n">provider_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_redirect_with_error</span><span class="p">(</span><span class="n">client_redirect_uri</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span>
 
@@ -2696,6 +2721,74 @@
     <span class="n">SETTINGS</span> <span class="o">=</span> <span class="n">SAMLSettings</span><span class="p">()</span>
 
     <span class="n">LIBRARY_SETTINGS</span> <span class="o">=</span> <span class="p">[]</span></div>
+
+
+<div class="viewcode-block" id="BasicAuthTempTokenController"><a class="viewcode-back" href="../../api.html#api.authenticator.BasicAuthTempTokenController">[docs]</a><span class="k">class</span> <span class="nc">BasicAuthTempTokenController</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A controller that handles requests for issuing temporary tokens</span>
+<span class="sd">    to HTTP Basic Auth credentials.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">TOKEN_DURATION</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">)</span>
+    <span class="n">DO_NOT_GENERATE_NEW_TOKEN_PERIOD</span> <span class="o">=</span> <span class="n">TOKEN_DURATION</span><span class="o">.</span><span class="n">seconds</span> <span class="o">-</span> <span class="mi">60</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">authenticator</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">authenticator</span> <span class="o">=</span> <span class="n">authenticator</span>
+
+<div class="viewcode-block" id="BasicAuthTempTokenController.get_or_create_token"><a class="viewcode-back" href="../../api.html#api.authenticator.BasicAuthTempTokenController.get_or_create_token">[docs]</a>    <span class="k">def</span> <span class="nf">get_or_create_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieve a patron&#39;s Credential or create a new one.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data_source</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">token_type</span> <span class="o">=</span> <span class="n">BasicAuthenticationProvider</span><span class="o">.</span><span class="n">TOKEN_TYPE</span>
+        <span class="n">refesher_method</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">token_time_remaining</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="n">credential</span> <span class="o">=</span> <span class="n">Credential</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">token_type</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">refesher_method</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">credential</span><span class="o">.</span><span class="n">expires</span><span class="p">:</span>
+            <span class="c1"># The Credential&#39;s expiration time is stored and the lifetime of the Credential (one hour) is known,</span>
+            <span class="c1"># so the creation time can be calculated</span>
+            <span class="n">token_time_remaining</span> <span class="o">=</span> <span class="p">(</span><span class="n">credential</span><span class="o">.</span><span class="n">expires</span> <span class="o">-</span> <span class="n">utc_now</span><span class="p">())</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">BasicAuthTempTokenController</span><span class="o">.</span><span class="n">TOKEN_DURATION</span><span class="o">.</span><span class="n">seconds</span>
+            <span class="o">&gt;=</span> <span class="n">token_time_remaining</span> <span class="o">&gt;=</span>
+            <span class="n">BasicAuthTempTokenController</span><span class="o">.</span><span class="n">DO_NOT_GENERATE_NEW_TOKEN_PERIOD</span>
+        <span class="p">):</span>
+            <span class="c1"># Use the existing token if it&#39;s been requested within a minute since creation</span>
+            <span class="n">inner_token</span> <span class="o">=</span> <span class="n">credential</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Patron didn&#39;t have an existing token or is requesting a new one,</span>
+            <span class="c1"># create a temporary inner token with a lifetime of 1 hour</span>
+            <span class="n">inner_token</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">Credential</span><span class="o">.</span><span class="n">temporary_token_create</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">token_type</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">BasicAuthTempTokenController</span><span class="o">.</span><span class="n">TOKEN_DURATION</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">inner_token</span></div>
+
+<div class="viewcode-block" id="BasicAuthTempTokenController.basic_auth_temp_token"><a class="viewcode-back" href="../../api.html#api.authenticator.BasicAuthTempTokenController.basic_auth_temp_token">[docs]</a>    <span class="k">def</span> <span class="nf">basic_auth_temp_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generate and return a temporary token from HTTP Basic Auth credentials.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">patron</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticator</span><span class="o">.</span><span class="n">authenticated_patron</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">authorization</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="c1"># There was a problem turning the authorization header into a valid patron.</span>
+            <span class="k">return</span> <span class="n">patron</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">Patron</span><span class="p">):</span>
+            <span class="n">inner_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_or_create_token</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">patron</span><span class="p">)</span>
+            
+            <span class="c1"># Wrap the inner token with the provider name</span>
+            <span class="n">outer_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticator</span><span class="o">.</span><span class="n">create_bearer_token</span><span class="p">(</span>
+                <span class="n">BasicAuthenticationProvider</span><span class="o">.</span><span class="n">BEARER_TOKEN_PROVIDER_NAME</span><span class="p">,</span>
+                <span class="n">inner_token</span><span class="o">.</span><span class="n">credential</span>
+            <span class="p">)</span>
+
+            <span class="n">data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+                <span class="n">access_token</span><span class="o">=</span><span class="n">outer_token</span><span class="p">,</span>
+                <span class="n">token_type</span><span class="o">=</span><span class="s2">&quot;bearer&quot;</span><span class="p">,</span>
+                <span class="n">expires_in</span><span class="o">=</span><span class="n">BasicAuthTempTokenController</span><span class="o">.</span><span class="n">TOKEN_DURATION</span><span class="o">.</span><span class="n">seconds</span>
+            <span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">flask</span><span class="o">.</span><span class="n">jsonify</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>
@@ -2752,7 +2845,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

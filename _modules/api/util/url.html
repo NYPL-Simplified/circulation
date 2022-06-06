@@ -62,7 +62,66 @@
             <span class="n">result</span><span class="o">.</span><span class="n">fragment</span>
         <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">geturl</span><span class="p">()</span></div></div>
+        <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">geturl</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="URLUtility.url_match_in_domain_list"><a class="viewcode-back" href="../../../api.util.html#api.util.url.URLUtility.url_match_in_domain_list">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">url_match_in_domain_list</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">domain_list</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Attempts to match a candidate URL against a list of URL patterns, with wildcard</span>
+<span class="sd">        matching of subdomains under a given root.</span>
+
+<span class="sd">        To be matched against, a value in &#39;domain_list&#39; must be of the form:</span>
+
+<span class="sd">            `(http|https)://[(&lt;subdomain&gt;|*).]&lt;domain&gt;.&lt;tld&gt;`</span>
+
+<span class="sd">        Examples of valid domain_list entries:</span>
+
+<span class="sd">            ```</span>
+<span class="sd">            http://librarysimplified.org</span>
+<span class="sd">            https://librarysimplified.org</span>
+<span class="sd">            https://www.librarysimplified.org</span>
+<span class="sd">            https://*.librarysimplified.org</span>
+<span class="sd">            https://alpha.bravo.charlie.librarysimplified.org</span>
+<span class="sd">            https://*.charlie.librarysimplified.org</span>
+<span class="sd">            capacitor://*.vercel.app</span>
+<span class="sd">            ```</span>
+
+<span class="sd">        Note that the entry `http://*.librarysimplified.org` WILL NOT match</span>
+<span class="sd">        the URL of the root domain `http://librarysimplified.org`. To match the root</span>
+<span class="sd">        domain you must also include it as a separate, non-wildcard entry.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">url_parsed</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>    <span class="c1"># origin value was not a string</span>
+
+        <span class="n">url_match_in_list</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">for</span> <span class="n">allowed_domain</span> <span class="ow">in</span> <span class="n">domain_list</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">url_match_in_list</span><span class="p">:</span>
+                <span class="k">break</span>       <span class="c1"># previous iteration matched</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">allowed_parsed</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">allowed_domain</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+                <span class="c1"># TODO: log a warning about a bad value in the setting</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># If the scheme doesn&#39;t match it won&#39;t be allowed, period</span>
+            <span class="k">if</span> <span class="n">url_parsed</span><span class="o">.</span><span class="n">scheme</span> <span class="o">==</span> <span class="n">allowed_parsed</span><span class="o">.</span><span class="n">scheme</span><span class="p">:</span>
+                <span class="c1"># If we have a subdomain wildcard at the start of an allowed pattern,</span>
+                <span class="c1"># check to see if the rest of the pattern is present in the candidate URL</span>
+                <span class="c1"># Alternatively, check for a complete match of the netloc strings</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="p">(</span>
+                        <span class="n">allowed_parsed</span><span class="o">.</span><span class="n">netloc</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;*.&#39;</span><span class="p">)</span>
+                        <span class="ow">and</span> <span class="n">url_parsed</span><span class="o">.</span><span class="n">netloc</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">allowed_parsed</span><span class="o">.</span><span class="n">netloc</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+                    <span class="p">)</span>
+                    <span class="ow">or</span> <span class="n">url_parsed</span><span class="o">.</span><span class="n">netloc</span> <span class="o">==</span> <span class="n">allowed_parsed</span><span class="o">.</span><span class="n">netloc</span>
+                <span class="p">):</span>
+                    <span class="n">url_match_in_list</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="k">return</span> <span class="n">url_match_in_list</span></div></div>
 </pre></div>
 
           </div>
@@ -119,7 +178,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

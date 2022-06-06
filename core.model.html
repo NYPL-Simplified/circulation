@@ -6816,7 +6816,7 @@ content type, assuming it’s represented as a media type.</p>
 
 <dl class="attribute">
 <dt id="core.model.licensing.DeliveryMechanism.default_client_can_fulfill_lookup">
-<code class="descname">default_client_can_fulfill_lookup</code><em class="property"> = {('application/epub+zip', 'application/vnd.adobe.adept+xml'), (None, 'application/vnd.librarysimplified.findaway.license+json'), ('application/pdf', 'application/vnd.librarysimplified.bearer-token+json'), ('application/pdf', None), ('application/audiobook+json', 'application/vnd.librarysimplified.bearer-token+json'), ('application/vnd.overdrive.circulation.api+json;profile=audiobook', 'Libby DRM'), ('application/epub+zip', 'application/vnd.librarysimplified.bearer-token+json'), ('application/epub+zip', None), ('application/audiobook+json', None)}</em><a class="headerlink" href="#core.model.licensing.DeliveryMechanism.default_client_can_fulfill_lookup" title="Permalink to this definition">¶</a></dt>
+<code class="descname">default_client_can_fulfill_lookup</code><em class="property"> = {('application/audiobook+json', 'application/vnd.librarysimplified.bearer-token+json'), ('application/audiobook+json', None), ('application/epub+zip', 'application/vnd.adobe.adept+xml'), ('application/pdf', None), ('application/epub+zip', None), (None, 'application/vnd.librarysimplified.findaway.license+json'), ('application/epub+zip', 'application/vnd.librarysimplified.bearer-token+json'), ('application/pdf', 'application/vnd.librarysimplified.bearer-token+json'), ('application/vnd.overdrive.circulation.api+json;profile=audiobook', 'Libby DRM')}</em><a class="headerlink" href="#core.model.licensing.DeliveryMechanism.default_client_can_fulfill_lookup" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8092,6 +8092,16 @@ Otherwise, end is irrelevant and is set to None.</p>
 <dt id="core.model.patron.Loan">
 <em class="property">class </em><code class="descclassname">core.model.patron.</code><code class="descname">Loan</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/patron.html#Loan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.patron.Loan" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code>, <a class="reference internal" href="#core.model.patron.LoanAndHoldMixin" title="core.model.patron.LoanAndHoldMixin"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.patron.LoanAndHoldMixin</span></code></a></p>
+<dl class="attribute">
+<dt id="core.model.patron.Loan.cached_content_type">
+<code class="descname">cached_content_type</code><a class="headerlink" href="#core.model.patron.Loan.cached_content_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.patron.Loan.cached_manifest">
+<code class="descname">cached_manifest</code><a class="headerlink" href="#core.model.patron.Loan.cached_manifest" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="attribute">
 <dt id="core.model.patron.Loan.end">
 <code class="descname">end</code><a class="headerlink" href="#core.model.patron.Loan.end" title="Permalink to this definition">¶</a></dt>
@@ -10848,7 +10858,7 @@ initial content.</p>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

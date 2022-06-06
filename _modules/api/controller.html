@@ -72,6 +72,7 @@
 <span class="kn">from</span> <span class="nn">api.saml.controller</span> <span class="kn">import</span> <span class="n">SAMLController</span>
 <span class="kn">from</span> <span class="nn">.authenticator</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Authenticator</span><span class="p">,</span>
+    <span class="n">BasicAuthTempTokenController</span><span class="p">,</span>
     <span class="n">CirculationPatronProfileStorage</span><span class="p">,</span>
     <span class="n">OAuthController</span><span class="p">,</span>
 <span class="p">)</span>
@@ -487,6 +488,7 @@
 <span class="sd">        This method will be called fresh every time the site</span>
 <span class="sd">        configuration changes.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_token_controller</span> <span class="o">=</span> <span class="n">BasicAuthTempTokenController</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">auth</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">oauth_controller</span> <span class="o">=</span> <span class="n">OAuthController</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">auth</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">saml_controller</span> <span class="o">=</span> <span class="n">SAMLController</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">auth</span><span class="p">)</span></div>
 
@@ -2546,16 +2548,14 @@
             <span class="k">return</span> <span class="n">CANNOT_RELEASE_HOLD</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div></div>
 
+
 <div class="viewcode-block" id="StaticFileController"><a class="viewcode-back" href="../../api.html#api.controller.StaticFileController">[docs]</a><span class="k">class</span> <span class="nc">StaticFileController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
 <div class="viewcode-block" id="StaticFileController.static_file"><a class="viewcode-back" href="../../api.html#api.controller.StaticFileController.static_file">[docs]</a>    <span class="k">def</span> <span class="nf">static_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">directory</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
         <span class="n">cache_timeout</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">STATIC_FILE_CACHE_TIME</span>
         <span class="p">)</span><span class="o">.</span><span class="n">int_value</span>
-        <span class="k">return</span> <span class="n">flask</span><span class="o">.</span><span class="n">send_from_directory</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">cache_timeout</span><span class="o">=</span><span class="n">cache_timeout</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">flask</span><span class="o">.</span><span class="n">send_from_directory</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">cache_timeout</span><span class="o">=</span><span class="n">cache_timeout</span><span class="p">)</span></div></div>
 
-<div class="viewcode-block" id="StaticFileController.image"><a class="viewcode-back" href="../../api.html#api.controller.StaticFileController.image">[docs]</a>    <span class="k">def</span> <span class="nf">image</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
-        <span class="n">directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)),</span> <span class="s2">&quot;..&quot;</span><span class="p">,</span> <span class="s2">&quot;resources&quot;</span><span class="p">,</span> <span class="s2">&quot;images&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_file</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span></div></div>
 
 <div class="viewcode-block" id="RBDFulfillmentProxyController"><a class="viewcode-back" href="../../api.html#api.controller.RBDFulfillmentProxyController">[docs]</a><span class="k">class</span> <span class="nc">RBDFulfillmentProxyController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
 
@@ -2637,7 +2637,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

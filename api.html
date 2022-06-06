@@ -79,7 +79,6 @@
 <li class="toctree-l2"><a class="reference internal" href="api.admin.html#module-api.admin.opds">api.admin.opds module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api.admin.html#module-api.admin.password_admin_authentication_provider">api.admin.password_admin_authentication_provider module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api.admin.html#module-api.admin.problem_details">api.admin.problem_details module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api.admin.html#module-api.admin.routes">api.admin.routes module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api.admin.html#module-api.admin.template_styles">api.admin.template_styles module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api.admin.html#module-api.admin.templates">api.admin.templates module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api.admin.html#module-api.admin.validator">api.admin.validator module</a></li>
@@ -1081,6 +1080,11 @@ what external_type_regular_expression says.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="api.authenticator.Authenticator.bearer_token_provider_lookup">
+<code class="descname">bearer_token_provider_lookup</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#Authenticator.bearer_token_provider_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.Authenticator.bearer_token_provider_lookup" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="api.authenticator.Authenticator.create_authentication_document">
 <code class="descname">create_authentication_document</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#Authenticator.create_authentication_document"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.Authenticator.create_authentication_document" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1116,18 +1120,8 @@ what external_type_regular_expression says.</p>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="api.authenticator.Authenticator.oauth_provider_lookup">
-<code class="descname">oauth_provider_lookup</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#Authenticator.oauth_provider_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.Authenticator.oauth_provider_lookup" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
 <dt id="api.authenticator.Authenticator.populate_authenticators">
 <code class="descname">populate_authenticators</code><span class="sig-paren">(</span><em>_db</em>, <em>analytics</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#Authenticator.populate_authenticators"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.Authenticator.populate_authenticators" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.authenticator.Authenticator.saml_provider_lookup">
-<code class="descname">saml_provider_lookup</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#Authenticator.saml_provider_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.Authenticator.saml_provider_lookup" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -1180,6 +1174,36 @@ what external_type_regular_expression says.</p>
 </dd></dl>
 
 <dl class="class">
+<dt id="api.authenticator.BasicAuthTempTokenController">
+<em class="property">class </em><code class="descclassname">api.authenticator.</code><code class="descname">BasicAuthTempTokenController</code><span class="sig-paren">(</span><em>authenticator</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#BasicAuthTempTokenController"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.BasicAuthTempTokenController" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A controller that handles requests for issuing temporary tokens
+to HTTP Basic Auth credentials.</p>
+<dl class="attribute">
+<dt id="api.authenticator.BasicAuthTempTokenController.DO_NOT_GENERATE_NEW_TOKEN_PERIOD">
+<code class="descname">DO_NOT_GENERATE_NEW_TOKEN_PERIOD</code><em class="property"> = 3540</em><a class="headerlink" href="#api.authenticator.BasicAuthTempTokenController.DO_NOT_GENERATE_NEW_TOKEN_PERIOD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.authenticator.BasicAuthTempTokenController.TOKEN_DURATION">
+<code class="descname">TOKEN_DURATION</code><em class="property"> = datetime.timedelta(seconds=3600)</em><a class="headerlink" href="#api.authenticator.BasicAuthTempTokenController.TOKEN_DURATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.authenticator.BasicAuthTempTokenController.basic_auth_temp_token">
+<code class="descname">basic_auth_temp_token</code><span class="sig-paren">(</span><em>params</em>, <em>_db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#BasicAuthTempTokenController.basic_auth_temp_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.BasicAuthTempTokenController.basic_auth_temp_token" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate and return a temporary token from HTTP Basic Auth credentials.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.authenticator.BasicAuthTempTokenController.get_or_create_token">
+<code class="descname">get_or_create_token</code><span class="sig-paren">(</span><em>_db</em>, <em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#BasicAuthTempTokenController.get_or_create_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.BasicAuthTempTokenController.get_or_create_token" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve a patron’s Credential or create a new one.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
 <dt id="api.authenticator.BasicAuthenticationProvider">
 <em class="property">class </em><code class="descclassname">api.authenticator.</code><code class="descname">BasicAuthenticationProvider</code><span class="sig-paren">(</span><em>library</em>, <em>integration</em>, <em>analytics=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#BasicAuthenticationProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.BasicAuthenticationProvider" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.authenticator.AuthenticationProvider" title="api.authenticator.AuthenticationProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.authenticator.AuthenticationProvider</span></code></a>, <a class="reference internal" href="core.html#core.selftest.HasSelfTests" title="core.selftest.HasSelfTests"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.selftest.HasSelfTests</span></code></a></p>
@@ -1198,6 +1222,11 @@ a remote source of truth.</p>
 <dl class="attribute">
 <dt id="api.authenticator.BasicAuthenticationProvider.BARCODE_FORMAT_NONE">
 <code class="descname">BARCODE_FORMAT_NONE</code><em class="property"> = ''</em><a class="headerlink" href="#api.authenticator.BasicAuthenticationProvider.BARCODE_FORMAT_NONE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.authenticator.BasicAuthenticationProvider.BEARER_TOKEN_PROVIDER_NAME">
+<code class="descname">BEARER_TOKEN_PROVIDER_NAME</code><em class="property"> = 'HTTPBasicBearerToken'</em><a class="headerlink" href="#api.authenticator.BasicAuthenticationProvider.BEARER_TOKEN_PROVIDER_NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -1246,8 +1275,23 @@ a remote source of truth.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="api.authenticator.BasicAuthenticationProvider.FLOW_TYPE">
-<code class="descname">FLOW_TYPE</code><em class="property"> = 'http://opds-spec.org/auth/basic'</em><a class="headerlink" href="#api.authenticator.BasicAuthenticationProvider.FLOW_TYPE" title="Permalink to this definition">¶</a></dt>
+<dt id="api.authenticator.BasicAuthenticationProvider.FLOW_TYPE_BASIC">
+<code class="descname">FLOW_TYPE_BASIC</code><em class="property"> = 'http://opds-spec.org/auth/basic'</em><a class="headerlink" href="#api.authenticator.BasicAuthenticationProvider.FLOW_TYPE_BASIC" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.authenticator.BasicAuthenticationProvider.FLOW_TYPE_OAUTH">
+<code class="descname">FLOW_TYPE_OAUTH</code><em class="property"> = 'http://librarysimplified.org/authtype/OAuth-Client-Credentials'</em><a class="headerlink" href="#api.authenticator.BasicAuthenticationProvider.FLOW_TYPE_OAUTH" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.authenticator.BasicAuthenticationProvider.HTTP_BASIC_OAUTH_ENABLED">
+<code class="descname">HTTP_BASIC_OAUTH_ENABLED</code><em class="property"> = 'http_basic_oauth_enabled'</em><a class="headerlink" href="#api.authenticator.BasicAuthenticationProvider.HTTP_BASIC_OAUTH_ENABLED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.authenticator.BasicAuthenticationProvider.HTTP_BASIC_OAUTH_ENABLED_DEFAULT">
+<code class="descname">HTTP_BASIC_OAUTH_ENABLED_DEFAULT</code><em class="property"> = False</em><a class="headerlink" href="#api.authenticator.BasicAuthenticationProvider.HTTP_BASIC_OAUTH_ENABLED_DEFAULT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -1273,6 +1317,11 @@ a remote source of truth.</p>
 <dl class="attribute">
 <dt id="api.authenticator.BasicAuthenticationProvider.IDENTIFIER_REGULAR_EXPRESSION">
 <code class="descname">IDENTIFIER_REGULAR_EXPRESSION</code><em class="property"> = 'identifier_regular_expression'</em><a class="headerlink" href="#api.authenticator.BasicAuthenticationProvider.IDENTIFIER_REGULAR_EXPRESSION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.authenticator.BasicAuthenticationProvider.LIBRARY_SETTINGS">
+<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'key': 'http_basic_oauth_enabled', 'label': l'Enable OAuth for HTTP Basic Auth', 'description': l'Enable authentication with bearer tokens generated via basic auth credentials', 'type': 'select', 'options': [{'key': 'false', 'label': l'Disabled'}, {'key': 'true', 'label': l'Enabled'}], 'default': 'false'}, {'key': 'external_type_regular_expression', 'label': l'External Type Regular Expression', 'description': l'Derive a patron's type from their identifier.'}, {'key': 'library_identifier_restriction_type', 'label': l'Library Identifier Restriction Type', 'type': 'select', 'description': l'When multiple libraries share an ILS, a person may be able to authenticate with the ILS but not be considered a patron of &lt;em&gt;this&lt;/em&gt; library. This setting contains the rule for determining whether an identifier is valid for this specific library. &lt;p/&gt; If this setting it set to 'No Restriction' then the values for &lt;em&gt;Library Identifier Field&lt;/em&gt; and &lt;em&gt;Library Identifier Restriction&lt;/em&gt; will not be used.', 'options': [{'key': 'none', 'label': l'No restriction'}, {'key': 'prefix', 'label': l'Prefix Match'}, {'key': 'string', 'label': l'Exact Match'}, {'key': 'regex', 'label': l'Regex Match'}, {'key': 'list', 'label': l'Exact Match, comma separated list'}], 'default': 'none'}, {'key': 'library_identifier_field', 'label': l'Library Identifier Field', 'type': 'select', 'options': [{'key': 'barcode', 'label': l'Barcode'}], 'description': l'This is the field on the patron record that the &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is applied to, different patron authentication methods provide different values here. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.', 'default': 'barcode'}, {'key': 'library_identifier_restriction', 'label': l'Library Identifier Restriction', 'description': l'This is the restriction applied to the &lt;em&gt;Library Identifier Field&lt;/em&gt; using the method chosen in &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt;. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.'}, {'key': 'institution_id', 'label': l'Institution ID', 'description': l'A specific identifier for the library or branch, if used in patron authentication'}]</em><a class="headerlink" href="#api.authenticator.BasicAuthenticationProvider.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -1346,6 +1395,11 @@ a remote source of truth.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="api.authenticator.BasicAuthenticationProvider.TOKEN_TYPE">
+<code class="descname">TOKEN_TYPE</code><em class="property"> = 'HTTP Basic'</em><a class="headerlink" href="#api.authenticator.BasicAuthenticationProvider.TOKEN_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="api.authenticator.BasicAuthenticationProvider.alphanumerics_plus">
 <code class="descname">alphanumerics_plus</code><em class="property"> = re.compile('^[A-Za-z0-9&#64;.-]+$')</em><a class="headerlink" href="#api.authenticator.BasicAuthenticationProvider.alphanumerics_plus" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1366,7 +1420,8 @@ are updated.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>credentials</strong> – A dictionary with keys <cite>username</cite> and <cite>password</cite>.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>credentials</strong> – A dictionary with keys <cite>username</cite> and <cite>password</cite>
+or a bearer token string.</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A Patron if one can be authenticated; a ProblemDetail
 if an error occurs; None if the credentials are missing or wrong.</td>
@@ -1605,6 +1660,13 @@ given library.</p>
 </dd></dl>
 
 <dl class="method">
+<dt id="api.authenticator.LibraryAuthenticator.bearer_token_provider_lookup">
+<code class="descname">bearer_token_provider_lookup</code><span class="sig-paren">(</span><em>provider_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#LibraryAuthenticator.bearer_token_provider_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.bearer_token_provider_lookup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Look up the relevant bearer token authentication provider with
+the given name. If that doesn’t work, return an appropriate ProblemDetai.</p>
+</dd></dl>
+
+<dl class="method">
 <dt id="api.authenticator.LibraryAuthenticator.create_authentication_document">
 <code class="descname">create_authentication_document</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#LibraryAuthenticator.create_authentication_document"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.create_authentication_document" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create the Authentication For OPDS document to be used when
@@ -1701,13 +1763,6 @@ and others do not, the library does not identify individuals.</p>
 <code class="descname">library</code><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.library" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="api.authenticator.LibraryAuthenticator.oauth_provider_lookup">
-<code class="descname">oauth_provider_lookup</code><span class="sig-paren">(</span><em>provider_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#LibraryAuthenticator.oauth_provider_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.oauth_provider_lookup" title="Permalink to this definition">¶</a></dt>
-<dd><p>Look up the OAuthAuthenticationProvider with the given name. If that
-doesn’t work, return an appropriate ProblemDetail.</p>
-</dd></dl>
-
 <dl class="attribute">
 <dt id="api.authenticator.LibraryAuthenticator.providers">
 <code class="descname">providers</code><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.providers" title="Permalink to this definition">¶</a></dt>
@@ -1720,8 +1775,8 @@ doesn’t work, return an appropriate ProblemDetail.</p>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="api.authenticator.LibraryAuthenticator.register_oauth_provider">
-<code class="descname">register_oauth_provider</code><span class="sig-paren">(</span><em>provider</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#LibraryAuthenticator.register_oauth_provider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.register_oauth_provider" title="Permalink to this definition">¶</a></dt>
+<dt id="api.authenticator.LibraryAuthenticator.register_bearer_token_auth_provider">
+<code class="descname">register_bearer_token_auth_provider</code><span class="sig-paren">(</span><em>provider</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#LibraryAuthenticator.register_bearer_token_auth_provider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.register_bearer_token_auth_provider" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -1738,18 +1793,6 @@ a way of authenticating patrons.</td>
 </tr>
 </tbody>
 </table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.authenticator.LibraryAuthenticator.register_saml_provider">
-<code class="descname">register_saml_provider</code><span class="sig-paren">(</span><em>provider</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#LibraryAuthenticator.register_saml_provider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.register_saml_provider" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.authenticator.LibraryAuthenticator.saml_provider_lookup">
-<code class="descname">saml_provider_lookup</code><span class="sig-paren">(</span><em>provider_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#LibraryAuthenticator.saml_provider_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.LibraryAuthenticator.saml_provider_lookup" title="Permalink to this definition">¶</a></dt>
-<dd><p>Look up the SAMLAuthenticationProvider with the given name. If that
-doesn’t work, return an appropriate ProblemDetail.</p>
 </dd></dl>
 
 <dl class="attribute">
@@ -2143,6 +2186,11 @@ a patron’s credentials are verified by an OAuth provider.</p>
 <em class="property">class </em><code class="descclassname">api.axis.</code><code class="descname">Axis360API</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360API"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360API" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.authenticator.Authenticator" title="api.authenticator.Authenticator"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.authenticator.Authenticator</span></code></a>, <a class="reference internal" href="#api.circulation.BaseCirculationAPI" title="api.circulation.BaseCirculationAPI"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation.BaseCirculationAPI</span></code></a>, <a class="reference internal" href="#api.selftest.HasCollectionSelfTests" title="api.selftest.HasCollectionSelfTests"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.selftest.HasCollectionSelfTests</span></code></a></p>
 <dl class="attribute">
+<dt id="api.axis.Axis360API.ALLOW_ANONYMOUS_ACCESS_SETTING">
+<code class="descname">ALLOW_ANONYMOUS_ACCESS_SETTING</code><em class="property"> = 'allow_anonymous_access'</em><a class="headerlink" href="#api.axis.Axis360API.ALLOW_ANONYMOUS_ACCESS_SETTING" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="api.axis.Axis360API.AXISNOW">
 <code class="descname">AXISNOW</code><em class="property"> = 'AxisNow'</em><a class="headerlink" href="#api.axis.Axis360API.AXISNOW" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2184,7 +2232,7 @@ a patron’s credentials are verified by an OAuth provider.</p>
 
 <dl class="attribute">
 <dt id="api.axis.Axis360API.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'username', 'label': l'Username', 'required': True}, {'key': 'password', 'label': l'Password', 'required': True}, {'key': 'external_account_id', 'label': l'Library ID', 'required': True}, {'key': 'url', 'label': l'Server', 'default': 'https://axis360api.baker-taylor.com/Services/VendorAPI/', 'required': True, 'format': 'url', 'allowed': ['production', 'qa']}]</em><a class="headerlink" href="#api.axis.Axis360API.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'username', 'label': l'Username', 'required': True}, {'key': 'password', 'label': l'Password', 'required': True}, {'key': 'external_account_id', 'label': l'Library ID', 'required': True}, {'key': 'url', 'label': l'Server', 'default': 'https://axis360api.baker-taylor.com/Services/VendorAPI/', 'required': True, 'format': 'url', 'allowed': ['production', 'qa']}, {'key': 'allow_anonymous_access', 'label': l'Allow anonymous access', 'description': l'If you're associating an Axis 360 collection with a library that doesn't take any steps to authenticate its patrons, you'll need to disable this safety setting to explicitly allow anonymous access to the collection. Most libraries authenticate their patrons, so allowing only authenticated access is the right choice in almost all situations.', 'type': 'select', 'options': [{'key': 'false', 'label': l'Allow only authenticated access to this collection's titles'}, {'key': 'true', 'label': l'Allow anonymous access to this collection's titles'}], 'default': 'false'}]</em><a class="headerlink" href="#api.axis.Axis360API.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2226,6 +2274,14 @@ a patron’s credentials are verified by an OAuth provider.</p>
 <dt id="api.axis.Axis360API.axisnow_drm">
 <code class="descname">axisnow_drm</code><em class="property"> = 'application/vnd.librarysimplified.axisnow+json'</em><a class="headerlink" href="#api.axis.Axis360API.axisnow_drm" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="method">
+<dt id="api.axis.Axis360API.can_fulfill_without_loan">
+<code class="descname">can_fulfill_without_loan</code><span class="sig-paren">(</span><em>patron</em>, <em>pool</em>, <em>lpdm</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/axis.html#Axis360API.can_fulfill_without_loan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.axis.Axis360API.can_fulfill_without_loan" title="Permalink to this definition">¶</a></dt>
+<dd><p>A LicensePool can be fulfilled without a loan
+if a) the library allows for it, and b) the delivery mechanism
+is either AxisNow or unspecified (in which case AxisNow is an option).</p>
+</dd></dl>
 
 <dl class="method">
 <dt id="api.axis.Axis360API.checkin">
@@ -4612,6 +4668,11 @@ normal process.</td>
 </table>
 </dd></dl>
 
+<dl class="attribute">
+<dt id="api.circulation.FulfillmentInfo.can_cache_manifest">
+<code class="descname">can_cache_manifest</code><em class="property"> = False</em><a class="headerlink" href="#api.circulation.FulfillmentInfo.can_cache_manifest" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
 <dl class="class">
@@ -5320,6 +5381,11 @@ policy.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="api.config.Configuration.HELP_UNSUBSCRIBE_URI">
+<code class="descname">HELP_UNSUBSCRIBE_URI</code><em class="property"> = 'http://librarysimplified.org/rel/email/unsubscribe/options'</em><a class="headerlink" href="#api.config.Configuration.HELP_UNSUBSCRIBE_URI" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="api.config.Configuration.HELP_URI">
 <code class="descname">HELP_URI</code><em class="property"> = 'help-uri'</em><a class="headerlink" href="#api.config.Configuration.HELP_URI" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -5381,7 +5447,7 @@ policy.</p>
 
 <dl class="attribute">
 <dt id="api.config.Configuration.LIBRARY_SETTINGS">
-<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'key': 'name', 'label': l'Name', 'description': l'The human-readable name of this library.', 'category': 'Basic Information', 'level': 3, 'required': True}, {'key': 'short_name', 'label': l'Short name', 'description': l'A short name of this library, to use when identifying it in scripts or URLs, e.g. 'NYPL'.', 'category': 'Basic Information', 'level': 3, 'required': True}, {'key': 'website', 'label': l'URL of the library's website', 'description': l'The library's main website, e.g. &quot;https://www.nypl.org/&quot; (not this Circulation Manager's URL).', 'required': True, 'format': 'url', 'level': 3, 'category': 'Basic Information'}, {'key': 'allow_holds', 'label': l'Allow books to be put on hold', 'type': 'select', 'options': [{'key': 'true', 'label': l'Allow holds'}, {'key': 'false', 'label': l'Disable holds'}], 'default': 'true', 'category': 'Loans, Holds, &amp; Fines', 'level': 3}, {'key': 'enabled_entry_points', 'label': l'Enabled entry points', 'description': l'Patrons will see the selected entry points at the top level and in search results. &lt;p&gt;Currently supported audiobook vendors: Bibliotheca, Axis 360', 'type': 'list', 'options': [{'key': 'All', 'label': 'All'}, {'key': 'Book', 'label': 'eBooks'}, {'key': 'Audio', 'label': 'Audiobooks'}], 'default': ['Book'], 'category': 'Lanes &amp; Filters', 'format': 'narrow', 'readOnly': True, 'level': 3}, {'key': 'featured_lane_size', 'label': l'Maximum number of books in the 'featured' lanes', 'type': 'number', 'default': 15, 'category': 'Lanes &amp; Filters', 'level': 1}, {'key': 'minimum_featured_quality', 'label': l'Minimum quality for books that show up in 'featured' lanes', 'description': l'Between 0 and 1.', 'type': 'number', 'max': 1, 'default': 0.65, 'category': 'Lanes &amp; Filters', 'level': 1}, {'key': 'facets_enabled_order', 'label': l'Allow patrons to sort by', 'type': 'list', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}], 'default': ['title', 'author', 'added', 'random'], 'category': 'Lanes &amp; Filters', 'paired': 'facets_default_order', 'level': 2}, {'key': 'facets_enabled_available', 'label': l'Allow patrons to filter availability to', 'type': 'list', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}], 'default': ['now', 'all', 'always'], 'category': 'Lanes &amp; Filters', 'paired': 'facets_default_available', 'level': 2}, {'key': 'facets_enabled_collection', 'label': l'Allow patrons to filter collection to', 'type': 'list', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}], 'default': ['full', 'featured'], 'category': 'Lanes &amp; Filters', 'paired': 'facets_default_collection', 'level': 2}, {'key': 'facets_default_order', 'label': l'Default Sort by', 'type': 'select', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}], 'default': 'author', 'category': 'Lanes &amp; Filters', 'skip': True}, {'key': 'facets_default_available', 'label': l'Default Availability', 'type': 'select', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}], 'default': 'all', 'category': 'Lanes &amp; Filters', 'skip': True}, {'key': 'facets_default_collection', 'label': l'Default Collection', 'type': 'select', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}], 'default': 'full', 'category': 'Lanes &amp; Filters', 'skip': True}, {'key': 'library_description', 'label': l'A short description of this library', 'description': l'This will be shown to people who aren't sure they've chosen the right library.', 'category': 'Basic Information', 'level': 3}, {'key': 'announcements', 'label': l'Scheduled announcements', 'description': l'Announcements will be displayed to authenticated patrons.', 'category': 'Announcements', 'type': 'announcements', 'level': 1}, {'key': 'help-email', 'label': l'Patron support email address', 'description': l'An email address a patron can use if they need help, e.g. 'simplyehelp&#64;yourlibrary.org'.', 'required': True, 'format': 'email', 'level': 3}, {'key': 'help-web', 'label': l'Patron support web site', 'description': l'A URL for patrons to get help.', 'format': 'url', 'category': 'Patron Support', 'level': 1}, {'key': 'help-uri', 'label': l'Patron support custom integration URI', 'description': l'A custom help integration like Helpstack, e.g. 'helpstack:nypl.desk.com'.', 'category': 'Patron Support', 'level': 3}, {'key': 'copyright_designated_agent_email_address', 'label': l'Copyright designated agent email', 'description': l'Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.&lt;br/&gt;If no value is specified here, the general patron support address will be used.', 'format': 'email', 'category': 'Patron Support', 'level': 2}, {'key': 'configuration_contact_email_address', 'label': l'A point of contact for the organization reponsible for configuring this library', 'description': l'This email address will be shared as part of integrations that you set up through this interface. It will not be shared with the general public. This gives the administrator of the remote integration a way to contact you about problems with this library's use of that integration.&lt;br/&gt;If no value is specified here, the general patron support address will be used.', 'format': 'email', 'category': 'Patron Support', 'level': 2}, {'key': 'default_notification_email_address', 'label': l'Write-only email address for vendor hold notifications', 'description': l'This address must trash all email sent to it. Vendor hold notifications contain sensitive patron information, but &lt;a href=&quot;https://confluence.nypl.org/display/SIM/About+Hold+Notifications&quot; target=&quot;_blank&quot;&gt;cannot be forwarded to patrons&lt;/a&gt; because they contain vendor-specific instructions.&lt;br/&gt;The default address will work, but for greater security, set up your own address that trashes all incoming email.', 'default': 'noreply&#64;librarysimplified.org', 'required': True, 'format': 'email', 'level': 3}, {'key': 'color_scheme', 'label': l'Mobile color scheme', 'description': l'This tells mobile applications what color scheme to use when rendering this library's OPDS feed.', 'options': [{'key': 'amber', 'label': l'Amber'}, {'key': 'black', 'label': l'Black'}, {'key': 'blue', 'label': l'Blue'}, {'key': 'bluegray', 'label': l'Blue Gray'}, {'key': 'brown', 'label': l'Brown'}, {'key': 'cyan', 'label': l'Cyan'}, {'key': 'darkorange', 'label': l'Dark Orange'}, {'key': 'darkpurple', 'label': l'Dark Purple'}, {'key': 'green', 'label': l'Green'}, {'key': 'gray', 'label': l'Gray'}, {'key': 'indigo', 'label': l'Indigo'}, {'key': 'lightblue', 'label': l'Light Blue'}, {'key': 'orange', 'label': l'Orange'}, {'key': 'pink', 'label': l'Pink'}, {'key': 'purple', 'label': l'Purple'}, {'key': 'red', 'label': l'Red'}, {'key': 'teal', 'label': l'Teal'}], 'type': 'select', 'default': 'blue', 'category': 'Client Interface Customization', 'level': 2}, {'key': 'web-primary-color', 'label': l'Web primary color', 'description': l'This is the brand primary color for the web application. Must have sufficient contrast with white.', 'type': 'color-picker', 'default': '#377F8B', 'category': 'Client Interface Customization', 'level': 2}, {'key': 'web-secondary-color', 'label': l'Web secondary color', 'description': l'This is the brand secondary color for the web application. Must have sufficient contrast with white.', 'type': 'color-picker', 'default': '#D53F34', 'category': 'Client Interface Customization', 'level': 2}, {'key': 'web-css-file', 'label': l'Custom CSS file for web', 'description': l'Give web applications a CSS file to customize the catalog display.', 'format': 'url', 'category': 'Client Interface Customization', 'level': 3}, {'key': 'web-header-links', 'label': l'Web header links', 'description': l'This gives web applications a list of links to display in the header. Specify labels for each link in the same order under 'Web header labels'.', 'type': 'list', 'category': 'Client Interface Customization', 'level': 2}, {'key': 'web-header-labels', 'label': l'Web header labels', 'description': l'Labels for each link under 'Web header links'.', 'type': 'list', 'category': 'Client Interface Customization', 'level': 2}, {'key': 'logo', 'label': l'Logo image', 'type': 'image', 'description': l'The image must be in GIF, PNG, or JPG format, approximately square, no larger than 135x135 pixels, and look good on a white background.', 'category': 'Client Interface Customization', 'level': 1}, {'key': 'hidden_content_types', 'label': l'Hidden content types', 'type': 'text', 'description': l'A list of content types to hide from all clients, e.g. &lt;code&gt;[&quot;application/pdf&quot;]&lt;/code&gt;. This can be left blank except to solve specific problems.', 'category': 'Client Interface Customization', 'level': 3}, {'key': 'focus_area', 'label': l'Focus area', 'type': 'list', 'description': l'The library focuses on serving patrons in this geographic area. In most cases this will be a city name like &lt;code&gt;Springfield, OR&lt;/code&gt;.', 'category': 'Geographic Areas', 'format': 'geographic', 'instructions': l'&lt;ol&gt;Accepted formats:             &lt;li&gt;US zipcode or Canadian FSA&lt;/li&gt;             &lt;li&gt;Two-letter US state abbreviation&lt;/li&gt;             &lt;li&gt;City, US state abbreviation&lt;i&gt;e.g. &quot;Boston, MA&quot;&lt;/i&gt;&lt;/li&gt;             &lt;li&gt;County, US state abbreviation&lt;i&gt;e.g. &quot;Litchfield County, CT&quot;&lt;/i&gt;&lt;/li&gt;             &lt;li&gt;Canadian province name or two-letter abbreviation&lt;/li&gt;             &lt;li&gt;City, Canadian province name/abbreviation&lt;i&gt;e.g. &quot;Stratford, Ontario&quot;/&quot;Stratford, ON&quot;&lt;/i&gt;&lt;/li&gt;         &lt;/ol&gt;', 'capitalize': True, 'level': 1}, {'key': 'service_area', 'label': l'Service area', 'type': 'list', 'description': l'The full geographic area served by this library. In most cases this is the same as the focus area and can be left blank, but it may be a larger area such as a US state (which should be indicated by its abbreviation, like &lt;code&gt;OR&lt;/code&gt;).', 'category': 'Geographic Areas', 'format': 'geographic', 'instructions': l'&lt;ol&gt;Accepted formats:             &lt;li&gt;US zipcode or Canadian FSA&lt;/li&gt;             &lt;li&gt;Two-letter US state abbreviation&lt;/li&gt;             &lt;li&gt;City, US state abbreviation&lt;i&gt;e.g. &quot;Boston, MA&quot;&lt;/i&gt;&lt;/li&gt;             &lt;li&gt;County, US state abbreviation&lt;i&gt;e.g. &quot;Litchfield County, CT&quot;&lt;/i&gt;&lt;/li&gt;             &lt;li&gt;Canadian province name or two-letter abbreviation&lt;/li&gt;             &lt;li&gt;City, Canadian province name/abbreviation&lt;i&gt;e.g. &quot;Stratford, Ontario&quot;/&quot;Stratford, ON&quot;&lt;/i&gt;&lt;/li&gt;         &lt;/ol&gt;', 'capitalize': True, 'level': 1}, {'key': 'max_outstanding_fines', 'label': l'Maximum amount in fines a patron can have before losing lending privileges', 'type': 'number', 'category': 'Loans, Holds, &amp; Fines', 'level': 1}, {'key': 'loan_limit', 'label': l'Maximum number of books a patron can have on loan at once', 'description': l'(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor's app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)', 'type': 'number', 'category': 'Loans, Holds, &amp; Fines', 'level': 1}, {'key': 'hold_limit', 'label': l'Maximum number of books a patron can have on hold at once', 'description': l'(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor's app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)', 'type': 'number', 'category': 'Loans, Holds, &amp; Fines', 'level': 1}, {'key': 'terms-of-service', 'label': l'Terms of Service URL', 'format': 'url', 'category': 'Links', 'level': 1}, {'key': 'privacy-policy', 'label': l'Privacy Policy URL', 'format': 'url', 'category': 'Links', 'level': 1}, {'key': 'copyright', 'label': l'Copyright URL', 'format': 'url', 'category': 'Links', 'level': 2}, {'key': 'about', 'label': l'About URL', 'format': 'url', 'category': 'Links', 'level': 1}, {'key': 'license', 'label': l'License URL', 'format': 'url', 'category': 'Links', 'level': 2}, {'key': 'register', 'label': l'Patron registration URL', 'description': l'A URL where someone who doesn't have a library card yet can sign up for one.', 'format': 'url', 'category': 'Patron Support', 'allowed': ['nypl.card-creator:https://patrons.librarysimplified.org/'], 'level': 1}, {'key': 'large_collections', 'label': l'The primary languages represented in this library's collection', 'type': 'list', 'format': 'language-code', 'description': l'Each value can be either the full name of a language or an &lt;a href=&quot;https://www.loc.gov/standards/iso639-2/php/code_list.php&quot; target=&quot;_blank&quot;&gt;ISO-639-2&lt;/a&gt; language code.', 'optional': True, 'category': 'Languages', 'level': 1}, {'key': 'small_collections', 'label': l'Other major languages represented in this library's collection', 'type': 'list', 'format': 'language-code', 'description': l'Each value can be either the full name of a language or an &lt;a href=&quot;https://www.loc.gov/standards/iso639-2/php/code_list.php&quot; target=&quot;_blank&quot;&gt;ISO-639-2&lt;/a&gt; language code.', 'optional': True, 'category': 'Languages', 'level': 1}, {'key': 'tiny_collections', 'label': l'Other languages in this library's collection', 'type': 'list', 'format': 'language-code', 'description': l'Each value can be either the full name of a language or an &lt;a href=&quot;https://www.loc.gov/standards/iso639-2/php/code_list.php&quot; target=&quot;_blank&quot;&gt;ISO-639-2&lt;/a&gt; language code.', 'optional': True, 'category': 'Languages', 'level': 1}]</em><a class="headerlink" href="#api.config.Configuration.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'key': 'name', 'label': l'Name', 'description': l'The human-readable name of this library.', 'category': 'Basic Information', 'level': 3, 'required': True}, {'key': 'short_name', 'label': l'Short name', 'description': l'A short name of this library, to use when identifying it in scripts or URLs, e.g. 'NYPL'.', 'category': 'Basic Information', 'level': 3, 'required': True}, {'key': 'website', 'label': l'URL of the library's website', 'description': l'The library's main website, e.g. &quot;https://www.nypl.org/&quot; (not this Circulation Manager's URL).', 'required': True, 'format': 'url', 'level': 3, 'category': 'Basic Information'}, {'key': 'allow_holds', 'label': l'Allow books to be put on hold', 'type': 'select', 'options': [{'key': 'true', 'label': l'Allow holds'}, {'key': 'false', 'label': l'Disable holds'}], 'default': 'true', 'category': 'Loans, Holds, &amp; Fines', 'level': 3}, {'key': 'enabled_entry_points', 'label': l'Enabled entry points', 'description': l'Patrons will see the selected entry points at the top level and in search results. &lt;p&gt;Currently supported audiobook vendors: Bibliotheca, Axis 360', 'type': 'list', 'options': [{'key': 'All', 'label': 'All'}, {'key': 'Book', 'label': 'eBooks'}, {'key': 'Audio', 'label': 'Audiobooks'}], 'default': ['Book'], 'category': 'Lanes &amp; Filters', 'format': 'narrow', 'readOnly': True, 'level': 3}, {'key': 'featured_lane_size', 'label': l'Maximum number of books in the 'featured' lanes', 'type': 'number', 'default': 15, 'category': 'Lanes &amp; Filters', 'level': 1}, {'key': 'minimum_featured_quality', 'label': l'Minimum quality for books that show up in 'featured' lanes', 'description': l'Between 0 and 1.', 'type': 'number', 'max': 1, 'default': 0.65, 'category': 'Lanes &amp; Filters', 'level': 1}, {'key': 'facets_enabled_order', 'label': l'Allow patrons to sort by', 'type': 'list', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}], 'default': ['title', 'author', 'added', 'random'], 'category': 'Lanes &amp; Filters', 'paired': 'facets_default_order', 'level': 2}, {'key': 'facets_enabled_available', 'label': l'Allow patrons to filter availability to', 'type': 'list', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}], 'default': ['now', 'all', 'always'], 'category': 'Lanes &amp; Filters', 'paired': 'facets_default_available', 'level': 2}, {'key': 'facets_enabled_collection', 'label': l'Allow patrons to filter collection to', 'type': 'list', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}], 'default': ['full', 'featured'], 'category': 'Lanes &amp; Filters', 'paired': 'facets_default_collection', 'level': 2}, {'key': 'facets_default_order', 'label': l'Default Sort by', 'type': 'select', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}], 'default': 'author', 'category': 'Lanes &amp; Filters', 'skip': True}, {'key': 'facets_default_available', 'label': l'Default Availability', 'type': 'select', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}], 'default': 'all', 'category': 'Lanes &amp; Filters', 'skip': True}, {'key': 'facets_default_collection', 'label': l'Default Collection', 'type': 'select', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}], 'default': 'full', 'category': 'Lanes &amp; Filters', 'skip': True}, {'key': 'library_description', 'label': l'A short description of this library', 'description': l'This will be shown to people who aren't sure they've chosen the right library.', 'category': 'Basic Information', 'level': 3}, {'key': 'announcements', 'label': l'Scheduled announcements', 'description': l'Announcements will be displayed to authenticated patrons.', 'category': 'Announcements', 'type': 'announcements', 'level': 1}, {'key': 'help-email', 'label': l'Patron support email address', 'description': l'An email address a patron can use if they need help, e.g. 'simplyehelp&#64;yourlibrary.org'.', 'required': True, 'format': 'email', 'level': 3}, {'key': 'help-web', 'label': l'Patron support web site', 'description': l'A URL for patrons to get help.', 'format': 'url', 'category': 'Patron Support', 'level': 1}, {'key': 'help-uri', 'label': l'Patron support custom integration URI', 'description': l'A custom help integration like Helpstack, e.g. 'helpstack:nypl.desk.com'.', 'category': 'Patron Support', 'level': 3}, {'key': 'http://librarysimplified.org/rel/email/unsubscribe/options', 'label': l'Email (Un)Subscription Management URL', 'description': l'A URL for patrons to manage (or delete) any email subscriptions associated with their account.', 'format': 'url', 'category': 'Patron Support', 'level': 2}, {'key': 'copyright_designated_agent_email_address', 'label': l'Copyright designated agent email', 'description': l'Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.&lt;br/&gt;If no value is specified here, the general patron support address will be used.', 'format': 'email', 'category': 'Patron Support', 'level': 2}, {'key': 'configuration_contact_email_address', 'label': l'A point of contact for the organization reponsible for configuring this library', 'description': l'This email address will be shared as part of integrations that you set up through this interface. It will not be shared with the general public. This gives the administrator of the remote integration a way to contact you about problems with this library's use of that integration.&lt;br/&gt;If no value is specified here, the general patron support address will be used.', 'format': 'email', 'category': 'Patron Support', 'level': 2}, {'key': 'default_notification_email_address', 'label': l'Write-only email address for vendor hold notifications', 'description': l'This address must trash all email sent to it. Vendor hold notifications contain sensitive patron information, but &lt;a href=&quot;https://confluence.nypl.org/display/SIM/About+Hold+Notifications&quot; target=&quot;_blank&quot;&gt;cannot be forwarded to patrons&lt;/a&gt; because they contain vendor-specific instructions.&lt;br/&gt;The default address will work, but for greater security, set up your own address that trashes all incoming email.', 'default': 'noreply&#64;librarysimplified.org', 'required': True, 'format': 'email', 'level': 3}, {'key': 'color_scheme', 'label': l'Mobile color scheme', 'description': l'This tells mobile applications what color scheme to use when rendering this library's OPDS feed.', 'options': [{'key': 'amber', 'label': l'Amber'}, {'key': 'black', 'label': l'Black'}, {'key': 'blue', 'label': l'Blue'}, {'key': 'bluegray', 'label': l'Blue Gray'}, {'key': 'brown', 'label': l'Brown'}, {'key': 'cyan', 'label': l'Cyan'}, {'key': 'darkorange', 'label': l'Dark Orange'}, {'key': 'darkpurple', 'label': l'Dark Purple'}, {'key': 'green', 'label': l'Green'}, {'key': 'gray', 'label': l'Gray'}, {'key': 'indigo', 'label': l'Indigo'}, {'key': 'lightblue', 'label': l'Light Blue'}, {'key': 'orange', 'label': l'Orange'}, {'key': 'pink', 'label': l'Pink'}, {'key': 'purple', 'label': l'Purple'}, {'key': 'red', 'label': l'Red'}, {'key': 'teal', 'label': l'Teal'}], 'type': 'select', 'default': 'blue', 'category': 'Client Interface Customization', 'level': 2}, {'key': 'web-primary-color', 'label': l'Web primary color', 'description': l'This is the brand primary color for the web application. Must have sufficient contrast with white.', 'type': 'color-picker', 'default': '#377F8B', 'category': 'Client Interface Customization', 'level': 2}, {'key': 'web-secondary-color', 'label': l'Web secondary color', 'description': l'This is the brand secondary color for the web application. Must have sufficient contrast with white.', 'type': 'color-picker', 'default': '#D53F34', 'category': 'Client Interface Customization', 'level': 2}, {'key': 'web-css-file', 'label': l'Custom CSS file for web', 'description': l'Give web applications a CSS file to customize the catalog display.', 'format': 'url', 'category': 'Client Interface Customization', 'level': 3}, {'key': 'web-header-links', 'label': l'Web header links', 'description': l'This gives web applications a list of links to display in the header. Specify labels for each link in the same order under 'Web header labels'.', 'type': 'list', 'category': 'Client Interface Customization', 'level': 2}, {'key': 'web-header-labels', 'label': l'Web header labels', 'description': l'Labels for each link under 'Web header links'.', 'type': 'list', 'category': 'Client Interface Customization', 'level': 2}, {'key': 'logo', 'label': l'Logo image', 'type': 'image', 'description': l'The image must be in GIF, PNG, or JPG format, approximately square, no larger than 135x135 pixels, and look good on a white background.', 'category': 'Client Interface Customization', 'level': 1}, {'key': 'hidden_content_types', 'label': l'Hidden content types', 'type': 'text', 'description': l'A list of content types to hide from all clients, e.g. &lt;code&gt;[&quot;application/pdf&quot;]&lt;/code&gt;. This can be left blank except to solve specific problems.', 'category': 'Client Interface Customization', 'level': 3}, {'key': 'focus_area', 'label': l'Focus area', 'type': 'list', 'description': l'The library focuses on serving patrons in this geographic area. In most cases this will be a city name like &lt;code&gt;Springfield, OR&lt;/code&gt;.', 'category': 'Geographic Areas', 'format': 'geographic', 'instructions': l'&lt;ol&gt;Accepted formats:             &lt;li&gt;US zipcode or Canadian FSA&lt;/li&gt;             &lt;li&gt;Two-letter US state abbreviation&lt;/li&gt;             &lt;li&gt;City, US state abbreviation&lt;i&gt;e.g. &quot;Boston, MA&quot;&lt;/i&gt;&lt;/li&gt;             &lt;li&gt;County, US state abbreviation&lt;i&gt;e.g. &quot;Litchfield County, CT&quot;&lt;/i&gt;&lt;/li&gt;             &lt;li&gt;Canadian province name or two-letter abbreviation&lt;/li&gt;             &lt;li&gt;City, Canadian province name/abbreviation&lt;i&gt;e.g. &quot;Stratford, Ontario&quot;/&quot;Stratford, ON&quot;&lt;/i&gt;&lt;/li&gt;         &lt;/ol&gt;', 'capitalize': True, 'level': 1}, {'key': 'service_area', 'label': l'Service area', 'type': 'list', 'description': l'The full geographic area served by this library. In most cases this is the same as the focus area and can be left blank, but it may be a larger area such as a US state (which should be indicated by its abbreviation, like &lt;code&gt;OR&lt;/code&gt;).', 'category': 'Geographic Areas', 'format': 'geographic', 'instructions': l'&lt;ol&gt;Accepted formats:             &lt;li&gt;US zipcode or Canadian FSA&lt;/li&gt;             &lt;li&gt;Two-letter US state abbreviation&lt;/li&gt;             &lt;li&gt;City, US state abbreviation&lt;i&gt;e.g. &quot;Boston, MA&quot;&lt;/i&gt;&lt;/li&gt;             &lt;li&gt;County, US state abbreviation&lt;i&gt;e.g. &quot;Litchfield County, CT&quot;&lt;/i&gt;&lt;/li&gt;             &lt;li&gt;Canadian province name or two-letter abbreviation&lt;/li&gt;             &lt;li&gt;City, Canadian province name/abbreviation&lt;i&gt;e.g. &quot;Stratford, Ontario&quot;/&quot;Stratford, ON&quot;&lt;/i&gt;&lt;/li&gt;         &lt;/ol&gt;', 'capitalize': True, 'level': 1}, {'key': 'max_outstanding_fines', 'label': l'Maximum amount in fines a patron can have before losing lending privileges', 'type': 'number', 'category': 'Loans, Holds, &amp; Fines', 'level': 1}, {'key': 'loan_limit', 'label': l'Maximum number of books a patron can have on loan at once', 'description': l'(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor's app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)', 'type': 'number', 'category': 'Loans, Holds, &amp; Fines', 'level': 1}, {'key': 'hold_limit', 'label': l'Maximum number of books a patron can have on hold at once', 'description': l'(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor's app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)', 'type': 'number', 'category': 'Loans, Holds, &amp; Fines', 'level': 1}, {'key': 'terms-of-service', 'label': l'Terms of Service URL', 'format': 'url', 'category': 'Links', 'level': 1}, {'key': 'privacy-policy', 'label': l'Privacy Policy URL', 'format': 'url', 'category': 'Links', 'level': 1}, {'key': 'copyright', 'label': l'Copyright URL', 'format': 'url', 'category': 'Links', 'level': 2}, {'key': 'about', 'label': l'About URL', 'format': 'url', 'category': 'Links', 'level': 1}, {'key': 'license', 'label': l'License URL', 'format': 'url', 'category': 'Links', 'level': 2}, {'key': 'register', 'label': l'Patron registration URL', 'description': l'A URL where someone who doesn't have a library card yet can sign up for one.', 'format': 'url', 'category': 'Patron Support', 'allowed': ['nypl.card-creator:https://patrons.librarysimplified.org/'], 'level': 1}, {'key': 'large_collections', 'label': l'The primary languages represented in this library's collection', 'type': 'list', 'format': 'language-code', 'description': l'Each value can be either the full name of a language or an &lt;a href=&quot;https://www.loc.gov/standards/iso639-2/php/code_list.php&quot; target=&quot;_blank&quot;&gt;ISO-639-2&lt;/a&gt; language code.', 'optional': True, 'category': 'Languages', 'level': 1}, {'key': 'small_collections', 'label': l'Other major languages represented in this library's collection', 'type': 'list', 'format': 'language-code', 'description': l'Each value can be either the full name of a language or an &lt;a href=&quot;https://www.loc.gov/standards/iso639-2/php/code_list.php&quot; target=&quot;_blank&quot;&gt;ISO-639-2&lt;/a&gt; language code.', 'optional': True, 'category': 'Languages', 'level': 1}, {'key': 'tiny_collections', 'label': l'Other languages in this library's collection', 'type': 'list', 'format': 'language-code', 'description': l'Each value can be either the full name of a language or an &lt;a href=&quot;https://www.loc.gov/standards/iso639-2/php/code_list.php&quot; target=&quot;_blank&quot;&gt;ISO-639-2&lt;/a&gt; language code.', 'optional': True, 'category': 'Languages', 'level': 1}]</em><a class="headerlink" href="#api.config.Configuration.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5431,7 +5497,7 @@ policy.</p>
 
 <dl class="attribute">
 <dt id="api.config.Configuration.SITEWIDE_SETTINGS">
-<code class="descname">SITEWIDE_SETTINGS</code><em class="property"> = [{'key': 'base_url', 'label': l'Base url of the application', 'required': True, 'format': 'url'}, {'key': 'log_level', 'label': l'Log Level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'default': 'INFO'}, {'key': 'log_app', 'label': l'Application name', 'description': l'Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems.', 'default': 'simplified', 'required': True}, {'key': 'database_log_level', 'label': l'Database Log Level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'description': l'Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages.', 'default': 'WARN'}, {'key': 'excluded_audio_data_sources', 'label': l'Excluded audiobook sources', 'description': l'Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available.', 'default': None, 'required': True}, {'key': 'measurement_reaper_enabled', 'label': l'Cleanup old measurement data', 'type': 'select', 'description': l'If this settings is 'true' old book measurement data will be cleaned out of the database. Some sites may want to keep this data for later analysis.', 'options': {'true': 'true', 'false': 'false'}, 'default': 'true'}, {'key': 'bearer_token_signing_secret', 'label': l'Internal signing secret for OAuth and SAML bearer tokens', 'required': True}, {'key': 'secret_key', 'label': l'Internal secret key for admin interface cookies', 'required': True}, {'key': 'patron_web_hostnames', 'label': l'Hostnames for patron web application access', 'required': True, 'description': l'Only web applications from these hosts can access this circulation manager. This can be a single hostname (http://catalog.library.org) or a pipe-separated list of hostnames (http://catalog.library.org|https://beta.library.org). You must include the scheme part of the URI (http:// or https://). You can also set this to '*' to allow access from any host, but you must not do this in a production environment -- only during development.'}, {'key': 'admin_web_hostnames', 'label': l'Hostnames for admin web application access', 'required': True, 'description': l'Only admin web applications from these hosts can access this circulation manager. This can be a single hostname (http://catalog.library.org) or a pipe-separated list of hostnames (http://catalog.library.org|https://beta.library.org). You must include the scheme part of the URI (http:// or https://). You can also set this to '*' to allow access from any host, but you must not do this in a production environment -- only during development.'}, {'key': 'static_file_cache_time', 'label': l'Cache time for static images and JS and CSS files (in seconds)', 'required': True, 'type': 'number'}, {'key': 'authentication_document_cache_time', 'label': l'Cache time for authentication documents (in seconds)', 'required': True, 'type': 'number', 'default': 0}, {'key': 'tos_href', 'label': l'Custom Terms of Service link', 'required': False, 'default': 'https://librarysimplified.org/simplyetermsofservice2/', 'description': l'If your inclusion in the SimplyE mobile app is governed by terms other than the default, put the URL to those terms in this link so that librarians will have access to them. This URL will be used for all libraries on this circulation manager.'}, {'key': 'tos_text', 'label': l'Custom Terms of Service link text', 'required': False, 'default': &quot;Terms of Service for presenting e-reading materials through NYPL's SimplyE mobile app&quot;, 'description': l'Custom text for the Terms of Service link in the footer of these administrative interface pages. This is primarily useful if you're not connecting this circulation manager to the SimplyE mobile app. This text will be used for all libraries on this circulation manager.'}]</em><a class="headerlink" href="#api.config.Configuration.SITEWIDE_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SITEWIDE_SETTINGS</code><em class="property"> = [{'key': 'base_url', 'label': l'Base url of the application', 'required': True, 'format': 'url'}, {'key': 'log_level', 'label': l'Log Level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'default': 'INFO'}, {'key': 'log_app', 'label': l'Application name', 'description': l'Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems.', 'default': 'simplified', 'required': True}, {'key': 'database_log_level', 'label': l'Database Log Level', 'type': 'select', 'options': [{'key': 'DEBUG', 'label': l'Debug'}, {'key': 'INFO', 'label': l'Info'}, {'key': 'WARN', 'label': l'Warn'}, {'key': 'ERROR', 'label': l'Error'}], 'description': l'Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages.', 'default': 'WARN'}, {'key': 'excluded_audio_data_sources', 'label': l'Excluded audiobook sources', 'description': l'Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available.', 'default': None, 'required': True}, {'key': 'measurement_reaper_enabled', 'label': l'Cleanup old measurement data', 'type': 'select', 'description': l'If this settings is 'true' old book measurement data will be cleaned out of the database. Some sites may want to keep this data for later analysis.', 'options': {'true': 'true', 'false': 'false'}, 'default': 'true'}, {'key': 'bearer_token_signing_secret', 'label': l'Internal signing secret for OAuth and SAML bearer tokens', 'required': True}, {'key': 'secret_key', 'label': l'Internal secret key for admin interface cookies', 'required': True}, {'key': 'patron_web_hostnames', 'label': l'Hostnames for patron web application access', 'type': 'string', 'required': True, 'description': l'Only web applications from these hosts can access this circulation manager. You may set a value which includes a wildcard for subdomains, such as https://*.somedomain.com or https://*.somesub.somedomain.com. Note that such a wildcard will NOT match the root domain alone; that must be included separately.'}, {'key': 'admin_web_hostnames', 'label': l'Hostnames for admin web application access', 'required': True, 'type': 'string', 'description': l'Only admin web applications from these hosts can access this circulation manager. This can be a single hostname (http://catalog.library.org) or a pipe-separated list of hostnames (http://catalog.library.org|https://beta.library.org).  You may set a value which includes a wildcard for subdomains, such as https://*.somedomain.com or https://*.somesub.somedomain.com. Note that such a wildcard will NOT match the root domain alone; that must be included separately.'}, {'key': 'static_file_cache_time', 'label': l'Cache time for static images and JS and CSS files (in seconds)', 'required': True, 'type': 'number'}, {'key': 'authentication_document_cache_time', 'label': l'Cache time for authentication documents (in seconds)', 'required': True, 'type': 'number', 'default': 0}, {'key': 'tos_href', 'label': l'Custom Terms of Service link', 'required': False, 'default': 'https://librarysimplified.org/simplyetermsofservice2/', 'description': l'If your inclusion in the SimplyE mobile app is governed by terms other than the default, put the URL to those terms in this link so that librarians will have access to them. This URL will be used for all libraries on this circulation manager.'}, {'key': 'tos_text', 'label': l'Custom Terms of Service link text', 'required': False, 'default': &quot;Terms of Service for presenting e-reading materials through NYPL's SimplyE mobile app&quot;, 'description': l'Custom text for the Terms of Service link in the footer of these administrative interface pages. This is primarily useful if you're not connecting this circulation manager to the SimplyE mobile app. This text will be used for all libraries on this circulation manager.'}]</em><a class="headerlink" href="#api.config.Configuration.SITEWIDE_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5620,6 +5686,11 @@ created and stored.</p>
 <dl class="classmethod">
 <dt id="api.config.Configuration.tiny_collection_languages">
 <em class="property">classmethod </em><code class="descname">tiny_collection_languages</code><span class="sig-paren">(</span><em>library</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/config.html#Configuration.tiny_collection_languages"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.config.Configuration.tiny_collection_languages" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="classmethod">
+<dt id="api.config.Configuration.unsubscribe_email_uri">
+<em class="property">classmethod </em><code class="descname">unsubscribe_email_uri</code><span class="sig-paren">(</span><em>library</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/config.html#Configuration.unsubscribe_email_uri"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.config.Configuration.unsubscribe_email_uri" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -6361,11 +6432,6 @@ support it.</p>
 <dt id="api.controller.StaticFileController">
 <em class="property">class </em><code class="descclassname">api.controller.</code><code class="descname">StaticFileController</code><span class="sig-paren">(</span><em>manager</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/controller.html#StaticFileController"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.controller.StaticFileController" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.controller.CirculationManagerController" title="api.controller.CirculationManagerController"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.controller.CirculationManagerController</span></code></a></p>
-<dl class="method">
-<dt id="api.controller.StaticFileController.image">
-<code class="descname">image</code><span class="sig-paren">(</span><em>filename</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/controller.html#StaticFileController.image"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.controller.StaticFileController.image" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
 <dl class="method">
 <dt id="api.controller.StaticFileController.static_file">
 <code class="descname">static_file</code><span class="sig-paren">(</span><em>directory</em>, <em>filename</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/controller.html#StaticFileController.static_file"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.controller.StaticFileController.static_file" title="Permalink to this definition">¶</a></dt>
@@ -7729,7 +7795,7 @@ remote patron lookup later.</p>
 
 <dl class="attribute">
 <dt id="api.firstbook2.FirstBookAuthenticationAPI.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'url', 'format': 'url', 'label': l'URL', 'default': 'https://ebooksprod.firstbook.org/api/', 'required': True}, {'key': 'password', 'label': l'Key', 'required': True}, {'key': 'test_identifier', 'label': l'Test Identifier', 'description': l'A valid identifier that can be used to test that patron authentication is working. An optional Test Password for this identifier can be set in the next section.', 'required': True}, {'key': 'test_password', 'label': l'Test Password', 'description': l'The password for the Test Identifier (above, in previous section).'}, {'key': 'identifier_barcode_format', 'label': l'Patron identifier barcode format', 'description': l'Many libraries render patron identifiers as barcodes on physical library cards. If you specify the barcode format, patrons will be able to scan their library cards with a camera instead of manually typing in their identifiers.', 'type': 'select', 'options': [{'key': 'Codabar', 'label': l'Patron identifiers are are rendered as barcodes in Codabar format'}, {'key': '', 'label': l'Patron identifiers are not rendered as barcodes'}], 'default': '', 'required': True}, {'key': 'identifier_regular_expression', 'label': l'Identifier Regular Expression', 'description': l'A patron's identifier will be immediately rejected if it doesn't match this regular expression.'}, {'key': 'password_regular_expression', 'label': l'Password Regular Expression', 'description': l'A patron's password will be immediately rejected if it doesn't match this regular expression.'}, {'key': 'identifier_keyboard', 'label': l'Keyboard for identifier entry', 'type': 'select', 'options': [{'key': 'Default', 'label': l'System default'}, {'key': 'Email address', 'label': l'Email address entry'}, {'key': 'Number pad', 'label': l'Number pad'}], 'default': 'Default', 'required': True}, {'key': 'password_keyboard', 'label': l'Keyboard for password entry', 'type': 'select', 'options': [{'key': 'Default', 'label': l'System default'}, {'key': 'Number pad', 'label': l'Number pad'}, {'key': 'No input', 'label': l'Patrons have no password and should not be prompted for one.'}], 'default': 'Default'}, {'key': 'identifier_maximum_length', 'label': l'Maximum identifier length', 'type': 'number'}, {'key': 'password_maximum_length', 'label': l'Maximum password length', 'type': 'number'}, {'key': 'identifier_label', 'label': l'Label for identifier entry'}, {'key': 'password_label', 'label': l'Label for password entry'}]</em><a class="headerlink" href="#api.firstbook2.FirstBookAuthenticationAPI.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'url', 'format': 'url', 'label': l'URL', 'default': 'https://ebooks.firstbook.org/api/', 'required': True}, {'key': 'password', 'label': l'Key', 'required': True}, {'key': 'test_identifier', 'label': l'Test Identifier', 'description': l'A valid identifier that can be used to test that patron authentication is working. An optional Test Password for this identifier can be set in the next section.', 'required': True}, {'key': 'test_password', 'label': l'Test Password', 'description': l'The password for the Test Identifier (above, in previous section).'}, {'key': 'identifier_barcode_format', 'label': l'Patron identifier barcode format', 'description': l'Many libraries render patron identifiers as barcodes on physical library cards. If you specify the barcode format, patrons will be able to scan their library cards with a camera instead of manually typing in their identifiers.', 'type': 'select', 'options': [{'key': 'Codabar', 'label': l'Patron identifiers are are rendered as barcodes in Codabar format'}, {'key': '', 'label': l'Patron identifiers are not rendered as barcodes'}], 'default': '', 'required': True}, {'key': 'identifier_regular_expression', 'label': l'Identifier Regular Expression', 'description': l'A patron's identifier will be immediately rejected if it doesn't match this regular expression.'}, {'key': 'password_regular_expression', 'label': l'Password Regular Expression', 'description': l'A patron's password will be immediately rejected if it doesn't match this regular expression.'}, {'key': 'identifier_keyboard', 'label': l'Keyboard for identifier entry', 'type': 'select', 'options': [{'key': 'Default', 'label': l'System default'}, {'key': 'Email address', 'label': l'Email address entry'}, {'key': 'Number pad', 'label': l'Number pad'}], 'default': 'Default', 'required': True}, {'key': 'password_keyboard', 'label': l'Keyboard for password entry', 'type': 'select', 'options': [{'key': 'Default', 'label': l'System default'}, {'key': 'Number pad', 'label': l'Number pad'}, {'key': 'No input', 'label': l'Patrons have no password and should not be prompted for one.'}], 'default': 'Default'}, {'key': 'identifier_maximum_length', 'label': l'Maximum identifier length', 'type': 'number'}, {'key': 'password_maximum_length', 'label': l'Maximum password length', 'type': 'number'}, {'key': 'identifier_label', 'label': l'Label for identifier entry'}, {'key': 'password_label', 'label': l'Label for password entry'}]</em><a class="headerlink" href="#api.firstbook2.FirstBookAuthenticationAPI.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9143,7 +9209,7 @@ the Metadata Wrangler.</p>
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MilleniumPatronAPI.LIBRARY_SETTINGS">
-<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'key': 'external_type_regular_expression', 'label': l'External Type Regular Expression', 'description': l'Derive a patron's type from their identifier.'}, {'key': 'library_identifier_restriction_type', 'label': l'Library Identifier Restriction Type', 'type': 'select', 'description': l'When multiple libraries share an ILS, a person may be able to authenticate with the ILS but not be considered a patron of &lt;em&gt;this&lt;/em&gt; library. This setting contains the rule for determining whether an identifier is valid for this specific library. &lt;p/&gt; If this setting it set to 'No Restriction' then the values for &lt;em&gt;Library Identifier Field&lt;/em&gt; and &lt;em&gt;Library Identifier Restriction&lt;/em&gt; will not be used.', 'options': [{'key': 'none', 'label': l'No restriction'}, {'key': 'prefix', 'label': l'Prefix Match'}, {'key': 'string', 'label': l'Exact Match'}, {'key': 'regex', 'label': l'Regex Match'}, {'key': 'list', 'label': l'Exact Match, comma separated list'}], 'default': 'none'}, {'key': 'library_identifier_field', 'label': l'Library Identifier Field', 'description': l'This is the field on the patron record that the &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is applied to. The option 'barcode' matches the users barcode, other values are pulled directly from the patron record for example: 'P TYPE[p47]'. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.'}, {'key': 'library_identifier_restriction', 'label': l'Library Identifier Restriction', 'description': l'This is the restriction applied to the &lt;em&gt;Library Identifier Field&lt;/em&gt; using the method chosen in &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt;. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.'}, {'key': 'institution_id', 'label': l'Institution ID', 'description': l'A specific identifier for the library or branch, if used in patron authentication'}]</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'key': 'http_basic_oauth_enabled', 'label': l'Enable OAuth for HTTP Basic Auth', 'description': l'Enable authentication with bearer tokens generated via basic auth credentials', 'type': 'select', 'options': [{'key': 'false', 'label': l'Disabled'}, {'key': 'true', 'label': l'Enabled'}], 'default': 'false'}, {'key': 'external_type_regular_expression', 'label': l'External Type Regular Expression', 'description': l'Derive a patron's type from their identifier.'}, {'key': 'library_identifier_restriction_type', 'label': l'Library Identifier Restriction Type', 'type': 'select', 'description': l'When multiple libraries share an ILS, a person may be able to authenticate with the ILS but not be considered a patron of &lt;em&gt;this&lt;/em&gt; library. This setting contains the rule for determining whether an identifier is valid for this specific library. &lt;p/&gt; If this setting it set to 'No Restriction' then the values for &lt;em&gt;Library Identifier Field&lt;/em&gt; and &lt;em&gt;Library Identifier Restriction&lt;/em&gt; will not be used.', 'options': [{'key': 'none', 'label': l'No restriction'}, {'key': 'prefix', 'label': l'Prefix Match'}, {'key': 'string', 'label': l'Exact Match'}, {'key': 'regex', 'label': l'Regex Match'}, {'key': 'list', 'label': l'Exact Match, comma separated list'}], 'default': 'none'}, {'key': 'library_identifier_field', 'label': l'Library Identifier Field', 'description': l'This is the field on the patron record that the &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is applied to. The option 'barcode' matches the users barcode, other values are pulled directly from the patron record for example: 'P TYPE[p47]'. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.'}, {'key': 'library_identifier_restriction', 'label': l'Library Identifier Restriction', 'description': l'This is the restriction applied to the &lt;em&gt;Library Identifier Field&lt;/em&gt; using the method chosen in &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt;. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.'}, {'key': 'institution_id', 'label': l'Institution ID', 'description': l'A specific identifier for the library or branch, if used in patron authentication'}]</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9307,7 +9373,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2021, 11, 28, 17, 3, 43, 286435, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2022, 6, 16, 20, 2, 53, 61374, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10424,7 +10490,7 @@ from the json data that goes into the book_info_to_circulation() method.</p>
 <p>Mock API for tests that overrides _get and _url_for and tracks requests.</p>
 <dl class="classmethod">
 <dt id="api.odl.MockODLAPI.mock_collection">
-<em class="property">classmethod </em><code class="descname">mock_collection</code><span class="sig-paren">(</span><em>_db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/odl.html#MockODLAPI.mock_collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.odl.MockODLAPI.mock_collection" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">mock_collection</code><span class="sig-paren">(</span><em>_db</em>, <em>protocol='ODL'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/odl.html#MockODLAPI.mock_collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.odl.MockODLAPI.mock_collection" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a mock ODL collection to use in tests.</p>
 </dd></dl>
 
@@ -10632,6 +10698,29 @@ and update its pool’s availability.</p>
 </dd></dl>
 
 <dl class="class">
+<dt id="api.odl.ODLExpiredItemsReaper">
+<em class="property">class </em><code class="descclassname">api.odl.</code><code class="descname">ODLExpiredItemsReaper</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/odl.html#ODLExpiredItemsReaper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.odl.ODLExpiredItemsReaper" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.monitor.IdentifierSweepMonitor" title="core.monitor.IdentifierSweepMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.IdentifierSweepMonitor</span></code></a></p>
+<p>Responsible for removing expired ODL licenses.</p>
+<dl class="attribute">
+<dt id="api.odl.ODLExpiredItemsReaper.PROTOCOL">
+<code class="descname">PROTOCOL</code><em class="property"> = 'ODL'</em><a class="headerlink" href="#api.odl.ODLExpiredItemsReaper.PROTOCOL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.odl.ODLExpiredItemsReaper.SERVICE_NAME">
+<code class="descname">SERVICE_NAME</code><em class="property"> = 'ODL Expired Items Reaper'</em><a class="headerlink" href="#api.odl.ODLExpiredItemsReaper.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.odl.ODLExpiredItemsReaper.process_item">
+<code class="descname">process_item</code><span class="sig-paren">(</span><em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/odl.html#ODLExpiredItemsReaper.process_item"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.odl.ODLExpiredItemsReaper.process_item" title="Permalink to this definition">¶</a></dt>
+<dd><p>Do the work that needs to be done for a given item.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
 <dt id="api.odl.ODLHoldReaper">
 <em class="property">class </em><code class="descclassname">api.odl.</code><code class="descname">ODLHoldReaper</code><span class="sig-paren">(</span><em>_db</em>, <em>collection=None</em>, <em>api=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/odl.html#ODLHoldReaper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.odl.ODLHoldReaper" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#core.monitor.CollectionMonitor" title="core.monitor.CollectionMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.CollectionMonitor</span></code></a></p>
@@ -10710,6 +10799,34 @@ format information from ‘odl:license’ tags.</p>
 <dt id="api.odl.ODLImporter.PARSER_CLASS">
 <code class="descname">PARSER_CLASS</code><a class="headerlink" href="#api.odl.ODLImporter.PARSER_CLASS" title="Permalink to this definition">¶</a></dt>
 <dd><p>alias of <a class="reference internal" href="#api.odl.ODLXMLParser" title="api.odl.ODLXMLParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">ODLXMLParser</span></code></a></p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="api.odl.ODLImporter.parse_license">
+<em class="property">classmethod </em><code class="descname">parse_license</code><span class="sig-paren">(</span><em>identifier: str, total_checkouts: Optional[int], concurrent_checkouts: Optional[int], expires: Optional[datetime.datetime], checkout_link: Optional[str], odl_status_link: Optional[str], do_get: Callable</em><span class="sig-paren">)</span> &#x2192; Optional[core.metadata_layer.LicenseData]<a class="reference internal" href="_modules/api/odl.html#ODLImporter.parse_license"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.odl.ODLImporter.parse_license" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check the license’s attributes passed as parameters:
+- if they’re correct, turn them into a LicenseData object
+- otherwise, return a None</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>identifier</strong> – License’s identifier</li>
+<li><strong>total_checkouts</strong> – Total number of checkouts before the license expires</li>
+<li><strong>concurrent_checkouts</strong> – Number of concurrent checkouts allowed for this license</li>
+<li><strong>expires</strong> – Date &amp; time until the license is valid</li>
+<li><strong>checkout_link</strong> – License’s checkout link</li>
+<li><strong>odl_status_link</strong> – License Info Document’s link</li>
+<li><strong>do_get</strong> – Callback performing HTTP GET method</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">LicenseData if all the license’s attributes are correct, None, otherwise</p>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 </dd></dl>
@@ -11658,7 +11775,7 @@ routes and arguments for ‘loan info’ and ‘hold info’.</p>
 
 <dl class="attribute">
 <dt id="api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES">
-<code class="descname">SUPPORTED_MEDIA_TYPES</code><em class="property"> = ['application/pdf', 'application/audiobook+json', 'application/epub+zip']</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SUPPORTED_MEDIA_TYPES</code><em class="property"> = ['application/audiobook+json', 'application/epub+zip', 'application/pdf']</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -13964,369 +14081,6 @@ this RemoteRegistry.</p>
 </dd></dl>
 
 </div>
-<div class="section" id="module-api.routes">
-<span id="api-routes-module"></span><h2>api.routes module<a class="headerlink" href="#module-api.routes" title="Permalink to this headline">¶</a></h2>
-<dl class="function">
-<dt id="api.routes.acquisition_groups">
-<code class="descclassname">api.routes.</code><code class="descname">acquisition_groups</code><span class="sig-paren">(</span><em>lane_identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#acquisition_groups"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.acquisition_groups" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.active_loans">
-<code class="descclassname">api.routes.</code><code class="descname">active_loans</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#active_loans"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.active_loans" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.adobe_drm_device">
-<code class="descclassname">api.routes.</code><code class="descname">adobe_drm_device</code><span class="sig-paren">(</span><em>device_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#adobe_drm_device"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.adobe_drm_device" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.adobe_drm_devices">
-<code class="descclassname">api.routes.</code><code class="descname">adobe_drm_devices</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#adobe_drm_devices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.adobe_drm_devices" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.adobe_vendor_id_accountinfo">
-<code class="descclassname">api.routes.</code><code class="descname">adobe_vendor_id_accountinfo</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#adobe_vendor_id_accountinfo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.adobe_vendor_id_accountinfo" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.adobe_vendor_id_get_token">
-<code class="descclassname">api.routes.</code><code class="descname">adobe_vendor_id_get_token</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#adobe_vendor_id_get_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.adobe_vendor_id_get_token" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.adobe_vendor_id_signin">
-<code class="descclassname">api.routes.</code><code class="descname">adobe_vendor_id_signin</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#adobe_vendor_id_signin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.adobe_vendor_id_signin" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.adobe_vendor_id_status">
-<code class="descclassname">api.routes.</code><code class="descname">adobe_vendor_id_status</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#adobe_vendor_id_status"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.adobe_vendor_id_status" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.allows_auth">
-<code class="descclassname">api.routes.</code><code class="descname">allows_auth</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#allows_auth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.allows_auth" title="Permalink to this definition">¶</a></dt>
-<dd><p>Decorator function for a controller method that supports both
-authenticated and unauthenticated requests.</p>
-<p>NOTE: This decorator might not be necessary; you can probably call
-BaseCirculationManagerController.request_patron instead.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="api.routes.allows_cors">
-<code class="descclassname">api.routes.</code><code class="descname">allows_cors</code><span class="sig-paren">(</span><em>allowed_domain_type</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#allows_cors"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.allows_cors" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.allows_library">
-<code class="descclassname">api.routes.</code><code class="descname">allows_library</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#allows_library"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.allows_library" title="Permalink to this definition">¶</a></dt>
-<dd><p>Decorator similar to &#64;has_library but if there is no library short name,
-then don’t set the request library.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="api.routes.annotation_detail">
-<code class="descclassname">api.routes.</code><code class="descname">annotation_detail</code><span class="sig-paren">(</span><em>annotation_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#annotation_detail"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.annotation_detail" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.annotations">
-<code class="descclassname">api.routes.</code><code class="descname">annotations</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#annotations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.annotations" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.annotations_for_work">
-<code class="descclassname">api.routes.</code><code class="descname">annotations_for_work</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#annotations_for_work"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.annotations_for_work" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.authentication_document">
-<code class="descclassname">api.routes.</code><code class="descname">authentication_document</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#authentication_document"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.authentication_document" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.borrow">
-<code class="descclassname">api.routes.</code><code class="descname">borrow</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em>, <em>mechanism_id=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#borrow"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.borrow" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.contributor">
-<code class="descclassname">api.routes.</code><code class="descname">contributor</code><span class="sig-paren">(</span><em>contributor_name</em>, <em>languages</em>, <em>audiences</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#contributor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.contributor" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.crawlable_collection_feed">
-<code class="descclassname">api.routes.</code><code class="descname">crawlable_collection_feed</code><span class="sig-paren">(</span><em>collection_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#crawlable_collection_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.crawlable_collection_feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.crawlable_library_feed">
-<code class="descclassname">api.routes.</code><code class="descname">crawlable_library_feed</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#crawlable_library_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.crawlable_library_feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.crawlable_list_feed">
-<code class="descclassname">api.routes.</code><code class="descname">crawlable_list_feed</code><span class="sig-paren">(</span><em>list_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#crawlable_list_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.crawlable_list_feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.exception_handler">
-<code class="descclassname">api.routes.</code><code class="descname">exception_handler</code><span class="sig-paren">(</span><em>exception</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#exception_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.exception_handler" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.feed">
-<code class="descclassname">api.routes.</code><code class="descname">feed</code><span class="sig-paren">(</span><em>lane_identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.fulfill">
-<code class="descclassname">api.routes.</code><code class="descname">fulfill</code><span class="sig-paren">(</span><em>license_pool_id</em>, <em>mechanism_id=None</em>, <em>part=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#fulfill"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.fulfill" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.get_locale">
-<code class="descclassname">api.routes.</code><code class="descname">get_locale</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#get_locale"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.get_locale" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.has_library">
-<code class="descclassname">api.routes.</code><code class="descname">has_library</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#has_library"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.has_library" title="Permalink to this definition">¶</a></dt>
-<dd><p>Decorator to extract the library short name from the arguments.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="api.routes.has_library_through_external_loan_identifier">
-<code class="descclassname">api.routes.</code><code class="descname">has_library_through_external_loan_identifier</code><span class="sig-paren">(</span><em>parameter_name='external_loan_identifier'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#has_library_through_external_loan_identifier"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.has_library_through_external_loan_identifier" title="Permalink to this definition">¶</a></dt>
-<dd><p>Decorator to get a library using the loan’s external identifier.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>parameter_name</strong> (<em>string</em>) – Name of the parameter holding the loan’s external identifier</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Decorated function</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">Callable</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="function">
-<dt id="api.routes.health_check">
-<code class="descclassname">api.routes.</code><code class="descname">health_check</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#health_check"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.health_check" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.heartbeat">
-<code class="descclassname">api.routes.</code><code class="descname">heartbeat</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#heartbeat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.heartbeat" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.index">
-<code class="descclassname">api.routes.</code><code class="descname">index</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#index"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.index" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.initialize_circulation_manager">
-<code class="descclassname">api.routes.</code><code class="descname">initialize_circulation_manager</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#initialize_circulation_manager"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.initialize_circulation_manager" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.lane_search">
-<code class="descclassname">api.routes.</code><code class="descname">lane_search</code><span class="sig-paren">(</span><em>lane_identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#lane_search"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.lane_search" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.lcp_license">
-<code class="descclassname">api.routes.</code><code class="descname">lcp_license</code><span class="sig-paren">(</span><em>collection_name</em>, <em>license_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#lcp_license"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.lcp_license" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.lcp_passphrase">
-<code class="descclassname">api.routes.</code><code class="descname">lcp_passphrase</code><span class="sig-paren">(</span><em>collection_name</em>, <em>license_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#lcp_passphrase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.lcp_passphrase" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.library_dir_route">
-<code class="descclassname">api.routes.</code><code class="descname">library_dir_route</code><span class="sig-paren">(</span><em>path</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#library_dir_route"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.library_dir_route" title="Permalink to this definition">¶</a></dt>
-<dd><p>Decorator to create library routes that work with or without a
-trailing slash.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="api.routes.library_route">
-<code class="descclassname">api.routes.</code><code class="descname">library_route</code><span class="sig-paren">(</span><em>path</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#library_route"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.library_route" title="Permalink to this definition">¶</a></dt>
-<dd><p>Decorator to creates routes that have a library short name in either
-a subdomain or a url path prefix. If not used with &#64;has_library, the view function
-must have a library_short_name argument.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="api.routes.loan_or_hold_detail">
-<code class="descclassname">api.routes.</code><code class="descname">loan_or_hold_detail</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#loan_or_hold_detail"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.loan_or_hold_detail" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.marc_page">
-<code class="descclassname">api.routes.</code><code class="descname">marc_page</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#marc_page"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.marc_page" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.navigation_feed">
-<code class="descclassname">api.routes.</code><code class="descname">navigation_feed</code><span class="sig-paren">(</span><em>lane_identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#navigation_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.navigation_feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.oauth_authenticate">
-<code class="descclassname">api.routes.</code><code class="descname">oauth_authenticate</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#oauth_authenticate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.oauth_authenticate" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.oauth_callback">
-<code class="descclassname">api.routes.</code><code class="descname">oauth_callback</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#oauth_callback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.oauth_callback" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.odl_notify">
-<code class="descclassname">api.routes.</code><code class="descname">odl_notify</code><span class="sig-paren">(</span><em>loan_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#odl_notify"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.odl_notify" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.patron_profile">
-<code class="descclassname">api.routes.</code><code class="descname">patron_profile</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#patron_profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.patron_profile" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.permalink">
-<code class="descclassname">api.routes.</code><code class="descname">permalink</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#permalink"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.permalink" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.proxy_rbdigital_patron_requests">
-<code class="descclassname">api.routes.</code><code class="descname">proxy_rbdigital_patron_requests</code><span class="sig-paren">(</span><em>license_pool_id</em>, <em>mechanism_id</em>, <em>part</em>, <em>bearer</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#proxy_rbdigital_patron_requests"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.proxy_rbdigital_patron_requests" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.public_key_document">
-<code class="descclassname">api.routes.</code><code class="descname">public_key_document</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#public_key_document"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.public_key_document" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.qa_feed">
-<code class="descclassname">api.routes.</code><code class="descname">qa_feed</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#qa_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.qa_feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.qa_series_feed">
-<code class="descclassname">api.routes.</code><code class="descname">qa_series_feed</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#qa_series_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.qa_series_feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.recommendations">
-<code class="descclassname">api.routes.</code><code class="descname">recommendations</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#recommendations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.recommendations" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.related_books">
-<code class="descclassname">api.routes.</code><code class="descname">related_books</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#related_books"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.related_books" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.report">
-<code class="descclassname">api.routes.</code><code class="descname">report</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#report"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.report" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.requires_auth">
-<code class="descclassname">api.routes.</code><code class="descname">requires_auth</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#requires_auth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.requires_auth" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.revoke_loan_or_hold">
-<code class="descclassname">api.routes.</code><code class="descname">revoke_loan_or_hold</code><span class="sig-paren">(</span><em>license_pool_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#revoke_loan_or_hold"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.revoke_loan_or_hold" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.saml_authenticate">
-<code class="descclassname">api.routes.</code><code class="descname">saml_authenticate</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#saml_authenticate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.saml_authenticate" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.saml_callback">
-<code class="descclassname">api.routes.</code><code class="descname">saml_callback</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#saml_callback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.saml_callback" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.series">
-<code class="descclassname">api.routes.</code><code class="descname">series</code><span class="sig-paren">(</span><em>series_name</em>, <em>languages</em>, <em>audiences</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#series"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.series" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.shared_collection_borrow">
-<code class="descclassname">api.routes.</code><code class="descname">shared_collection_borrow</code><span class="sig-paren">(</span><em>collection_name</em>, <em>identifier_type</em>, <em>identifier</em>, <em>hold_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#shared_collection_borrow"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.shared_collection_borrow" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.shared_collection_fulfill">
-<code class="descclassname">api.routes.</code><code class="descname">shared_collection_fulfill</code><span class="sig-paren">(</span><em>collection_name</em>, <em>loan_id</em>, <em>mechanism_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#shared_collection_fulfill"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.shared_collection_fulfill" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.shared_collection_hold_info">
-<code class="descclassname">api.routes.</code><code class="descname">shared_collection_hold_info</code><span class="sig-paren">(</span><em>collection_name</em>, <em>hold_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#shared_collection_hold_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.shared_collection_hold_info" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.shared_collection_info">
-<code class="descclassname">api.routes.</code><code class="descname">shared_collection_info</code><span class="sig-paren">(</span><em>collection_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#shared_collection_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.shared_collection_info" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.shared_collection_loan_info">
-<code class="descclassname">api.routes.</code><code class="descname">shared_collection_loan_info</code><span class="sig-paren">(</span><em>collection_name</em>, <em>loan_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#shared_collection_loan_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.shared_collection_loan_info" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.shared_collection_register">
-<code class="descclassname">api.routes.</code><code class="descname">shared_collection_register</code><span class="sig-paren">(</span><em>collection_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#shared_collection_register"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.shared_collection_register" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.shared_collection_revoke_hold">
-<code class="descclassname">api.routes.</code><code class="descname">shared_collection_revoke_hold</code><span class="sig-paren">(</span><em>collection_name</em>, <em>hold_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#shared_collection_revoke_hold"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.shared_collection_revoke_hold" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.shared_collection_revoke_loan">
-<code class="descclassname">api.routes.</code><code class="descname">shared_collection_revoke_loan</code><span class="sig-paren">(</span><em>collection_name</em>, <em>loan_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#shared_collection_revoke_loan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.shared_collection_revoke_loan" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.shutdown_session">
-<code class="descclassname">api.routes.</code><code class="descname">shutdown_session</code><span class="sig-paren">(</span><em>exception</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#shutdown_session"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.shutdown_session" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.static_image">
-<code class="descclassname">api.routes.</code><code class="descname">static_image</code><span class="sig-paren">(</span><em>filename</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#static_image"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.static_image" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.track_analytics_event">
-<code class="descclassname">api.routes.</code><code class="descname">track_analytics_event</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em>, <em>event_type</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#track_analytics_event"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.track_analytics_event" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="api.routes.work">
-<code class="descclassname">api.routes.</code><code class="descname">work</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#work"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.work" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</div>
 <div class="section" id="module-api.selftest">
 <span id="api-selftest-module"></span><h2>api.selftest module<a class="headerlink" href="#module-api.selftest" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
@@ -14588,17 +14342,17 @@ the given dictionary?</p>
 <p>A test that needs to create announcements.</p>
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.a_week_ago">
-<code class="descname">a_week_ago</code><em class="property"> = '2021-11-11'</em><a class="headerlink" href="#api.testing.AnnouncementTest.a_week_ago" title="Permalink to this definition">¶</a></dt>
+<code class="descname">a_week_ago</code><em class="property"> = '2022-05-30'</em><a class="headerlink" href="#api.testing.AnnouncementTest.a_week_ago" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.active">
-<code class="descname">active</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-11-19', 'id': 'active', 'start': '2021-11-18'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.active" title="Permalink to this definition">¶</a></dt>
+<code class="descname">active</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2022-06-07', 'id': 'active', 'start': '2022-06-06'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.active" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.expired">
-<code class="descname">expired</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-11-17', 'id': 'expired', 'start': '2021-11-11'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.expired" title="Permalink to this definition">¶</a></dt>
+<code class="descname">expired</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2022-06-05', 'id': 'expired', 'start': '2022-05-30'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.expired" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -14608,27 +14362,27 @@ the given dictionary?</p>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.forthcoming">
-<code class="descname">forthcoming</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2021-11-25', 'id': 'forthcoming', 'start': '2021-11-19'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.forthcoming" title="Permalink to this definition">¶</a></dt>
+<code class="descname">forthcoming</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2022-06-13', 'id': 'forthcoming', 'start': '2022-06-07'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.forthcoming" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.in_a_week">
-<code class="descname">in_a_week</code><em class="property"> = '2021-11-25'</em><a class="headerlink" href="#api.testing.AnnouncementTest.in_a_week" title="Permalink to this definition">¶</a></dt>
+<code class="descname">in_a_week</code><em class="property"> = '2022-06-13'</em><a class="headerlink" href="#api.testing.AnnouncementTest.in_a_week" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.today">
-<code class="descname">today</code><em class="property"> = '2021-11-18'</em><a class="headerlink" href="#api.testing.AnnouncementTest.today" title="Permalink to this definition">¶</a></dt>
+<code class="descname">today</code><em class="property"> = '2022-06-06'</em><a class="headerlink" href="#api.testing.AnnouncementTest.today" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.tomorrow">
-<code class="descname">tomorrow</code><em class="property"> = '2021-11-19'</em><a class="headerlink" href="#api.testing.AnnouncementTest.tomorrow" title="Permalink to this definition">¶</a></dt>
+<code class="descname">tomorrow</code><em class="property"> = '2022-06-07'</em><a class="headerlink" href="#api.testing.AnnouncementTest.tomorrow" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.yesterday">
-<code class="descname">yesterday</code><em class="property"> = '2021-11-17'</em><a class="headerlink" href="#api.testing.AnnouncementTest.yesterday" title="Permalink to this definition">¶</a></dt>
+<code class="descname">yesterday</code><em class="property"> = '2022-06-05'</em><a class="headerlink" href="#api.testing.AnnouncementTest.yesterday" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -15069,7 +14823,7 @@ order.</p>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

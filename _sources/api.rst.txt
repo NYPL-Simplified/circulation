@@ -321,14 +321,6 @@ api.registry module
     :undoc-members:
     :show-inheritance:
 
-api.routes module
------------------
-
-.. automodule:: api.routes
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 api.selftest module
 -------------------
 

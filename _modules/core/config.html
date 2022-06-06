@@ -501,6 +501,37 @@
         <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Connecting to database: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">url_obj</span><span class="o">.</span><span class="n">__to_string__</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">url</span></div>
 
+<div class="viewcode-block" id="Configuration.static_resources_dir"><a class="viewcode-back" href="../../core.html#core.config.Configuration.static_resources_dir">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">static_resources_dir</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Locate the static resources for this installation.</span>
+
+<span class="sd">        Default location is /simplified_static. To use a different location, set the value</span>
+<span class="sd">        of the SIMPLIFIED_STATIC_DIR environment variable.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">default_static_dir</span> <span class="o">=</span> <span class="s1">&#39;/simplified_static&#39;</span>
+        <span class="n">static_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;SIMPLIFIED_STATIC_DIR&#39;</span><span class="p">)</span>
+        <span class="n">error_msgs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">warning_msgs</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">static_dir</span><span class="p">:</span>
+            <span class="n">static_dir</span> <span class="o">=</span> <span class="n">default_static_dir</span>
+            <span class="n">warning_msgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Env var SIMPLIFIED_STATIC_DIR unset or empty, defaulted to &#39;</span><span class="si">{</span><span class="n">static_dir</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">static_dir</span><span class="p">):</span>
+            <span class="n">error_msgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Static resources directory path &#39;</span><span class="si">{</span><span class="n">static_dir</span><span class="si">}</span><span class="s2">&#39; does not exist.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">static_dir</span><span class="p">):</span>
+            <span class="n">error_msgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Static resources directory path &#39;</span><span class="si">{</span><span class="n">static_dir</span><span class="si">}</span><span class="s2">&#39; not a directory.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">static_dir</span><span class="p">)):</span>
+            <span class="n">error_msgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Static resources directory path &#39;</span><span class="si">{</span><span class="n">static_dir</span><span class="si">}</span><span class="s2">&#39; exists, but is empty.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">error_msgs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">warning_msgs</span> <span class="o">+</span> <span class="n">error_msgs</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">warning_msgs</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">warning_msgs</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">static_dir</span></div>
+
 <div class="viewcode-block" id="Configuration.app_version"><a class="viewcode-back" href="../../core.html#core.config.Configuration.app_version">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">app_version</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns the git version of the app, if a .version file exists.&quot;&quot;&quot;</span>
@@ -742,7 +773,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>

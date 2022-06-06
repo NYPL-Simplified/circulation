@@ -43,17 +43,26 @@
     <span class="n">FLOW_TYPE</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="OPDSAuthenticationFlow.authentication_flow_document"><a class="viewcode-back" href="../../../core.util.html#core.util.authentication_for_opds.OPDSAuthenticationFlow.authentication_flow_document">[docs]</a>    <span class="k">def</span> <span class="nf">authentication_flow_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Convert this object into a dictionary that can be used in the</span>
-<span class="sd">        `authentication` list of an Authentication For OPDS document.</span>
+        <span class="sd">&quot;&quot;&quot;Convert this object into a dictionary or a</span>
+<span class="sd">        list of dictionaries that can be used in the</span>
+<span class="sd">        `authentication` list of an AuthenticationFor OPDS document.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_authentication_flow_document</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_get_type</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_get_type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">data</span></div>
+
+    <span class="k">def</span> <span class="nf">_get_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">):</span>
             <span class="n">data</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">FLOW_TYPE</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Authentication flow document for </span><span class="si">%r</span><span class="s2"> does not include required field &#39;type&#39;&quot;</span> <span class="o">%</span> <span class="bp">self</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="n">data</span></div>
 
     <span class="k">def</span> <span class="nf">_authentication_flow_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
@@ -107,7 +116,12 @@
         <span class="n">document</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
         <span class="n">flow_documents</span> <span class="o">=</span> <span class="n">document</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;authentication&#39;</span><span class="p">,</span> <span class="p">[])</span>
         <span class="k">for</span> <span class="n">flow</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">authentication_flows</span><span class="p">:</span>
-            <span class="n">flow_documents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">flow</span><span class="o">.</span><span class="n">authentication_flow_document</span><span class="p">(</span><span class="n">_db</span><span class="p">))</span>
+            <span class="n">docs</span> <span class="o">=</span> <span class="n">flow</span><span class="o">.</span><span class="n">authentication_flow_document</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">docs</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="n">docs</span><span class="p">:</span>
+                    <span class="n">flow_documents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">flow_documents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">docs</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">links</span><span class="p">:</span>
             <span class="n">doc_links</span> <span class="o">=</span> <span class="n">document</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;links&#39;</span><span class="p">,</span> <span class="p">[])</span>
             <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">links</span><span class="p">:</span>
@@ -182,7 +196,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2021, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
