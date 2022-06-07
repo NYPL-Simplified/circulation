@@ -170,8 +170,8 @@ PID1_STDERR=/proc/1/fd/2
 */15 * * * * core/bin/run axis_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # axis_reaper - Monitor the Axis collection by looking for books that have been removed.
-#   Frequency: Minute 0 of hour 4 (once daily)
-0 4 * * * core/bin/run axis_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Every 30th minute
+*/30 * * * core/bin/run axis_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 #--- Bibliotheca -------------------------------------------------------------
 
@@ -180,18 +180,18 @@ PID1_STDERR=/proc/1/fd/2
 */15 * * * * core/bin/run bibliotheca_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # bibliotheca_purchase_monitor - Ask the Bibliotheca API about license purchases, potentially purchases that happened many years in the past.
-#   Frequency: Minute 0 of every 5th hour
-0 */5 * * * core/bin/run bibliotheca_purchase_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 20 of every hour
+20 */1 * * * core/bin/run bibliotheca_purchase_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # bibliotheca_circulation_sweep - Sweep through our Bibliotheca collections verifying circulation stats.
-#   Frequency: Minute 0 of hour 5 (once daily)
-0 5 * * * core/bin/run bibliotheca_circulation_sweep |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Every 30th minute
+*/30 * * * * core/bin/run bibliotheca_circulation_sweep |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 #--- Overdrive ---------------------------------------------------------------
 
 # overdrive_new_titles - Look for new titles added to Overdrive collections which slipped through the cracks.
-#   Frequency: Minute 0 of hour 3 (once daily)
-0 3 * * * core/bin/run overdrive_new_titles |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 0 of every 5th hour
+0 */5 * * * core/bin/run overdrive_new_titles |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # overdrive_monitor_recent - Monitor the Overdrive collections by going through the recently changed list.
 #   Frequency: Every 15th minute
@@ -202,14 +202,14 @@ PID1_STDERR=/proc/1/fd/2
 */15 * * * * core/bin/run overdrive_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # overdrive_format_sweep - Sweep through our Overdrive collections updating delivery mechanisms.
-#   Frequency: Minute 0 of hour 4 (once daily)
-0 4 * * * core/bin/run overdrive_format_sweep |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Every 30th minute
+*/30 * * * * core/bin/run overdrive_format_sweep |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 #--- Enki --------------------------------------------------------------------
 
 # enki_reaper - Monitor the Enki collection by looking for books with lost licenses.
-#   Frequency: Minute 0 of hour 0 on the 1st day of each month
-0 0 1 * * core/bin/run enki_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 30 of every 6th hour
+30 */6 * * core/bin/run enki_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # enki_import - monitor the Enki collection by asking about recently changed books.
 #   Frequency: Minute 0 of every 6th hour
@@ -218,8 +218,8 @@ PID1_STDERR=/proc/1/fd/2
 #--- OPDS For Distributors ---------------------------------------------------
 
 # opds_for_distributors_reaper_monitor - Update the circulation manager server to remove books that have been removed from OPDS for distributors collections.
-#   Frequency: Minute 0 of hour 0 on the 2nd day of each month
-0 0 2 * * core/bin/run opds_for_distributors_reaper_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 0 of hour 2 (once daily)
+0 2 * * * core/bin/run opds_for_distributors_reaper_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # opds_for_distributors_import_monitor - Update the circulation manager server with new books from OPDS import collections that have authentication.
 #   Frequency: Minute 0 of hour 4 (once daily)
@@ -240,8 +240,8 @@ PID1_STDERR=/proc/1/fd/2
 #--- OPDS import from Feedbooks ----------------------------------------------
 
 # feedbooks_import_monitor - Update the circulation manager server with new books from Feedbooks collections.
-#   Frequency: Minute 0 of hour 0 on the 7th day of the month
-* * */7 * * core/bin/run feedbooks_import_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 0 of hour 3 (once daily)
+* 3 * * * core/bin/run feedbooks_import_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 #--- ODL import --------------------------------------------------------------
 
