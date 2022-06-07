@@ -22,7 +22,6 @@ from lxml import etree
 from sqlalchemy.orm import eagerload
 
 from .adobe_vendor_id import (
-    AdobeVendorIDController,
     DeviceManagementProtocolController,
     AuthdataUtility,
 )
@@ -484,17 +483,8 @@ class CirculationManager(object):
                     self.log.warn(
                         "Multiple libraries define an Adobe Vendor ID integration. This is not supported and the last library seen will take precedence."
                     )
-                new_adobe_vendor_id = AdobeVendorIDController(
-                    _db,
-                    library,
-                    vendor_id,
-                    node_value,
-                    self.auth
-                )
             else:
                 self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
-        if new_adobe_vendor_id:
-            self.adobe_vendor_id = new_adobe_vendor_id
 
         # But almost all libraries will have a Short Client Token
         # setup. We're not setting anything up here, but this is useful
