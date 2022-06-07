@@ -13,7 +13,7 @@ import datetime
 
 from api.problem_details import *
 from api.adobe_vendor_id import (
-    AuthdataUtility,
+    ShortClientTokenUtility,
     DeviceManagementRequestHandler,
 )
 
@@ -45,20 +45,15 @@ from api.simple_authentication import SimpleAuthenticationProvider
 
 
 
+class TestShortClientTokenUtility(VendorIDTest):
 
     def setup_method(self):
-class TestAuthdataUtility(VendorIDTest):
-
-    def setup_method(self):
-        super(TestAuthdataUtility, self).setup_method()
-        self.authdata = AuthdataUtility(
+        super(TestShortClientTokenUtility, self).setup_method()
+        self.authdata = ShortClientTokenUtility(
             vendor_id = "The Vendor ID",
             library_uri = "http://my-library.org/",
             library_short_name = "MyLibrary",
             secret = "My library secret",
-            other_libraries = {
-                "http://your-library.org/": ("you", "Your library secret")
-            },
         )
 
     def test_from_config(self):
@@ -68,7 +63,7 @@ class TestAuthdataUtility(VendorIDTest):
         library_url = library.setting(Configuration.WEBSITE_URL).value
         library2_url = library2.setting(Configuration.WEBSITE_URL).value
 
-        utility = AuthdataUtility.from_config(library)
+        utility = ShortClientTokenUtility.from_config(library)
 
         registry = ExternalIntegration.lookup(
             self._db, ExternalIntegration.OPDS_REGISTRATION,
@@ -97,14 +92,14 @@ class TestAuthdataUtility(VendorIDTest):
         # session, as may happen in production...
         self._db.expunge(library)
 
-        # Then an attempt to use it to get an AuthdataUtility
+        # Then an attempt to use it to get an ShortClientTokenUtility
         # will fail...
         with pytest.raises(ValueError) as excinfo:
-            AuthdataUtility.from_config(library)
+            ShortClientTokenUtility.from_config(library)
         assert "No database connection provided and could not derive one from Library object!" in str(excinfo.value)
 
         # ...unless a database session is provided in the constructor.
-        authdata = AuthdataUtility.from_config(library, self._db)
+        authdata = ShortClientTokenUtility.from_config(library, self._db)
         assert (
             {"%sTOKEN" % library.short_name.upper() : library_url,
              "%sTOKEN" % library2.short_name.upper() : library2_url } ==
@@ -119,7 +114,7 @@ class TestAuthdataUtility(VendorIDTest):
         old_short_name = setting.value
         setting.value = None
         pytest.raises(
-            CannotLoadConfiguration, AuthdataUtility.from_config,
+            CannotLoadConfiguration, ShortClientTokenUtility.from_config,
             library
         )
         setting.value = old_short_name
@@ -128,7 +123,7 @@ class TestAuthdataUtility(VendorIDTest):
         old_value = setting.value
         setting.value = None
         pytest.raises(
-            CannotLoadConfiguration, AuthdataUtility.from_config, library
+            CannotLoadConfiguration, ShortClientTokenUtility.from_config, library
         )
         setting.value = old_value
 
@@ -137,16 +132,16 @@ class TestAuthdataUtility(VendorIDTest):
         old_secret = setting.value
         setting.value = None
         pytest.raises(
-            CannotLoadConfiguration, AuthdataUtility.from_config, library
+            CannotLoadConfiguration, ShortClientTokenUtility.from_config, library
         )
         setting.value = old_secret
 
         # If other libraries are not configured, that's fine. We'll
         # only have a configuration for ourselves.
         self.adobe_vendor_id.set_setting(
-            AuthdataUtility.OTHER_LIBRARIES_KEY, None
+            ShortClientTokenUtility.OTHER_LIBRARIES_KEY, None
         )
-        authdata = AuthdataUtility.from_config(library)
+        authdata = ShortClientTokenUtility.from_config(library)
         assert ({library_url : "%s token secret" % library.short_name} ==
             authdata.secrets_by_library_uri)
         assert ({"%sTOKEN" % library.short_name.upper(): library_url} ==
@@ -154,23 +149,23 @@ class TestAuthdataUtility(VendorIDTest):
 
         # Short library names are case-insensitive. If the
         # configuration has the same library short name twice, you
-        # can't create an AuthdataUtility.
+        # can't create a ShortClientTokenUtility.
         self.adobe_vendor_id.set_setting(
-            AuthdataUtility.OTHER_LIBRARIES_KEY,
+            ShortClientTokenUtility.OTHER_LIBRARIES_KEY,
             json.dumps({
                 "http://a/" : ("a", "secret1"),
                 "http://b/" : ("A", "secret2"),
             })
         )
-        pytest.raises(ValueError, AuthdataUtility.from_config, library)
+        pytest.raises(ValueError, ShortClientTokenUtility.from_config, library)
 
         # If there is no Adobe Vendor ID integration set up,
         # from_config() returns None.
         self._db.delete(registry)
-        assert None == AuthdataUtility.from_config(library)
+        assert None == ShortClientTokenUtility.from_config(library)
 
     def test_short_client_token_for_patron(self):
-        class MockAuthdataUtility(AuthdataUtility):
+        class MockShortClientTokenUtility(ShortClientTokenUtility):
             def __init__(self):
                 pass
             def encode_short_client_token(self, patron_identifier):
@@ -182,7 +177,7 @@ class TestAuthdataUtility(VendorIDTest):
         # A patron is passed in; we get their identifier for Adobe ID purposes,
         # and generate a short client token based on it
         patron = self._patron()
-        authdata = MockAuthdataUtility()
+        authdata = MockShortClientTokenUtility()
         sct = authdata.short_client_token_for_patron(patron)
         assert patron == authdata.patron_identifier_called_with
         assert authdata.encode_sct_called_with == "patron identifier"
@@ -221,7 +216,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # Signature is base64-encoded in a custom way that avoids
         # triggering an Adobe bug ; token is not.
-        signature = AuthdataUtility.adobe_base64_decode(signature)
+        signature = ShortClientTokenUtility.adobe_base64_decode(signature)
 
         # The token comes from the library name, the patron identifier,
         # and the time of creation.
@@ -235,8 +230,8 @@ class TestAuthdataUtility(VendorIDTest):
         assert expect_signature == signature
 
     def test_decode_short_client_token_from_another_library(self):
-        # Here's the AuthdataUtility used by another library.
-        foreign_authdata = AuthdataUtility(
+        # Here's the ShortClientTokenUtility used by another library.
+        foreign_authdata = ShortClientTokenUtility(
             vendor_id = "The Vendor ID",
             library_uri = "http://your-library.org/",
             library_short_name = "you",
@@ -309,7 +304,7 @@ class TestAuthdataUtility(VendorIDTest):
         # triggering an Adobe bug.
         value = "!\tFN6~'Es52?X!#)Z*_S"
 
-        encoded = AuthdataUtility.adobe_base64_encode(value)
+        encoded = ShortClientTokenUtility.adobe_base64_encode(value)
         assert 'IQlGTjZ:J0VzNTI;WCEjKVoqX1M@' == encoded
 
         # This is like normal base64 encoding, but with a colon
@@ -321,7 +316,7 @@ class TestAuthdataUtility(VendorIDTest):
             base64.encodebytes(value.encode("utf-8")).decode("utf-8"))
 
         # We can reverse the encoding to get the original value.
-        assert value == AuthdataUtility.adobe_base64_decode(encoded).decode("utf-8")
+        assert value == ShortClientTokenUtility.adobe_base64_decode(encoded).decode("utf-8")
 
     def test__encode_short_client_token_uses_adobe_base64_encoding(self):
         class MockSigner(object):
@@ -341,7 +336,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # The base64 encoding of this signature has a plus sign in it.
         signature = 'LbU}66%\\-4zt>R>_)\n2Q'
-        encoded_signature = AuthdataUtility.adobe_base64_encode(signature)
+        encoded_signature = ShortClientTokenUtility.adobe_base64_encode(signature)
 
         # We replace the plus sign with a colon.
         assert ':' in encoded_signature
@@ -349,12 +344,12 @@ class TestAuthdataUtility(VendorIDTest):
 
         # Make sure that decode_two_part_short_client_token properly
         # reverses that change when decoding the 'password'.
-        class MockAuthdataUtility(AuthdataUtility):
+        class MockShortClientTokenUtility(ShortClientTokenUtility):
             def _decode_short_client_token(self, token, supposed_signature):
                 assert supposed_signature.decode("utf-8") == signature
                 self.test_code_ran = True
 
-        utility =  MockAuthdataUtility(
+        utility =  MockShortClientTokenUtility(
             vendor_id = "The Vendor ID",
             library_uri = "http://your-library.org/",
             library_short_name = "you",

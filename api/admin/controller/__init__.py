@@ -34,7 +34,7 @@ from api.admin.password_admin_authentication_provider import PasswordAdminAuthen
 from api.admin.template_styles import (body_style, error_style, hr_style, section_style, small_link_style)
 from api.admin.templates import admin as admin_template
 from api.admin.validator import Validator
-from api.adobe_vendor_id import AuthdataUtility
+from api.adobe_vendor_id import ShortClientTokenUtility
 from api.authenticator import (CannotCreateLocalPatron, LibraryAuthenticator, PatronData)
 from api.axis import Axis360API
 from api.bibliotheca import BibliothecaAPI
@@ -656,7 +656,7 @@ class PatronController(AdminCirculationManagerController):
             )
 
         # Wipe the Patron's 'identifier for Adobe ID purposes'.
-        for credential in AuthdataUtility.adobe_relevant_credentials(patron):
+        for credential in ShortClientTokenUtility.adobe_relevant_credentials(patron):
             self._db.delete(credential)
 
         if patron.username:

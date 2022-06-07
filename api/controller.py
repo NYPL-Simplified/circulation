@@ -23,7 +23,7 @@ from sqlalchemy.orm import eagerload
 
 from .adobe_vendor_id import (
     DeviceManagementProtocolController,
-    AuthdataUtility,
+    ShortClientTokenUtility,
 )
 from .annotations import (
     AnnotationWriter,
@@ -497,7 +497,7 @@ class CirculationManager(object):
         authdata = None
         if registry:
             try:
-                authdata = AuthdataUtility.from_config(library, _db)
+                authdata = ShortClientTokenUtility.from_config(library, _db)
             except CannotLoadConfiguration as e:
                 short_client_token_initialization_exceptions[library.id] = e
                 self.log.error(

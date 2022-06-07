@@ -163,7 +163,7 @@ class DeviceManagementRequestHandler(object):
         return 'Success'
 
 
-class AuthdataUtility(object):
+class ShortClientTokenUtility(object):
 
     """Generate authdata JWTs as per the Vendor ID Service spec:
     https://docs.google.com/document/d/1j8nWPVmy95pJ_iU4UTC-QgHK2QhDUSdQ0OQTFR2NE_0
@@ -183,6 +183,7 @@ class AuthdataUtility(object):
     # the patron needs to reset their Adobe account ID) with no
     # consequences other than losing their currently checked-in books.
     ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER = "Identifier for Adobe account ID purposes"
+    VENDOR_ID_UUID_TOKEN_TYPE = "Vendor ID UUID"
 
     ALGORITHM = 'HS256'
 
@@ -319,8 +320,10 @@ class AuthdataUtility(object):
         :return: A SQLAlchemy query
         """
         _db = Session.object_session(patron)
-        types = (AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE,
-                 AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER)
+        types = (
+            ShortClientTokenUtility.VENDOR_ID_UUID_TOKEN_TYPE,
+            ShortClientTokenUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER
+        )
         return _db.query(
             Credential).filter(Credential.patron==patron).filter(
                 Credential.type.in_(types)
@@ -355,7 +358,7 @@ class AuthdataUtility(object):
         def refresh(credential):
             credential.credential = str(uuid.uuid1())
         patron_identifier = Credential.lookup(
-            _db, internal, AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
+            _db, internal, ShortClientTokenUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
             refresher_method=refresh, allow_persistent_token=True
         )
         return patron_identifier.credential

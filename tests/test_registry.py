@@ -22,7 +22,7 @@ from core.model import (
 )
 from pdb import set_trace
 import base64
-from api.adobe_vendor_id import AuthdataUtility
+from api.adobe_vendor_id import ShortClientTokenUtility
 from api.config import Configuration
 from api.problem_details import *
 from api.registry import (
@@ -535,7 +535,7 @@ class TestRegistration(DatabaseTest):
         assert (
             "vendor_id" ==
             ConfigurationSetting.for_externalintegration(
-                AuthdataUtility.VENDOR_ID_KEY, self.integration
+                ShortClientTokenUtility.VENDOR_ID_KEY, self.integration
             ).value)
 
         # _create_registration_payload was called to create the body

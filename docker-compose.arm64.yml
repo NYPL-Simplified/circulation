@@ -81,7 +81,7 @@ services:
       - type: bind
         source: .
         target: /home/simplified/circulation
-        read_only: true
+        read_only: false
 
 volumes:
   cm_local_dbdata:

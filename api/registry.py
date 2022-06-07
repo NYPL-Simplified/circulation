@@ -21,7 +21,7 @@ from core.util.problem_detail import (
 )
 import base64
 
-from api.adobe_vendor_id import AuthdataUtility
+from api.adobe_vendor_id import ShortClientTokenUtility
 from api.config import Configuration
 from api.controller import CirculationManager
 from api.problem_details import *
@@ -394,7 +394,7 @@ class Registration(object):
         # -- it'll be the same value for all libraries.
         if vendor_id:
             ConfigurationSetting.for_externalintegration(
-                AuthdataUtility.VENDOR_ID_KEY, self.integration
+                ShortClientTokenUtility.VENDOR_ID_KEY, self.integration
             ).value = vendor_id
 
         # Build the document we'll be sending to the registration URL.

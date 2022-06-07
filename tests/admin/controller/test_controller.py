@@ -760,8 +760,7 @@ class TestPatronController(AdminControllerTest):
         patron.authorization_identifier = self._str
 
         self._credential(
-        self._credential(
-            patron=patron, type=AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER
+            patron=patron, type=ShortClientTokenUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER
         )
 
         # This PatronController will always return a specific

@@ -30,7 +30,7 @@ from api.config import (
     temp_config,
 )
 
-from api.adobe_vendor_id import AuthdataUtility
+from api.adobe_vendor_id import ShortClientTokenUtility
 
 class VendorIDTest(DatabaseTest):
     """A DatabaseTest that knows how to set up an Adobe Vendor ID
@@ -69,7 +69,7 @@ class VendorIDTest(DatabaseTest):
         # The integration knows which Adobe Vendor ID server it
         # gets its Adobe IDs from.
         self.registry.set_setting(
-            AuthdataUtility.VENDOR_ID_KEY,
+            ShortClientTokenUtility.VENDOR_ID_KEY,
             self.adobe_vendor_id.username
         )
 

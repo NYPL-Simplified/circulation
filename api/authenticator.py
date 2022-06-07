@@ -18,7 +18,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import or_
 from werkzeug.datastructures import Headers
 
-from api.adobe_vendor_id import AuthdataUtility
+from api.adobe_vendor_id import ShortClientTokenUtility
 from api.annotations import AnnotationWriter
 from api.announcements import Announcements
 from api.custom_patron_catalog import CustomPatronCatalog
@@ -493,7 +493,7 @@ class CirculationPatronProfileStorage(PatronProfileStorage):
         links = []
         device_link = {}
 
-        authdata = AuthdataUtility.from_config(self.patron.library)
+        authdata = ShortClientTokenUtility.from_config(self.patron.library)
         if authdata:
             vendor_id, token = authdata.short_client_token_for_patron(self.patron)
             adobe_drm = {}

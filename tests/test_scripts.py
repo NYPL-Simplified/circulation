@@ -5,9 +5,7 @@ import flask
 import json
 from io import StringIO
 
-from api.adobe_vendor_id import (
-    AuthdataUtility,
-)
+from api.adobe_vendor_id import ShortClientTokenUtility
 
 from api.config import (
     temp_config,
@@ -115,8 +113,8 @@ class TestAdobeAccountIDResetScript(DatabaseTest):
 
         # Create two Credentials that will be deleted and one that will be
         # left alone.
-        for type in (AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE,
-                     AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+        for type in (ShortClientTokenUtility.VENDOR_ID_UUID_TOKEN_TYPE,
+                     ShortClientTokenUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
                      "Some other type"
         ):
 

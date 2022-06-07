@@ -20,7 +20,7 @@ from core.model import (        # noqa: E402,F401
     production_session,
 )
 
-from api.adobe_vendor_id import AuthdataUtility     # noqa: E402
+from api.adobe_vendor_id import ShortClientTokenUtility     # noqa: E402
 from api.config import Configuration                # noqa: E402
 
 log = logging.getLogger(name="Circulation manager configuration import")
@@ -104,7 +104,7 @@ try:
         integration = EI(protocol='Short Client Token', goal=EI.DRM_GOAL)
         _db.add(integration)
         integration.set_setting(
-            AuthdataUtility.VENDOR_ID_KEY, vendor_id
+            ShortClientTokenUtility.VENDOR_ID_KEY, vendor_id
         )
 
         for library in LIBRARIES:
