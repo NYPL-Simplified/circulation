@@ -186,8 +186,7 @@ class AuthdataUtility(object):
 
     ALGORITHM = 'HS256'
 
-    def __init__(self, vendor_id, library_uri, library_short_name, secret,
-                 other_libraries={}):
+    def __init__(self, vendor_id, library_uri, library_short_name, secret):
         """Basic constructor.
 
         :param vendor_id: The Adobe Vendor ID that should accompany authdata
@@ -205,12 +204,6 @@ class AuthdataUtility(object):
         which must be as short as possible (thus the name).
 
         :param secret: A secret used to sign this library's authdata.
-
-        :param other_libraries: A dictionary mapping other libraries'
-        canonical URIs to their (short name, secret) 2-tuples. An
-        instance of this class will be able to decode an authdata from
-        any library in this dictionary (plus the library it was
-        initialized for).
         """
         self.vendor_id = vendor_id
 
@@ -232,20 +225,6 @@ class AuthdataUtility(object):
         # client tokens.
         self.library_uris_by_short_name = {}
         self.library_uris_by_short_name[self.short_name] = self.library_uri
-
-        # Fill in secrets_by_library_uri and library_uris_by_short_name
-        # for other libraries.
-        for uri, v in list(other_libraries.items()):
-            short_name, secret = v
-            short_name = short_name.upper()
-            if short_name in self.library_uris_by_short_name:
-                # This can happen if the same library is in the list
-                # twice, capitalized differently.
-                raise ValueError(
-                    "Duplicate short name: %s" % short_name
-                )
-            self.library_uris_by_short_name[short_name] = uri
-            self.secrets_by_library_uri[uri] = secret
 
         self.log = logging.getLogger("Adobe authdata utility")
 
@@ -328,8 +307,7 @@ class AuthdataUtility(object):
             raise CannotLoadConfiguration(
                 "Library short name cannot contain the pipe character."
             )
-        return cls(vendor_id, library_uri, library_short_name, secret,
-                   other_libraries)
+        return cls(vendor_id, library_uri, library_short_name, secret)
 
     @classmethod
     def adobe_relevant_credentials(self, patron):
