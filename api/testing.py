@@ -73,6 +73,11 @@ class VendorIDTest(DatabaseTest):
             self.adobe_vendor_id.username
         )
 
+        # As we give libraries their Short Client Token settings,
+        # we build the 'other_libraries' setting we'll apply to the
+        # Adobe Vendor ID integration.
+        other_libraries = dict()
+
         # Every library in the system can generate Short Client
         # Tokens.
         for library in short_token_libraries:
@@ -89,6 +94,17 @@ class VendorIDTest(DatabaseTest):
             ).value = secret
 
             library.setting(Configuration.WEBSITE_URL).value = library_uri
+
+            # Each library's Short Client Token configuration will be registered
+            # with that Adobe Vendor ID server.
+            if library != vendor_id_library:
+                other_libraries[library_uri] = (short_name, secret)
+
+        # Tell the Adobe Vendor ID server about the other libraries.
+        other_libraries = json.dumps(other_libraries)
+        self.adobe_vendor_id.set_setting(
+            ShortClientTokenUtility.OTHER_LIBRARIES_KEY, other_libraries
+        )
 
 
 class MonitorTest(DatabaseTest):

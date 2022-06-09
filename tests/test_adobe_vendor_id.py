@@ -54,6 +54,9 @@ class TestShortClientTokenUtility(VendorIDTest):
             library_uri = "http://my-library.org/",
             library_short_name = "MyLibrary",
             secret = "My library secret",
+            other_libraries = {
+                "http://your-library.org/": ("you", "Your library secret")
+            },
         )
 
     def test_from_config(self):
