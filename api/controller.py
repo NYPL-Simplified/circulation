@@ -467,24 +467,13 @@ class CirculationManager(object):
             _db, ExternalIntegration.ADOBE_VENDOR_ID,
             ExternalIntegration.DRM_GOAL, library=library
         )
-        warning = (
-            'Adobe Vendor ID controller is disabled due to missing or'
-            ' incomplete configuration. This is probably nothing to'
-            ' worry about.'
-        )
 
-        new_adobe_vendor_id = None
         if adobe:
             # Relatively few libraries will have this setup.
             vendor_id = adobe.username
             node_value = adobe.password
-            if vendor_id and node_value:
-                if new_adobe_vendor_id:
-                    self.log.warn(
-                        "Multiple libraries define an Adobe Vendor ID integration. This is not supported and the last library seen will take precedence."
-                    )
-            else:
-                self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
+            if not (vendor_id and node_value):
+                self.log.warn("Adobe Vendor ID is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
 
         # But almost all libraries will have a Short Client Token
         # setup. We're not setting anything up here, but this is useful
