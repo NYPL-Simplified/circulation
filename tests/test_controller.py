@@ -1116,7 +1116,7 @@ class TestBaseController(CirculationControllerTest):
         work = self._work(with_license_pool=True)
         [pool1] = work.license_pools
         pool2 = self._licensepool(None)
-        pool2.work = work
+        work.license_pools.append(pool2)
 
         # Either identifier suffices to identify the Work.
         for i in [pool1.identifier, pool2.identifier]:

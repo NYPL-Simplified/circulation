@@ -3190,7 +3190,8 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         work = self._work(with_license_pool=True)
         work.license_pools[0].superceded = True
         ignore, pool = self._edition(with_license_pool=True)
-        pool.work = work
+        work.license_pools.append(pool)
+        self._db.commit()
 
         lane = self._lane()
         [w] = lane.works_from_database(self._db).all()

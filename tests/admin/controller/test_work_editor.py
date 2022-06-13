@@ -643,7 +643,7 @@ class TestWorkController(AdminControllerTest):
             self.english_1.presentation_edition,
             data_source_name=DataSource.OVERDRIVE
         )
-        broken_lp.work = self.english_1
+        self.english_1.license_pools.append(broken_lp)
         broken_lp.suppressed = True
 
         # The broken LicensePool doesn't render properly.
