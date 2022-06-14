@@ -11,13 +11,13 @@ import sys
 import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
-from .config import (
+from ..config import (
     CannotLoadConfiguration,
     Configuration,
 )
 
 from api.base_controller import BaseCirculationManagerController
-from .problem_details import *
+from ..problem_details import *
 from sqlalchemy.orm.session import Session
 from core.util.datetime_helpers import (
     datetime_utc,
