@@ -18,7 +18,7 @@ from core.model import (        # noqa: E402
     production_session,
     Patron
 )
-from api.adobe_vendor_id import ShortClientTokenUtility     # noqa: E402
+from api.util.short_client_token import ShortClientTokenUtility     # noqa: E402
 
 _db = production_session()
 authdata = ShortClientTokenUtility.from_config()

@@ -47,7 +47,7 @@ from api.admin.problem_details import (
 )
 from api.admin.routes import setup_admin
 from api.admin.validator import Validator
-from api.adobe_vendor_id import ShortClientTokenUtility
+from api.util.short_client_token import ShortClientTokenUtility
 from api.authenticator import (
     PatronData,
 )

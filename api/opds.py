@@ -51,7 +51,7 @@ from api.lanes import (
 )
 from core.app_server import cdn_url_for
 
-from .adobe_vendor_id import ShortClientTokenUtility
+from .util.short_client_token import ShortClientTokenUtility
 from .annotations import AnnotationWriter
 from .circulation import BaseCirculationAPI
 from .config import (

@@ -18,7 +18,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import or_
 from werkzeug.datastructures import Headers
 
-from api.adobe_vendor_id import ShortClientTokenUtility
+from api.util.short_client_token import ShortClientTokenUtility
 from api.annotations import AnnotationWriter
 from api.announcements import Announcements
 from api.custom_patron_catalog import CustomPatronCatalog

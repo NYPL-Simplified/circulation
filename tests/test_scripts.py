@@ -5,7 +5,7 @@ import flask
 import json
 from io import StringIO
 
-from api.adobe_vendor_id import ShortClientTokenUtility
+from api.util.short_client_token import ShortClientTokenUtility
 
 from api.config import (
     temp_config,

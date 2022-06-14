@@ -20,7 +20,7 @@ from core.model import (        # noqa: E402,F401
     production_session,
 )
 
-from api.adobe_vendor_id import ShortClientTokenUtility     # noqa: E402
+from api.util.short_client_token import ShortClientTokenUtility     # noqa: E402
 from api.config import Configuration                # noqa: E402
 
 log = logging.getLogger(name="Circulation manager configuration import")

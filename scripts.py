@@ -16,7 +16,7 @@ from sqlalchemy import (
     or_,
 )
 
-from api.adobe_vendor_id import ShortClientTokenUtility
+from api.util.short_client_token import ShortClientTokenUtility
 from api.bibliotheca import (
     BibliothecaCirculationSweep
 )

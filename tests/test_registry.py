@@ -22,7 +22,7 @@ from core.model import (
 )
 from pdb import set_trace
 import base64
-from api.adobe_vendor_id import ShortClientTokenUtility
+from api.util.short_client_token import ShortClientTokenUtility
 from api.config import Configuration
 from api.problem_details import *
 from api.registry import (

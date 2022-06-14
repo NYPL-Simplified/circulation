@@ -22,7 +22,7 @@ from mock import MagicMock, patch
 from werkzeug.datastructures import ImmutableMultiDict
 from werkzeug.exceptions import NotFound
 
-from api.adobe_vendor_id import (
+from api.util.short_client_token import (
     ShortClientTokenUtility,
     DeviceManagementProtocolController
 )

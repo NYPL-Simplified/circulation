@@ -30,7 +30,7 @@ from api.config import (
     temp_config,
 )
 
-from api.adobe_vendor_id import ShortClientTokenUtility
+from api.util.short_client_token import ShortClientTokenUtility
 
 class VendorIDTest(DatabaseTest):
     """A DatabaseTest that knows how to set up an Adobe Vendor ID

@@ -21,7 +21,7 @@ from flask_babel import lazy_gettext as _
 from lxml import etree
 from sqlalchemy.orm import eagerload
 
-from .adobe_vendor_id import (
+from .util.short_client_token import (
     DeviceManagementProtocolController,
     ShortClientTokenUtility,
 )

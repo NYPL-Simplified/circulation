@@ -90,7 +90,7 @@ from api.opds import (
 )
 
 from api.testing import VendorIDTest
-from api.adobe_vendor_id import ShortClientTokenUtility
+from api.util.short_client_token import ShortClientTokenUtility
 from api.novelist import NoveListAPI
 from api.lanes import ContributorLane, CrawlableCustomListBasedLane
 import jwt

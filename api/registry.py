@@ -21,7 +21,7 @@ from core.util.problem_detail import (
 )
 import base64
 
-from api.adobe_vendor_id import ShortClientTokenUtility
+from api.util.short_client_token import ShortClientTokenUtility
 from api.config import Configuration
 from api.controller import CirculationManager
 from api.problem_details import *

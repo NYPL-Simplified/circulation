@@ -12,7 +12,7 @@ import re
 import datetime
 
 from api.problem_details import *
-from api.adobe_vendor_id import (
+from api.util.short_client_token import (
     ShortClientTokenUtility,
     DeviceManagementRequestHandler,
 )
