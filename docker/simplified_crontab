@@ -250,12 +250,12 @@ PID1_STDERR=/proc/1/fd/2
 0 6 * * * core/bin/run odl_import_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # odl_hold_reaper - Check for ODL holds that have expired and delete them.
-#   Frequency: Minute 0 of every 8th hour
-0 */8 * * * core/bin/run odl_hold_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 0 of every 4th hour
+0 */4 * * * core/bin/run odl_hold_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
-# odl_reaper - ??? TODO: Find out why this isn't in the scripts wiki page.
-#   Frequency: Minute 0 of every 14th hour
-0 */14 * * * core/bin/run odl_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+# odl_reaper - Check for ODL licenses that have expired and delete them. TODO: Find out why this isn't in the scripts wiki page.
+#   Frequency: Every 15th minute
+*/15 * * * * core/bin/run odl_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # shared_odl_import_monitor - Update the circulation manager server with new books from shared ODL collections.
 #   Frequency: Minute 5 of every 6th hour
