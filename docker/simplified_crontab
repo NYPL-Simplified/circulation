@@ -261,12 +261,6 @@ PID1_STDERR=/proc/1/fd/2
 #   Frequency: Minute 5 of every 6th hour
 5 */6 * * * core/bin/run shared_odl_import_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
-#--- Odilo -------------------------------------------------------------------
-
-# odilo_monitor_recent - Updates an Odilo collection.
-#   Frequency: Every 15th minute
-*/15 * * * * core/bin/run odilo_monitor_recent |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
-
 #--- ProQuest ----------------------------------------------------------------
 
 # proquest_import_monitor - Import ProQuest OPDS 2.0 feeds into Circulation Manager.
@@ -301,3 +295,9 @@ PID1_STDERR=/proc/1/fd/2
 #0 */4 * * * core/bin/run rbdigital_availability_monitor >> /var/log/cron.log 2>&1
 #0 23 * * * core/bin/run rbdigital_collection_delta >> /var/log/cron.log 2>&1
 #0 23 * * * core/bin/run rbdigital_initial_import >> /var/log/cron.log 2>&1
+
+#--- Odilo -------------------------------------------------------------------
+
+# odilo_monitor_recent - Updates an Odilo collection.
+#   Frequency: Every 15th minute
+#*/15 * * * * core/bin/run odilo_monitor_recent |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
