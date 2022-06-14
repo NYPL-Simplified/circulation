@@ -264,8 +264,8 @@ PID1_STDERR=/proc/1/fd/2
 #--- ProQuest ----------------------------------------------------------------
 
 # proquest_import_monitor - Import ProQuest OPDS 2.0 feeds into Circulation Manager.
-#   Frequency: Minute 0 of hour 7, on Tuesdays and Fridays
-0 7 * * 2,5 core/bin/run proquest_import_monitor --process-removals |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 0 of hour 7 (once daily)
+0 7 * * * core/bin/run proquest_import_monitor --process-removals |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 #--- SAML --------------------------------------------------------------------
 
