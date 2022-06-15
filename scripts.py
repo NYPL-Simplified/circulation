@@ -16,9 +16,7 @@ from sqlalchemy import (
     or_,
 )
 
-from api.adobe_vendor_id import (
-    AuthdataUtility,
-)
+from api.util.short_client_token import ShortClientTokenUtility
 from api.bibliotheca import (
     BibliothecaCirculationSweep
 )
@@ -853,7 +851,7 @@ You'll get another chance to back out before the database session is committed."
             patron.authorization_identifier or patron.username
             or patron.external_identifier
         )
-        for credential in AuthdataUtility.adobe_relevant_credentials(patron):
+        for credential in ShortClientTokenUtility.adobe_relevant_credentials(patron):
             self.log.info(
                 ' Deleting "%s" credential "%s"',
                 credential.type, credential.credential

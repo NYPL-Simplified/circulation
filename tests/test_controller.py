@@ -22,7 +22,10 @@ from mock import MagicMock, patch
 from werkzeug.datastructures import ImmutableMultiDict
 from werkzeug.exceptions import NotFound
 
-from api.adobe_vendor_id import AuthdataUtility, DeviceManagementProtocolController
+from api.util.short_client_token import (
+    ShortClientTokenUtility,
+    DeviceManagementProtocolController
+)
 from api.annotations import AnnotationWriter
 from api.app import app, initialize_database
 from api.authenticator import (
@@ -227,7 +230,7 @@ class ControllerTest(VendorIDTest):
         # library returned by make_default_libraries.
         self.default_patron = self.default_patrons[self.library]
 
-        self.authdata = AuthdataUtility.from_config(self.library)
+        self.authdata = ShortClientTokenUtility.from_config(self.library)
 
         self.manager = CirculationManager(
             _db, testing=True
@@ -547,7 +550,7 @@ class TestCirculationManager(CirculationControllerTest):
             goal=ExternalIntegration.DISCOVERY_GOAL, libraries=[self.library]
         )
         registry_integration.username = "something"
-        registry_integration.set_setting(AuthdataUtility.VENDOR_ID_KEY, "vendorid")
+        registry_integration.set_setting(ShortClientTokenUtility.VENDOR_ID_KEY, "vendorid")
 
         # Then try to set up the Adobe Vendor ID configuration for
         # that library.
@@ -4980,7 +4983,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
         """
         return self._credential(
             DataSource.INTERNAL_PROCESSING,
-            AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            ShortClientTokenUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
             self.default_patron
         )
 
@@ -5023,7 +5026,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
             # them.
             [credential] = self.default_patron.credentials
             assert DataSource.INTERNAL_PROCESSING == credential.data_source.name
-            assert (AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER ==
+            assert (ShortClientTokenUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER ==
                 credential.type)
 
             assert (['device'] ==
