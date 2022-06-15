@@ -209,7 +209,7 @@ PID1_STDERR=/proc/1/fd/2
 
 # enki_reaper - Monitor the Enki collection by looking for books with lost licenses.
 #   Frequency: Minute 30 of every 6th hour
-30 */6 * * core/bin/run enki_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+30 */6 * * * core/bin/run enki_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # enki_import - monitor the Enki collection by asking about recently changed books.
 #   Frequency: Minute 0 of every 6th hour
