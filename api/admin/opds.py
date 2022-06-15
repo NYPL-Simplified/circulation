@@ -72,6 +72,7 @@ class AdminAnnotator(LibraryAnnotator):
             href=self.url_for(
                 "edit",
                 identifier_type=identifier.type,
+                library_short_name=self.library.short_name,
                 identifier=identifier.identifier, _external=True)
         )
 

@@ -21,10 +21,9 @@ from flask_babel import lazy_gettext as _
 from lxml import etree
 from sqlalchemy.orm import eagerload
 
-from .adobe_vendor_id import (
-    AdobeVendorIDController,
+from .util.short_client_token import (
     DeviceManagementProtocolController,
-    AuthdataUtility,
+    ShortClientTokenUtility,
 )
 from .annotations import (
     AnnotationWriter,
@@ -468,33 +467,13 @@ class CirculationManager(object):
             _db, ExternalIntegration.ADOBE_VENDOR_ID,
             ExternalIntegration.DRM_GOAL, library=library
         )
-        warning = (
-            'Adobe Vendor ID controller is disabled due to missing or'
-            ' incomplete configuration. This is probably nothing to'
-            ' worry about.'
-        )
 
-        new_adobe_vendor_id = None
         if adobe:
             # Relatively few libraries will have this setup.
             vendor_id = adobe.username
             node_value = adobe.password
-            if vendor_id and node_value:
-                if new_adobe_vendor_id:
-                    self.log.warning(
-                        "Multiple libraries define an Adobe Vendor ID integration. This is not supported and the last library seen will take precedence."
-                    )
-                new_adobe_vendor_id = AdobeVendorIDController(
-                    _db,
-                    library,
-                    vendor_id,
-                    node_value,
-                    self.auth
-                )
-            else:
-                self.log.warning("Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
-        if new_adobe_vendor_id:
-            self.adobe_vendor_id = new_adobe_vendor_id
+            if not (vendor_id and node_value):
+                self.log.warn("Adobe Vendor ID is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
 
         # But almost all libraries will have a Short Client Token
         # setup. We're not setting anything up here, but this is useful
@@ -507,7 +486,7 @@ class CirculationManager(object):
         authdata = None
         if registry:
             try:
-                authdata = AuthdataUtility.from_config(library, _db)
+                authdata = ShortClientTokenUtility.from_config(library, _db)
             except CannotLoadConfiguration as e:
                 short_client_token_initialization_exceptions[library.id] = e
                 self.log.error(

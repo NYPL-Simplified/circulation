@@ -665,39 +665,6 @@ class TestAnalyticsController(RouteTest):
         )
 
 
-class TestAdobeVendorID(RouteTest):
-
-    CONTROLLER_NAME = "adobe_vendor_id"
-
-    def test_adobe_vendor_id_get_token(self):
-        url = '/AdobeAuth/authdata'
-        self.assert_authenticated_request_calls(
-            url, self.controller.create_authdata_handler,
-            self.controller.AUTHENTICATED_PATRON
-        )
-        # TODO: test what happens when vendor ID is not configured.
-
-    def test_adobe_vendor_id_signin(self):
-        url = '/AdobeAuth/SignIn'
-        self.assert_request_calls(
-            url, self.controller.signin_handler, http_method='POST'
-        )
-        self.assert_supported_methods(url, 'POST')
-
-    def test_adobe_vendor_id_accountinfo(self):
-        url = '/AdobeAuth/AccountInfo'
-        self.assert_request_calls(
-            url, self.controller.userinfo_handler, http_method='POST'
-        )
-        self.assert_supported_methods(url, 'POST')
-
-    def test_adobe_vendor_id_status(self):
-        url = '/AdobeAuth/Status'
-        self.assert_request_calls(
-            url, self.controller.status_handler,
-        )
-
-
 class TestAdobeDeviceManagement(RouteTest):
     CONTROLLER_NAME = "adobe_device_management"
 

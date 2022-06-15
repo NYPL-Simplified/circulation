@@ -51,7 +51,7 @@ from api.lanes import (
 )
 from core.app_server import cdn_url_for
 
-from .adobe_vendor_id import AuthdataUtility
+from .util.short_client_token import ShortClientTokenUtility
 from .annotations import AnnotationWriter
 from .circulation import BaseCirculationAPI
 from .config import (
@@ -1194,7 +1194,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             cached = []
             authdata = None
             try:
-                authdata = AuthdataUtility.from_config(self.library)
+                authdata = ShortClientTokenUtility.from_config(self.library)
             except CannotLoadConfiguration as e:
                 logging.error("Cannot load Short Client Token configuration; outgoing OPDS entries will not have DRM autodiscovery support", exc_info=e)
                 return []

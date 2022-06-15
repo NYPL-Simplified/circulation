@@ -29,6 +29,7 @@ Flask==2.1.2
 Flask-Babel==2.0.0
 Flask-Cors==3.0.10
 flask-sqlalchemy-session==1.1
+flask-swagger-ui==4.11.1
 # freezegun is used for unit tests.
 freezegun==1.2.1
 # fuzzywuzzy is for author name manipulations

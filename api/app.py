@@ -2,12 +2,12 @@ import os
 import logging
 import urllib.parse
 
-import flask
 from flask import (
     Flask,
     Response,
     redirect,
 )
+from flask_swagger_ui import get_swaggerui_blueprint
 from flask_sqlalchemy_session import flask_scoped_session
 from sqlalchemy.orm import sessionmaker
 from .config import Configuration
@@ -31,6 +31,11 @@ app.static_resources_dir = Configuration.static_resources_dir()
 app.config['BABEL_DEFAULT_LOCALE'] = LanguageCodes.three_to_two[Configuration.localization_languages()[0]]
 app.config['BABEL_TRANSLATION_DIRECTORIES'] = "../translations"
 babel = Babel(app)
+
+swaggerui_print = get_swaggerui_blueprint(
+    '/apidocs', '/documentation'
+)
+app.register_blueprint(swaggerui_print)
 
 @app.before_first_request
 def initialize_database(autoinitialize=True):
@@ -76,6 +81,7 @@ def initialize_database(autoinitialize=True):
 
 from . import routes
 from .admin import routes
+from .documentation import routes
 
 def run(url=None):
     base_url = url or 'http://localhost:6500/'

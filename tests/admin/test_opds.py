@@ -96,6 +96,7 @@ class TestOPDS(DatabaseTest):
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
         [entry] = feedparser.parse(str(feed))['entries']
         [edit_link] = [x for x in entry['links'] if x['rel'] == "edit"]
+        assert self._default_library.short_name in edit_link["href"]
         assert lp.identifier.identifier in edit_link["href"]
 
     def test_feed_includes_change_cover_link(self):
