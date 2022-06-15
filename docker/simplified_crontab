@@ -171,7 +171,7 @@ PID1_STDERR=/proc/1/fd/2
 
 # axis_reaper - Monitor the Axis collection by looking for books that have been removed.
 #   Frequency: Every 30th minute
-*/30 * * * core/bin/run axis_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+*/30 * * * * core/bin/run axis_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 #--- Bibliotheca -------------------------------------------------------------
 
