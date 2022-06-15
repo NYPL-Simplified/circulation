@@ -162,6 +162,7 @@
 <li class="toctree-l1"><a class="reference internal" href="api.util.html">api.util package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="api.util.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api.util.html#module-api.util.patron">api.util.patron module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.util.html#module-api.util.short_client_token">api.util.short_client_token module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api.util.html#module-api.util.url">api.util.url module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api.util.html#module-api.util">Module contents</a></li>
 </ul>
@@ -171,559 +172,6 @@
 </div>
 <div class="section" id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
-</div>
-<div class="section" id="module-api.adobe_vendor_id">
-<span id="api-adobe-vendor-id-module"></span><h2>api.adobe_vendor_id module<a class="headerlink" href="#module-api.adobe_vendor_id" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.adobe_vendor_id.AdobeAccountInfoRequestParser">
-<em class="property">class </em><code class="descclassname">api.adobe_vendor_id.</code><code class="descname">AdobeAccountInfoRequestParser</code><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeAccountInfoRequestParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeAccountInfoRequestParser" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.adobe_vendor_id.AdobeRequestParser" title="api.adobe_vendor_id.AdobeRequestParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.adobe_vendor_id.AdobeRequestParser</span></code></a></p>
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeAccountInfoRequestParser.REQUEST_XPATH">
-<code class="descname">REQUEST_XPATH</code><em class="property"> = '/adept:accountInfoRequest'</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeAccountInfoRequestParser.REQUEST_XPATH" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeAccountInfoRequestParser.process_one">
-<code class="descname">process_one</code><span class="sig-paren">(</span><em>tag</em>, <em>namespaces</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeAccountInfoRequestParser.process_one"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeAccountInfoRequestParser.process_one" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.adobe_vendor_id.AdobeRequestParser">
-<em class="property">class </em><code class="descclassname">api.adobe_vendor_id.</code><code class="descname">AdobeRequestParser</code><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeRequestParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeRequestParser" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.util.html#core.util.xmlparser.XMLParser" title="core.util.xmlparser.XMLParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.util.xmlparser.XMLParser</span></code></a></p>
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeRequestParser.NAMESPACES">
-<code class="descname">NAMESPACES</code><em class="property"> = {'adept': 'http://ns.adobe.com/adept'}</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeRequestParser.NAMESPACES" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeRequestParser.process">
-<code class="descname">process</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeRequestParser.process"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeRequestParser.process" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.adobe_vendor_id.AdobeSignInRequestParser">
-<em class="property">class </em><code class="descclassname">api.adobe_vendor_id.</code><code class="descname">AdobeSignInRequestParser</code><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeSignInRequestParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeSignInRequestParser" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.adobe_vendor_id.AdobeRequestParser" title="api.adobe_vendor_id.AdobeRequestParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.adobe_vendor_id.AdobeRequestParser</span></code></a></p>
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeSignInRequestParser.AUTH_DATA">
-<code class="descname">AUTH_DATA</code><em class="property"> = 'authData'</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeSignInRequestParser.AUTH_DATA" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeSignInRequestParser.REQUEST_XPATH">
-<code class="descname">REQUEST_XPATH</code><em class="property"> = '/adept:signInRequest'</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeSignInRequestParser.REQUEST_XPATH" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeSignInRequestParser.STANDARD">
-<code class="descname">STANDARD</code><em class="property"> = 'standard'</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeSignInRequestParser.STANDARD" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeSignInRequestParser.process_one">
-<code class="descname">process_one</code><span class="sig-paren">(</span><em>tag</em>, <em>namespaces</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeSignInRequestParser.process_one"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeSignInRequestParser.process_one" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.adobe_vendor_id.AdobeVendorIDController">
-<em class="property">class </em><code class="descclassname">api.adobe_vendor_id.</code><code class="descname">AdobeVendorIDController</code><span class="sig-paren">(</span><em>_db</em>, <em>library</em>, <em>vendor_id</em>, <em>node_value</em>, <em>authenticator</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDController"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDController" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Flask controllers that implement the Account Service and
-Authorization Service portions of the Adobe Vendor ID protocol.</p>
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDController.create_authdata_handler">
-<code class="descname">create_authdata_handler</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDController.create_authdata_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDController.create_authdata_handler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create an authdata token for the given patron.</p>
-<p>This controller method exists only for backwards compatibility
-with older client applications. Newer applications are
-expected to understand the DRM Extensions for OPDS.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDController.signin_handler">
-<code class="descname">signin_handler</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDController.signin_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDController.signin_handler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Process an incoming signInRequest document.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDController.status_handler">
-<code class="descname">status_handler</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDController.status_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDController.status_handler" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDController.userinfo_handler">
-<code class="descname">userinfo_handler</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDController.userinfo_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDController.userinfo_handler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Process an incoming userInfoRequest document.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel">
-<em class="property">class </em><code class="descclassname">api.adobe_vendor_id.</code><code class="descname">AdobeVendorIDModel</code><span class="sig-paren">(</span><em>_db</em>, <em>library</em>, <em>authenticator</em>, <em>node_value</em>, <em>temporary_token_duration=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDModel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Implement Adobe Vendor ID within the Simplified database
-model.</p>
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel.AUTHDATA_TOKEN_TYPE">
-<code class="descname">AUTHDATA_TOKEN_TYPE</code><em class="property"> = 'Authdata for Adobe Vendor ID'</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel.AUTHDATA_TOKEN_TYPE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE">
-<code class="descname">VENDOR_ID_UUID_TOKEN_TYPE</code><em class="property"> = 'Vendor ID UUID'</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel.authdata_lookup">
-<code class="descname">authdata_lookup</code><span class="sig-paren">(</span><em>authdata</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDModel.authdata_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel.authdata_lookup" title="Permalink to this definition">¶</a></dt>
-<dd><p>Turn an authdata string into a Vendor ID UUID and a human-readable
-label.</p>
-<p>Generally we do this by decoding the authdata as a JWT and
-looking up or creating an appropriate
-DelegatedPatronIdentifier.</p>
-<p>However, for backwards compatibility purposes, if the authdata
-cannot be decoded as a JWT, we will try the old method of
-treating it as a Credential that identifies a Patron, and
-finding the DelegatedPatronIdentifier that way.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel.create_authdata">
-<code class="descname">create_authdata</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDModel.create_authdata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel.create_authdata" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel.data_source">
-<code class="descname">data_source</code><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel.data_source" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="classmethod">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel.get_or_create_patron_identifier_credential">
-<em class="property">classmethod </em><code class="descname">get_or_create_patron_identifier_credential</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDModel.get_or_create_patron_identifier_credential"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel.get_or_create_patron_identifier_credential" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel.patron_from_authdata_lookup">
-<code class="descname">patron_from_authdata_lookup</code><span class="sig-paren">(</span><em>authdata</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDModel.patron_from_authdata_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel.patron_from_authdata_lookup" title="Permalink to this definition">¶</a></dt>
-<dd><p>Look up a patron by their persistent authdata token.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel.short_client_token_lookup">
-<code class="descname">short_client_token_lookup</code><span class="sig-paren">(</span><em>token</em>, <em>signature</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDModel.short_client_token_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel.short_client_token_lookup" title="Permalink to this definition">¶</a></dt>
-<dd><p>Validate a short client token that came in as username/password.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel.standard_lookup">
-<code class="descname">standard_lookup</code><span class="sig-paren">(</span><em>authorization_data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDModel.standard_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel.standard_lookup" title="Permalink to this definition">¶</a></dt>
-<dd><p>Look up a patron by authorization header. Return their Vendor ID
-UUID and their human-readable label, creating a Credential
-object to hold the UUID if necessary.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel.to_delegated_patron_identifier_uuid">
-<code class="descname">to_delegated_patron_identifier_uuid</code><span class="sig-paren">(</span><em>library_uri</em>, <em>foreign_patron_identifier</em>, <em>value_generator=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDModel.to_delegated_patron_identifier_uuid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel.to_delegated_patron_identifier_uuid" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create or lookup a DelegatedPatronIdentifier containing an Adobe
-account ID for the given library and foreign patron ID.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A 2-tuple (UUID, label)</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel.urn_to_label">
-<code class="descname">urn_to_label</code><span class="sig-paren">(</span><em>urn</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDModel.urn_to_label"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel.urn_to_label" title="Permalink to this definition">¶</a></dt>
-<dd><p>We have no information about patrons, so labels are sparse.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel.uuid">
-<code class="descname">uuid</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDModel.uuid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel.uuid" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a new UUID URN compatible with the Vendor ID system.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDModel.uuid_and_label">
-<code class="descname">uuid_and_label</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDModel.uuid_and_label"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDModel.uuid_and_label" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create or retrieve a Vendor ID UUID and human-readable Vendor ID
-label for the given patron.</p>
-<p>This code is semi-deprecated, which accounts for the varying
-paths and the code that tries to migrate patrons to the new
-system. In the future everyone will send JWTs as authdata and
-we will always go from the JWT to a DelegatedPatronIdentifier.
-This code always ends up at a DelegatedPatronIdentifier, but
-it might pick up the final value from somewhere else along the way.</p>
-<p>The _reason_ this code is semi-deprecated is that it only
-works for a library that has its own Adobe Vendor ID.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.adobe_vendor_id.AdobeVendorIDRequestHandler">
-<em class="property">class </em><code class="descclassname">api.adobe_vendor_id.</code><code class="descname">AdobeVendorIDRequestHandler</code><span class="sig-paren">(</span><em>vendor_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDRequestHandler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDRequestHandler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Standalone class that can be tested without bringing in Flask or
-the database schema.</p>
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeVendorIDRequestHandler.ACCOUNT_INFO_ERROR_TYPE">
-<code class="descname">ACCOUNT_INFO_ERROR_TYPE</code><em class="property"> = 'ACCOUNT_INFO'</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDRequestHandler.ACCOUNT_INFO_ERROR_TYPE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeVendorIDRequestHandler.ACCOUNT_INFO_RESPONSE_TEMPLATE">
-<code class="descname">ACCOUNT_INFO_RESPONSE_TEMPLATE</code><em class="property"> = '&lt;accountInfoResponse xmlns=&quot;http://ns.adobe.com/adept&quot;&gt;\n&lt;label&gt;%(label)s&lt;/label&gt;\n&lt;/accountInfoResponse&gt;'</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDRequestHandler.ACCOUNT_INFO_RESPONSE_TEMPLATE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeVendorIDRequestHandler.AUTHENTICATION_FAILURE">
-<code class="descname">AUTHENTICATION_FAILURE</code><em class="property"> = 'Incorrect barcode or PIN.'</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDRequestHandler.AUTHENTICATION_FAILURE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeVendorIDRequestHandler.AUTH_ERROR_TYPE">
-<code class="descname">AUTH_ERROR_TYPE</code><em class="property"> = 'AUTH'</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDRequestHandler.AUTH_ERROR_TYPE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeVendorIDRequestHandler.ERROR_RESPONSE_TEMPLATE">
-<code class="descname">ERROR_RESPONSE_TEMPLATE</code><em class="property"> = '&lt;error xmlns=&quot;http://ns.adobe.com/adept&quot; data=&quot;E_%(vendor_id)s_%(type)s %(message)s&quot;/&gt;'</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDRequestHandler.ERROR_RESPONSE_TEMPLATE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeVendorIDRequestHandler.SIGN_IN_RESPONSE_TEMPLATE">
-<code class="descname">SIGN_IN_RESPONSE_TEMPLATE</code><em class="property"> = '&lt;signInResponse xmlns=&quot;http://ns.adobe.com/adept&quot;&gt;\n&lt;user&gt;%(user)s&lt;/user&gt;\n&lt;label&gt;%(label)s&lt;/label&gt;\n&lt;/signInResponse&gt;'</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDRequestHandler.SIGN_IN_RESPONSE_TEMPLATE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeVendorIDRequestHandler.TOKEN_FAILURE">
-<code class="descname">TOKEN_FAILURE</code><em class="property"> = 'Incorrect token.'</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDRequestHandler.TOKEN_FAILURE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AdobeVendorIDRequestHandler.URN_LOOKUP_FAILURE">
-<code class="descname">URN_LOOKUP_FAILURE</code><em class="property"> = &quot;Could not identify patron from '%s'.&quot;</em><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDRequestHandler.URN_LOOKUP_FAILURE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDRequestHandler.error_document">
-<code class="descname">error_document</code><span class="sig-paren">(</span><em>type</em>, <em>message</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDRequestHandler.error_document"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDRequestHandler.error_document" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDRequestHandler.handle_accountinfo_request">
-<code class="descname">handle_accountinfo_request</code><span class="sig-paren">(</span><em>data</em>, <em>urn_to_label</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDRequestHandler.handle_accountinfo_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDRequestHandler.handle_accountinfo_request" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AdobeVendorIDRequestHandler.handle_signin_request">
-<code class="descname">handle_signin_request</code><span class="sig-paren">(</span><em>data</em>, <em>standard_lookup</em>, <em>authdata_lookup</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AdobeVendorIDRequestHandler.handle_signin_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AdobeVendorIDRequestHandler.handle_signin_request" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.adobe_vendor_id.AuthdataUtility">
-<em class="property">class </em><code class="descclassname">api.adobe_vendor_id.</code><code class="descname">AuthdataUtility</code><span class="sig-paren">(</span><em>vendor_id</em>, <em>library_uri</em>, <em>library_short_name</em>, <em>secret</em>, <em>other_libraries={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AuthdataUtility"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Generate authdata JWTs as per the Vendor ID Service spec:
-<a class="reference external" href="https://docs.google.com/document/d/1j8nWPVmy95pJ_iU4UTC-QgHK2QhDUSdQ0OQTFR2NE_0">https://docs.google.com/document/d/1j8nWPVmy95pJ_iU4UTC-QgHK2QhDUSdQ0OQTFR2NE_0</a></p>
-<p>Capable of encoding JWTs (for this library), and decoding them
-(from this library and potentially others).</p>
-<p>Also generates and decodes JWT-like strings used to get around
-Adobe’s lack of support for authdata in deactivation.</p>
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER">
-<code class="descname">ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER</code><em class="property"> = 'Identifier for Adobe account ID purposes'</em><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AuthdataUtility.ALGORITHM">
-<code class="descname">ALGORITHM</code><em class="property"> = 'HS256'</em><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.ALGORITHM" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AuthdataUtility.EPOCH">
-<code class="descname">EPOCH</code><em class="property"> = datetime.datetime(1970, 1, 1, 0, 0, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.EPOCH" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AuthdataUtility.OTHER_LIBRARIES_KEY">
-<code class="descname">OTHER_LIBRARIES_KEY</code><em class="property"> = 'other_libraries'</em><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.OTHER_LIBRARIES_KEY" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.AuthdataUtility.VENDOR_ID_KEY">
-<code class="descname">VENDOR_ID_KEY</code><em class="property"> = 'vendor_id'</em><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.VENDOR_ID_KEY" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="classmethod">
-<dt id="api.adobe_vendor_id.AuthdataUtility.adobe_base64_decode">
-<em class="property">classmethod </em><code class="descname">adobe_base64_decode</code><span class="sig-paren">(</span><em>str</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AuthdataUtility.adobe_base64_decode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.adobe_base64_decode" title="Permalink to this definition">¶</a></dt>
-<dd><p>Undoes adobe_base64_encode.</p>
-</dd></dl>
-
-<dl class="classmethod">
-<dt id="api.adobe_vendor_id.AuthdataUtility.adobe_base64_encode">
-<em class="property">classmethod </em><code class="descname">adobe_base64_encode</code><span class="sig-paren">(</span><em>str_to_encode</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AuthdataUtility.adobe_base64_encode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.adobe_base64_encode" title="Permalink to this definition">¶</a></dt>
-<dd><p>A modified base64 encoding that avoids triggering an Adobe bug.</p>
-<p>The bug seems to happen when the ‘password’ portion of a
-username/password pair contains a + character. So we replace +
-with :. We also replace / (another “suspicious” character)
-with ;. and strip newlines.</p>
-</dd></dl>
-
-<dl class="classmethod">
-<dt id="api.adobe_vendor_id.AuthdataUtility.adobe_relevant_credentials">
-<em class="property">classmethod </em><code class="descname">adobe_relevant_credentials</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AuthdataUtility.adobe_relevant_credentials"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.adobe_relevant_credentials" title="Permalink to this definition">¶</a></dt>
-<dd><p>Find all Adobe-relevant Credential objects for the given
-patron.</p>
-<p>This includes the patron’s identifier for Adobe ID purposes,
-and (less likely) any Adobe IDs directly associated with the
-Patron.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A SQLAlchemy query</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AuthdataUtility.decode">
-<code class="descname">decode</code><span class="sig-paren">(</span><em>authdata</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AuthdataUtility.decode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.decode" title="Permalink to this definition">¶</a></dt>
-<dd><p>Decode and verify an authdata JWT from one of the libraries managed
-by <cite>secrets_by_library</cite>.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">a 2-tuple (library_uri, patron_identifier)</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><strong>jwt.exceptions.DecodeError</strong> – When the JWT is not valid
-for any reason.</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AuthdataUtility.decode_short_client_token">
-<code class="descname">decode_short_client_token</code><span class="sig-paren">(</span><em>token</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AuthdataUtility.decode_short_client_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.decode_short_client_token" title="Permalink to this definition">¶</a></dt>
-<dd><p>Attempt to interpret a ‘username’ and ‘password’ as a short
-client token identifying a patron of a specific library.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">a 2-tuple (library_uri, patron_identifier)</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><strong>ValueError</strong> – When the token is not valid for any reason.</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AuthdataUtility.decode_two_part_short_client_token">
-<code class="descname">decode_two_part_short_client_token</code><span class="sig-paren">(</span><em>username</em>, <em>password</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AuthdataUtility.decode_two_part_short_client_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.decode_two_part_short_client_token" title="Permalink to this definition">¶</a></dt>
-<dd><p>Decode a short client token that has already been split into
-two parts.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AuthdataUtility.encode">
-<code class="descname">encode</code><span class="sig-paren">(</span><em>patron_identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AuthdataUtility.encode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.encode" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate an authdata JWT suitable for putting in an OPDS feed, where
-it can be picked up by a client and sent to the delegation
-authority to look up an Adobe ID.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A 2-tuple (vendor ID, authdata)</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AuthdataUtility.encode_short_client_token">
-<code class="descname">encode_short_client_token</code><span class="sig-paren">(</span><em>patron_identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AuthdataUtility.encode_short_client_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.encode_short_client_token" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate a short client token suitable for putting in an OPDS feed,
-where it can be picked up by a client and sent to the
-delegation authority to look up an Adobe ID.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A 2-tuple (vendor ID, token)</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="classmethod">
-<dt id="api.adobe_vendor_id.AuthdataUtility.from_config">
-<em class="property">classmethod </em><code class="descname">from_config</code><span class="sig-paren">(</span><em>library</em>, <em>_db=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AuthdataUtility.from_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.from_config" title="Permalink to this definition">¶</a></dt>
-<dd><p>Initialize an AuthdataUtility from site configuration.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">An AuthdataUtility if one is configured; otherwise None.</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><a class="reference internal" href="core.html#core.config.CannotLoadConfiguration" title="core.config.CannotLoadConfiguration"><strong>CannotLoadConfiguration</strong></a> – If an AuthdataUtility is
-incompletely configured.</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AuthdataUtility.migrate_adobe_id">
-<code class="descname">migrate_adobe_id</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AuthdataUtility.migrate_adobe_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.migrate_adobe_id" title="Permalink to this definition">¶</a></dt>
-<dd><p>If the given patron has an Adobe ID stored as a Credential, also
-store it as a DelegatedPatronIdentifier.</p>
-<p>This method and its test should be removed once all instances have
-run the migration script
-20161102-adobe-id-is-delegated-patron-identifier.py.</p>
-</dd></dl>
-
-<dl class="classmethod">
-<dt id="api.adobe_vendor_id.AuthdataUtility.numericdate">
-<em class="property">classmethod </em><code class="descname">numericdate</code><span class="sig-paren">(</span><em>d</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AuthdataUtility.numericdate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.numericdate" title="Permalink to this definition">¶</a></dt>
-<dd><p>Turn a datetime object into a NumericDate as per RFC 7519.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.AuthdataUtility.short_client_token_for_patron">
-<code class="descname">short_client_token_for_patron</code><span class="sig-paren">(</span><em>patron_information</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#AuthdataUtility.short_client_token_for_patron"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.AuthdataUtility.short_client_token_for_patron" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate short client token for patron, or for a patron’s identifier
-for Adobe ID purposes</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.adobe_vendor_id.DeviceManagementProtocolController">
-<em class="property">class </em><code class="descclassname">api.adobe_vendor_id.</code><code class="descname">DeviceManagementProtocolController</code><span class="sig-paren">(</span><em>manager</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#DeviceManagementProtocolController"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.DeviceManagementProtocolController" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.base_controller.BaseCirculationManagerController" title="api.base_controller.BaseCirculationManagerController"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.base_controller.BaseCirculationManagerController</span></code></a></p>
-<p>Implementation of the DRM Device ID Management Protocol.</p>
-<p>The code that does the actual work is in DeviceManagementRequestHandler.</p>
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.DeviceManagementProtocolController.DEVICE_ID_LIST_MEDIA_TYPE">
-<code class="descname">DEVICE_ID_LIST_MEDIA_TYPE</code><em class="property"> = 'vnd.librarysimplified/drm-device-id-list'</em><a class="headerlink" href="#api.adobe_vendor_id.DeviceManagementProtocolController.DEVICE_ID_LIST_MEDIA_TYPE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.DeviceManagementProtocolController.PLAIN_TEXT_HEADERS">
-<code class="descname">PLAIN_TEXT_HEADERS</code><em class="property"> = {'Content-Type': 'text/plain'}</em><a class="headerlink" href="#api.adobe_vendor_id.DeviceManagementProtocolController.PLAIN_TEXT_HEADERS" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.DeviceManagementProtocolController.device_id_handler">
-<code class="descname">device_id_handler</code><span class="sig-paren">(</span><em>device_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#DeviceManagementProtocolController.device_id_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.DeviceManagementProtocolController.device_id_handler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Manage one of the device IDs associated with an Adobe ID.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.DeviceManagementProtocolController.device_id_list_handler">
-<code class="descname">device_id_list_handler</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#DeviceManagementProtocolController.device_id_list_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.DeviceManagementProtocolController.device_id_list_handler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Manage the list of device IDs associated with an Adobe ID.</p>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.adobe_vendor_id.DeviceManagementProtocolController.link_template_header">
-<code class="descname">link_template_header</code><a class="headerlink" href="#api.adobe_vendor_id.DeviceManagementProtocolController.link_template_header" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate the Link Template that explains how to deregister
-a specific DRM device ID.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.adobe_vendor_id.DeviceManagementRequestHandler">
-<em class="property">class </em><code class="descclassname">api.adobe_vendor_id.</code><code class="descname">DeviceManagementRequestHandler</code><span class="sig-paren">(</span><em>credential</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#DeviceManagementRequestHandler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.DeviceManagementRequestHandler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Handle incoming requests for the DRM Device Management Protocol.</p>
-<dl class="method">
-<dt id="api.adobe_vendor_id.DeviceManagementRequestHandler.deregister_device">
-<code class="descname">deregister_device</code><span class="sig-paren">(</span><em>device_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#DeviceManagementRequestHandler.deregister_device"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.DeviceManagementRequestHandler.deregister_device" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.DeviceManagementRequestHandler.device_list">
-<code class="descname">device_list</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#DeviceManagementRequestHandler.device_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.DeviceManagementRequestHandler.device_list" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.DeviceManagementRequestHandler.register_device">
-<code class="descname">register_device</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#DeviceManagementRequestHandler.register_device"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.DeviceManagementRequestHandler.register_device" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.adobe_vendor_id.ShortClientTokenLibraryConfigurationScript">
-<em class="property">class </em><code class="descclassname">api.adobe_vendor_id.</code><code class="descname">ShortClientTokenLibraryConfigurationScript</code><span class="sig-paren">(</span><em>_db=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#ShortClientTokenLibraryConfigurationScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.ShortClientTokenLibraryConfigurationScript" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.scripts.Script" title="core.scripts.Script"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.Script</span></code></a></p>
-<dl class="classmethod">
-<dt id="api.adobe_vendor_id.ShortClientTokenLibraryConfigurationScript.arg_parser">
-<em class="property">classmethod </em><code class="descname">arg_parser</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#ShortClientTokenLibraryConfigurationScript.arg_parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.ShortClientTokenLibraryConfigurationScript.arg_parser" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.ShortClientTokenLibraryConfigurationScript.do_run">
-<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#ShortClientTokenLibraryConfigurationScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.ShortClientTokenLibraryConfigurationScript.do_run" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.ShortClientTokenLibraryConfigurationScript.set_secret">
-<code class="descname">set_secret</code><span class="sig-paren">(</span><em>_db</em>, <em>website_url</em>, <em>vendor_id</em>, <em>short_name</em>, <em>secret</em>, <em>output</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#ShortClientTokenLibraryConfigurationScript.set_secret"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.ShortClientTokenLibraryConfigurationScript.set_secret" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.adobe_vendor_id.VendorIDLibraryConfigurationScript">
-<em class="property">class </em><code class="descclassname">api.adobe_vendor_id.</code><code class="descname">VendorIDLibraryConfigurationScript</code><span class="sig-paren">(</span><em>_db=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#VendorIDLibraryConfigurationScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.VendorIDLibraryConfigurationScript" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.scripts.Script" title="core.scripts.Script"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.Script</span></code></a></p>
-<dl class="classmethod">
-<dt id="api.adobe_vendor_id.VendorIDLibraryConfigurationScript.arg_parser">
-<em class="property">classmethod </em><code class="descname">arg_parser</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#VendorIDLibraryConfigurationScript.arg_parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.VendorIDLibraryConfigurationScript.arg_parser" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.VendorIDLibraryConfigurationScript.do_run">
-<code class="descname">do_run</code><span class="sig-paren">(</span><em>_db=None</em>, <em>cmd_args=None</em>, <em>output=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#VendorIDLibraryConfigurationScript.do_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.VendorIDLibraryConfigurationScript.do_run" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.adobe_vendor_id.VendorIDLibraryConfigurationScript.explain">
-<code class="descname">explain</code><span class="sig-paren">(</span><em>output</em>, <em>libraries</em>, <em>website</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/adobe_vendor_id.html#VendorIDLibraryConfigurationScript.explain"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.adobe_vendor_id.VendorIDLibraryConfigurationScript.explain" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
 </div>
 <div class="section" id="module-api.annotations">
 <span id="api-annotations-module"></span><h2>api.annotations module<a class="headerlink" href="#module-api.annotations" title="Permalink to this headline">¶</a></h2>
@@ -9373,7 +8821,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2022, 6, 24, 21, 19, 44, 99997, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2022, 6, 25, 15, 23, 34, 275066, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -11775,7 +11223,7 @@ routes and arguments for ‘loan info’ and ‘hold info’.</p>
 
 <dl class="attribute">
 <dt id="api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES">
-<code class="descname">SUPPORTED_MEDIA_TYPES</code><em class="property"> = ['application/epub+zip', 'application/pdf', 'application/audiobook+json']</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SUPPORTED_MEDIA_TYPES</code><em class="property"> = ['application/pdf', 'application/epub+zip', 'application/audiobook+json']</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -14342,17 +13790,17 @@ the given dictionary?</p>
 <p>A test that needs to create announcements.</p>
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.a_week_ago">
-<code class="descname">a_week_ago</code><em class="property"> = '2022-06-07'</em><a class="headerlink" href="#api.testing.AnnouncementTest.a_week_ago" title="Permalink to this definition">¶</a></dt>
+<code class="descname">a_week_ago</code><em class="property"> = '2022-06-08'</em><a class="headerlink" href="#api.testing.AnnouncementTest.a_week_ago" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.active">
-<code class="descname">active</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2022-06-15', 'id': 'active', 'start': '2022-06-14'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.active" title="Permalink to this definition">¶</a></dt>
+<code class="descname">active</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2022-06-16', 'id': 'active', 'start': '2022-06-15'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.active" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.expired">
-<code class="descname">expired</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2022-06-13', 'id': 'expired', 'start': '2022-06-07'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.expired" title="Permalink to this definition">¶</a></dt>
+<code class="descname">expired</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2022-06-14', 'id': 'expired', 'start': '2022-06-08'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.expired" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -14362,27 +13810,27 @@ the given dictionary?</p>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.forthcoming">
-<code class="descname">forthcoming</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2022-06-21', 'id': 'forthcoming', 'start': '2022-06-15'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.forthcoming" title="Permalink to this definition">¶</a></dt>
+<code class="descname">forthcoming</code><em class="property"> = {'content': 'A sample announcement.', 'finish': '2022-06-22', 'id': 'forthcoming', 'start': '2022-06-16'}</em><a class="headerlink" href="#api.testing.AnnouncementTest.forthcoming" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.in_a_week">
-<code class="descname">in_a_week</code><em class="property"> = '2022-06-21'</em><a class="headerlink" href="#api.testing.AnnouncementTest.in_a_week" title="Permalink to this definition">¶</a></dt>
+<code class="descname">in_a_week</code><em class="property"> = '2022-06-22'</em><a class="headerlink" href="#api.testing.AnnouncementTest.in_a_week" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.today">
-<code class="descname">today</code><em class="property"> = '2022-06-14'</em><a class="headerlink" href="#api.testing.AnnouncementTest.today" title="Permalink to this definition">¶</a></dt>
+<code class="descname">today</code><em class="property"> = '2022-06-15'</em><a class="headerlink" href="#api.testing.AnnouncementTest.today" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.tomorrow">
-<code class="descname">tomorrow</code><em class="property"> = '2022-06-15'</em><a class="headerlink" href="#api.testing.AnnouncementTest.tomorrow" title="Permalink to this definition">¶</a></dt>
+<code class="descname">tomorrow</code><em class="property"> = '2022-06-16'</em><a class="headerlink" href="#api.testing.AnnouncementTest.tomorrow" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.testing.AnnouncementTest.yesterday">
-<code class="descname">yesterday</code><em class="property"> = '2022-06-13'</em><a class="headerlink" href="#api.testing.AnnouncementTest.yesterday" title="Permalink to this definition">¶</a></dt>
+<code class="descname">yesterday</code><em class="property"> = '2022-06-14'</em><a class="headerlink" href="#api.testing.AnnouncementTest.yesterday" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

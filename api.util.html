@@ -115,6 +115,212 @@ restored.</p>
 </dd></dl>
 
 </div>
+<div class="section" id="module-api.util.short_client_token">
+<span id="api-util-short-client-token-module"></span><h2>api.util.short_client_token module<a class="headerlink" href="#module-api.util.short_client_token" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.util.short_client_token.DeviceManagementProtocolController">
+<em class="property">class </em><code class="descclassname">api.util.short_client_token.</code><code class="descname">DeviceManagementProtocolController</code><span class="sig-paren">(</span><em>manager</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#DeviceManagementProtocolController"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.DeviceManagementProtocolController" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="api.html#api.base_controller.BaseCirculationManagerController" title="api.base_controller.BaseCirculationManagerController"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.base_controller.BaseCirculationManagerController</span></code></a></p>
+<p>Implementation of the DRM Device ID Management Protocol.</p>
+<p>The code that does the actual work is in DeviceManagementRequestHandler.</p>
+<dl class="attribute">
+<dt id="api.util.short_client_token.DeviceManagementProtocolController.DEVICE_ID_LIST_MEDIA_TYPE">
+<code class="descname">DEVICE_ID_LIST_MEDIA_TYPE</code><em class="property"> = 'vnd.librarysimplified/drm-device-id-list'</em><a class="headerlink" href="#api.util.short_client_token.DeviceManagementProtocolController.DEVICE_ID_LIST_MEDIA_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.util.short_client_token.DeviceManagementProtocolController.PLAIN_TEXT_HEADERS">
+<code class="descname">PLAIN_TEXT_HEADERS</code><em class="property"> = {'Content-Type': 'text/plain'}</em><a class="headerlink" href="#api.util.short_client_token.DeviceManagementProtocolController.PLAIN_TEXT_HEADERS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.util.short_client_token.DeviceManagementProtocolController.device_id_handler">
+<code class="descname">device_id_handler</code><span class="sig-paren">(</span><em>device_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#DeviceManagementProtocolController.device_id_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.DeviceManagementProtocolController.device_id_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Manage one of the device IDs associated with an Adobe ID.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.util.short_client_token.DeviceManagementProtocolController.device_id_list_handler">
+<code class="descname">device_id_list_handler</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#DeviceManagementProtocolController.device_id_list_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.DeviceManagementProtocolController.device_id_list_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Manage the list of device IDs associated with an Adobe ID.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.util.short_client_token.DeviceManagementProtocolController.get_or_create_patron_identifier_credential">
+<code class="descname">get_or_create_patron_identifier_credential</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#DeviceManagementProtocolController.get_or_create_patron_identifier_credential"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.DeviceManagementProtocolController.get_or_create_patron_identifier_credential" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.util.short_client_token.DeviceManagementProtocolController.link_template_header">
+<code class="descname">link_template_header</code><a class="headerlink" href="#api.util.short_client_token.DeviceManagementProtocolController.link_template_header" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate the Link Template that explains how to deregister
+a specific DRM device ID.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.util.short_client_token.DeviceManagementRequestHandler">
+<em class="property">class </em><code class="descclassname">api.util.short_client_token.</code><code class="descname">DeviceManagementRequestHandler</code><span class="sig-paren">(</span><em>credential</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#DeviceManagementRequestHandler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.DeviceManagementRequestHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Handle incoming requests for the DRM Device Management Protocol.</p>
+<dl class="method">
+<dt id="api.util.short_client_token.DeviceManagementRequestHandler.deregister_device">
+<code class="descname">deregister_device</code><span class="sig-paren">(</span><em>device_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#DeviceManagementRequestHandler.deregister_device"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.DeviceManagementRequestHandler.deregister_device" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.util.short_client_token.DeviceManagementRequestHandler.device_list">
+<code class="descname">device_list</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#DeviceManagementRequestHandler.device_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.DeviceManagementRequestHandler.device_list" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.util.short_client_token.DeviceManagementRequestHandler.register_device">
+<code class="descname">register_device</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#DeviceManagementRequestHandler.register_device"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.DeviceManagementRequestHandler.register_device" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.util.short_client_token.ShortClientTokenUtility">
+<em class="property">class </em><code class="descclassname">api.util.short_client_token.</code><code class="descname">ShortClientTokenUtility</code><span class="sig-paren">(</span><em>vendor_id</em>, <em>library_uri</em>, <em>library_short_name</em>, <em>secret</em>, <em>other_libraries={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#ShortClientTokenUtility"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Generate authdata JWTs as per the Vendor ID Service spec:
+<a class="reference external" href="https://docs.google.com/document/d/1j8nWPVmy95pJ_iU4UTC-QgHK2QhDUSdQ0OQTFR2NE_0">https://docs.google.com/document/d/1j8nWPVmy95pJ_iU4UTC-QgHK2QhDUSdQ0OQTFR2NE_0</a></p>
+<p>Capable of encoding JWTs (for this library), and decoding them
+(from this library and potentially others).</p>
+<p>Also generates and decodes JWT-like strings used to get around
+Adobe’s lack of support for authdata in deactivation.</p>
+<dl class="attribute">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER">
+<code class="descname">ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER</code><em class="property"> = 'Identifier for Adobe account ID purposes'</em><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.ALGORITHM">
+<code class="descname">ALGORITHM</code><em class="property"> = 'HS256'</em><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.ALGORITHM" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.EPOCH">
+<code class="descname">EPOCH</code><em class="property"> = datetime.datetime(1970, 1, 1, 0, 0, tzinfo=&lt;UTC&gt;)</em><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.EPOCH" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.OTHER_LIBRARIES_KEY">
+<code class="descname">OTHER_LIBRARIES_KEY</code><em class="property"> = 'other_libraries'</em><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.OTHER_LIBRARIES_KEY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.VENDOR_ID_KEY">
+<code class="descname">VENDOR_ID_KEY</code><em class="property"> = 'vendor_id'</em><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.VENDOR_ID_KEY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.VENDOR_ID_UUID_TOKEN_TYPE">
+<code class="descname">VENDOR_ID_UUID_TOKEN_TYPE</code><em class="property"> = 'Vendor ID UUID'</em><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.VENDOR_ID_UUID_TOKEN_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="classmethod">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.adobe_base64_decode">
+<em class="property">classmethod </em><code class="descname">adobe_base64_decode</code><span class="sig-paren">(</span><em>str</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#ShortClientTokenUtility.adobe_base64_decode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.adobe_base64_decode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Undoes adobe_base64_encode.</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.adobe_base64_encode">
+<em class="property">classmethod </em><code class="descname">adobe_base64_encode</code><span class="sig-paren">(</span><em>str_to_encode</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#ShortClientTokenUtility.adobe_base64_encode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.adobe_base64_encode" title="Permalink to this definition">¶</a></dt>
+<dd><p>A modified base64 encoding that avoids triggering an Adobe bug.</p>
+<p>The bug seems to happen when the ‘password’ portion of a
+username/password pair contains a + character. So we replace +
+with :. We also replace / (another “suspicious” character)
+with ;. and strip newlines.</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.adobe_relevant_credentials">
+<em class="property">classmethod </em><code class="descname">adobe_relevant_credentials</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#ShortClientTokenUtility.adobe_relevant_credentials"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.adobe_relevant_credentials" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find all Adobe-relevant Credential objects for the given
+patron.
+This includes the patron’s identifier for Adobe ID purposes,
+and (less likely) any Adobe IDs directly associated with the
+Patron.
+:return: A SQLAlchemy query</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.decode_short_client_token">
+<code class="descname">decode_short_client_token</code><span class="sig-paren">(</span><em>token</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#ShortClientTokenUtility.decode_short_client_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.decode_short_client_token" title="Permalink to this definition">¶</a></dt>
+<dd><p>Attempt to interpret a ‘username’ and ‘password’ as a short
+client token identifying a patron of a specific library.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">a 2-tuple (library_uri, patron_identifier)</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><strong>ValueError</strong> – When the token is not valid for any reason.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.decode_two_part_short_client_token">
+<code class="descname">decode_two_part_short_client_token</code><span class="sig-paren">(</span><em>username</em>, <em>password</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#ShortClientTokenUtility.decode_two_part_short_client_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.decode_two_part_short_client_token" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decode a short client token that has already been split into
+two parts.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.encode_short_client_token">
+<code class="descname">encode_short_client_token</code><span class="sig-paren">(</span><em>patron_identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#ShortClientTokenUtility.encode_short_client_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.encode_short_client_token" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a short client token suitable for putting in an OPDS feed,
+where it can be picked up by a client and sent to the
+delegation authority to look up an Adobe ID.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A 2-tuple (vendor ID, token)</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.from_config">
+<em class="property">classmethod </em><code class="descname">from_config</code><span class="sig-paren">(</span><em>library</em>, <em>_db=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#ShortClientTokenUtility.from_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.from_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialize an ShortClientTokenUtility from site configuration.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">An ShortClientTokenUtility if one is configured; otherwise None.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><a class="reference internal" href="core.html#core.config.CannotLoadConfiguration" title="core.config.CannotLoadConfiguration"><strong>CannotLoadConfiguration</strong></a> – If an ShortClientTokenUtility is
+incompletely configured.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.numericdate">
+<em class="property">classmethod </em><code class="descname">numericdate</code><span class="sig-paren">(</span><em>d</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#ShortClientTokenUtility.numericdate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.numericdate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Turn a datetime object into a NumericDate as per RFC 7519.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.util.short_client_token.ShortClientTokenUtility.short_client_token_for_patron">
+<code class="descname">short_client_token_for_patron</code><span class="sig-paren">(</span><em>patron_information</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/util/short_client_token.html#ShortClientTokenUtility.short_client_token_for_patron"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.util.short_client_token.ShortClientTokenUtility.short_client_token_for_patron" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate short client token for patron, or for a patron’s identifier
+for Adobe ID purposes</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
 <div class="section" id="module-api.util.url">
 <span id="api-util-url-module"></span><h2>api.util.url module<a class="headerlink" href="#module-api.util.url" title="Permalink to this headline">¶</a></h2>
 <dl class="class">

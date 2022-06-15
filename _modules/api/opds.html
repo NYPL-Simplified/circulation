@@ -86,7 +86,7 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="n">cdn_url_for</span>
 
-<span class="kn">from</span> <span class="nn">.adobe_vendor_id</span> <span class="kn">import</span> <span class="n">AuthdataUtility</span>
+<span class="kn">from</span> <span class="nn">.util.short_client_token</span> <span class="kn">import</span> <span class="n">ShortClientTokenUtility</span>
 <span class="kn">from</span> <span class="nn">.annotations</span> <span class="kn">import</span> <span class="n">AnnotationWriter</span>
 <span class="kn">from</span> <span class="nn">.circulation</span> <span class="kn">import</span> <span class="n">BaseCirculationAPI</span>
 <span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="p">(</span>
@@ -1229,7 +1229,7 @@
             <span class="n">cached</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="n">authdata</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">authdata</span> <span class="o">=</span> <span class="n">AuthdataUtility</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+                <span class="n">authdata</span> <span class="o">=</span> <span class="n">ShortClientTokenUtility</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
             <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Cannot load Short Client Token configuration; outgoing OPDS entries will not have DRM autodiscovery support&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
                 <span class="k">return</span> <span class="p">[]</span>

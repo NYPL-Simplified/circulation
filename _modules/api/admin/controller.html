@@ -69,7 +69,7 @@
 <span class="kn">from</span> <span class="nn">api.admin.template_styles</span> <span class="kn">import</span> <span class="p">(</span><span class="n">body_style</span><span class="p">,</span> <span class="n">error_style</span><span class="p">,</span> <span class="n">hr_style</span><span class="p">,</span> <span class="n">section_style</span><span class="p">,</span> <span class="n">small_link_style</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">api.admin.templates</span> <span class="kn">import</span> <span class="n">admin</span> <span class="k">as</span> <span class="n">admin_template</span>
 <span class="kn">from</span> <span class="nn">api.admin.validator</span> <span class="kn">import</span> <span class="n">Validator</span>
-<span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="kn">import</span> <span class="n">AuthdataUtility</span>
+<span class="kn">from</span> <span class="nn">api.util.short_client_token</span> <span class="kn">import</span> <span class="n">ShortClientTokenUtility</span>
 <span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="p">(</span><span class="n">CannotCreateLocalPatron</span><span class="p">,</span> <span class="n">LibraryAuthenticator</span><span class="p">,</span> <span class="n">PatronData</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">api.axis</span> <span class="kn">import</span> <span class="n">Axis360API</span>
 <span class="kn">from</span> <span class="nn">api.bibliotheca</span> <span class="kn">import</span> <span class="n">BibliothecaAPI</span>
@@ -691,7 +691,7 @@
             <span class="p">)</span>
 
         <span class="c1"># Wipe the Patron&#39;s &#39;identifier for Adobe ID purposes&#39;.</span>
-        <span class="k">for</span> <span class="n">credential</span> <span class="ow">in</span> <span class="n">AuthdataUtility</span><span class="o">.</span><span class="n">adobe_relevant_credentials</span><span class="p">(</span><span class="n">patron</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">credential</span> <span class="ow">in</span> <span class="n">ShortClientTokenUtility</span><span class="o">.</span><span class="n">adobe_relevant_credentials</span><span class="p">(</span><span class="n">patron</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">credential</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">patron</span><span class="o">.</span><span class="n">username</span><span class="p">:</span>

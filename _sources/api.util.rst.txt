@@ -12,6 +12,14 @@ api.util.patron module
     :undoc-members:
     :show-inheritance:
 
+api.util.short\_client\_token module
+------------------------------------
+
+.. automodule:: api.util.short_client_token
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 api.util.url module
 -------------------
 

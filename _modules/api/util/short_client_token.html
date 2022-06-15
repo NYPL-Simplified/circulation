@@ -1,0 +1,621 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.util.short_client_token &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.util.short_client_token</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">uuid</span>
+<span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">jwt</span>
+<span class="kn">from</span> <span class="nn">jwt.algorithms</span> <span class="kn">import</span> <span class="n">HMACAlgorithm</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">flask</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">..config</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
+    <span class="n">Configuration</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">api.base_controller</span> <span class="kn">import</span> <span class="n">BaseCirculationManagerController</span>
+<span class="kn">from</span> <span class="nn">..problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">core.util.datetime_helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">datetime_utc</span><span class="p">,</span>
+    <span class="n">utc_now</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="n">url_for</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">create</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">ConfigurationSetting</span><span class="p">,</span>
+    <span class="n">Credential</span><span class="p">,</span>
+    <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">DelegatedPatronIdentifier</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">Library</span><span class="p">,</span>
+    <span class="n">Patron</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="kn">import</span> <span class="n">Script</span>
+
+
+<div class="viewcode-block" id="DeviceManagementProtocolController"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.DeviceManagementProtocolController">[docs]</a><span class="k">class</span> <span class="nc">DeviceManagementProtocolController</span><span class="p">(</span><span class="n">BaseCirculationManagerController</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Implementation of the DRM Device ID Management Protocol.</span>
+
+<span class="sd">    The code that does the actual work is in DeviceManagementRequestHandler.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">DEVICE_ID_LIST_MEDIA_TYPE</span> <span class="o">=</span> <span class="s2">&quot;vnd.librarysimplified/drm-device-id-list&quot;</span>
+    <span class="n">PLAIN_TEXT_HEADERS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span> <span class="p">:</span> <span class="s2">&quot;text/plain&quot;</span><span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">link_template_header</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generate the Link Template that explains how to deregister</span>
+<span class="sd">        a specific DRM device ID.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;adobe_drm_device&quot;</span><span class="p">,</span> <span class="n">library_short_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span> <span class="n">device_id</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{id}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># The curly brackets in {id} were escaped. Un-escape them to</span>
+        <span class="c1"># get a Link Template.</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;%7Bid%7D&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">{id}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;Link-Template&quot;</span><span class="p">:</span> <span class="s1">&#39;&lt;</span><span class="si">%s</span><span class="s1">&gt;; rel=&quot;item&quot;&#39;</span> <span class="o">%</span> <span class="n">url</span><span class="p">}</span>
+
+<div class="viewcode-block" id="DeviceManagementProtocolController.get_or_create_patron_identifier_credential"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.DeviceManagementProtocolController.get_or_create_patron_identifier_credential">[docs]</a>    <span class="k">def</span> <span class="nf">get_or_create_patron_identifier_credential</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">refresh</span><span class="p">(</span><span class="n">credential</span><span class="p">):</span>
+            <span class="n">credential</span><span class="o">.</span><span class="n">credential</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid1</span><span class="p">())</span>
+
+        <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">INTERNAL_PROCESSING</span><span class="p">)</span>
+        <span class="n">patron_identifier_credential</span> <span class="o">=</span> <span class="n">Credential</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span>
+            <span class="n">ShortClientTokenUtility</span><span class="o">.</span><span class="n">ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER</span><span class="p">,</span>
+            <span class="n">patron</span><span class="p">,</span> <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span> <span class="n">allow_persistent_token</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">patron_identifier_credential</span></div>
+
+    <span class="k">def</span> <span class="nf">_request_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a DeviceManagementRequestHandler for the appropriate</span>
+<span class="sd">        Credential of the given Patron.</span>
+
+<span class="sd">        :return: A DeviceManagementRequestHandler</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">patron</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;No authenticated patron&quot;</span><span class="p">))</span>
+
+        <span class="n">credential</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_or_create_patron_identifier_credential</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">DeviceManagementRequestHandler</span><span class="p">(</span><span class="n">credential</span><span class="p">)</span>
+
+<div class="viewcode-block" id="DeviceManagementProtocolController.device_id_list_handler"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.DeviceManagementProtocolController.device_id_list_handler">[docs]</a>    <span class="k">def</span> <span class="nf">device_id_list_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Manage the list of device IDs associated with an Adobe ID.&quot;&quot;&quot;</span>
+        <span class="n">handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_request_handler</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">handler</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">handler</span>
+
+        <span class="n">device_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEVICE_ID_LIST_MEDIA_TYPE</span>
+        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s1">&#39;GET&#39;</span><span class="p">:</span>
+            <span class="c1"># Serve a list of device IDs.</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">handler</span><span class="o">.</span><span class="n">device_list</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">output</span>
+            <span class="n">headers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">link_template_header</span>
+            <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">device_ids</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s1">&#39;POST&#39;</span><span class="p">:</span>
+            <span class="c1"># Add a device ID to the list.</span>
+            <span class="n">incoming_media_type</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">incoming_media_type</span> <span class="o">!=</span> <span class="n">device_ids</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">UNSUPPORTED_MEDIA_TYPE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Expected </span><span class="si">%(media_type)s</span><span class="s2"> document.&quot;</span><span class="p">,</span>
+                      <span class="n">media_type</span><span class="o">=</span><span class="n">device_ids</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">handler</span><span class="o">.</span><span class="n">register_device</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">as_text</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">output</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PLAIN_TEXT_HEADERS</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">METHOD_NOT_ALLOWED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+            <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Only GET and POST are supported.&quot;</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="DeviceManagementProtocolController.device_id_handler"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.DeviceManagementProtocolController.device_id_handler">[docs]</a>    <span class="k">def</span> <span class="nf">device_id_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Manage one of the device IDs associated with an Adobe ID.&quot;&quot;&quot;</span>
+        <span class="n">handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_request_handler</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;patron&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">handler</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">handler</span>
+
+        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">!=</span> <span class="s1">&#39;DELETE&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">METHOD_NOT_ALLOWED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Only DELETE is supported.&quot;</span><span class="p">))</span>
+
+        <span class="c1"># Delete the specified device ID.</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">handler</span><span class="o">.</span><span class="n">deregister_device</span><span class="p">(</span><span class="n">device_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">output</span>
+        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PLAIN_TEXT_HEADERS</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="DeviceManagementRequestHandler"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.DeviceManagementRequestHandler">[docs]</a><span class="k">class</span> <span class="nc">DeviceManagementRequestHandler</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Handle incoming requests for the DRM Device Management Protocol.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">credential</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">credential</span> <span class="o">=</span> <span class="n">credential</span>
+
+<div class="viewcode-block" id="DeviceManagementRequestHandler.device_list"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.DeviceManagementRequestHandler.device_list">[docs]</a>    <span class="k">def</span> <span class="nf">device_list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="nb">sorted</span><span class="p">(</span>
+                <span class="n">x</span><span class="o">.</span><span class="n">device_identifier</span>
+                <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">credential</span><span class="o">.</span><span class="n">drm_device_identifiers</span>
+            <span class="p">)</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="DeviceManagementRequestHandler.register_device"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.DeviceManagementRequestHandler.register_device">[docs]</a>    <span class="k">def</span> <span class="nf">register_device</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="n">device_ids</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">device_ids</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">PAYLOAD_TOO_LARGE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You may only register one device ID at a time.&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">for</span> <span class="n">device_id</span> <span class="ow">in</span> <span class="n">device_ids</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">device_id</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">credential</span><span class="o">.</span><span class="n">register_drm_device_identifier</span><span class="p">(</span><span class="n">device_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s1">&#39;Success&#39;</span></div>
+
+<div class="viewcode-block" id="DeviceManagementRequestHandler.deregister_device"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.DeviceManagementRequestHandler.deregister_device">[docs]</a>    <span class="k">def</span> <span class="nf">deregister_device</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_id</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">credential</span><span class="o">.</span><span class="n">deregister_drm_device_identifier</span><span class="p">(</span><span class="n">device_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s1">&#39;Success&#39;</span></div></div>
+
+
+<div class="viewcode-block" id="ShortClientTokenUtility"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.ShortClientTokenUtility">[docs]</a><span class="k">class</span> <span class="nc">ShortClientTokenUtility</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Generate authdata JWTs as per the Vendor ID Service spec:</span>
+<span class="sd">    https://docs.google.com/document/d/1j8nWPVmy95pJ_iU4UTC-QgHK2QhDUSdQ0OQTFR2NE_0</span>
+
+<span class="sd">    Capable of encoding JWTs (for this library), and decoding them</span>
+<span class="sd">    (from this library and potentially others).</span>
+
+<span class="sd">    Also generates and decodes JWT-like strings used to get around</span>
+<span class="sd">    Adobe&#39;s lack of support for authdata in deactivation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># The type of the Credential created to identify a patron to the</span>
+    <span class="c1"># Vendor ID Service. Using this as an alias keeps the Vendor ID</span>
+    <span class="c1"># Service from knowing anything about the patron&#39;s true</span>
+    <span class="c1"># identity. This Credential is permanent (unlike a patron&#39;s</span>
+    <span class="c1"># username or authorization identifier), but can be revoked (if</span>
+    <span class="c1"># the patron needs to reset their Adobe account ID) with no</span>
+    <span class="c1"># consequences other than losing their currently checked-in books.</span>
+    <span class="n">ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER</span> <span class="o">=</span> <span class="s2">&quot;Identifier for Adobe account ID purposes&quot;</span>
+    <span class="n">VENDOR_ID_UUID_TOKEN_TYPE</span> <span class="o">=</span> <span class="s2">&quot;Vendor ID UUID&quot;</span>
+
+    <span class="n">ALGORITHM</span> <span class="o">=</span> <span class="s1">&#39;HS256&#39;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vendor_id</span><span class="p">,</span> <span class="n">library_uri</span><span class="p">,</span> <span class="n">library_short_name</span><span class="p">,</span> <span class="n">secret</span><span class="p">,</span>
+                 <span class="n">other_libraries</span><span class="o">=</span><span class="p">{}):</span>
+        <span class="sd">&quot;&quot;&quot;Basic constructor.</span>
+
+<span class="sd">        :param vendor_id: The Adobe Vendor ID that should accompany authdata</span>
+<span class="sd">        generated by this utility.</span>
+
+<span class="sd">        If this library has its own Adobe Vendor ID, it should go</span>
+<span class="sd">        here. If this library is delegating authdata control to some</span>
+<span class="sd">        other library, that library&#39;s Vendor ID should go here.</span>
+
+<span class="sd">        :param library_uri: A URI identifying this library. This is</span>
+<span class="sd">        used when generating JWTs.</span>
+
+<span class="sd">        :param short_name: A short string identifying this</span>
+<span class="sd">        library. This is used when generating short client tokens,</span>
+<span class="sd">        which must be as short as possible (thus the name).</span>
+
+<span class="sd">        :param secret: A secret used to sign this library&#39;s authdata.</span>
+
+<span class="sd">        :param other_libraries: A dictionary mapping other libraries&#39;</span>
+<span class="sd">        canonical URIs to their (short name, secret) 2-tuples. An</span>
+<span class="sd">        instance of this class will be able to decode an authdata from</span>
+<span class="sd">        any library in this dictionary (plus the library it was</span>
+<span class="sd">        initialized for).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vendor_id</span> <span class="o">=</span> <span class="n">vendor_id</span>
+
+        <span class="c1"># This is used to _encode_ JWTs and send them to the</span>
+        <span class="c1"># delegation authority.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">library_uri</span> <span class="o">=</span> <span class="n">library_uri</span>
+
+        <span class="c1"># This is used to _encode_ short client tokens.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">short_name</span> <span class="o">=</span> <span class="n">library_short_name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+
+        <span class="c1"># This is used to encode both JWTs and short client tokens.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">secret</span> <span class="o">=</span> <span class="n">secret</span>
+
+        <span class="c1"># This is used by the delegation authority to _decode_ JWTs.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">secrets_by_library_uri</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">secrets_by_library_uri</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">library_uri</span><span class="p">]</span> <span class="o">=</span> <span class="n">secret</span>
+
+        <span class="c1"># This is used by the delegation authority to _decode_ short</span>
+        <span class="c1"># client tokens.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">library_uris_by_short_name</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">library_uris_by_short_name</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">short_name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_uri</span>
+
+        <span class="c1"># Fill in secrets_by_library_uri and library_uris_by_short_name</span>
+        <span class="c1"># for other libraries.</span>
+        <span class="k">for</span> <span class="n">uri</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">other_libraries</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="n">short_name</span><span class="p">,</span> <span class="n">secret</span> <span class="o">=</span> <span class="n">v</span>
+            <span class="n">short_name</span> <span class="o">=</span> <span class="n">short_name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">short_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_uris_by_short_name</span><span class="p">:</span>
+                <span class="c1"># This can happen if the same library is in the list</span>
+                <span class="c1"># twice, capitalized differently.</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Duplicate short name: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">short_name</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">library_uris_by_short_name</span><span class="p">[</span><span class="n">short_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">uri</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">secrets_by_library_uri</span><span class="p">[</span><span class="n">uri</span><span class="p">]</span> <span class="o">=</span> <span class="n">secret</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Adobe authdata utility&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">short_token_signer</span> <span class="o">=</span> <span class="n">HMACAlgorithm</span><span class="p">(</span><span class="n">HMACAlgorithm</span><span class="o">.</span><span class="n">SHA256</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">short_token_signing_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_token_signer</span><span class="o">.</span><span class="n">prepare_key</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">secret</span>
+        <span class="p">)</span>
+
+    <span class="n">VENDOR_ID_KEY</span> <span class="o">=</span> <span class="s1">&#39;vendor_id&#39;</span>
+    <span class="n">OTHER_LIBRARIES_KEY</span> <span class="o">=</span> <span class="s1">&#39;other_libraries&#39;</span>
+
+<div class="viewcode-block" id="ShortClientTokenUtility.from_config"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.ShortClientTokenUtility.from_config">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize an ShortClientTokenUtility from site configuration.</span>
+
+<span class="sd">        :return: An ShortClientTokenUtility if one is configured; otherwise None.</span>
+
+<span class="sd">        :raise CannotLoadConfiguration: If an ShortClientTokenUtility is</span>
+<span class="sd">            incompletely configured.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span> <span class="ow">or</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_db</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;No database connection provided and could not derive one from Library object!&quot;</span>
+            <span class="p">)</span>
+        <span class="c1"># Use a version of the library</span>
+        <span class="n">library</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># Try to find an external integration with a configured Vendor ID.</span>
+        <span class="n">integrations</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">libraries</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">protocol</span><span class="o">==</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_REGISTRATION</span><span class="p">,</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">goal</span><span class="o">==</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">DISCOVERY_GOAL</span><span class="p">,</span>
+            <span class="n">Library</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">library</span><span class="o">.</span><span class="n">id</span>
+        <span class="p">)</span>
+
+        <span class="n">integration</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">possible_integration</span> <span class="ow">in</span> <span class="n">integrations</span><span class="p">:</span>
+            <span class="n">vendor_id</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_externalintegration</span><span class="p">(</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">VENDOR_ID_KEY</span><span class="p">,</span> <span class="n">possible_integration</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="k">if</span> <span class="n">vendor_id</span><span class="p">:</span>
+                <span class="n">integration</span> <span class="o">=</span> <span class="n">possible_integration</span>
+                <span class="k">break</span>
+
+        <span class="n">library_uri</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span>
+            <span class="n">Configuration</span><span class="o">.</span><span class="n">WEBSITE_URL</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">integration</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">vendor_id</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">VENDOR_ID_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">library_short_name</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">secret</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="n">other_libraries</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">adobe_integration</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ADOBE_VENDOR_ID</span><span class="p">,</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">DRM_GOAL</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">adobe_integration</span><span class="p">:</span>
+            <span class="n">other_libraries</span> <span class="o">=</span> <span class="n">adobe_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">OTHER_LIBRARIES_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">json_value</span>
+        <span class="n">other_libraries</span> <span class="o">=</span> <span class="n">other_libraries</span> <span class="ow">or</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">vendor_id</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">library_uri</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">library_short_name</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">secret</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s2">&quot;Short Client Token configuration is incomplete. &quot;</span>
+                <span class="s2">&quot;vendor_id (</span><span class="si">%s</span><span class="s2">), username (</span><span class="si">%s</span><span class="s2">), password (</span><span class="si">%s</span><span class="s2">) and &quot;</span>
+                <span class="s2">&quot;Library website_url (</span><span class="si">%s</span><span class="s2">) must all be defined.&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">vendor_id</span><span class="p">,</span> <span class="n">library_uri</span><span class="p">,</span> <span class="n">library_short_name</span><span class="p">,</span> <span class="n">secret</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;|&#39;</span> <span class="ow">in</span> <span class="n">library_short_name</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s2">&quot;Library short name cannot contain the pipe character.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">vendor_id</span><span class="p">,</span> <span class="n">library_uri</span><span class="p">,</span> <span class="n">library_short_name</span><span class="p">,</span> <span class="n">secret</span><span class="p">,</span> <span class="n">other_libraries</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ShortClientTokenUtility.adobe_relevant_credentials"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.ShortClientTokenUtility.adobe_relevant_credentials">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">adobe_relevant_credentials</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find all Adobe-relevant Credential objects for the given</span>
+<span class="sd">        patron.</span>
+<span class="sd">        This includes the patron&#39;s identifier for Adobe ID purposes,</span>
+<span class="sd">        and (less likely) any Adobe IDs directly associated with the</span>
+<span class="sd">        Patron.</span>
+<span class="sd">        :return: A SQLAlchemy query</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+        <span class="n">types</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">ShortClientTokenUtility</span><span class="o">.</span><span class="n">VENDOR_ID_UUID_TOKEN_TYPE</span><span class="p">,</span>
+            <span class="n">ShortClientTokenUtility</span><span class="o">.</span><span class="n">ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">Credential</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Credential</span><span class="o">.</span><span class="n">patron</span><span class="o">==</span><span class="n">patron</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Credential</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">types</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ShortClientTokenUtility.adobe_base64_encode"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.ShortClientTokenUtility.adobe_base64_encode">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">adobe_base64_encode</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">str_to_encode</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A modified base64 encoding that avoids triggering an Adobe bug.</span>
+
+<span class="sd">        The bug seems to happen when the &#39;password&#39; portion of a</span>
+<span class="sd">        username/password pair contains a + character. So we replace +</span>
+<span class="sd">        with :. We also replace / (another &quot;suspicious&quot; character)</span>
+<span class="sd">        with ;. and strip newlines.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">str_to_encode</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">str_to_encode</span> <span class="o">=</span> <span class="n">str_to_encode</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+        <span class="n">encoded</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">encodebytes</span><span class="p">(</span><span class="n">str_to_encode</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">encoded</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;:&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">,</span> <span class="s2">&quot;@&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ShortClientTokenUtility.adobe_base64_decode"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.ShortClientTokenUtility.adobe_base64_decode">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">adobe_base64_decode</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Undoes adobe_base64_encode.&quot;&quot;&quot;</span>
+        <span class="n">encoded</span> <span class="o">=</span> <span class="nb">str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">,</span> <span class="s2">&quot;/&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">,</span> <span class="s2">&quot;=&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">base64</span><span class="o">.</span><span class="n">decodebytes</span><span class="p">(</span><span class="n">encoded</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_adobe_patron_identifier</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Take patron object and return identifier for Adobe ID purposes&quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+        <span class="n">internal</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">INTERNAL_PROCESSING</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">refresh</span><span class="p">(</span><span class="n">credential</span><span class="p">):</span>
+            <span class="n">credential</span><span class="o">.</span><span class="n">credential</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid1</span><span class="p">())</span>
+        <span class="n">patron_identifier</span> <span class="o">=</span> <span class="n">Credential</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">internal</span><span class="p">,</span> <span class="n">ShortClientTokenUtility</span><span class="o">.</span><span class="n">ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span>
+            <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span> <span class="n">allow_persistent_token</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">patron_identifier</span><span class="o">.</span><span class="n">credential</span>
+
+
+<div class="viewcode-block" id="ShortClientTokenUtility.short_client_token_for_patron"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.ShortClientTokenUtility.short_client_token_for_patron">[docs]</a>    <span class="k">def</span> <span class="nf">short_client_token_for_patron</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron_information</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generate short client token for patron, or for a patron&#39;s identifier</span>
+<span class="sd">         for Adobe ID purposes&quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron_information</span><span class="p">,</span> <span class="n">Patron</span><span class="p">):</span>
+            <span class="c1"># Find the patron&#39;s identifier for Adobe ID purposes.</span>
+            <span class="n">patron_identifier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_adobe_patron_identifier</span><span class="p">(</span>
+                <span class="n">patron_information</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">patron_identifier</span> <span class="o">=</span> <span class="n">patron_information</span>
+
+        <span class="n">vendor_id</span><span class="p">,</span> <span class="n">token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encode_short_client_token</span><span class="p">(</span><span class="n">patron_identifier</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">vendor_id</span><span class="p">,</span> <span class="n">token</span></div>
+
+<div class="viewcode-block" id="ShortClientTokenUtility.encode_short_client_token"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.ShortClientTokenUtility.encode_short_client_token">[docs]</a>    <span class="k">def</span> <span class="nf">encode_short_client_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron_identifier</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generate a short client token suitable for putting in an OPDS feed,</span>
+<span class="sd">        where it can be picked up by a client and sent to the</span>
+<span class="sd">        delegation authority to look up an Adobe ID.</span>
+
+<span class="sd">        :return: A 2-tuple (vendor ID, token)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">patron_identifier</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No patron identifier specified&quot;</span><span class="p">)</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
+        <span class="n">expires</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">numericdate</span><span class="p">(</span><span class="n">now</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">60</span><span class="p">)))</span>
+        <span class="n">authdata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_encode_short_client_token</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span> <span class="n">patron_identifier</span><span class="p">,</span> <span class="n">expires</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">vendor_id</span><span class="p">,</span> <span class="n">authdata</span></div>
+
+    <span class="k">def</span> <span class="nf">_encode_short_client_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library_short_name</span><span class="p">,</span>
+                                   <span class="n">patron_identifier</span><span class="p">,</span> <span class="n">expires</span><span class="p">):</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="n">library_short_name</span> <span class="o">+</span> <span class="s2">&quot;|&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">expires</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;|&quot;</span> <span class="o">+</span> <span class="n">patron_identifier</span>
+        <span class="n">signature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_token_signer</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span>
+            <span class="n">base</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_token_signing_key</span>
+        <span class="p">)</span>
+        <span class="n">signature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">adobe_base64_encode</span><span class="p">(</span><span class="n">signature</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">base</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">80</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Username portion of short client token exceeds 80 characters; Adobe will probably truncate it.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">signature</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">76</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Password portion of short client token exceeds 76 characters; Adobe will probably truncate it.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">base</span> <span class="o">+</span> <span class="s2">&quot;|&quot;</span> <span class="o">+</span> <span class="n">signature</span>
+
+<div class="viewcode-block" id="ShortClientTokenUtility.decode_short_client_token"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.ShortClientTokenUtility.decode_short_client_token">[docs]</a>    <span class="k">def</span> <span class="nf">decode_short_client_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Attempt to interpret a &#39;username&#39; and &#39;password&#39; as a short</span>
+<span class="sd">        client token identifying a patron of a specific library.</span>
+
+<span class="sd">        :return: a 2-tuple (library_uri, patron_identifier)</span>
+
+<span class="sd">        :raise ValueError: When the token is not valid for any reason.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;|&#39;</span> <span class="ow">in</span> <span class="n">token</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s1">&#39;Supposed client token &quot;</span><span class="si">%s</span><span class="s1">&quot; does not contain a pipe.&#39;</span> <span class="o">%</span> <span class="n">token</span>
+            <span class="p">)</span>
+
+        <span class="n">username</span><span class="p">,</span> <span class="n">password</span> <span class="o">=</span> <span class="n">token</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;|&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">decode_two_part_short_client_token</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ShortClientTokenUtility.decode_two_part_short_client_token"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.ShortClientTokenUtility.decode_two_part_short_client_token">[docs]</a>    <span class="k">def</span> <span class="nf">decode_two_part_short_client_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Decode a short client token that has already been split into</span>
+<span class="sd">        two parts.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">signature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">adobe_base64_decode</span><span class="p">(</span><span class="n">password</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decode_short_client_token</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">signature</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_decode_short_client_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">supposed_signature</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make sure a client token is properly formatted, correctly signed,</span>
+<span class="sd">        and not expired.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">token</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s1">&#39;|&#39;</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid client token: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">token</span><span class="p">)</span>
+        <span class="n">library_short_name</span><span class="p">,</span> <span class="n">expiration</span><span class="p">,</span> <span class="n">patron_identifier</span> <span class="o">=</span> <span class="n">token</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;|&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="n">library_short_name</span> <span class="o">=</span> <span class="n">library_short_name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">expiration</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">expiration</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Expiration time &quot;</span><span class="si">%s</span><span class="s1">&quot; is not numeric.&#39;</span> <span class="o">%</span> <span class="n">expiration</span><span class="p">)</span>
+
+        <span class="c1"># We don&#39;t police the content of the patron identifier but there</span>
+        <span class="c1"># has to be _something_ there.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">patron_identifier</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Token </span><span class="si">%s</span><span class="s2"> has empty patron identifier&quot;</span> <span class="o">%</span> <span class="n">token</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">library_short_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_uris_by_short_name</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;I don&#39;t know how to handle tokens from library </span><span class="se">\&quot;</span><span class="si">%s</span><span class="se">\&quot;</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">library_short_name</span>
+            <span class="p">)</span>
+        <span class="n">library_uri</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_uris_by_short_name</span><span class="p">[</span><span class="n">library_short_name</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">library_uri</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">secrets_by_library_uri</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;I don&#39;t know the secret for library </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">library_uri</span>
+            <span class="p">)</span>
+        <span class="n">secret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">secrets_by_library_uri</span><span class="p">[</span><span class="n">library_uri</span><span class="p">]</span>
+
+        <span class="c1"># Don&#39;t bother checking an expired token.</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span>
+        <span class="n">expiration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">EPOCH</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">expiration</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">expiration</span> <span class="o">&lt;</span> <span class="n">now</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Token </span><span class="si">%s</span><span class="s2"> expired at </span><span class="si">%s</span><span class="s2"> (now is </span><span class="si">%s</span><span class="s2">).&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">token</span><span class="p">,</span> <span class="n">expiration</span><span class="p">,</span> <span class="n">now</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Sign the token and check against the provided signature.</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_token_signer</span><span class="o">.</span><span class="n">prepare_key</span><span class="p">(</span><span class="n">secret</span><span class="p">)</span>
+        <span class="n">actual_signature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_token_signer</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">),</span> <span class="n">key</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">actual_signature</span> <span class="o">!=</span> <span class="n">supposed_signature</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Invalid signature for </span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">token</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">library_uri</span><span class="p">,</span> <span class="n">patron_identifier</span>
+
+    <span class="n">EPOCH</span> <span class="o">=</span> <span class="n">datetime_utc</span><span class="p">(</span><span class="mi">1970</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ShortClientTokenUtility.numericdate"><a class="viewcode-back" href="../../../api.util.html#api.util.short_client_token.ShortClientTokenUtility.numericdate">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">numericdate</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn a datetime object into a NumericDate as per RFC 7519.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">d</span><span class="o">-</span><span class="bp">cls</span><span class="o">.</span><span class="n">EPOCH</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

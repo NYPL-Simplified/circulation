@@ -56,10 +56,9 @@
 <span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">eagerload</span>
 
-<span class="kn">from</span> <span class="nn">.adobe_vendor_id</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">AdobeVendorIDController</span><span class="p">,</span>
+<span class="kn">from</span> <span class="nn">.util.short_client_token</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DeviceManagementProtocolController</span><span class="p">,</span>
-    <span class="n">AuthdataUtility</span><span class="p">,</span>
+    <span class="n">ShortClientTokenUtility</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">.annotations</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AnnotationWriter</span><span class="p">,</span>
@@ -503,33 +502,13 @@
             <span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ADOBE_VENDOR_ID</span><span class="p">,</span>
             <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">DRM_GOAL</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span>
         <span class="p">)</span>
-        <span class="n">warning</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="s1">&#39;Adobe Vendor ID controller is disabled due to missing or&#39;</span>
-            <span class="s1">&#39; incomplete configuration. This is probably nothing to&#39;</span>
-            <span class="s1">&#39; worry about.&#39;</span>
-        <span class="p">)</span>
 
-        <span class="n">new_adobe_vendor_id</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">adobe</span><span class="p">:</span>
             <span class="c1"># Relatively few libraries will have this setup.</span>
             <span class="n">vendor_id</span> <span class="o">=</span> <span class="n">adobe</span><span class="o">.</span><span class="n">username</span>
             <span class="n">node_value</span> <span class="o">=</span> <span class="n">adobe</span><span class="o">.</span><span class="n">password</span>
-            <span class="k">if</span> <span class="n">vendor_id</span> <span class="ow">and</span> <span class="n">node_value</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">new_adobe_vendor_id</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                        <span class="s2">&quot;Multiple libraries define an Adobe Vendor ID integration. This is not supported and the last library seen will take precedence.&quot;</span>
-                    <span class="p">)</span>
-                <span class="n">new_adobe_vendor_id</span> <span class="o">=</span> <span class="n">AdobeVendorIDController</span><span class="p">(</span>
-                    <span class="n">_db</span><span class="p">,</span>
-                    <span class="n">library</span><span class="p">,</span>
-                    <span class="n">vendor_id</span><span class="p">,</span>
-                    <span class="n">node_value</span><span class="p">,</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">auth</span>
-                <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">new_adobe_vendor_id</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">adobe_vendor_id</span> <span class="o">=</span> <span class="n">new_adobe_vendor_id</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">vendor_id</span> <span class="ow">and</span> <span class="n">node_value</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Adobe Vendor ID is disabled due to missing or incomplete configuration. This is probably nothing to worry about.&quot;</span><span class="p">)</span>
 
         <span class="c1"># But almost all libraries will have a Short Client Token</span>
         <span class="c1"># setup. We&#39;re not setting anything up here, but this is useful</span>
@@ -542,7 +521,7 @@
         <span class="n">authdata</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">registry</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">authdata</span> <span class="o">=</span> <span class="n">AuthdataUtility</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">_db</span><span class="p">)</span>
+                <span class="n">authdata</span> <span class="o">=</span> <span class="n">ShortClientTokenUtility</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">_db</span><span class="p">)</span>
             <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">short_client_token_initialization_exceptions</span><span class="p">[</span><span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">e</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>

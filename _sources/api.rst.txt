@@ -17,14 +17,6 @@ Subpackages
 Submodules
 ----------
 
-api.adobe\_vendor\_id module
-----------------------------
-
-.. automodule:: api.adobe_vendor_id
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 api.annotations module
 ----------------------
 
