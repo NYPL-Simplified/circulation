@@ -6,6 +6,8 @@
 # This file lists all the requirements except for the psycopg2 requirement
 # which is specified separately in requirements.txt and requirements-dev.txt
 # 
+apispec==5.1.1
+apispec-webframeworks==0.5.2
 Babel==2.8.0
 boto3==1.23.2
 botocore==1.26.2
