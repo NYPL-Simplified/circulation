@@ -82,17 +82,27 @@ class GeographicValidator(Validator):
                 elif len(value.split(", ")) == 2:
                     # Is it in the format "[city], [state abbreviation]" or "[county], [state abbreviation]"?
                     city_or_county, state = value.split(", ")
+                    # Flag for needing to be checked with the registry
+                    flagged = True
+                    # Check the entire state for the county, but only
+                    # if there is no match from by_city_and_state.
+                    query_state_for_county = True
                     try:
                         if us_search.by_city_and_state(city_or_county, state):
                             locations["US"].append(value)
-                        elif len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county]):
-                            locations["US"].append(value)
-                        else:
-                            # Flag this as needing to be checked with the registry
-                            flagged = True
+                            flagged = False
+                            query_state_for_county = False
                     except ValueError:
                         # uszipcode does fuzzy searching and raises a ValueError
-                        flagged = True
+                        pass
+                    finally:
+                        # If a match hasn't been found yet then search for the county
+                        if (
+                            query_state_for_county and
+                            len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county])
+                        ):
+                            locations["US"].append(value)
+                            flagged = False
                 elif self.is_zip(value, "US"):
                     # Is it a US zipcode?
                     info = self.look_up_zip(value, "US")
