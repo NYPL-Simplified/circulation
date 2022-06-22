@@ -46,3 +46,8 @@ jobs:
         with:
           files: ./coverage.xml
           verbose: true
+
+      - name: Upload Cover Image Artifacts
+        uses: actions/checkout@v3
+        with:
+          path: test_images/*
