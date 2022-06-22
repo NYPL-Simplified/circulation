@@ -48,6 +48,8 @@ jobs:
           verbose: true
 
       - name: Upload Cover Image Artifacts
+        if: always()
         uses: actions/upload-artifact@v3
         with:
+          name: cover-images
           path: test_images/*
