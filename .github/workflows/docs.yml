@@ -19,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.7
+          python-version: '3.10'
 
       # The https://github.com/marketplace/actions/sphinx-build Github Action can
       # run `pip install` but it fails to gather other system package
