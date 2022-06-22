@@ -48,6 +48,6 @@ jobs:
           verbose: true
 
       - name: Upload Cover Image Artifacts
-        uses: actions/checkout@v3
+        uses: actions/upload-artifact@v3
         with:
           path: test_images/*
