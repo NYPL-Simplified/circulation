@@ -876,36 +876,31 @@ class TestWorkController(AdminControllerTest):
         result = self.manager.admin_work_controller._validate_cover_image(valid)
         assert True == result
 
-    def test_process_cover_image(self):
-        work = self._work(with_license_pool=True, title="Title", authors="Authpr")
+    @pytest.mark.parametrize(
+        "original_file_path,processed_file_path,title_position",
+        [
+            # Without a title position, the image won't be changed.
+            pytest.param("blue.jpg", "blue.jpg", "none", id="no_title_position"),
+            # Here the title and author are added in the center. Compare the result
+            # with a pre-generated version.
+            pytest.param("blue_with_title_author.png", "blue.jpg", "center", id="center_title_position"),
+        ]
+    )
+    def test_process_cover_image(self, original_file_path, processed_file_path, title_position):
+        work = self._work(with_license_pool=True, title="Title", authors="Author")
 
         base_path = os.path.split(__file__)[0]
         folder = os.path.dirname(base_path)
         resource_path = os.path.join(folder, "..", "files", "images")
-        path = os.path.join(resource_path, "blue.jpg")
-        original = Image.open(path)
-        processed = Image.open(path)
+        original_path = os.path.join(resource_path, original_file_path)
+        processed_path = os.path.join(resource_path, processed_file_path)
+        original = Image.open(original_path)
+        processed = Image.open(processed_path)
 
-        # Without a title position, the image won't be changed.
-        processed = self.manager.admin_work_controller._process_cover_image(work, processed, "none")
+        processed = self.manager.admin_work_controller._process_cover_image(work, processed, title_position)
 
         image_histogram = original.histogram()
         expected_histogram = processed.histogram()
-
-        root_mean_square = math.sqrt(reduce(operator.add,
-                                            list(map(lambda a,b: (a-b)**2, image_histogram, expected_histogram)))/len(image_histogram))
-        assert root_mean_square < 10
-
-        # Here the title and author are added in the center. Compare the result
-        # with a pre-generated version.
-        processed = Image.open(path)
-        processed = self.manager.admin_work_controller._process_cover_image(work, processed, "center")
-
-        path = os.path.join(resource_path, "blue_with_title_author.png")
-        expected_image = Image.open(path)
-
-        image_histogram = processed.histogram()
-        expected_histogram = expected_image.histogram()
 
         root_mean_square = math.sqrt(reduce(operator.add,
                                             list(map(lambda a,b: (a-b)**2, image_histogram, expected_histogram)))/len(image_histogram))
