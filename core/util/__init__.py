@@ -39,8 +39,8 @@ def fast_query_count(query):
     count_q = select().with_only_columns(new_columns).select_from(table).order_by(None)
     count = query.session.execute(count_q).scalar()
 
-    if query._limit_clause and query._limit_clause < count:
-        return query._limit_clause
+    if query._limit_clause is not None and query._limit_clause.value < count:
+        return query._limit_clause.value
 
     return count
 
