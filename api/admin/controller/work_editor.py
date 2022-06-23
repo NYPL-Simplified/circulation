@@ -701,9 +701,9 @@ class WorkController(AdminCirculationManagerController):
             padding = image_width / 40
 
             max_line_width = 0
-            bold_char_width = bold_font.getsize("n")[0]
+            bold_char_width = bold_font.getsize("A")[0]
             bold_char_count = image_width / bold_char_width
-            regular_char_width = regular_font.getsize("n")[0]
+            regular_char_width = regular_font.getsize("A")[0]
             regular_char_count = image_width / regular_char_width
             title_lines = textwrap.wrap(title, bold_char_count)
             author_lines = textwrap.wrap(author, regular_char_count)
