@@ -907,7 +907,7 @@ class TestWorkController(AdminControllerTest):
 
         root_mean_square = math.sqrt(reduce(operator.add,
                                             list(map(lambda a,b: (a-b)**2, image_histogram, expected_histogram)))/len(image_histogram))
-        assert root_mean_square < 10
+        assert root_mean_square < 12
 
     def test_preview_book_cover(self):
         work = self._work(with_license_pool=True)
