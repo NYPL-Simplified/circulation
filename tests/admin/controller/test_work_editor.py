@@ -899,9 +899,6 @@ class TestWorkController(AdminControllerTest):
 
         processed = self.manager.admin_work_controller._process_cover_image(work, processed, title_position)
 
-        original.save(f"test_images/{title_position}-original-{original_file_path}")
-        processed.save(f"test_images/{title_position}-processed-{original_file_path}")
-
         image_histogram = original.histogram()
         expected_histogram = processed.histogram()
 
