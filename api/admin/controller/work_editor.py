@@ -56,7 +56,6 @@ from core.util.datetime_helpers import (
     utc_now,
 )
 import base64
-import math
 import json
 import os
 from PIL import Image, ImageDraw, ImageFont
@@ -720,9 +719,9 @@ class WorkController(AdminCirculationManagerController):
             total_text_height = line_height * (len(title_lines) + len(author_lines))
             rectangle_height = total_text_height + line_height
 
-            rectangle_width = math.floor(max_line_width + 2 * padding)
+            rectangle_width = max_line_width + 2 * padding
 
-            start_x = math.floor((image_width - rectangle_width) / 2)
+            start_x = (image_width - rectangle_width) / 2
             if title_position == self.BOTTOM:
                 start_y = image_height - rectangle_height - image_height / 14
             elif title_position == self.CENTER:
