@@ -22,10 +22,7 @@ from mock import MagicMock, patch
 from werkzeug.datastructures import ImmutableMultiDict
 from werkzeug.exceptions import NotFound
 
-from api.util.short_client_token import (
-    ShortClientTokenUtility,
-    DeviceManagementProtocolController
-)
+from api.util.short_client_token import ShortClientTokenUtility
 from api.annotations import AnnotationWriter
 from api.app import app, initialize_database
 from api.authenticator import (

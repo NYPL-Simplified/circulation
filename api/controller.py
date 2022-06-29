@@ -21,10 +21,7 @@ from flask_babel import lazy_gettext as _
 from lxml import etree
 from sqlalchemy.orm import eagerload
 
-from .util.short_client_token import (
-    DeviceManagementProtocolController,
-    ShortClientTokenUtility,
-)
+from .util.short_client_token import ShortClientTokenUtility
 from .annotations import (
     AnnotationWriter,
     AnnotationParser,

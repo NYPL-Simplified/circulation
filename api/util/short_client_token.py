@@ -1,43 +1,28 @@
-import argparse
-import json
 import logging
 import uuid
 import base64
-import os
 import datetime
-import jwt
 from jwt.algorithms import HMACAlgorithm
-import sys
-import flask
-from flask import Response
 from flask_babel import lazy_gettext as _
 from ..config import (
     CannotLoadConfiguration,
     Configuration,
 )
 
-from api.base_controller import BaseCirculationManagerController
 from ..problem_details import *
 from sqlalchemy.orm.session import Session
 from core.util.datetime_helpers import (
     datetime_utc,
     utc_now,
 )
-from core.util.xmlparser import XMLParser
-from core.util.problem_detail import ProblemDetail
-from core.app_server import url_for
 from core.model import (
-    create,
-    get_one,
     ConfigurationSetting,
     Credential,
     DataSource,
-    DelegatedPatronIdentifier,
     ExternalIntegration,
     Library,
     Patron,
 )
-from core.scripts import Script
 
 
 class DeviceManagementProtocolController(BaseCirculationManagerController):
