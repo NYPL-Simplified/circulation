@@ -402,7 +402,7 @@ class CirculationManager(object):
         else:
             search = ExternalSearchIndex(self._db)
             if not search:
-                self.log.warn("No external search server configured.")
+                self.log.warning("No external search server configured.")
                 return None
             return search
 
@@ -667,7 +667,7 @@ class CirculationManagerController(BaseCirculationManagerController):
             parsed_if_modified_since = email.utils.parsedate_to_datetime(
                 if_modified_since
             )
-        except TypeError:
+        except (TypeError, ValueError):
             # Parse error.
             return None
         if not parsed_if_modified_since:
@@ -2498,7 +2498,7 @@ class StaticFileController(CirculationManagerController):
         cache_timeout = ConfigurationSetting.sitewide(
             self._db, Configuration.STATIC_FILE_CACHE_TIME
         ).int_value
-        return flask.send_from_directory(directory, filename, cache_timeout=cache_timeout)
+        return flask.send_from_directory(directory, filename, max_age=cache_timeout)
 
 
 class RBDFulfillmentProxyController(CirculationManagerController):

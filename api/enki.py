@@ -915,12 +915,12 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
             return
 
         if pool.presentation_edition:
-            self.log.warn(
+            self.log.warning(
                 "Removing %r from circulation",
                 pool.presentation_edition
             )
         else:
-            self.log.warn(
+            self.log.warning(
                 "Removing unknown title %s from circulation.",
                 identifier.identifier
             )

@@ -43,6 +43,14 @@ class MockManager(object):
             controller_name, MockController(controller_name)
         )
 
+    def url_for(self, view, *args, **kwargs):
+        """Ensure that url_for returns a string and not a Response
+
+        :param view: Name of the view as a str
+        """
+        return view
+
+
 class MockControllerMethod(object):
     """Pretends to be one of the methods of a controller class."""
     def __init__(self, controller, name):

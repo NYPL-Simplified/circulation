@@ -1102,7 +1102,7 @@ class TestDatabaseBackedFacets(DatabaseTest):
             [x.id for x in title_order])
         assert (
             ['sort_title', 'sort_author', 'id'] ==
-            [x.name for x in title_order._distinct])
+            [x.name for x in title_order._distinct_on])
 
         # This sort order is not supported, so the default is used.
         unsupported_order = facetify(order=Facets.ORDER_ADDED_TO_COLLECTION)
@@ -1111,7 +1111,7 @@ class TestDatabaseBackedFacets(DatabaseTest):
             [x.id for x in unsupported_order])
         assert (
             ['sort_author', 'sort_title', 'id'] ==
-            [x.name for x in unsupported_order._distinct])
+            [x.name for x in unsupported_order._distinct_on])
 
 
 class TestFeaturedFacets(DatabaseTest):
@@ -3190,7 +3190,8 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         work = self._work(with_license_pool=True)
         work.license_pools[0].superceded = True
         ignore, pool = self._edition(with_license_pool=True)
-        pool.work = work
+        work.license_pools.append(pool)
+        self._db.commit()
 
         lane = self._lane()
         [w] = lane.works_from_database(self._db).all()

@@ -142,7 +142,7 @@ try:
         elif module == 'api.sip':
             convert_sip(_db, integration, provider)
         else:
-            log.warn("I don't know how to convert a provider of type %s. Conversion is probably incomplete." % module)
+            log.warning("I don't know how to convert a provider of type %s. Conversion is probably incomplete." % module)
         integrations.append(integration)
 
     # Add each integration to each library.

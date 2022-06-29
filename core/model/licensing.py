@@ -955,7 +955,7 @@ class LicensePool(Base):
         if not presentation_edition:
             # We don't have any information about the identifier
             # associated with this LicensePool, so we can't create a work.
-            logging.warn("NO EDITION for %s, cowardly refusing to create work.",
+            logging.warning("NO EDITION for %s, cowardly refusing to create work.",
                      self.identifier)
 
             # If there was a work associated with this LicensePool,
@@ -968,7 +968,7 @@ class LicensePool(Base):
 
         if not presentation_edition.title and not even_if_no_title:
             if presentation_edition.work:
-                logging.warn(
+                logging.warning(
                     "Edition %r has no title but has a Work assigned. This will not stand.", presentation_edition
                 )
             else:
@@ -1014,7 +1014,7 @@ class LicensePool(Base):
         # All LicensePools with a given Identifier must share a work.
         existing_works = set([x.work for x in self.identifier.licensed_through])
         if len(existing_works) > 1:
-            logging.warn(
+            logging.warning(
                 "LicensePools for %r have more than one Work between them. Removing them all and starting over.", self.identifier
             )
             for lp in self.identifier.licensed_through:
