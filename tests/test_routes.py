@@ -673,25 +673,6 @@ class TestAnalyticsController(RouteTest):
         )
 
 
-class TestAdobeDeviceManagement(RouteTest):
-    CONTROLLER_NAME = "adobe_device_management"
-
-    def test_adobe_drm_devices(self):
-        url = '/AdobeAuth/devices'
-        self.assert_authenticated_request_calls(
-            url, self.controller.device_id_list_handler
-        )
-        self.assert_supported_methods(url, 'GET', 'POST')
-
-    def test_adobe_drm_device(self):
-        url = '/AdobeAuth/devices/<device_id>'
-        self.assert_authenticated_request_calls(
-            url, self.controller.device_id_handler, "<device_id>",
-            http_method='DELETE'
-        )
-        self.assert_supported_methods(url, 'DELETE')
-
-
 class TestBasicAuthTempTokenController(RouteTest):
     CONTROLLER_NAME = "basic_auth_token_controller"
 
