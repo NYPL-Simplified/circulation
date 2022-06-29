@@ -105,7 +105,6 @@ textblob==0.15.3
 typing==3.7.4.3
 unicodecsv==0.14.1
 uritemplate==3.0.1
-# urllib3 is pinned to a pre-1.25 version to work around https://jira.nypl.org/browse/SIMPLY-3477
 urllib3==1.26.9
 uszipcode==1.0.1
 # watchtower is for Cloudwatch logging integration
