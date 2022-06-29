@@ -5,11 +5,7 @@ import flask
 import json
 from io import StringIO
 
-from api.adobe_vendor_id import (
-    AdobeVendorIDModel,
-    AuthdataUtility,
-    ShortClientTokenLibraryConfigurationScript,
-)
+from api.util.short_client_token import ShortClientTokenUtility
 
 from api.config import (
     temp_config,
@@ -117,8 +113,8 @@ class TestAdobeAccountIDResetScript(DatabaseTest):
 
         # Create two Credentials that will be deleted and one that will be
         # left alone.
-        for type in (AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE,
-                     AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+        for type in (ShortClientTokenUtility.VENDOR_ID_UUID_TOKEN_TYPE,
+                     ShortClientTokenUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
                      "Some other type"
         ):
 
@@ -771,63 +767,6 @@ class TestLanguageListScript(DatabaseTest):
         # English is ignored because all its works are open-access.
         # Tagalog shows up with the correct estimate.
         assert ["tgl 1 (Tagalog)"] == output
-
-
-class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
-
-    def setup_method(self):
-        super(TestShortClientTokenLibraryConfigurationScript, self).setup_method()
-        self._default_library.setting(
-            Configuration.WEBSITE_URL
-        ).value = "http://foo/"
-        self.script = ShortClientTokenLibraryConfigurationScript(self._db)
-
-    def test_identify_library_by_url(self):
-        with pytest.raises(Exception) as excinfo:
-            self.script.set_secret(self._db, "http://bar/", "vendorid", "libraryname", "secret", None)
-        assert "Could not locate library with URL http://bar/. Available URLs: http://foo/" in str(excinfo.value)
-
-    def test_set_secret(self):
-        assert [] == self._default_library.integrations
-
-        output = StringIO()
-        self.script.set_secret(
-            self._db, "http://foo/", "vendorid", "libraryname", "secret",
-            output
-        )
-        assert (
-            'Current Short Client Token configuration for http://foo/:\n Vendor ID: vendorid\n Library name: libraryname\n Shared secret: secret\n' ==
-            output.getvalue())
-        [integration] = self._default_library.integrations
-        assert (
-            [('password', 'secret'), ('username', 'libraryname'),
-             ('vendor_id', 'vendorid')] ==
-            sorted((x.key, x.value) for x in integration.settings))
-
-        # We can modify an existing configuration.
-        output = StringIO()
-        self.script.set_secret(
-            self._db, "http://foo/", "newid", "newname", "newsecret",
-            output
-        )
-        expect = 'Current Short Client Token configuration for http://foo/:\n Vendor ID: newid\n Library name: newname\n Shared secret: newsecret\n'
-        assert expect == output.getvalue()
-        expect_settings = [
-            ('password', 'newsecret'), ('username', 'newname'),
-             ('vendor_id', 'newid')
-        ]
-        assert (expect_settings ==
-            sorted((x.key, x.value) for x in integration.settings))
-
-        # We can also just check on the existing configuration without
-        # changing anything.
-        output = StringIO()
-        self.script.set_secret(
-            self._db, "http://foo/", None, None, None, output
-        )
-        assert expect == output.getvalue()
-        assert (expect_settings ==
-            sorted((x.key, x.value) for x in integration.settings))
 
 
 class MockDirectoryImportScript(DirectoryImportScript):

@@ -1,0 +1,30 @@
+<feed xmlns:bibframe="http://bibframe.org/vocab/" xmlns:simplified="http://librarysimplified.org/terms/" xmlns:app="http://www.w3.org/2007/app" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:schema="http://schema.org/" xmlns="http://www.w3.org/2005/Atom">
+  <id>http://content/lookup?urn=https%3A%2F%2Funglue.it%2Fapi%2Fid%2Fwork%2F7775%2F</id>
+  <title>Lookup results</title>
+  <updated>2016-06-29T16:23:27Z</updated>
+  <link href="http://content/lookup?urn=https%3A%2F%2Funglue.it%2Fapi%2Fid%2Fwork%2F7775%2F" rel="self"/>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>https://unglue.it/api/id/work/7775/</id>
+    <title>Warbreaker</title>
+    <bibframe:distribution bibframe:ProviderName="unglue.it"/>
+    <author>
+      <name>Brandon Sanderson</name>
+      <simplified:sort_name>Sanderson, Brandon</simplified:sort_name>
+    </author>
+    <summary type="html">&lt;p&gt;WARBREAKER is the story of two sisters - who happen to be princesses, the God King one of them has to marry, a lesser god, and an immortal trying to undo the mistakes he made hundreds of years ago. Theirs is a world in which those who die in glory return as gods to live confined to a pantheon in Hallandren's capital city. A world transformed by BioChromatic magic, a power based on an essence known as breath. Using magic is arduous: breath can only be collected one unit at a time from individual people. But the rewards are great: by using breath and drawing upon the color in everyday objects, all manner of miracles and mischief can be performed. Brandon Sanderson proves again that he is a master of what Tolkien called 'secondary creation,' the invention of whole worlds, complete with magics and myths all their own.&lt;/p&gt;
+
+&lt;p&gt;Everything Brandon Sanderson is available &lt;a href="http://store.brandonsanderson.com/"&gt;at his store&lt;/a&gt;.&lt;/p&gt;</summary>
+    <updated>2016-05-06T15:06:26Z</updated>
+    <simplified:pwid>402e89ce-f3a6-210c-53f2-84f0b8b0a5f4</simplified:pwid>
+    <link href="http://covers/unglue.it/URI/https%3A//unglue.it/api/id/work/7775//books.jpg" type="image/jpeg" rel="http://opds-spec.org/image"/>
+    <link href="http://covers/unglue.it/URI/https%3A//unglue.it/api/id/work/7775//books.jpg" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>
+    <category term="Adult" scheme="http://schema.org/audience" label="Adult"/>
+    <category term="18" scheme="http://schema.org/typicalAgeRange" label="18"/>
+    <category term="http://librarysimplified.org/terms/fiction/Fiction" scheme="http://librarysimplified.org/terms/fiction/" label="Fiction"/>
+    <category term="http://librarysimplified.org/terms/genres/Simplified/Epic%20Fantasy" scheme="http://librarysimplified.org/terms/genres/Simplified/" label="Epic Fantasy"/>
+    <dcterms:language>en</dcterms:language>
+    <published>2016-05-06T15:06:20Z</published>
+    <schema:Rating schema:ratingValue="1.0000" schema:additionalType="http://librarysimplified.org/terms/rel/quality"/>
+    <link href="http://books/unglue.it/URI/https%3A//unglue.it/api/id/work/7775//Warbreaker.epub" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
+  </entry>
+</feed>

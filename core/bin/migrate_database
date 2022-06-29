@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+"""Run any new migrations from the database"""
+
+import startup      # noqa: F401
+
+from core.scripts import DatabaseMigrationScript
+
+DatabaseMigrationScript().run()

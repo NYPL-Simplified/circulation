@@ -41,12 +41,15 @@ class URLUtility(object):
 
         Examples of valid domain_list entries:
 
+            ```
             http://librarysimplified.org
             https://librarysimplified.org
             https://www.librarysimplified.org
             https://*.librarysimplified.org
             https://alpha.bravo.charlie.librarysimplified.org
             https://*.charlie.librarysimplified.org
+            capacitor://*.vercel.app
+            ```
 
         Note that the entry `http://*.librarysimplified.org` WILL NOT match
         the URL of the root domain `http://librarysimplified.org`. To match the root
@@ -56,9 +59,6 @@ class URLUtility(object):
             url_parsed = urlparse(url)
         except AttributeError:
             return False    # origin value was not a string
-
-        if not url_parsed.netloc or url_parsed.scheme not in ('http', 'https'):
-            return False    # CORS concerns are for HTTP requests with real domains
 
         url_match_in_list = False
 
