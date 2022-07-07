@@ -36,6 +36,7 @@ jobs:
       # The `make html` command will run Sphinx to build the documentation.
       - name: Build Docs
         run: |
+          export SIMPLIFIED_STATIC_DIR="$(pwd)/resources"
           cd docs
           make html
           cd ..

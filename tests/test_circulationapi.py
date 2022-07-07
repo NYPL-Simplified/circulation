@@ -1,4 +1,5 @@
 """Test the CirculationAPI."""
+from datetime import datetime
 from datetime import timedelta
 
 import flask
@@ -7,6 +8,7 @@ from flask import Flask
 from parameterized import parameterized
 
 from api.authenticator import LibraryAuthenticator, PatronData
+from api.axis import MockAxis360API
 from api.bibliotheca import MockBibliothecaAPI
 from api.circulation import (
     APIAwareFulfillmentInfo,
@@ -34,6 +36,7 @@ from core.model import (
     Loan,
     Representation,
     RightsStatus,
+    get_one,
 )
 
 from core.testing import DatabaseTest
@@ -888,10 +891,16 @@ class TestCirculationAPI(DatabaseTest):
 
     def test_fulfill(self):
         self.pool.loan_to(self.patron)
-
-        fulfillment = self.pool.delivery_mechanisms[0]
-        fulfillment.content = "Fulfilled."
-        fulfillment.content_link = None
+        fulfillment = FulfillmentInfo(
+            self.collection,
+            data_source_name=DataSource.BIBBLIO,
+            identifier_type=self.identifier,
+            identifier=self.identifier.identifier,
+            content_link=None,
+            content_type=self.pool.delivery_mechanisms[0].delivery_mechanism.content_type,
+            content="Fulfilled.",
+            content_expires=None,
+        )
         self.remote.queue_fulfill(fulfillment)
 
         result = self.circulation.fulfill(self.patron, '1234', self.pool,
@@ -899,6 +908,12 @@ class TestCirculationAPI(DatabaseTest):
 
         # The fulfillment looks good.
         assert fulfillment == result
+
+        # Since the fulfillment did not allow for manifest caching it is not present
+        loan = get_one(self._db, Loan, patron=self.patron, license_pool=self.pool)
+        assert fulfillment.can_cache_manifest is False
+        assert loan.cached_manifest is None
+        assert loan.cached_content_type is None
 
         # An analytics event was created.
         assert 1 == self.analytics.count
@@ -908,9 +923,16 @@ class TestCirculationAPI(DatabaseTest):
     def test_fulfill_without_loan(self):
         # By default, a title cannot be fulfilled unless there is an active
         # loan for the title (tested above, in test_fulfill).
-        fulfillment = self.pool.delivery_mechanisms[0]
-        fulfillment.content = "Fulfilled."
-        fulfillment.content_link = None
+        fulfillment = FulfillmentInfo(
+            self.collection,
+            data_source_name=DataSource.BIBBLIO,
+            identifier_type=self.identifier,
+            identifier=self.identifier.identifier,
+            content_link=None,
+            content_type=self.pool.delivery_mechanisms[0].delivery_mechanism.content_type,
+            content="Fulfilled.",
+            content_expires=None,
+        )
         self.remote.queue_fulfill(fulfillment)
 
         def try_to_fulfill():
@@ -928,6 +950,59 @@ class TestCirculationAPI(DatabaseTest):
         self.circulation.can_fulfill_without_loan = yes_we_can
         result = try_to_fulfill()
         assert fulfillment == result
+
+    def test_fulfill_with_loan_cached_manifest(self):
+        """
+        GIVEN: A request for loan fulfillment
+        WHEN:  Fulfilling the request with a cached_manifest available
+        THEN:  A FulfillmentInfo is returned without making additional API calls
+        """
+        loan, _ = self.pool.loan_to(self.patron)
+        loan.cached_manifest = b'Fulfilled.'
+        loan.cached_content_type = self.pool.delivery_mechanisms[0].delivery_mechanism.content_type
+
+        assert len(self.remote.responses['fulfill']) == 0
+
+        # Since there is a cached_manifest in the loan, no additional API calls are made
+        result = self.circulation.fulfill(self.patron, '1234', self.pool,
+                                          self.pool.delivery_mechanisms[0])
+
+        assert isinstance(result, FulfillmentInfo)
+        assert result.can_cache_manifest is False
+        assert result.content == loan.cached_manifest.decode('utf-8')
+        assert result.content_type == loan.cached_content_type
+        assert len(self.remote.responses['fulfill']) == 0
+
+    def test_fulfill_cacheable_manifest(self):
+        """
+        GIVEN: A request for loan fulfillment
+        WHEN:  Fulfilling the request that allows for a cacheable manifest
+        THEN:  Manifest and content_type are saved to the patron's Loan
+        """
+        self.pool.loan_to(self.patron)
+        fulfillment = FulfillmentInfo(
+            self.collection,
+            data_source_name=DataSource.AXIS_360,
+            identifier_type=self.identifier,
+            identifier=self.identifier.identifier,
+            content_link=None,
+            content_type=self.pool.delivery_mechanisms[0].delivery_mechanism.content_type,
+            content="Fulfilled.",
+            content_expires=None,
+        )
+        fulfillment.can_cache_manifest = True
+        self.remote.queue_fulfill(fulfillment)
+
+        assert len(self.remote.responses['fulfill']) == 1
+
+        # Since there is no cached_manifest in the loan, an API call will be made
+        result = self.circulation.fulfill(self.patron, '1234', self.pool,
+                                          self.pool.delivery_mechanisms[0])
+
+        loan = get_one(self._db, Loan, patron=self.patron, license_pool=self.pool)
+        assert loan.cached_manifest.decode('utf-8') == result.content
+        assert result.can_cache_manifest is True
+        assert len(self.remote.responses['fulfill']) == 0
 
     @parameterized.expand([
         ('open_access', True, False),

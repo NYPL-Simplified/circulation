@@ -14,6 +14,9 @@ import urllib.request, urllib.parse, urllib.error
 import urllib.parse
 import flask
 from flask import url_for, Flask
+
+from freezegun import freeze_time
+
 from core.opds import OPDSFeed
 from core.user_profile import ProfileController
 from core.model import (
@@ -1243,6 +1246,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             Configuration.HELP_WEB, library).value = "http://library.help/"
         ConfigurationSetting.for_library(
             Configuration.HELP_URI, library).value = "custom:uri"
+        ConfigurationSetting.for_library(
+            Configuration.HELP_UNSUBSCRIBE_URI, library).value = 'http://library.unsubscribe/'
 
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
         base_url.value = 'http://circulation-manager/'
@@ -1312,10 +1317,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # We also need to test that the links got pulled in
             # from the configuration.
             (about, alternate, copyright, help_uri, help_web, help_email,
-             copyright_agent, profile, loans, license, logo, privacy_policy, register, start,
-             stylesheet, terms_of_service) = sorted(
-                 doc['links'], key=lambda x: (x['rel'], x['href'])
-             )
+             copyright_agent, unsubscribe_link, profile, loans, license, logo,
+             privacy_policy, register, start, stylesheet, terms_of_service)\
+                 = sorted(doc['links'], key=lambda x: (x['rel'], x['href']))
             assert "http://terms" == terms_of_service['href']
             assert "http://privacy" == privacy_policy['href']
             assert "http://copyright" == copyright['href']
@@ -1357,6 +1361,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             assert "http://library.help/" == help_web['href']
             assert "text/html" == help_web['type']
             assert "mailto:help@library" == help_email['href']
+
+            # We also have an unsubscribe link
+            assert 'http://library.unsubscribe/' == unsubscribe_link['href']
 
             # Since no special address was given for the copyright
             # designated agent, the help address was reused.
@@ -2927,11 +2934,10 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
 
     def test_basic_auth_temp_token(self):
         """
-        Test that a patron can authenticate with the generated
-        HTTP Basic token.
+        GIVEN: A valid Authorization header
+        WHEN:  Requesting a token and re-authenticating with the acquired token
+        THEN:  Patron is able to authenticate with the acquired token
         """
-
-        # Get a token from user/pass
         valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
         headers_basic = dict(Authorization=f"Basic {valid_credentials}")
 
@@ -2947,3 +2953,82 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
             headers_bearer = f"Bearer {token}"
             patron = self.controller.authenticator.authenticated_patron(self._db, headers_bearer)
             assert 'unittestuser' == patron.username
+
+    @pytest.mark.parametrize(
+        'delta',
+        [
+            pytest.param(1, id="after_1_second"),
+            pytest.param(59, id="after_59_seconds"),
+            pytest.param(60, id="after_60_seconds"),
+        ]
+    )
+    def test_basic_auth_temp_token_returns_existing(self, delta):
+        """"
+        GIVEN: A request to authenticate a patron with a base64 encoded username:password to recieve a token
+        WHEN:  Re-requesting authentication with the same credentials within a minute of the token's creation
+        THEN:  The same token is returned
+        """
+        valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
+        headers_basic = dict(Authorization=f"Basic {valid_credentials}")
+        start_datetime = datetime.datetime(2022, 1, 1, 0, 0, 0)
+
+        with freeze_time(start_datetime) as frozen_time:
+            with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
+                response = self.controller.basic_auth_temp_token({}, self._db)
+                assert 200 == response.status_code
+
+                token = response.json.get('access_token')
+                assert token
+
+                frozen_time.move_to(start_datetime + datetime.timedelta(seconds=delta))
+                another_response = self.controller.basic_auth_temp_token({}, self._db)
+                assert another_response.status_code == 200
+
+                another_token = another_response.json.get('access_token')
+                assert another_token == token
+
+    @pytest.mark.parametrize(
+        'delta',
+        [
+            pytest.param(61, id="after_1_minute_and_1_second"),
+            pytest.param(3601, id="after_1_hour_and_1_second"),
+            pytest.param(86401, id="after_1_day_and_1_second")
+        ]
+    )
+    def test_basic_auth_temp_token_returns_new_token(self, delta):
+        """
+        GIVEN: A request to authenticate a patron with a base64 encoded username:password to recieve a token
+        WHEN:  Re-requesting authentication with the same credentials after a minute of the token's creation
+        THEN:  A new token is returned
+        """
+        valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
+        headers_basic = dict(Authorization=f"Basic {valid_credentials}")
+        start_datetime = datetime.datetime(2022, 1, 1, 0, 0, 0)
+
+        with freeze_time(start_datetime) as frozen_time:
+            with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
+                response = self.controller.basic_auth_temp_token({}, self._db)
+                assert 200 == response.status_code
+
+                token = response.json.get('access_token')
+                assert token
+
+                frozen_time.move_to(start_datetime + datetime.timedelta(seconds=delta))
+                another_response = self.controller.basic_auth_temp_token({}, self._db)
+                assert another_response.status_code == 200
+
+                another_token = another_response.json.get('access_token')
+                assert another_token != token
+
+    def test_basic_auth_temp_token_problem_detail(self):
+        """
+        GIVEN: An invalid Authorization header
+        WHEN:  Requesting a token
+        THEN:  An UNSUPPORTED_AUTHENTICATION_MECHANISM ProblemDetail is raised
+        """
+        headers_basic = dict(Authorization=f"Basic invalid_authentication")
+
+        with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
+            response = self.controller.basic_auth_temp_token({}, self._db)
+            assert response.status_code == 400
+            assert response == UNSUPPORTED_AUTHENTICATION_MECHANISM

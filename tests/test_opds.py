@@ -90,7 +90,7 @@ from api.opds import (
 )
 
 from api.testing import VendorIDTest
-from api.adobe_vendor_id import AuthdataUtility
+from api.util.short_client_token import ShortClientTokenUtility
 from api.novelist import NoveListAPI
 from api.lanes import ContributorLane, CrawlableCustomListBasedLane
 import jwt
@@ -522,7 +522,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # An Adobe ID-specific identifier has been created for the patron.
         [adobe_id_identifier] = [x for x in patron.credentials
                                  if x not in old_credentials]
-        assert (AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER ==
+        assert (ShortClientTokenUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER ==
             adobe_id_identifier.type)
         assert (DataSource.INTERNAL_PROCESSING ==
             adobe_id_identifier.data_source.name)
@@ -560,7 +560,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # token.text is a token which we can decode, since we know
         # the secret.
         token = token.text
-        authdata = AuthdataUtility.from_config(library)
+        authdata = ShortClientTokenUtility.from_config(library)
         decoded = authdata.decode_short_client_token(token)
         expected_url = ConfigurationSetting.for_library(
             Configuration.WEBSITE_URL, library
@@ -1041,7 +1041,7 @@ class TestLibraryAnnotator(VendorIDTest):
         parser = OPDSXMLParser()
         licensor = parser._xpath1(tree, "//atom:feed/drm:licensor")
 
-        adobe_patron_identifier = AuthdataUtility._adobe_patron_identifier(patron)
+        adobe_patron_identifier = ShortClientTokenUtility._adobe_patron_identifier(patron)
 
         # The DRM licensing information includes the Adobe vendor ID
         # and the patron's patron identifier for Adobe purposes.

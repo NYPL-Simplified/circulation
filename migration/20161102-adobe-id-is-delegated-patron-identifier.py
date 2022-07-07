@@ -18,10 +18,10 @@ from core.model import (        # noqa: E402
     production_session,
     Patron
 )
-from api.adobe_vendor_id import AuthdataUtility     # noqa: E402
+from api.util.short_client_token import ShortClientTokenUtility     # noqa: E402
 
 _db = production_session()
-authdata = AuthdataUtility.from_config()
+authdata = ShortClientTokenUtility.from_config()
 if not authdata:
     print("Adobe IDs not configured, doing nothing.")
 
