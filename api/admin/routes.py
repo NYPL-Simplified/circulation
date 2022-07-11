@@ -344,7 +344,15 @@ def work_details(identifier_type, identifier):
           description: An identifier for a work record
       responses:
         200:
-          description: A single OPDS record describing the requested work
+          description: |
+            A single OPDS record describing the requested work
+
+            The link object is repeatable and can contain the following link relations:
+              - `self`: Used in the context of a pURL
+              - `alternate`: An alternate identifier, distinct from the `atom:id` value
+              - `collection`: A URL to a collection containing the current item
+              - `http://opds-spec.org/image`: A URL to a full-size cover image
+              - `http://opds-spec.org/image/thumbnail`: A URL to a thumbnail-size cover image
           content:
             application/atom+xml;type=entry;profile=opds-catalog:
               schema: OPDSEntry
@@ -1291,7 +1299,18 @@ def lanes():
             type: string
       responses:
         200:
-          description: An array of lane objects
+          description: |
+            An array of lane objects
+
+            The lane `count` attribute is retrieved from the `size` column of the `lanes` table. This value is updated by a script once daily, 
+            and is also updated when a lane or list is edited. The value is ultimately retrieved in all cases from a count query executed in ElasticSearch.
+
+            Additional size values for each lane are stored in the `size_by_entrypoint` field which records lane size by schema.org types: `CreativeWork`, `EBook` and `Audiobook`,
+            this endpoint returns only the generic `count` value representing all works in the current lane.
+
+            The `size` attribute does _not_ reflect the contents of any sub-lanes, and is independent of the `size` value calculated for constituent lists.
+
+            The `sublanes` array will contain identical `Lane` objects, which can be deeply nested.
           content:
             application/json:
               schema: LaneListResponse

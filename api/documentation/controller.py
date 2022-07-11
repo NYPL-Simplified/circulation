@@ -65,7 +65,7 @@ class OpenAPIController:
             'schema', 'AdminRole', 'object',
             {
                 'library': {'type': 'string'},
-                'role': {'$ref': '#/components/schemas/SiteAdminroles'}
+                'role': {'$ref': '#/components/schemas/SiteAdminRoles'}
             }
         )
 
@@ -120,7 +120,7 @@ class OpenAPIController:
         self.addComponent(
             'schema', 'AtomCategory', 'object',
             {
-                'schema': {'type': 'string'},
+                'scheme': {'type': 'string'},
                 'term': {'type': 'string'},
                 'label': {'type': 'string'}
             },
@@ -156,22 +156,72 @@ class OpenAPIController:
         )
 
         self.addComponent(
+            'schema', 'AtomAuthor', 'object',
+            {
+                'atom:name': {'type': 'string'},
+                'atom:sort_name': {'type': 'string'},
+                'atom:family_name': {'type': 'string'},
+                'simplified:wikipedia_name': {'type': 'string'},
+                'atom:sameas': {
+                    'type': 'string',
+                    'enum': ['http://viaf.org/viaf/[VIAF_ID]', 'http://id.loc.gov/authorities/names/[LCNAF_ID]'],
+                    'description': 'A resolvable VIAF or LCNAF URI for the current author'
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'AtomSeries', 'object',
+            {
+                'atom:name': {'type': 'string'},
+                'atom:position': {'type': 'integer'},
+            }
+        )
+
+        self.addComponent(
+            'schema', 'BibframeProvider', 'object',
+            {
+                'bibframe:ProviderName': {'type': 'string'}
+            }
+        )
+
+        self.addComponent(
             'schema', 'OPDSEntry', 'object',
             {
                 'atom:id': {'type': 'string'},
                 'dc:identifier': {'type': 'string'},
                 'atom:updated': {'type': 'string'},
-                'dc:issued': {'type': 'string'},
+                'dcterms:issued': {'type': 'string'},
                 'atom:title': {'type': 'string'},
-                'atom:author': {'type': 'string',},
+                'atom:author': {
+                    'type': 'array',
+                    'items': {'$ref': '#/components/schemas/AtomAuthor'}
+                },    
                 'atom:rights': {'type': 'string'},
                 'atom:summary': {'type': 'string'},
                 'atom:content': {'type': 'string'},
                 'atom:contributor': {'type': 'string'},
                 'atom:published': {'type': 'string'},
                 'opds:price': {'type': 'string'},
-                'atom:category': {'$ref': '#/components/schemas/AtomCategory'},
-                'opds:link': {'$ref': '#/components/schemas/OPDSLink'}
+                'atom:category': {
+                    'type': 'array',
+                    'items': {'$ref': '#/components/schemas/AtomCategory'}
+                },
+                'opds:link': {
+                    'type': 'array',
+                    'items': {'$ref': '#/components/schemas/OPDSLink'}
+                },
+                'schema:alternativeHeadline': {'type': 'string'},
+                'simplified:pwid': {'type': 'string'},
+                'atom:additionalType': {'type': 'string'},
+                'atom:series': {
+                    'type': 'array', 
+                    'items': {'$ref': '#/components/schemas/AtomSeries'}
+                },
+                'dcterms:language': {'type': 'string'},
+                'dcterms:publisher': {'type': 'string'},
+                'dcterms:publisherImprint': {'type': 'string'},
+                'bibframe:distribution': {'$ref': '#/components/schemas/BibframeProvider'}
             },
             requiredFields=['atom:id', 'atom:updated', 'atom:title']
         )
@@ -302,7 +352,10 @@ class OpenAPIController:
                 'id': {'type': 'string'},
                 'display_name': {'type': 'string'},
                 'visible': {'type': 'boolean'},
-                'count': {'type': 'integer'},
+                'count': {
+                    'type': 'integer',
+                    'description': 'Count is determined by the `update_lane_size` script and is stored in the lane model in the circulation database in the `size` column. This counts only works in the current lane, and not sublanes'
+                },
                 'sublanes': {
                     'description': 'A nested array of Lane objects',
                     'type': 'array',
