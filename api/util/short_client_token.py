@@ -25,36 +25,6 @@ from core.model import (
 )
 
 
-class DeviceManagementRequestHandler(object):
-    """Handle incoming requests for the DRM Device Management Protocol."""
-
-    def __init__(self, credential):
-        self.credential = credential
-
-    def device_list(self):
-        return "\n".join(
-            sorted(
-                x.device_identifier
-                for x in self.credential.drm_device_identifiers
-            )
-        )
-
-    def register_device(self, data):
-        device_ids = data.split("\n")
-        if len(device_ids) > 1:
-            return PAYLOAD_TOO_LARGE.detailed(
-                _("You may only register one device ID at a time.")
-            )
-        for device_id in device_ids:
-            if device_id:
-                self.credential.register_drm_device_identifier(device_id)
-        return 'Success'
-
-    def deregister_device(self, device_id):
-        self.credential.deregister_drm_device_identifier(device_id)
-        return 'Success'
-
-
 class ShortClientTokenUtility(object):
 
     """Generate authdata JWTs as per the Vendor ID Service spec:
