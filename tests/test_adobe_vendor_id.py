@@ -12,10 +12,7 @@ import re
 import datetime
 
 from api.problem_details import *
-from api.util.short_client_token import (
-    ShortClientTokenUtility,
-    DeviceManagementRequestHandler,
-)
+from api.util.short_client_token import ShortClientTokenUtility
 
 from api.opds import CirculationManagerAnnotator
 from api.testing import VendorIDTest
@@ -366,51 +363,3 @@ class TestShortClientTokenUtility(VendorIDTest):
         # The code in _decode_short_client_token ran. Since there was no
         # test failure, it ran successfully.
         assert True == utility.test_code_ran
-
-
-class TestDeviceManagementRequestHandler(VendorIDTest):
-
-    def test_register_drm_device_identifier(self):
-        credential = self._credential()
-        handler = DeviceManagementRequestHandler(credential)
-        handler.register_device("device1")
-        assert (
-            ['device1'] ==
-            [x.device_identifier for x in credential.drm_device_identifiers])
-
-    def test_register_drm_device_identifier_does_nothing_on_no_input(self):
-        credential = self._credential()
-        handler = DeviceManagementRequestHandler(credential)
-        handler.register_device("")
-        assert [] == credential.drm_device_identifiers
-
-    def test_register_drm_device_identifier_failure(self):
-        """You can only register one device in a single call."""
-        credential = self._credential()
-        handler = DeviceManagementRequestHandler(credential)
-        result = handler.register_device("device1\ndevice2")
-        assert isinstance(result, ProblemDetail)
-        assert PAYLOAD_TOO_LARGE.uri == result.uri
-        assert [] == credential.drm_device_identifiers
-
-    def test_deregister_drm_device_identifier(self):
-        credential = self._credential()
-        credential.register_drm_device_identifier("foo")
-        handler = DeviceManagementRequestHandler(credential)
-
-        result = handler.deregister_device("foo")
-        assert "Success" == result
-        assert [] == credential.drm_device_identifiers
-
-        # Deregistration is idempotent.
-        result = handler.deregister_device("foo")
-        assert "Success" == result
-        assert [] == credential.drm_device_identifiers
-
-    def test_device_list(self):
-        credential = self._credential()
-        credential.register_drm_device_identifier("foo")
-        credential.register_drm_device_identifier("bar")
-        handler = DeviceManagementRequestHandler(credential)
-        # Device IDs are sorted alphabetically.
-        assert "bar\nfoo" == handler.device_list()

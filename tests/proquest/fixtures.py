@@ -2,7 +2,7 @@
 
 import datetime
 
-from webpub_manifest_parser.core.ast import (
+from core.util.webpub_manifest_parser.core.ast import (
     CollectionList,
     CompactCollection,
     Link,
@@ -10,17 +10,17 @@ from webpub_manifest_parser.core.ast import (
     Node,
     PresentationMetadata,
 )
-from webpub_manifest_parser.core.parsers import TypeParser
-from webpub_manifest_parser.core.properties import BaseArrayProperty, PropertiesGrouping
-from webpub_manifest_parser.core.registry import RegistryItem
-from webpub_manifest_parser.opds2.ast import (
+from core.util.webpub_manifest_parser.core.parsers import TypeParser
+from core.util.webpub_manifest_parser.core.properties import BaseArrayProperty, PropertiesGrouping
+from core.util.webpub_manifest_parser.core.registry import RegistryItem
+from core.util.webpub_manifest_parser.opds2.ast import (
     OPDS2Feed,
     OPDS2FeedMetadata,
     OPDS2Group,
     OPDS2Publication,
 )
-from webpub_manifest_parser.opds2.registry import OPDS2LinkRelationsRegistry
-from webpub_manifest_parser.rwpm.registry import RWPMLinkRelationsRegistry
+from core.util.webpub_manifest_parser.opds2.registry import OPDS2LinkRelationsRegistry
+from core.util.webpub_manifest_parser.rwpm.registry import RWPMLinkRelationsRegistry
 
 
 def serialize(rwpm_item):
