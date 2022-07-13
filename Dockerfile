@@ -69,7 +69,8 @@ ARG DEBIAN_FRONTEND="noninteractive"
 ARG NODESOURCE_KEYFILE="https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
 
 # Install system level dependencies
-RUN apt-get update \
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 871920D1991BC93C \
+ && apt-get update \
  && apt-get install --yes --no-install-recommends \
     curl \
     ca-certificates \
