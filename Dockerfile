@@ -73,8 +73,8 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 871920D1991BC93C \
  && apt-get install --yes --no-install-recommends \
     curl \
     ca-certificates \
-    gnupg \
- && apt-get update \
+    gnupg
+RUN apt-get update \
  && apt-get install --yes --no-install-recommends \
     build-essential \
     pkg-config \
@@ -98,8 +98,8 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 871920D1991BC93C \
     libxmlsec1-openssl \
     libxml2-dev \
  && locale-gen en_US \
- && update-locale LANG=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 \
- && apt-get clean --yes \
+ && update-locale LANG=en_US.UTF-8 LC_CTYPE=en_US.UTF-8
+RUN apt-get clean --yes \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 ENV LANG="en_US.UTF-8"
