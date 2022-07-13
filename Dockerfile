@@ -68,7 +68,8 @@ FROM ubuntu:22.04 as circulation_base
 ARG DEBIAN_FRONTEND="noninteractive"
 
 # Install system level dependencies
-RUN apt-get update \
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 871920D1991BC93C \
+ && apt-get update \
  && apt-get install --yes --no-install-recommends \
     curl \
     ca-certificates \
