@@ -73,7 +73,9 @@ RUN apt-get update
 RUN apt-get install --yes --no-install-recommends \
     curl \
     ca-certificates \
-    gnupg
+    gnupg \
+    gnupg1 \
+    gnupg2
 RUN curl -sSL ${NODESOURCE_KEYFILE} | apt-key add - \
  && echo "deb https://deb.nodesource.com/node_14.x jammy main" >> /etc/apt/sources.list.d/nodesource.list \
  && echo "deb-src https://deb.nodesource.com/node_14.x jammy main" >> /etc/apt/sources.list.d/nodesource.list
