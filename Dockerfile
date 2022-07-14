@@ -68,7 +68,6 @@ FROM ubuntu:22.04 as circulation_base
 ARG DEBIAN_FRONTEND="noninteractive"
 ARG NODESOURCE_KEYFILE="https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
 
-RUN apt-get update && apt-get install --yes --no-install-recommends gnupg
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 871920D1991BC93C
 
 # Install system level dependencies
@@ -76,6 +75,7 @@ RUN apt-get update
 RUN apt-get install --yes --no-install-recommends \
     curl \
     ca-certificates \
+    gnupg \
     gnupg1 \
     gnupg2
 RUN curl -sSL ${NODESOURCE_KEYFILE} | apt-key add - \
