@@ -63,21 +63,17 @@ COPY ./docker/localdev_postgres_init.sh /docker-entrypoint-initdb.d/localdev_pos
 #
 ###############################################################################
 
-FROM ubuntu:22.04 as circulation_base
+FROM ubuntu:20.04 as circulation_base
 
 ARG DEBIAN_FRONTEND="noninteractive"
 ARG NODESOURCE_KEYFILE="https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
-
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 871920D1991BC93C
 
 # Install system level dependencies
 RUN apt-get update
 RUN apt-get install --yes --no-install-recommends \
     curl \
     ca-certificates \
-    gnupg \
-    gnupg1 \
-    gnupg2
+    gnupg
 RUN curl -sSL ${NODESOURCE_KEYFILE} | apt-key add - \
  && echo "deb https://deb.nodesource.com/node_14.x jammy main" >> /etc/apt/sources.list.d/nodesource.list \
  && echo "deb-src https://deb.nodesource.com/node_14.x jammy main" >> /etc/apt/sources.list.d/nodesource.list
