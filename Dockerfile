@@ -69,16 +69,16 @@ ARG DEBIAN_FRONTEND="noninteractive"
 ARG NODESOURCE_KEYFILE="https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
 
 # Install system level dependencies
-RUN apt-get update
-RUN apt-get install --yes --no-install-recommends \
+RUN apt-get update \
+ && apt-get install --yes --no-install-recommends \
     curl \
     ca-certificates \
-    gnupg
-RUN curl -sSL ${NODESOURCE_KEYFILE} | apt-key add - \
- && echo "deb https://deb.nodesource.com/node_14.x jammy main" >> /etc/apt/sources.list.d/nodesource.list \
- && echo "deb-src https://deb.nodesource.com/node_14.x jammy main" >> /etc/apt/sources.list.d/nodesource.list
-RUN apt-get update
-RUN apt-get install --yes --no-install-recommends \
+    gnupg \
+ && curl -sSL ${NODESOURCE_KEYFILE} | apt-key add - \
+ && echo "deb https://deb.nodesource.com/node_14.x focal main" >> /etc/apt/sources.list.d/nodesource.list \
+ && echo "deb-src https://deb.nodesource.com/node_14.x focal main" >> /etc/apt/sources.list.d/nodesource.list \
+ && apt-get update \
+ && apt-get install --yes --no-install-recommends \
     build-essential \
     pkg-config \
     software-properties-common \
@@ -101,9 +101,9 @@ RUN apt-get install --yes --no-install-recommends \
     libxmlsec1-openssl \
     libxml2-dev \
  && locale-gen en_US \
- && update-locale LANG=en_US.UTF-8 LC_CTYPE=en_US.UTF-8
-RUN apt-get clean --yes
-RUN rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+ && update-locale LANG=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 \
+ && apt-get clean --yes \
+ && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 ENV LANG="en_US.UTF-8"
 ENV LC_CTYPE="en_US.UTF-8"
