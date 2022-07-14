@@ -63,7 +63,7 @@ COPY ./docker/localdev_postgres_init.sh /docker-entrypoint-initdb.d/localdev_pos
 #
 ###############################################################################
 
-FROM ubuntu:22.04 as circulation_base
+FROM ubuntu:20.04 as circulation_base
 
 ARG DEBIAN_FRONTEND="noninteractive"
 ARG NODESOURCE_KEYFILE="https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
