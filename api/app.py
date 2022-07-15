@@ -1,7 +1,14 @@
 import os
+from newrelic import agent
+
+if os.environ.get('NEW_RELIC_LICENSE_KEY', None):
+    agent.initialize(
+        config_file='/home/simplified/circulation/newrelic.ini',
+        environment=os.environ.get('DEVELOPMENT_STAGE', 'local')
+    )
+
 import logging
 import urllib.parse
-
 from flask import (
     Flask,
     Response,

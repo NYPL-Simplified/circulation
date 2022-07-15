@@ -3,12 +3,25 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
+def search_index_refresh():
+    print('STARTING SCRIPT')
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-from core.external_search import SearchIndexCoverageProvider        # noqa: E402
-from core.scripts import RunWorkCoverageProviderScript              # noqa: E402
+    from core.external_search import SearchIndexCoverageProvider        # noqa: E402
+    from core.scripts import RunWorkCoverageProviderScript              # noqa: E402
 
-RunWorkCoverageProviderScript(SearchIndexCoverageProvider).run()
+    RunWorkCoverageProviderScript(SearchIndexCoverageProvider).run()
+
+
+if __name__ == '__main__':
+    print('REGISTERING APP')
+    nrApp = agent.register_application()
+    print(nrApp)
+
+    print('STARTING MONITOR')
+    with agent.BackgroundTask(nrApp, name='search_index_refresh', group='Scripts'):
+        search_index_refresh()
