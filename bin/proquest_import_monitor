@@ -3,19 +3,29 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from api.proquest.importer import ProQuestOPDS2Importer, ProQuestOPDS2ImportMonitor     # noqa: E402
-from api.proquest.scripts import ProQuestOPDS2ImportScript                              # noqa: E402
-from core.model import ExternalIntegration                                              # noqa: E402
+def proquest_import_monitor():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-import_script = ProQuestOPDS2ImportScript(
-    importer_class=ProQuestOPDS2Importer,
-    monitor_class=ProQuestOPDS2ImportMonitor,
-    protocol=ExternalIntegration.PROQUEST
-)
+    from api.proquest.importer import ProQuestOPDS2Importer, ProQuestOPDS2ImportMonitor     # noqa: E402
+    from api.proquest.scripts import ProQuestOPDS2ImportScript                              # noqa: E402
+    from core.model import ExternalIntegration                                              # noqa: E402
 
-import_script.run()
+    import_script = ProQuestOPDS2ImportScript(
+        importer_class=ProQuestOPDS2Importer,
+        monitor_class=ProQuestOPDS2ImportMonitor,
+        protocol=ExternalIntegration.PROQUEST
+    )
+
+    import_script.run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='proquest_import_monitor', group='Scripts'):
+        proquest_import_monitor()
