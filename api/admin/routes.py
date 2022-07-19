@@ -711,8 +711,18 @@ def genres():
 @allows_library
 @requires_admin
 def bulk_circulation_events():
-    """Returns a CSV representation of all circulation events with optional
-    start and end times."""
+    """Return a CSV representation of all circulation events with optional start and end times.
+    ---
+    get:
+      tags:
+        - administration
+      description: Return CSV of circulation events
+      responses:
+        200:
+          description: CSV of circulation events
+          schema: BulkCirculation
+          example: [time,	event, identifier, identifier_type, title, author, fiction, audience, publisher, imprint, language, target_age, genres, location]
+    """
     data, date, date_end, library = app.manager.admin_dashboard_controller.bulk_circulation_events()
     if isinstance(data, ProblemDetail):
         return data

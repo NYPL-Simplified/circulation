@@ -453,6 +453,10 @@ class OpenAPIController:
                 }
             }
         )
+        self.addComponent(
+            'schema', 'BulkCirculation', 'list',
+            {'items': 'string'}
+        )
 
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
