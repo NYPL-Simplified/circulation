@@ -428,6 +428,74 @@ def work_complaints(identifier_type, identifier):
 @requires_admin
 @requires_csrf_token
 def work_custom_lists(identifier_type, identifier):
+    """Returns or updates custom lists
+    ---
+    args:
+        identifier_type (str): A type of identifier, e.g. "ISBN"
+        identifier (str): An identifier string, used with `identifier_type` to look up an Identifier.
+
+    get:
+      tags: 
+        - works
+      summary: A custom list of works
+      description: |
+        This endpoint fetches a custom list of works.
+
+        This returns a Dict of custom lists of works.
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: A dict of a custom list of works
+          content:
+            application/json:
+              schema: CustomListCollection
+        404:
+          description: |
+            NO_LICENSE error
+            This returns an HTML page with details of the error.
+          content:
+            text/html:
+              example: |
+                404 ERROR "The library currently has no licenses for this book."
+        451:
+          description: |
+            This returns an HTML page detailing that this work is not age appropriate.html
+          content:
+            text/html:
+              example: |
+                451 ERROR Library policy considers this title inappropriate for your patron type.
+
+    post:
+      tags:
+        - works
+      summary: |
+        To update a list of custom works and affected lanes.
+      description: |
+        An end point to update and create custom lists of works.
+      security: 
+        - BasicAuth: []
+      responses:
+        200:
+          description: Success OK
+        404:
+          description: |
+            NO_LICENSE error
+            MISSING_CUSTOM_LIST error
+
+            This returns an HTML page with details of the error.
+          content:
+            text/html:
+              example: |
+                404 ERROR "The library currently has no licenses for this book."
+        451:
+          description: |
+            This returns an HTML page detailing that this work is not age appropriate.html
+          content:
+            text/html:
+              example: |
+                451 ERROR Library policy considers this title inappropriate for your patron type.
+    """
     return app.manager.admin_work_controller.custom_lists(identifier_type, identifier)
 
 
