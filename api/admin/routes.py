@@ -575,6 +575,30 @@ def languages():
 @allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 def media():
+    """Return the supported media types for a work and link to their schema.org values.
+    ---
+    get:
+      tags:
+        - administration
+      description: Return links to schema.org for associated media type.
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: dict of schema.org links and associated media types
+          content:
+            application/json:
+              schema: MediaSchemaDict
+              example: |
+                {"http://bib.schema.org/Audiobook":"Audio",
+                "http://schema.org/Book":"Book",
+                "http://schema.org/Course":"Courseware",
+                "http://schema.org/EBook":"Book",
+                "http://schema.org/ImageObject":"Image",
+                "http://schema.org/MusicRecording":"Music",
+                "http://schema.org/PublicationIssue":"Periodical",
+                "http://schema.org/VideoObject":"Video"}
+    """
     return app.manager.admin_work_controller.media()
 
 

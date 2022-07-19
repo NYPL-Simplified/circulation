@@ -440,6 +440,19 @@ class OpenAPIController:
                 }
             }
         )
+        self.addComponent(
+            'schema', 'MediaSchemaDict', 'dict',
+            {
+                'items': {
+                      'type': 'object',
+                      'properties': {
+                          'href': {'type': 'string'},
+                          'media_type': {'type': 'string'},
+                          'href': 'media_type'
+                      }
+                }
+            }
+        )
 
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
