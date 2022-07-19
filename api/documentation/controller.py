@@ -427,6 +427,19 @@ class OpenAPIController:
                 }
             }
         )
+        self.addComponent(
+            'schema', 'LanguageCodes', 'dict',
+            {
+                'items': {
+                      'type': 'object',
+                      'properties': {
+                          'language_code': {'type': 'string'},
+                          'languages': {'type': "List['string']"},
+                          'language_code': 'languages'
+                      }
+                }
+            }
+        )
 
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters

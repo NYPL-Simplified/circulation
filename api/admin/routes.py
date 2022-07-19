@@ -542,6 +542,32 @@ def roles():
 @allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 def languages():
+    """Return the supported language codes and their English names.
+    ---
+    get:
+      tags: 
+        - administration
+      description: Returns a JSON of language_codes and associated list of language names
+      security: 
+        - BasicAuth: []
+      responses:
+        200:
+          description: JSON of language codes and associated languages
+          content: 
+            application/json:
+              schema: LanguageCodes
+              example:
+                {"aa":["Afar"],
+                "aar":["Afar"],
+                "ab":["Abkhazian"],
+                "abk":["Abkhazian"],
+                "ace":["Achinese"],
+                "ach":["Acoli"],
+                "ada":["Adangme"],
+                "ady":["Adyghe","Adygei"],
+                "ae":["Avestan"],
+                ...}
+    """
     return app.manager.admin_work_controller.languages()
 
 
