@@ -17,13 +17,14 @@ class OpenAPIController:
 
     def __init__(self):
         self.spec = self.generateSpecBase()
-    
+
     def addComponent(self,
-        componentType, schemaName, schemaType, schemaProps,
-        requiredFields=None):
+                     componentType, schemaName, schemaType, schemaProps,
+                     requiredFields=None):
         addComponentFunc = getattr(self.spec.components, componentType)
 
-        schemaProps = {'properties': schemaProps} if schemaType == 'object' else schemaProps
+        schemaProps = {
+            'properties': schemaProps} if schemaType == 'object' else schemaProps
 
         schemaComponent = {
             'type': schemaType,
@@ -58,7 +59,8 @@ class OpenAPIController:
 
         self.addComponent(
             'schema', 'SiteAdminRoles', 'string',
-            {'enum': ['system', 'manager-all', 'manager', 'librarian-all', 'librarian']}
+            {'enum': ['system', 'manager-all',
+                      'manager', 'librarian-all', 'librarian']}
         )
 
         self.addComponent(
@@ -133,14 +135,21 @@ class OpenAPIController:
                 'enum': [
                     'self',  # OPDS Reference to current document
                     'alternate',  # Alternate, non-OPDS representation
-                    'http://opds-spec.org/acquisition',  # Generic Access link where a resource may be accessed
-                    'http://opds-spec.org/acquisition/open-access',  # Free access (no payment, registration or log-in required)
-                    'http://opds-spec.org/acquisition/borrow',  # Resource may be borrowed from source
+                    # Generic Access link where a resource may be accessed
+                    'http://opds-spec.org/acquisition',
+                    # Free access (no payment, registration or log-in required)
+                    'http://opds-spec.org/acquisition/open-access',
+                    # Resource may be borrowed from source
+                    'http://opds-spec.org/acquisition/borrow',
                     'http://opds-spec.org/acquisition/buy',  # Resource may be bought from source
-                    'http://opds-spec.org/acquisition/sample',  # A subset of the resource can be viewed
-                    'http://opds-spec.org/acquisition/subscribe',  # A complete resource may be retrieved on the basis of a larger subscription
-                    'http://opds-spec.org/image',  # A representation of a resource (i.e. a cover)
-                    'http://opds-spec.org/image/thumbnail'  # A smaller representation of a resource
+                    # A subset of the resource can be viewed
+                    'http://opds-spec.org/acquisition/sample',
+                    # A complete resource may be retrieved on the basis of a larger subscription
+                    'http://opds-spec.org/acquisition/subscribe',
+                    # A representation of a resource (i.e. a cover)
+                    'http://opds-spec.org/image',
+                    # A smaller representation of a resource
+                    'http://opds-spec.org/image/thumbnail'
                 ]
             }
         )
@@ -196,7 +205,7 @@ class OpenAPIController:
                 'atom:author': {
                     'type': 'array',
                     'items': {'$ref': '#/components/schemas/AtomAuthor'}
-                },    
+                },
                 'atom:rights': {'type': 'string'},
                 'atom:summary': {'type': 'string'},
                 'atom:content': {'type': 'string'},
@@ -215,7 +224,7 @@ class OpenAPIController:
                 'simplified:pwid': {'type': 'string'},
                 'atom:additionalType': {'type': 'string'},
                 'atom:series': {
-                    'type': 'array', 
+                    'type': 'array',
                     'items': {'$ref': '#/components/schemas/AtomSeries'}
                 },
                 'dcterms:language': {'type': 'string'},
@@ -405,6 +414,20 @@ class OpenAPIController:
             }
         )
 
+        self.addComponent(
+            'schema', 'MARCRollContributorsDict', 'dict',
+            {
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'MARCRoleCode': {'type': 'string'},
+                        'ContributorRole': {'type': 'string'},
+                        'MARCRoleCode': 'ContributorRole'
+                    }
+                }
+            }
+        )
+
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
         self.spec.components.parameter(
@@ -421,7 +444,7 @@ class OpenAPIController:
     def addPaths(self):
         for name, method in adminRoutes.__dict__.items():
             self.addPath(name, method)
-    
+
     def addPath(self, name, method):
         if inspect.isfunction(method):
             try:
@@ -483,4 +506,3 @@ class OpenAPIController:
         specManager.addPaths()
 
         return specManager.spec.to_dict()
-
