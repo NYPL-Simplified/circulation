@@ -48,7 +48,7 @@ services:
       target: cm_scripts_local
     environment:
       NEW_RELIC_APP_NAME: Circulation Manager (TEST)
-      NEW_RELIC_MONITOR_MODE: false
+      NEW_RELIC_MONITOR_MODE: 'false'
       NEW_RELIC_CONFIG_FILE: /home/simplified/circulation/newrelic.ini
       NEW_RELIC_ENVIRONMENT: local
       NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
@@ -73,7 +73,7 @@ services:
       target: cm_webapp_local
     environment:
       NEW_RELIC_APP_NAME: Circulation Manager (TEST)
-      NEW_RELIC_MONITOR_MODE: false
+      NEW_RELIC_MONITOR_MODE: 'false'
       NEW_RELIC_CONFIG_FILE: /home/simplified/circulation/newrelic.ini
       NEW_RELIC_ENVIRONMENT: local
       NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
