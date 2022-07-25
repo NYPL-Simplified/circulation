@@ -439,7 +439,7 @@ def work_custom_lists(identifier_type, identifier):
 
         This returns a Dict of custom lists of works.
       security:
-        - BasicAuth: [X-CSRF-Token]
+        - BasicAuth: []
       parameters:
             - in: url
               name: identifier type
@@ -481,6 +481,7 @@ def work_custom_lists(identifier_type, identifier):
       security: 
         - BasicAuth: []
       parameters:
+            - X-CSRF-TOKEN
             - in: url
               name: identifier type
               schema:
@@ -876,6 +877,8 @@ def circulation_events():
         summary: Return supported rights stats, names, and open access authorization.
         description: |
           This method returns a dictionary or liscense URIs. Each URI key of the dictionary contains A name string of the license, if the license allows derivatives, and if it is open access or not.
+        security: 
+          - BasicAuth[]
         responses:
           200:
             description: A dictionary of license URI keys with values that describe of the license key.
