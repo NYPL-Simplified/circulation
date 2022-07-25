@@ -441,6 +441,11 @@ def work_custom_lists(identifier_type, identifier):
       security:
         - BasicAuth: []
       parameters:
+            - in: path
+              name: library_short_name
+              description: Short identifying code for a library
+              schema:
+                type: string
             - in: url
               name: identifier type
               schema:
@@ -806,48 +811,53 @@ def genres():
 @requires_admin
 def bulk_circulation_events():
     """Return CSV array of the library bulk circulation events.
-        ---
-        get:
-          tags:
-            - files
-          summary: Return CSV array of library bulk circulation events.
+    ---
+    get:
+      tags: 
+        - lists
+      summary: Return CSV array of the library bulk circulation events.
+      description: |
+          Returns a CSV array of bulk circulation events between 2 dates.
+      security: 
+        - BasicAuth: []
+      parameters:
+        - in: path
+          name: library_short_name
+          description: Short identifying code for a library
+          schema:
+            type: string
+        - in: query
+          name: date
+          schema:
+            type: datetime
+          description: Date time object of search query start date.
+        - in: query
+          name: dateEnd
+          schema:
+            type: datetime
+          description: Date time object of search query end date.
+      responses:
+        200:
+          description: List CSV array of bulk circulation events.
+          content:
+            text/csv:
+              schema: BulkCirculationEvents
+        4XX:
           description: |
-            Returns a CSV array of bulk circulation events between 2 dates.
-          security: BasicAuth[]
-          parameters:
-            - in: query
-              name: date
-              schema:
-                type: datetime
-              description: Date time object of search query start date.
-            - in: query
-              name: dateEnd
-              schema:
-                type: datetime
-              description: Date time object of search query end date.
-          responses:
-            200:
-              description: List CSV array of bulk circulation events.
-              content:
-                text/csv:
-                  schema: BulkCirculationEvents
-            4XX:
-              description: |
-                An error including:
-                * `LIBRARY_NOT_FOUND`: Library was not found.
-                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
-              content:
-                application/json:
-                  schema: ProblemResponse 
-            5XX:
-              description: |
-                An error including:
-                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
-              content:
-                application/json:
-                  schema: ProblemResponse 
-
-        """
+            An error including:
+            * `LIBRARY_NOT_FOUND`: Library was not found.
+            * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+          content:
+            application/json:
+              schema: ProblemResponse 
+    """
     data, date, date_end, library = app.manager.admin_dashboard_controller.bulk_circulation_events()
     if isinstance(data, ProblemDetail):
         return data
