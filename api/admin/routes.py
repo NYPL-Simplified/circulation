@@ -582,7 +582,9 @@ def roles():
     get:
       tags: 
         - administration
-      description: Returns a JSON of properly mapped MARC codes that are currently defined in this system.
+      summary: Return a mapping from MARC codes to contributor roles.
+      description: |
+        This end point returns a map of MARC Codes to contributor roles that are currently available with this system.
       security: 
         - BasicAuth: []
       responses:
@@ -630,7 +632,7 @@ def languages():
     get:
       tags: 
         - administration
-      description: Returns a JSON of language_codes and associated list of language names
+      summary: Returns a JSON of language_codes and associated list of language names
       security: 
         - BasicAuth: []
       responses:
@@ -663,7 +665,7 @@ def media():
     get:
       tags:
         - administration
-      description: Return links to schema.org for associated media type.
+      summary: Return links to schema.org for associated media type.
       security:
         - BasicAuth: []
       responses:
@@ -689,6 +691,82 @@ def media():
 @allows_cors(allowed_domain_type=set({"admin"}))
 @returns_json_or_response_or_problem_detail
 def rights_status():
+    """Return the supported rights status values with their names and whether they are open access.
+      ---
+      get:
+        tags:
+          - administration
+        summary: Return supported rights stats, names, and open access authorization.
+        description: |
+          This method returns a dictionary or liscense URIs. Each URI key of the dictionary contains A name string of the license, if the license allows derivatives, and if it is open access or not.
+        responses:
+          200:
+            description: A dictionary of license URI keys with values that describe of the license key.
+            content:
+              application/json:
+                schema: LiscenseSchema
+                example: |
+                  {"http://creativecommons.org/licenses/by/4.0/": {
+                    "allows_derivatives":true,
+                    "name":"Creative Commons Attribution (CC BY)",
+                    "open_access":true},
+                  "http://librarysimplified.org/terms/rights-status/generic-open-access":{
+                    "allows_derivatives":false,
+                    "name":"Open access with no specific license",
+                    "open_access":true},
+                  "http://librarysimplified.org/terms/rights-status/in-copyright":{
+                    "allows_derivatives":false,
+                    "name":"In Copyright",
+                    "open_access":false},
+                  "http://librarysimplified.org/terms/rights-status/public-domain-usa":{
+                    "allows_derivatives":true,
+                    "name":"Public domain in the USA",
+                    "open_access":true},
+                  "http://librarysimplified.org/terms/rights-status/unknown":{
+                    "allows_derivatives":false,
+                    "name":"Unknown",
+                    "open_access":false},
+                  "https://creativecommons.org/licenses/by-nc-nd/4.0":{
+                    "allows_derivatives":false,
+                    "name":"Creative Commons Attribution-NonCommercial-NoDerivs (CC BY-NC-ND)",
+                    "open_access":true},
+                  "https://creativecommons.org/licenses/by-nc-sa/4.0":{
+                    "allows_derivatives":true,
+                    "name":"Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA)",
+                    "open_access":true},
+                  "https://creativecommons.org/licenses/by-nc/4.0":{
+                    "allows_derivatives":true,
+                    "name":"Creative Commons Attribution-NonCommercial (CC BY-NC)",
+                    "open_access":true},
+                  "https://creativecommons.org/licenses/by-nd/4.0":{
+                    "allows_derivatives":false,
+                    "name":"Creative Commons Attribution-NoDerivs (CC BY-ND)",
+                    "open_access":true},
+                  "https://creativecommons.org/licenses/by-sa/4.0":{
+                    "allows_derivatives":true,
+                    "name":"Creative Commons Attribution-ShareAlike (CC BY-SA)",
+                    "open_access":true},
+                  "https://creativecommons.org/publicdomain/zero/1.0/":{
+                    "allows_derivatives":true,
+                    "name":"Creative Commons Public Domain Dedication (CC0)",
+                    "open_access":true}}
+
+          4XX:
+            description: |
+              An error including:
+              * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
+              * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+            content:
+              application/json:
+                schema: ProblemResponse 
+          5XX:
+            description: |
+              An error including:
+              * `INTERNAL_SERVER_ERROR`: API server error.
+            content:
+              application/json:
+                schema: ProblemResponse 
+      """
     return app.manager.admin_work_controller.rights_status()
 
 
@@ -734,6 +812,7 @@ def bulk_circulation_events():
           summary: Return CSV array of library bulk circulation events.
           description: |
             Returns a CSV array of bulk circulation events between 2 dates.
+          security: BasicAuth[]
           parameters:
             - in: query
               name: date
@@ -789,7 +868,82 @@ def bulk_circulation_events():
 @returns_json_or_response_or_problem_detail
 @requires_admin
 def circulation_events():
-    """Returns a JSON representation of the most recent circulation events."""
+    """Returns a JSON representation of the most recent circulation events.
+      ---
+      get:
+        tags:
+          - administration
+        summary: Return supported rights stats, names, and open access authorization.
+        description: |
+          This method returns a dictionary or liscense URIs. Each URI key of the dictionary contains A name string of the license, if the license allows derivatives, and if it is open access or not.
+        responses:
+          200:
+            description: A dictionary of license URI keys with values that describe of the license key.
+            content:
+              application/json:
+                schema: LiscenseSchema
+                example: |
+                  {"http://creativecommons.org/licenses/by/4.0/": {
+                    "allows_derivatives":true,
+                    "name":"Creative Commons Attribution (CC BY)",
+                    "open_access":true},
+                  "http://librarysimplified.org/terms/rights-status/generic-open-access":{
+                    "allows_derivatives":false,
+                    "name":"Open access with no specific license",
+                    "open_access":true},
+                  "http://librarysimplified.org/terms/rights-status/in-copyright":{
+                    "allows_derivatives":false,
+                    "name":"In Copyright",
+                    "open_access":false},
+                  "http://librarysimplified.org/terms/rights-status/public-domain-usa":{
+                    "allows_derivatives":true,
+                    "name":"Public domain in the USA",
+                    "open_access":true},
+                  "http://librarysimplified.org/terms/rights-status/unknown":{
+                    "allows_derivatives":false,
+                    "name":"Unknown",
+                    "open_access":false},
+                  "https://creativecommons.org/licenses/by-nc-nd/4.0":{
+                    "allows_derivatives":false,
+                    "name":"Creative Commons Attribution-NonCommercial-NoDerivs (CC BY-NC-ND)",
+                    "open_access":true},
+                  "https://creativecommons.org/licenses/by-nc-sa/4.0":{
+                    "allows_derivatives":true,
+                    "name":"Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA)",
+                    "open_access":true},
+                  "https://creativecommons.org/licenses/by-nc/4.0":{
+                    "allows_derivatives":true,
+                    "name":"Creative Commons Attribution-NonCommercial (CC BY-NC)",
+                    "open_access":true},
+                  "https://creativecommons.org/licenses/by-nd/4.0":{
+                    "allows_derivatives":false,
+                    "name":"Creative Commons Attribution-NoDerivs (CC BY-ND)",
+                    "open_access":true},
+                  "https://creativecommons.org/licenses/by-sa/4.0":{
+                    "allows_derivatives":true,
+                    "name":"Creative Commons Attribution-ShareAlike (CC BY-SA)",
+                    "open_access":true},
+                  "https://creativecommons.org/publicdomain/zero/1.0/":{
+                    "allows_derivatives":true,
+                    "name":"Creative Commons Public Domain Dedication (CC0)",
+                    "open_access":true}}
+
+          4XX:
+            description: |
+              An error including:
+              * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
+              * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+            content:
+              application/json:
+                schema: ProblemResponse 
+          5XX:
+            description: |
+              An error including:
+              * `INTERNAL_SERVER_ERROR`: API server error.
+            content:
+              application/json:
+                schema: ProblemResponse 
+      """
     return app.manager.admin_dashboard_controller.circulation_events()
 
 

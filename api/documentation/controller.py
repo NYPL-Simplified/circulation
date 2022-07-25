@@ -415,7 +415,7 @@ class OpenAPIController:
         )
 
         self.addComponent(
-            'schema', 'MARCRollContributorsDict', 'dict',
+            'schema', 'MARCRollContributorsDict', 'object',
             {
                 'items': {
                     'type': 'object',
@@ -428,7 +428,7 @@ class OpenAPIController:
             }
         )
         self.addComponent(
-            'schema', 'LanguageCodes', 'dict',
+            'schema', 'LanguageCodes', 'object',
             {
                 'items': {
                       'type': 'object',
@@ -441,7 +441,7 @@ class OpenAPIController:
             }
         )
         self.addComponent(
-            'schema', 'MediaSchemaDict', 'dict',
+            'schema', 'MediaSchemaDict', 'object',
             {
                 'items': {
                       'type': 'object',
@@ -463,6 +463,23 @@ class OpenAPIController:
                 'array': {
                     'type': 'array',
                     'items': {'$ref': '#/components/schemas/CustomListCollection'}
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'LicenseSchema', 'object',
+            {
+                'items': {
+                      'type': 'object',
+                      'key': {
+                          'type': 'string',
+                          'description': 'URI string'
+                      },
+                    'properties': {
+                          'allows_derivitives': {'type': 'boolean'},
+                          'name': {'type': 'string'},
+                          'open_access': 'boolean'
+                      }
                 }
             }
         )
