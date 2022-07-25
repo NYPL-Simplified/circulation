@@ -430,10 +430,6 @@ def work_complaints(identifier_type, identifier):
 def work_custom_lists(identifier_type, identifier):
     """Returns or updates custom lists
     ---
-    args:
-        identifier_type (str): A type of identifier, e.g. "ISBN"
-        identifier (str): An identifier string, used with `identifier_type` to look up an Identifier.
-
     get:
       tags: 
         - works
@@ -443,13 +439,23 @@ def work_custom_lists(identifier_type, identifier):
 
         This returns a Dict of custom lists of works.
       security:
-        - BasicAuth: []
+        - BasicAuth: [X-CSRF-Token]
+      parameters:
+            - in: url
+              name: identifier type
+              schema:
+                type: string
+              description: A type of identifier, e.g. "ISBN".
+            - in: url
+              name: identifier
+              schema: String
+              description: An identifier string, used with `identifier_type` to look up an Identifier.
       responses:
         200:
-          description: A dict of a custom list of works
+          description: An array of lists a work belongs to.
           content:
             application/json:
-              schema: CustomListCollection
+              schema: CustomListCollectionArray
         404:
           description: |
             NO_LICENSE error
@@ -465,7 +471,6 @@ def work_custom_lists(identifier_type, identifier):
             text/html:
               example: |
                 451 ERROR Library policy considers this title inappropriate for your patron type.
-
     post:
       tags:
         - works
@@ -475,6 +480,16 @@ def work_custom_lists(identifier_type, identifier):
         An end point to update and create custom lists of works.
       security: 
         - BasicAuth: []
+      parameters:
+            - in: url
+              name: identifier type
+              schema:
+                type: string
+              description: A type of identifier, e.g. "ISBN".
+            - in: url
+              name: identifier
+              schema: String
+              description: An identifier string, used with `identifier_type` to look up an Identifier.
       responses:
         200:
           description: Success OK
@@ -567,7 +582,7 @@ def roles():
     get:
       tags: 
         - administration
-      description: Returns a JSON of properly mapped MARC codes
+      description: Returns a JSON of properly mapped MARC codes that are currently defined in this system.
       security: 
         - BasicAuth: []
       responses:
@@ -711,18 +726,48 @@ def genres():
 @allows_library
 @requires_admin
 def bulk_circulation_events():
-    """Return a CSV representation of all circulation events with optional start and end times.
-    ---
-    get:
-      tags:
-        - administration
-      description: Return CSV of circulation events
-      responses:
-        200:
-          description: CSV of circulation events
-          schema: BulkCirculation
-          example: [time,	event, identifier, identifier_type, title, author, fiction, audience, publisher, imprint, language, target_age, genres, location]
-    """
+    """Return CSV array of the library bulk circulation events.
+        ---
+        get:
+          tags:
+            - files
+          summary: Return CSV array of library bulk circulation events.
+          description: |
+            Returns a CSV array of bulk circulation events between 2 dates.
+          parameters:
+            - in: query
+              name: date
+              schema:
+                type: datetime
+              description: Date time object of search query start date.
+            - in: query
+              name: dateEnd
+              schema:
+                type: datetime
+              description: Date time object of search query end date.
+          responses:
+            200:
+              description: List CSV array of bulk circulation events.
+              content:
+                text/csv:
+                  schema: BulkCirculationEvents
+            4XX:
+              description: |
+                An error including:
+                * `LIBRARY_NOT_FOUND`: Library was not found.
+                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+              content:
+                application/json:
+                  schema: ProblemResponse 
+            5XX:
+              description: |
+                An error including:
+                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+              content:
+                application/json:
+                  schema: ProblemResponse 
+
+        """
     data, date, date_end, library = app.manager.admin_dashboard_controller.bulk_circulation_events()
     if isinstance(data, ProblemDetail):
         return data

@@ -434,7 +434,7 @@ class OpenAPIController:
                       'type': 'object',
                       'properties': {
                           'language_code': {'type': 'string'},
-                          'languages': {'type': "List['string']"},
+                          'languages': {'type': "Array['string']"},
                           'language_code': 'languages'
                       }
                 }
@@ -454,8 +454,17 @@ class OpenAPIController:
             }
         )
         self.addComponent(
-            'schema', 'BulkCirculation', 'list',
+            'schema', 'BulkCirculationEvents', 'array',
             {'items': 'string'}
+        )
+        self.addComponent(
+            'schema', 'CustomListCollectionArray', 'array',
+            {
+                'array': {
+                    'type': 'array',
+                    'items': {'$ref': '#/components/schemas/CustomListCollection'}
+                }
+            }
         )
 
     def addParameters(self):
