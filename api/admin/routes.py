@@ -591,8 +591,6 @@ def roles():
       summary: Return a mapping from MARC codes to contributor roles.
       description: |
         This end point returns a map of MARC Codes to contributor roles that are currently available with this system.
-      security: 
-        - BasicAuth: []
       responses:
         200:
           description: List of MARC codes mapped to Contributor roles
@@ -639,8 +637,6 @@ def languages():
       tags: 
         - administration
       summary: Returns a JSON of language_codes and associated list of language names
-      security: 
-        - BasicAuth: []
       responses:
         200:
           description: JSON of language codes and associated languages
@@ -672,8 +668,6 @@ def media():
       tags:
         - administration
       summary: Return links to schema.org for associated media type.
-      security:
-        - BasicAuth: []
       responses:
         200:
           description: dict of schema.org links and associated media types
