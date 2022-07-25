@@ -873,84 +873,52 @@ def bulk_circulation_events():
 @returns_json_or_response_or_problem_detail
 @requires_admin
 def circulation_events():
-    """Returns a JSON representation of the most recent circulation events.
-      ---
-      get:
-        tags:
-          - administration
-        summary: Return supported rights stats, names, and open access authorization.
-        description: |
-          This method returns a dictionary or liscense URIs. Each URI key of the dictionary contains A name string of the license, if the license allows derivatives, and if it is open access or not.
-        security: 
-          - BasicAuth[]
-        responses:
-          200:
-            description: A dictionary of license URI keys with values that describe of the license key.
-            content:
-              application/json:
-                schema: LiscenseSchema
-                example: |
-                  {"http://creativecommons.org/licenses/by/4.0/": {
-                    "allows_derivatives":true,
-                    "name":"Creative Commons Attribution (CC BY)",
-                    "open_access":true},
-                  "http://librarysimplified.org/terms/rights-status/generic-open-access":{
-                    "allows_derivatives":false,
-                    "name":"Open access with no specific license",
-                    "open_access":true},
-                  "http://librarysimplified.org/terms/rights-status/in-copyright":{
-                    "allows_derivatives":false,
-                    "name":"In Copyright",
-                    "open_access":false},
-                  "http://librarysimplified.org/terms/rights-status/public-domain-usa":{
-                    "allows_derivatives":true,
-                    "name":"Public domain in the USA",
-                    "open_access":true},
-                  "http://librarysimplified.org/terms/rights-status/unknown":{
-                    "allows_derivatives":false,
-                    "name":"Unknown",
-                    "open_access":false},
-                  "https://creativecommons.org/licenses/by-nc-nd/4.0":{
-                    "allows_derivatives":false,
-                    "name":"Creative Commons Attribution-NonCommercial-NoDerivs (CC BY-NC-ND)",
-                    "open_access":true},
-                  "https://creativecommons.org/licenses/by-nc-sa/4.0":{
-                    "allows_derivatives":true,
-                    "name":"Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA)",
-                    "open_access":true},
-                  "https://creativecommons.org/licenses/by-nc/4.0":{
-                    "allows_derivatives":true,
-                    "name":"Creative Commons Attribution-NonCommercial (CC BY-NC)",
-                    "open_access":true},
-                  "https://creativecommons.org/licenses/by-nd/4.0":{
-                    "allows_derivatives":false,
-                    "name":"Creative Commons Attribution-NoDerivs (CC BY-ND)",
-                    "open_access":true},
-                  "https://creativecommons.org/licenses/by-sa/4.0":{
-                    "allows_derivatives":true,
-                    "name":"Creative Commons Attribution-ShareAlike (CC BY-SA)",
-                    "open_access":true},
-                  "https://creativecommons.org/publicdomain/zero/1.0/":{
-                    "allows_derivatives":true,
-                    "name":"Creative Commons Public Domain Dedication (CC0)",
-                    "open_access":true}}
-
-          4XX:
-            description: |
-              An error including:
-              * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
-              * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
-            content:
-              application/json:
-                schema: ProblemResponse 
-          5XX:
-            description: |
-              An error including:
-              * `INTERNAL_SERVER_ERROR`: API server error.
-            content:
-              application/json:
-                schema: ProblemResponse 
-      """
+    """Return JSON of recent circulation events
+        ---
+        get:
+          tags: 
+            - lists
+          summary: Return JSON of recent circulation events
+          security: 
+            - BasicAuth: []
+          parameters:
+            - in: path
+              name: library_short_name
+              description: Short identifying code for a library
+              schema:
+                type: string
+            - in: request
+              name: num
+              schema:
+                type: int
+              description: Number of results requested. Default is 100. Max is 500.
+            - in: query
+              name: dateEnd
+              schema:
+                type: datetime
+              description: Date time object of search query end date.
+          responses:
+            200:
+              description: List CSV array of bulk circulation events.
+              content:
+                text/csv:
+                  schema: CirculationEvents
+            4XX:
+              description: |
+                An error including:
+                * `LIBRARY_NOT_FOUND`: Library was not found.
+                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+              content:
+                application/json:
+                  schema: ProblemResponse 
+            5XX:
+              description: |
+                An error including:
+                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+              content:
+                application/json:
+                  schema: ProblemResponse 
+        """
     return app.manager.admin_dashboard_controller.circulation_events()
 
 

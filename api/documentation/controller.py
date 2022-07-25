@@ -483,6 +483,31 @@ class OpenAPIController:
                 }
             }
         )
+        self.addComponent(
+            'schema', 'CirculationEventSchema', 'object',
+            {
+                'item': {
+                    'type': 'array',
+                    'description': 'Array of circulation events',
+                    'items': {
+                        'type': 'object',
+                        'description': 'Event',
+                        'properties': {
+                            'id': {'type': 'string'},
+                            'type': {'type': 'string'},
+                            'time': {'type': 'datetime'},
+                            'book': {
+                                'type': 'object',
+                                'properties': {
+                                    'title': {'type': 'string'},
+                                    'url': {'type': 'string'}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
 
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
