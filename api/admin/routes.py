@@ -478,7 +478,7 @@ def work_custom_lists(identifier_type, identifier):
                 451 ERROR Library policy considers this title inappropriate for your patron type.
     post:
       tags:
-        - works
+        - lists
       summary: |
         To update a list of custom works and affected lanes.
       description: |
