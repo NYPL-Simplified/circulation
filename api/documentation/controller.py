@@ -508,6 +508,59 @@ class OpenAPIController:
                 }
             }
         )
+        self.addComponent(
+            'schema', 'LibraryStatsSchema', 'object',
+            {
+                'items': {
+                    'type': 'array',
+                    'description': 'Array of library stats',
+                    'items': {
+                        'type': 'object',
+                        'description': 'Library name or "total"',
+                        'properties': {
+                            'patron': {
+                                'type': 'object',
+                                'properties': {
+                                    'total': {'type': 'int'},
+                                    'with_active_loans': {'type': 'int'},
+                                    'with_active_loans_or_holds': {
+                                        'type': 'int'
+                                    },
+                                    'loans': {'type': 'int'},
+                                    'holds': {'type': 'int'}
+                                }
+                            },
+                            'inventory': {
+                                'type': 'object',
+                                'properties': {
+                                    'titles': {
+                                        'type': 'int',
+                                        'description': 'total title count'
+                                    },
+                                    'licenses': {
+                                        'type': 'int',
+                                        'description': 'total license count'
+                                    },
+                                    'available_license_count': {
+                                        'type': 'int',
+                                        'description': 'total available'
+                                    }
+                                }
+                            },
+                            'collections': {
+                                'type': 'object',
+                                'properties': {
+                                    'licensed_titles': {'type': 'int'},
+                                    'open_access_titles': {'type': 'int'},
+                                    'licenses': {'type:': 'int'},
+                                    'available_licenses': {'type': 'int'}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
 
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters

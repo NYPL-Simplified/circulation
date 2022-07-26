@@ -432,7 +432,7 @@ def work_custom_lists(identifier_type, identifier):
     ---
     get:
       tags: 
-        - works
+        - lists
       summary: A custom list of works
       description: |
         This endpoint fetches a custom list of works.
@@ -927,6 +927,61 @@ def circulation_events():
 @returns_json_or_response_or_problem_detail
 @requires_admin
 def stats():
+    """Return object of library statisticss by library name and total statistics.
+        ---
+        get:
+          tags:
+            - administration
+          summary: Return object of library statistics by library name and total stattistics.
+          security:
+            - BasicAuth: []
+          responses:
+            200:
+              description: Object of library statistics.
+              content:
+                application/json:
+                  schema: LibraryStatsSchema
+                  example: |
+                    {library_stats{
+                        name: {
+                                patrons: {
+                                        total: int (total patrons),
+                                        with_active_loans: int (total patrons with active loans),
+                                        with_active_loans_or_holds: int (same as above + holds),
+                                        loans: int (total loans),
+                                        holds: int (total holds)
+                                },
+                                inventory: {
+                                        titles: int (total title count),
+                                        licenses: int (total license count),
+                                        available_license_count: int (total available)
+                                },
+                                collections: {
+                                        name: {
+                                                licensed_titles: int,
+                                                open_access_titles: int,
+                                                licenses: int,
+                                                available_licenses: int
+                                        }
+                                }
+                        }
+                    }}
+            4XX:
+              description: |
+                An error including:
+                * `LIBRARY_NOT_FOUND`: Library was not found.
+                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+              content:
+                application/json:
+                  schema: ProblemResponse
+            5XX:
+              description: |
+                An error including:
+                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+              content:
+                application/json:
+                  schema: ProblemResponse
+        """
     return app.manager.admin_dashboard_controller.stats()
 
 
