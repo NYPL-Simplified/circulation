@@ -521,28 +521,28 @@ class OpenAPIController:
                             'patron': {
                                 'type': 'object',
                                 'properties': {
-                                    'total': {'type': 'int'},
-                                    'with_active_loans': {'type': 'int'},
+                                    'total': {'type': 'integer'},
+                                    'with_active_loans': {'type': 'integer'},
                                     'with_active_loans_or_holds': {
-                                        'type': 'int'
+                                        'type': 'integer'
                                     },
-                                    'loans': {'type': 'int'},
-                                    'holds': {'type': 'int'}
+                                    'loans': {'type': 'integer'},
+                                    'holds': {'type': 'integer'}
                                 }
                             },
                             'inventory': {
                                 'type': 'object',
                                 'properties': {
                                     'titles': {
-                                        'type': 'int',
+                                        'type': 'integer',
                                         'description': 'total title count'
                                     },
                                     'licenses': {
-                                        'type': 'int',
+                                        'type': 'integer',
                                         'description': 'total license count'
                                     },
                                     'available_license_count': {
-                                        'type': 'int',
+                                        'type': 'integer',
                                         'description': 'total available'
                                     }
                                 }
@@ -550,10 +550,10 @@ class OpenAPIController:
                             'collections': {
                                 'type': 'object',
                                 'properties': {
-                                    'licensed_titles': {'type': 'int'},
-                                    'open_access_titles': {'type': 'int'},
-                                    'licenses': {'type:': 'int'},
-                                    'available_licenses': {'type': 'int'}
+                                    'licensed_titles': {'type': 'integer'},
+                                    'open_access_titles': {'type': 'integer'},
+                                    'licenses': {'type:': 'integer'},
+                                    'available_licenses': {'type': 'integer'}
                                 }
                             }
                         }
@@ -590,7 +590,7 @@ class OpenAPIController:
                                 'description': 'Data source name',
                             },
                             'weight': {
-                                'type': 'number',
+                                'type': 'integer',
                                 'description': 'Weighted results integer'
                             },
                         }
