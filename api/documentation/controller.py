@@ -561,6 +561,43 @@ class OpenAPIController:
                 }
             }
         )
+        self.addComponent(
+            'schema', 'ClassificationsSchema', 'object',
+            {
+                'item': {
+                    'type': 'array',
+                    'description': 'A list of classifications for a chosen work',
+                    'items': {
+                        'type': 'object',
+                        'description': 'Work',
+                        'properties': {
+                            'identifier_type': {'type': 'string'},
+                            'identifier': {'type': 'string'},
+                        },
+                        'type': 'object',
+                        'description': 'A list of classifications for said work',
+                        'properties': {
+                            'type': {
+                                'type': 'string',
+                                'description': 'Subject type',
+                            },
+                            'name': {
+                                'type': 'string',
+                                'description': 'Subject name',
+                            },
+                            'source': {
+                                'type': 'string',
+                                'description': 'Data source name',
+                            },
+                            'weight': {
+                                'type': 'number',
+                                'description': 'Weighted results integer'
+                            },
+                        }
+                    }
+                }
+            }
+        )
 
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
@@ -587,7 +624,7 @@ class OpenAPIController:
                 logger.warning(f'{name} unable to create view')
                 pass
 
-    @classmethod
+    @ classmethod
     def generateSpecBase(cls):
         # Initialize OpenAPI Spec Document
         return APISpec(
@@ -630,7 +667,7 @@ class OpenAPIController:
             plugins=[FlaskPlugin(), CSRFPlugin()]
         )
 
-    @classmethod
+    @ classmethod
     def generateSpec(cls):
         specManager = cls()
 

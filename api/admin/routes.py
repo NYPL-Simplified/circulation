@@ -391,6 +391,50 @@ def work_details(identifier_type, identifier):
 @returns_json_or_response_or_problem_detail
 @requires_admin
 def work_classifications(identifier_type, identifier):
+    """Return list of this work's classifications.
+    ---
+    get:
+      tags:
+        - lists
+      summary: Return list of this work's classifications.
+      description: |
+        Return list of this work's classifications.
+      security:
+        - BasicAuth: []
+      parameters:
+        - in: path
+          name: library_short_name
+          schema:
+            type: string
+          description: The short code of a library that holds the requested work
+        - in: path
+          name: identifier_type
+          schema:
+            type: string
+          description: The type of the identifier being used to retrieve a work
+        - in: path
+          name: identifier
+          schema:
+            type: string
+          description: An identifier for a work record
+      responses:
+        200:
+          description: |
+            A JSON list containing all of the classifications for a particular work.
+          content:
+            application/json:
+              schema: ClassificationsSchema
+        404:
+          description: An error that the work is not available in the requested collection
+          content:
+            application/json:
+              schema: ProblemResponse
+        451:
+          description: A `NOT_AGE_APPROPRIATE` response, which should not be returned in this context
+          content:
+            application/json:
+              schema: ProblemResponse
+    """
     return app.manager.admin_work_controller.classifications(identifier_type, identifier)
 
 
@@ -956,7 +1000,7 @@ def stats():
                                         licenses: int (total license count),
                                         available_license_count: int (total available)
                                 },
-                                collections: {
+                                collections: {f
                                         name: {
                                                 licensed_titles: int,
                                                 open_access_titles: int,
