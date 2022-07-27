@@ -455,7 +455,7 @@ class OpenAPIController:
         )
         self.addComponent(
             'schema', 'BulkCirculationEvents', 'array',
-            {'items': 'string'}
+            {'items': {'type': 'string'}}
         )
         self.addComponent(
             'schema', 'CustomListCollectionArray', 'array',
@@ -478,7 +478,7 @@ class OpenAPIController:
                     'properties': {
                           'allows_derivitives': {'type': 'boolean'},
                           'name': {'type': 'string'},
-                          'open_access': 'boolean'
+                          'open_access': {'type': 'boolean'}
                       }
                 }
             }
