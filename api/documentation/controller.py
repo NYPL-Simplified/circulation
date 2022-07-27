@@ -598,6 +598,16 @@ class OpenAPIController:
                 }
             }
         )
+        self.addComponent(
+            'schema', 'EditClassificationsPost', 'object',
+            {
+                'genre': {'type': 'string'},
+                'audiences': {'type': 'string'},
+                'target_age_minimum': {'type': 'integer'},
+                'target_age_maximum': {'type': 'integer'},
+                'fiction': {'type': 'boolean'},
+            },
+        )
 
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters

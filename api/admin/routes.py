@@ -620,6 +620,53 @@ def resolve_complaints(identifier_type, identifier):
 @requires_admin
 @requires_csrf_token
 def edit_classifications(identifier_type, identifier):
+    """Edit a work's audience, target age, fiction status, and genres.
+    ---
+    post:
+      tags:
+        - works
+      summary: Edit a work's audience, target age, fiction status, and genres.
+      description: |
+        Edit a work's audience, target age, fiction status, and genres.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: library_short_name
+          schema:
+            type: string
+          description: The short code of a library that holds the requested work
+        - in: path
+          name: identifier_type
+          schema:
+            type: string
+          description: The type of the identifier being used to retrieve a work
+        - in: path
+          name: identifier
+          schema:
+            type: string
+          description: An identifier for a work record
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: EditClassificationsPost
+      responses:
+        200:
+          description: |
+            Successful response.
+        404:
+          description: An error that the work is not available in the requested collection
+          content:
+            application/json:
+              schema: ProblemResponse
+        4XX:
+          description: A `NOT_AGE_APPROPRIATE` response, which should not be returned in this context. For example.
+          content:
+            application/json:
+              schema: ProblemResponse
+    """
     return app.manager.admin_work_controller.edit_classifications(identifier_type, identifier)
 
 
