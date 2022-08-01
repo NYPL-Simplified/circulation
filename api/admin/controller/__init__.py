@@ -1263,6 +1263,11 @@ class DashboardController(AdminCirculationManagerController):
     ##### Public Interface / Magic Methods ###################################  # noqa: E266
 
     def stats(self):
+        """Return an accounting of library statistics
+
+        Returns:
+            dict: Stats total licenses, available licenses, and patrons for each library.
+        """
         library_stats = {}
         total_title_count = 0
         total_license_count = 0
