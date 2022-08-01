@@ -442,15 +442,11 @@ class OpenAPIController:
             }
         )
         self.addComponent(
-            'schema', 'MediaSchemaDict', 'object',
+            'schema', 'MediaSchema', 'object',
             {
-                'items': {
-                      'type': 'object',
-                      'properties': {
-                          'href': {'type': 'string'},
-                          'media_type': {'type': 'string'},
-                          'href': 'media_type'
-                      }
+                'href': {
+                    'type': 'string',
+                    'description': 'String of media type with associated Schema URL'
                 }
             }
         )

@@ -753,7 +753,7 @@ def media():
           description: dict of schema.org links and associated media types
           content:
             application/json:
-              schema: MediaSchemaDict
+              schema: MediaSchema
               example: |
                 {"http://bib.schema.org/Audiobook":"Audio",
                 "http://schema.org/Book":"Book",
