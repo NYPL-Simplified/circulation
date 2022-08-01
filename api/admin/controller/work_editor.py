@@ -484,7 +484,15 @@ class WorkController(AdminCirculationManagerController):
         return Response("", 200)
 
     def classifications(self, identifier_type, identifier):
-        """Return list of this work's classifications."""
+        """Return list of this work's classifications.
+
+        Args:
+            identifier_type (string): Type of identifier e.g ISBN
+            identifier (string): Identifier for a work
+
+        Returns:
+            dict: A dict of work with list of classifications for the work.
+        """
         self.require_librarian(flask.request.library)
 
         work = self.load_work(flask.request.library,

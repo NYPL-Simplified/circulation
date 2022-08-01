@@ -927,7 +927,7 @@ def circulation_events():
               description: Number of results requested. Default is 100. Max is 500.
           responses:
             200:
-              description: List CSV array of bulk circulation events.
+              description: A JSON of recent circulation events
               content:
                 text/csv:
                   schema: CirculationEventSchema

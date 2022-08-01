@@ -503,7 +503,7 @@ class OpenAPIController:
                                 'type': 'object',
                                 'properties': {
                                     'title': {'type': 'string'},
-                                    'url': {'type': 'string'}
+                                    'url': {'$ref': '#/components/schemas/OPDSLink'},
                                 }
                             }
                         }
