@@ -1,2 +1,4 @@
--r core/requirements.txt
+# All the requirements should be listed in requirements-base.txt except
+# for psycopg2, which is listed here.
 -r requirements-base.txt
+psycopg2==2.8.6

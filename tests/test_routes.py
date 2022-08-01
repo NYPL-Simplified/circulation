@@ -43,6 +43,14 @@ class MockManager(object):
             controller_name, MockController(controller_name)
         )
 
+    def url_for(self, view, *args, **kwargs):
+        """Ensure that url_for returns a string and not a Response
+
+        :param view: Name of the view as a str
+        """
+        return view
+
+
 class MockControllerMethod(object):
     """Pretends to be one of the methods of a controller class."""
     def __init__(self, controller, name):
@@ -663,25 +671,6 @@ class TestAnalyticsController(RouteTest):
             authenticated=True,
             authentication_required=False
         )
-
-
-class TestAdobeDeviceManagement(RouteTest):
-    CONTROLLER_NAME = "adobe_device_management"
-
-    def test_adobe_drm_devices(self):
-        url = '/AdobeAuth/devices'
-        self.assert_authenticated_request_calls(
-            url, self.controller.device_id_list_handler
-        )
-        self.assert_supported_methods(url, 'GET', 'POST')
-
-    def test_adobe_drm_device(self):
-        url = '/AdobeAuth/devices/<device_id>'
-        self.assert_authenticated_request_calls(
-            url, self.controller.device_id_handler, "<device_id>",
-            http_method='DELETE'
-        )
-        self.assert_supported_methods(url, 'DELETE')
 
 
 class TestBasicAuthTempTokenController(RouteTest):

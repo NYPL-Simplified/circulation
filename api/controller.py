@@ -21,10 +21,7 @@ from flask_babel import lazy_gettext as _
 from lxml import etree
 from sqlalchemy.orm import eagerload
 
-from .util.short_client_token import (
-    DeviceManagementProtocolController,
-    ShortClientTokenUtility,
-)
+from .util.short_client_token import ShortClientTokenUtility
 from .annotations import (
     AnnotationWriter,
     AnnotationParser,
@@ -248,7 +245,6 @@ class CirculationManager(object):
         # Make sure there's a site-wide public/private key pair.
         self.sitewide_key_pair
 
-        new_adobe_device_management = None
         for library in self._db.query(Library):
             lanes = load_lanes(self._db, library)
 
@@ -261,14 +257,6 @@ class CirculationManager(object):
             new_circulation_apis[library.id] = self.setup_circulation(
                 library, self.analytics
             )
-
-            authdata = self.setup_adobe_vendor_id(self._db, library)
-            if authdata and not new_adobe_device_management:
-                # There's at least one library on this system that
-                # wants Vendor IDs. This means we need to advertise support
-                # for the Device Management Protocol.
-                new_adobe_device_management = DeviceManagementProtocolController(self)
-        self.adobe_device_management = new_adobe_device_management
         self.top_level_lanes = new_top_level_lanes
         self.circulation_apis = new_circulation_apis
         self.custom_index_views = new_custom_index_views
@@ -402,7 +390,7 @@ class CirculationManager(object):
         else:
             search = ExternalSearchIndex(self._db)
             if not search:
-                self.log.warn("No external search server configured.")
+                self.log.warning("No external search server configured.")
                 return None
             return search
 
@@ -667,7 +655,7 @@ class CirculationManagerController(BaseCirculationManagerController):
             parsed_if_modified_since = email.utils.parsedate_to_datetime(
                 if_modified_since
             )
-        except TypeError:
+        except (TypeError, ValueError):
             # Parse error.
             return None
         if not parsed_if_modified_since:
@@ -2498,7 +2486,7 @@ class StaticFileController(CirculationManagerController):
         cache_timeout = ConfigurationSetting.sitewide(
             self._db, Configuration.STATIC_FILE_CACHE_TIME
         ).int_value
-        return flask.send_from_directory(directory, filename, cache_timeout=cache_timeout)
+        return flask.send_from_directory(directory, filename, max_age=cache_timeout)
 
 
 class RBDFulfillmentProxyController(CirculationManagerController):
