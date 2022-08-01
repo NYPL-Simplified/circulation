@@ -497,14 +497,14 @@ def work_custom_lists(identifier_type, identifier):
               description: A type of identifier, e.g. "ISBN".
             - in: url
               name: identifier
-              schema: String
+              schema: string
               description: An identifier string, used with `identifier_type` to look up an Identifier.
       responses:
         200:
           description: An array of lists a work belongs to.
           content:
             application/json:
-              schema: CustomListCollectionArray
+              schema: CustomListResponse
         404:
           description: |
             NO_LICENSE error

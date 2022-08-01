@@ -552,7 +552,7 @@ class OpenAPIController:
                                 'properties': {
                                     'licensed_titles': {'type': 'integer'},
                                     'open_access_titles': {'type': 'integer'},
-                                    'licenses': {'type:': 'integer'},
+                                    'licenses': {'type': 'integer'},
                                     'available_licenses': {'type': 'integer'}
                                 }
                             }
