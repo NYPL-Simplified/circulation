@@ -24,8 +24,8 @@ class GeographicValidator(Validator):
         # library would otherwise download. This is done because the host for this file can
         # be flaky. There is an issue for this in the underlying library here:
         # https://github.com/MacHu-GWU/uszipcode-project/issues/40
-        db_file_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "uszipcode")
-        return uszipcode.SearchEngine(simple_zipcode=True, db_file_dir=db_file_path)
+        db_file_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "uszipcode", "simple_db.sqlite")
+        return uszipcode.SearchEngine(db_file_path=db_file_path)
 
     def validate_geographic_areas(self, values, db):
         # Note: the validator does not recognize data from US territories other than Puerto Rico.
@@ -74,7 +74,7 @@ class GeographicValidator(Validator):
                         # the registry won't recognize the name of the place to which it corresponds.
                         registry_response = self.find_location_through_registry(formatted, db)
                         if registry_response:
-                            locations["CA"].append(formatted);
+                            locations["CA"].append(formatted)
                         else:
                             return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s" (%(formatted)s).  Try entering the name of a larger area.', value=value, formatted=formatted))
                     except:
@@ -82,19 +82,33 @@ class GeographicValidator(Validator):
                 elif len(value.split(", ")) == 2:
                     # Is it in the format "[city], [state abbreviation]" or "[county], [state abbreviation]"?
                     city_or_county, state = value.split(", ")
-                    if us_search.by_city_and_state(city_or_county, state):
-                        locations["US"].append(value);
-                    elif len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county]):
-                        locations["US"].append(value);
-                    else:
-                        # Flag this as needing to be checked with the registry
-                        flagged = True
+                    # Flag for needing to be checked with the registry
+                    flagged = True
+                    # Check the entire state for the county, but only
+                    # if there is no match from by_city_and_state.
+                    query_state_for_county = True
+                    try:
+                        if us_search.by_city_and_state(city_or_county, state):
+                            locations["US"].append(value)
+                            flagged = False
+                            query_state_for_county = False
+                    except ValueError:
+                        # uszipcode does fuzzy searching and raises a ValueError
+                        pass
+                    finally:
+                        # If a match hasn't been found yet then search for the county
+                        if (
+                            query_state_for_county and
+                            len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county])
+                        ):
+                            locations["US"].append(value)
+                            flagged = False
                 elif self.is_zip(value, "US"):
                     # Is it a US zipcode?
                     info = self.look_up_zip(value, "US")
                     if not info:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. zipcode.', value=value))
-                    locations["US"].append(value);
+                    locations["US"].append(value)
                 else:
                     flagged = True
 

@@ -48,8 +48,8 @@ services:
       labels:
         - "com.nypl.docker.imagename=circ_manager_scripts"
     environment:
-      SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:simplified@cm_active_db:5434/simplified_circulation_dev
-      SIMPLIFIED_TEST_DATABASE: postgres://simplified_test:simplified_test@cm_active_db:5434/simplified_circulation_test
+      SIMPLIFIED_PRODUCTION_DATABASE: postgresql://simplified:simplified@cm_active_db:5434/simplified_circulation_dev
+      SIMPLIFIED_TEST_DATABASE: postgresql://simplified_test:simplified_test@cm_active_db:5434/simplified_circulation_test
 
   webapp:
     container_name: cm_active_webapp
@@ -63,8 +63,8 @@ services:
       labels:
         - "com.nypl.docker.imagename=circ_manager_webapp"
     environment:
-      SIMPLIFIED_PRODUCTION_DATABASE: postgres://simplified:simplified@cm_active_db:5434/simplified_circulation_dev
-      SIMPLIFIED_TEST_DATABASE: postgres://simplified_test:simplified_test@cm_active_db:5434/simplified_circulation_test
+      SIMPLIFIED_PRODUCTION_DATABASE: postgresql://simplified:simplified@cm_active_db:5434/simplified_circulation_dev
+      SIMPLIFIED_TEST_DATABASE: postgresql://simplified_test:simplified_test@cm_active_db:5434/simplified_circulation_test
       SIMPLIFIED_TEST_ELASTICSEARCH: http://cm_local_es:9200
       SIMPLIFIED_TEST_MINIO_ENDPOINT_URL: http://minio:9000
       SIMPLIFIED_TEST_MINIO_USER: simplified

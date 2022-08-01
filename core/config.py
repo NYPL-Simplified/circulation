@@ -458,12 +458,11 @@ class Configuration(ConfigurationConstants):
             # Improve the error message by giving a guide as to what's
             # likely to work.
             raise ArgumentError(
-                "Bad format for database URL (%s). Expected something like postgres://[username]:[password]@[hostname]:[port]/[database name]" %
+                "Bad format for database URL (%s). Expected something like postgresql://[username]:[password]@[hostname]:[port]/[database name]" %
                 url
             )
 
-        # Calling __to_string__ will hide the password.
-        logging.info("Connecting to database: %s" % url_obj.__to_string__())
+        logging.info("Connecting to database: %s" % url_obj.render_as_string(hide_password=True))
         return url
 
     @classmethod

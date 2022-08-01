@@ -6,11 +6,11 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 
-import webpub_manifest_parser.opds2.ast as opds2_ast
+import core.util.webpub_manifest_parser.opds2.ast as opds2_ast
 from flask_babel import lazy_gettext as _
 from requests import HTTPError
 from sqlalchemy import or_
-from webpub_manifest_parser.utils import encode
+from core.util.webpub_manifest_parser.utils import encode
 
 from api.circulation import BaseCirculationAPI, FulfillmentInfo, LoanInfo
 from api.circulation_exceptions import CannotFulfill, CannotLoan

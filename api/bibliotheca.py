@@ -879,7 +879,7 @@ class ItemListParser(XMLParser):
         try:
             licenses_available = intvalue("AvailableCopies")
         except IndexError:
-            logging.warn(
+            logging.warning(
                 "No information on available copies for %s",
                 primary_identifier.identifier
             )
@@ -1282,7 +1282,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
             else:
                 continue
             if pool.licenses_owned > 0:
-                self.log.warn(
+                self.log.warning(
                     "Removing %s from circulation.",
                     identifier.identifier
                 )
@@ -1423,7 +1423,7 @@ class BibliothecaPurchaseMonitor(BibliothecaTimelineMonitor):
         try:
             dt_date = to_utc(dateutil.parser.isoparse(date))
         except ValueError as e:
-            self.log.warn(
+            self.log.warning(
                 '%r. Date argument "%s" was not in a valid format. Use an ISO 8601 string or a datetime.',
                 e, date,
             )

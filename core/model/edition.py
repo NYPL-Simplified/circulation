@@ -719,14 +719,14 @@ class Edition(Base, EditionConstants):
 
             if best_cover:
                 if not best_cover.representation:
-                    logging.warn(
+                    logging.warning(
                         "Best cover for %r has no representation!",
                         self.primary_identifier,
                     )
                 else:
                     rep = best_cover.representation
                     if not rep.thumbnails:
-                        logging.warn(
+                        logging.warning(
                             "Best cover for %r (%s) was never thumbnailed!",
                             self.primary_identifier,
                             rep.public_url
@@ -758,7 +758,7 @@ class Edition(Base, EditionConstants):
                 )
                 if best_thumbnail:
                     if not best_thumbnail.representation:
-                        logging.warn(
+                        logging.warning(
                             "Best thumbnail for %r has no representation!",
                             self.primary_identifier,
                         )

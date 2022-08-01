@@ -628,7 +628,7 @@ class OPDSImporter(object):
             self.metadata_client = metadata_client or MetadataWranglerOPDSLookup.from_config(_db, collection=collection)
         except CannotLoadConfiguration:
             # The Metadata Wrangler isn't configured, but we can import without it.
-            self.log.warn("Metadata Wrangler integration couldn't be loaded, importing without it.")
+            self.log.warning("Metadata Wrangler integration couldn't be loaded, importing without it.")
             self.metadata_client = None
 
         # Check to see if a mirror for each purpose was passed in.

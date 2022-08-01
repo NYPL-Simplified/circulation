@@ -1015,7 +1015,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # Putting the last loan activity sync into an Flask Response
         # strips timezone information from it,
         # so to verify we have the right value we must do the same.
-        last_sync_naive = patron.last_loan_activity_sync.replace(tzinfo=None)
+        last_sync_naive = patron.last_loan_activity_sync
         assert (last_sync_naive - response.last_modified).total_seconds() < 1
 
         # No entries in the feed...
