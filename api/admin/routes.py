@@ -1032,31 +1032,6 @@ def stats():
               content:
                 application/json:
                   schema: LibraryStatsSchema
-                  example: |
-                    {library_stats{
-                        name: {
-                                patrons: {
-                                        total: int (total patrons),
-                                        with_active_loans: int (total patrons with active loans),
-                                        with_active_loans_or_holds: int (same as above + holds),
-                                        loans: int (total loans),
-                                        holds: int (total holds)
-                                },
-                                inventory: {
-                                        titles: int (total title count),
-                                        licenses: int (total license count),
-                                        available_license_count: int (total available)
-                                },
-                                collections: {f
-                                        name: {
-                                                licensed_titles: int,
-                                                open_access_titles: int,
-                                                licenses: int,
-                                                available_licenses: int
-                                        }
-                                }
-                        }
-                    }}
             4XX:
               description: |
                 An error including:
