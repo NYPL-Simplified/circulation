@@ -438,10 +438,7 @@ class OpenAPIController:
                         'description': 'Language names associated with the ISO code'
 
                     }
-                },
-                # 'values': {
-                #     'type': 'array',
-                # }
+                }
             }
         )
         self.addComponent(
@@ -459,7 +456,11 @@ class OpenAPIController:
         )
         self.addComponent(
             'schema', 'BulkCirculationEvents', 'array',
-            {'items': {'type': 'string'}}
+            {'items': {
+                'type': 'string',
+                'description': 'A CSV of circulation events for the selected library.'
+            }
+            }
         )
         self.addComponent(
             'schema', 'CustomListCollectionArray', 'array',
