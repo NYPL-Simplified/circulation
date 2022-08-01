@@ -486,7 +486,7 @@ class OpenAPIController:
         self.addComponent(
             'schema', 'CirculationEventSchema', 'object',
             {
-                'item': {
+                'circulation_events': {
                     'type': 'array',
                     'description': 'Array of circulation events',
                     'items': {
@@ -495,7 +495,10 @@ class OpenAPIController:
                         'properties': {
                             'id': {'type': 'string'},
                             'type': {'type': 'string'},
-                            'time': {'type': 'datetime'},
+                            'time': {
+                                'type': 'string',
+                                'format': 'date'
+                            },
                             'book': {
                                 'type': 'object',
                                 'properties': {

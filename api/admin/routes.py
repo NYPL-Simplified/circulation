@@ -922,19 +922,15 @@ def circulation_events():
             - in: request
               name: num
               schema:
-                type: int
+                type: integer
+                maximum: 500
               description: Number of results requested. Default is 100. Max is 500.
-            - in: query
-              name: dateEnd
-              schema:
-                type: datetime
-              description: Date time object of search query end date.
           responses:
             200:
               description: List CSV array of bulk circulation events.
               content:
                 text/csv:
-                  schema: CirculationEvents
+                  schema: CirculationEventSchema
             4XX:
               description: |
                 An error including:
