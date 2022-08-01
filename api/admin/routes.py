@@ -504,7 +504,7 @@ def work_custom_lists(identifier_type, identifier):
           description: An array of lists a work belongs to.
           content:
             application/json:
-              schema: CustomListResponse
+              schema: CustomListResponseSchema
         404:
           description: |
             NO_LICENSE error
@@ -733,18 +733,7 @@ def languages():
           description: JSON of language codes and associated languages
           content: 
             application/json:
-              schema: LanguageCodes
-              example:
-                {"aa":["Afar"],
-                "aar":["Afar"],
-                "ab":["Abkhazian"],
-                "abk":["Abkhazian"],
-                "ace":["Achinese"],
-                "ach":["Acoli"],
-                "ada":["Adangme"],
-                "ady":["Adyghe","Adygei"],
-                "ae":["Avestan"],
-                ...}
+              schema: LanguageCodesSchema
     """
     return app.manager.admin_work_controller.languages()
 

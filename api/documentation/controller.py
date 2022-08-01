@@ -269,7 +269,7 @@ class OpenAPIController:
         )
 
         self.addComponent(
-            'schema', 'CustomListResponse', 'object',
+            'schema', 'CustomListResponseSchema', 'object',
             {
                 'custom_lists': {
                     'type': 'array',
@@ -428,16 +428,20 @@ class OpenAPIController:
             }
         )
         self.addComponent(
-            'schema', 'LanguageCodes', 'object',
+            'schema', 'LanguageCodesSchema', 'object',
             {
-                'items': {
-                      'type': 'object',
-                      'properties': {
-                          'language_code': {'type': 'string'},
-                          'languages': {'type': "Array['string']"},
-                          'language_code': 'languages'
-                      }
-                }
+                'language_code': {
+                    'type': 'array',
+                    'description': 'A dict of ISO language codes and associated language names',
+                    'items': {
+                        'type': 'string',
+                        'description': 'Language names associated with the ISO code'
+
+                    }
+                },
+                # 'values': {
+                #     'type': 'array',
+                # }
             }
         )
         self.addComponent(
