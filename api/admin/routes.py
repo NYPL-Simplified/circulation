@@ -480,8 +480,6 @@ def work_custom_lists(identifier_type, identifier):
       summary: A custom list of works
       description: |
         This endpoint fetches a custom list of works.
-
-        This returns a Dict of custom lists of works.
       security:
         - BasicAuth: []
       parameters:
@@ -784,53 +782,7 @@ def rights_status():
             description: A dictionary of license URI keys with values that describe of the license key.
             content:
               application/json:
-                schema: LiscenseSchema
-                example: |
-                  {"http://creativecommons.org/licenses/by/4.0/": {
-                    "allows_derivatives":true,
-                    "name":"Creative Commons Attribution (CC BY)",
-                    "open_access":true},
-                  "http://librarysimplified.org/terms/rights-status/generic-open-access":{
-                    "allows_derivatives":false,
-                    "name":"Open access with no specific license",
-                    "open_access":true},
-                  "http://librarysimplified.org/terms/rights-status/in-copyright":{
-                    "allows_derivatives":false,
-                    "name":"In Copyright",
-                    "open_access":false},
-                  "http://librarysimplified.org/terms/rights-status/public-domain-usa":{
-                    "allows_derivatives":true,
-                    "name":"Public domain in the USA",
-                    "open_access":true},
-                  "http://librarysimplified.org/terms/rights-status/unknown":{
-                    "allows_derivatives":false,
-                    "name":"Unknown",
-                    "open_access":false},
-                  "https://creativecommons.org/licenses/by-nc-nd/4.0":{
-                    "allows_derivatives":false,
-                    "name":"Creative Commons Attribution-NonCommercial-NoDerivs (CC BY-NC-ND)",
-                    "open_access":true},
-                  "https://creativecommons.org/licenses/by-nc-sa/4.0":{
-                    "allows_derivatives":true,
-                    "name":"Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA)",
-                    "open_access":true},
-                  "https://creativecommons.org/licenses/by-nc/4.0":{
-                    "allows_derivatives":true,
-                    "name":"Creative Commons Attribution-NonCommercial (CC BY-NC)",
-                    "open_access":true},
-                  "https://creativecommons.org/licenses/by-nd/4.0":{
-                    "allows_derivatives":false,
-                    "name":"Creative Commons Attribution-NoDerivs (CC BY-ND)",
-                    "open_access":true},
-                  "https://creativecommons.org/licenses/by-sa/4.0":{
-                    "allows_derivatives":true,
-                    "name":"Creative Commons Attribution-ShareAlike (CC BY-SA)",
-                    "open_access":true},
-                  "https://creativecommons.org/publicdomain/zero/1.0/":{
-                    "allows_derivatives":true,
-                    "name":"Creative Commons Public Domain Dedication (CC0)",
-                    "open_access":true}}
-
+                schema: LicenseSchema
           4XX:
             description: |
               An error including:

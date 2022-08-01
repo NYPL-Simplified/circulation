@@ -470,17 +470,16 @@ class OpenAPIController:
         self.addComponent(
             'schema', 'LicenseSchema', 'object',
             {
-                'items': {
-                      'type': 'object',
-                      'key': {
-                          'type': 'string',
-                          'description': 'URI string'
-                      },
+                'URI': {
+                    'type': 'object',
                     'properties': {
-                          'allows_derivitives': {'type': 'boolean'},
-                          'name': {'type': 'string'},
-                          'open_access': {'type': 'boolean'}
-                      }
+                        'allows_derivatives': {'type': 'boolean'},
+                        'name': {
+                            'type': 'string',
+                            'description': 'License name from associated URL'
+                        },
+                        'open_access': {'type': 'boolean'}
+                    }
                 }
             }
         )
