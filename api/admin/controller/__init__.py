@@ -1458,6 +1458,8 @@ class DashboardController(AdminCirculationManagerController):
     def circulation_events(self):
         """Return dict of circulation events for a given work.
 
+        Optional "num" parameter in request to change number of results.
+
         Returns:
             dict: A dictionary of events
         """
