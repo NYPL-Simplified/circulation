@@ -567,35 +567,23 @@ class OpenAPIController:
         self.addComponent(
             'schema', 'ClassificationsSchema', 'object',
             {
-                'item': {
+                'book': {
+                    'type': 'object',
+                    'description': 'The work searched for in parameters',
+                    'properties': {
+                        'identifier_type': {'type': 'string'},
+                        'identifier': {'type': 'string'},
+                    }
+                },
+                'classifications': {
                     'type': 'array',
-                    'description': 'A list of classifications for a chosen work',
                     'items': {
                         'type': 'object',
-                        'description': 'Work',
                         'properties': {
-                            'identifier_type': {'type': 'string'},
-                            'identifier': {'type': 'string'},
-                        },
-                        'type': 'object',
-                        'description': 'A list of classifications for said work',
-                        'properties': {
-                            'type': {
-                                'type': 'string',
-                                'description': 'Subject type',
-                            },
-                            'name': {
-                                'type': 'string',
-                                'description': 'Subject name',
-                            },
-                            'source': {
-                                'type': 'string',
-                                'description': 'Data source name',
-                            },
-                            'weight': {
-                                'type': 'integer',
-                                'description': 'Weighted results integer'
-                            },
+                            'type ': {'type': 'string'},
+                            'name': {'type': 'string'},
+                            'source': {'type': 'string'},
+                            'weight': {'type': 'integer'}
                         }
                     }
                 }
