@@ -115,6 +115,14 @@ class AdminAuthServicesController(SettingsController):
                 return MISSING_SERVICE
 
     def process_delete(self, protocol):
+        """Delete an auth service from the database
+
+        Args:
+            protocol (string): Name of protocol to search for the service to be deleted.
+
+        Returns:
+            Response: ('Deleted', 200)
+        """
         self.require_system_admin()
         service = get_one(self._db, ExternalIntegration,
                           protocol=protocol, goal=ExternalIntegration.ADMIN_AUTH_GOAL)
