@@ -21,6 +21,12 @@ class AdminAuthServicesController(SettingsController):
             provider_apis, protocol_name_attr="NAME")
 
     def process_admin_auth_services(self):
+        """Fetch, create, or update admin_auth_services
+
+        Returns:
+            dict: if Get request returns a dict of auth services and protocols
+            Response: If POST request updates or creates auth services and protocols.
+        """
         self.require_system_admin()
         if flask.request.method == 'GET':
             return self.process_get()
