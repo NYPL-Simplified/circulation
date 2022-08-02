@@ -11,12 +11,14 @@ from . import SettingsController
 from api.admin.google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
 from api.admin.problem_details import *
 
+
 class AdminAuthServicesController(SettingsController):
 
     def __init__(self, manager):
         super(AdminAuthServicesController, self).__init__(manager)
         provider_apis = [GoogleOAuthAdminAuthenticationProvider]
-        self.protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
+        self.protocols = self._get_integration_protocols(
+            provider_apis, protocol_name_attr="NAME")
 
     def process_admin_auth_services(self):
         self.require_system_admin()
@@ -26,13 +28,28 @@ class AdminAuthServicesController(SettingsController):
             return self.process_post()
 
     def process_get(self):
-        auth_services = self._get_integration_info(ExternalIntegration.ADMIN_AUTH_GOAL, self.protocols)
+        """Return dict of auth services and protocols available to library
+
+        Returns:
+            dict: auth_services and protocols available
+        """
+        auth_services = self._get_integration_info(
+            ExternalIntegration.ADMIN_AUTH_GOAL, self.protocols)
         return dict(
             admin_auth_services=auth_services,
             protocols=self.protocols,
         )
 
     def process_post(self):
+        """Create new auth_service if none exists and set service and protocol
+
+        form: 'protocol'
+        form: 'id'
+        form: 'name'
+
+        Returns:
+            Response: ProblemDetail or string of auth_service.protocol and 200, or 201 if newly created service
+        """
         protocol = flask.request.form.get("protocol")
         id = flask.request.form.get("id")
         auth_service = ExternalIntegration.admin_authentication(self._db)
@@ -56,7 +73,8 @@ class AdminAuthServicesController(SettingsController):
         auth_service.name = name
 
         [protocol] = [p for p in self.protocols if p.get("name") == protocol]
-        result = self._set_integration_settings_and_libraries(auth_service, protocol)
+        result = self._set_integration_settings_and_libraries(
+            auth_service, protocol)
         if isinstance(result, ProblemDetail):
             return result
 
@@ -92,7 +110,8 @@ class AdminAuthServicesController(SettingsController):
 
     def process_delete(self, protocol):
         self.require_system_admin()
-        service = get_one(self._db, ExternalIntegration, protocol=protocol, goal=ExternalIntegration.ADMIN_AUTH_GOAL)
+        service = get_one(self._db, ExternalIntegration,
+                          protocol=protocol, goal=ExternalIntegration.ADMIN_AUTH_GOAL)
         if not service:
             return MISSING_SERVICE
         self._db.delete(service)

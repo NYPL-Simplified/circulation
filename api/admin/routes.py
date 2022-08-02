@@ -604,6 +604,94 @@ def collection_library_registrations():
 @requires_admin
 @requires_csrf_token
 def admin_auth_services():
+    """Manage admin auth services
+    ---
+    get:
+      tags: 
+        - administration
+      summary: Fetch dict of admin auth services
+      description: |
+        Fetch admin auth protocol. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: Dict of admin auth services
+          content:
+            application/json:
+              schema: AdminAuthServicesSchema
+        4XX:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              schema: ProblemResponse
+              example: |
+                AdminNotAuthorized
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - administration
+      summary: Create or update admin auth protocol.
+      description: |
+        Create or update admin auth protocol. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: AdminAuthPost
+      responses:
+        200:
+          description: Name of admin auth service protocol
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: OPDS Import
+        201:
+          description: Name of newly created admin auth service protocol
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: OPDS 2.0 Import
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, or other issue with the current request. These are returned as JSON objects.
+          content:
+            application/json:
+              schema: ProblemResponse
+              example: |
+                "AdminNotAuthorized, NO_PROTOCOL_FOR_NEW_SERVICE,CANNOT_CHANGE_PROTOCOL, MISSING_SERVICE,INVALID_CONFIGURATION_OPTION, UNKNOWN_LANGUAGE, INVALID_NUMBER,INVALID_URL, INVALID_EMAIL, UNKNOWN_PROTOCOL,"
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_auth_services_controller.process_admin_auth_services()
 
 @app.route("/admin/admin_auth_service/<protocol>", methods=["DELETE"])

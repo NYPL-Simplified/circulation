@@ -405,6 +405,71 @@ class OpenAPIController:
             }
         )
 
+        self.addComponent(
+            'schema', 'ProtocolDictSchema', 'array',
+            {
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string'},
+                        'label': {'type': 'string'},
+                        'description': {'type': 'string'},
+                        'instructions': {'type': 'string'},
+                        'sitewide': {'type': 'string'},
+                        'settings': {'type': 'string'},
+                        'child_settings': {'type': 'string'},
+                        'library_settings': {'type': 'string'},
+                        'supports_registration': {'type': 'string'},
+                        'supports_staging': {'type': 'string'},
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'AuthServicesDictSchema', 'array',
+            {
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'id': {'type': 'string'},
+                        'name': {'type': 'string'},
+                        'protocol': {'$ref': '#/components/schemas/ProtocolString'},
+                        'settings': {
+                            'type': 'object',
+                            'properties': {
+                                'key': {'type': 'string'}
+                            }
+                        },
+                        'libraries': {
+                            'type': 'object',
+                            'properties': {
+                                'short_name': {'type': 'string'},
+                                'key': {'type': 'string'}
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'AdminAuthServicesSchema', 'object',
+            {
+                'admin_auth_services': {'$ref': '#/components/schemas/AuthServicesDictSchema'},
+                'protocols': {'$ref': '#/components/schemas/ProtocolDictSchema'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'AdminAuthPost', 'object',
+            {
+                'protocol': {'type': 'string'},
+                'id': {'type': 'string'},
+                'name': {'type': 'string'}
+            }
+        )
+
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
         self.spec.components.parameter(
