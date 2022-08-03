@@ -21,7 +21,10 @@ from flask_babel import lazy_gettext as _
 from lxml import etree
 from sqlalchemy.orm import eagerload
 
-from .util.short_client_token import ShortClientTokenUtility
+from .util.short_client_token import (
+    DeviceManagementProtocolController,
+    ShortClientTokenUtility,
+)
 from .annotations import (
     AnnotationWriter,
     AnnotationParser,
@@ -245,6 +248,7 @@ class CirculationManager(object):
         # Make sure there's a site-wide public/private key pair.
         self.sitewide_key_pair
 
+        new_adobe_device_management = None
         for library in self._db.query(Library):
             lanes = load_lanes(self._db, library)
 
@@ -257,6 +261,13 @@ class CirculationManager(object):
             new_circulation_apis[library.id] = self.setup_circulation(
                 library, self.analytics
             )
+            authdata = self.setup_adobe_vendor_id(self._db, library)
+            if authdata and not new_adobe_device_management:
+                # There's at least one library on this system that
+                # wants Vendor IDs. This means we need to advertise support
+                # for the Device Management Protocol.
+                new_adobe_device_management = DeviceManagementProtocolController(self)
+        self.adobe_device_management = new_adobe_device_management
         self.top_level_lanes = new_top_level_lanes
         self.circulation_apis = new_circulation_apis
         self.custom_index_views = new_custom_index_views
