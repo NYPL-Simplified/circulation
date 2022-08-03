@@ -1137,13 +1137,9 @@ def logging_services():
     post:
       tags:
         - administration
-      summary: Create first site admin or update administrators
+      summary: Create or update logging services
       description: |
-        Create a site administrator with specific privledges. The following restrictions apply:
-        * System admins have all permissions
-        * Sitewide library managers can add/edit other sitewide managers, as well as specific library managers
-        * Managers of specific library managers can manage managers and librarians within their library
-        * Librarians have no special permissions
+        Create or update logging services and associated protocols.
       security:
         - BasicAuth: []
       parameters:
@@ -1155,30 +1151,17 @@ def logging_services():
             schema: AdminAuthPost
       responses:
         200:
-          description: Email address of updated admin
+          description: Service id
           content:
             text/html:
               schema: 
                 type: string
-                description: Service id
         201:
-          description: Email address of newly created admin
+          description: Service id
           content:
             text/html:
               schema: 
                 type: string
-                description: Service id
-        4XX:
-          description: |
-            An authentication error in which the user could not be authenticated, or 
-            is outherwise un-authorized to perform this action.
-
-            This returns an HTML page with details of the error and a link to the sign-in page.
-          content:
-            text/html:
-              schema: ProblemDetail
-              example: |
-                NO_PROTOCOL_FOR_NEW_SERVICE
         4XX:
           description: |
             These are anticipated errors due to a malformed request, invalid option, 
