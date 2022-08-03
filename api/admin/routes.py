@@ -1943,8 +1943,37 @@ def diagnostics():
 @app.route('/admin/sign_in_again')
 @allows_cors(allowed_domain_type=set({"admin"}))
 def admin_sign_in_again():
-    """Allows an  admin with expired credentials to sign back in
-    from a new browser tab so they won't lose changes.
+    """Redirects signed-in users, or displays sign-in page
+    ---
+    get:
+      tags:
+        - authentication
+      summary: Display sign-in page or redirect signed-in admins to requested page
+      description: |
+        The method checks to see if an `admin_email`, `auth_type`, and `csrf_token` are configured in the current session.
+        If available it validates that these are active credentials and redirects the user to their requested page.
+
+        Allows an  admin with expired credentials to sign back in from a new browser tab so they won't lose changes.
+      responses:
+        200:
+          description: The HTML sign-in page that includes available sign-in methods
+        302:
+          description: A redirect to the requested page for signed-in admins
+        4XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
+            * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+          content:
+            application/json:
+              schema: ProblemResponse 
     """
     admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
     csrf_token = app.manager.admin_sign_in_controller.get_csrf_token()
