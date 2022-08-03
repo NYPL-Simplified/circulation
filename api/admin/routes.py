@@ -1098,6 +1098,111 @@ def sitewide_setting(key):
 @requires_admin
 @requires_csrf_token
 def logging_services():
+    """Manage logging services
+    ---
+    get:
+      tags: 
+        - administration
+      summary: Fetch list of logging services and associated protocols
+      description: Fetch list of logging services and protocols for admins
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: Dict of logging services and associated protocols
+          content:
+            application/json:
+              schema: LoggingServicesGetSchema
+        4XX:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              schema: ProblemResponse
+              example: |
+                MISSING_SERVICE
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - administration
+      summary: Create first site admin or update administrators
+      description: |
+        Create a site administrator with specific privledges. The following restrictions apply:
+        * System admins have all permissions
+        * Sitewide library managers can add/edit other sitewide managers, as well as specific library managers
+        * Managers of specific library managers can manage managers and librarians within their library
+        * Librarians have no special permissions
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: AdminAuthPost
+      responses:
+        200:
+          description: Email address of updated admin
+          content:
+            text/html:
+              schema: 
+                type: string
+                description: Service id
+        201:
+          description: Email address of newly created admin
+          content:
+            text/html:
+              schema: 
+                type: string
+                description: Service id
+        4XX:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              schema: ProblemDetail
+              example: |
+                NO_PROTOCOL_FOR_NEW_SERVICE
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_logging_services_controller.process_services()
 
 @app.route("/admin/logging_service/<key>", methods=["DELETE"])

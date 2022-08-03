@@ -470,6 +470,17 @@ class OpenAPIController:
             }
         )
 
+        self.addComponent(
+            'schema', 'LoggingServicesGetSchema', 'object',
+            {
+                'logging_services': {
+                    'type': 'object',
+                    'description': 'A list of available logging services'
+                    },
+                'protocol': {'$ref': '#/components/schemas/ProtocolDictSchema'}
+            }
+        )
+
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
         self.spec.components.parameter(
