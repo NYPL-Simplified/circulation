@@ -481,6 +481,19 @@ class OpenAPIController:
             }
         )
 
+        self.addComponent(
+            'schema', 'PatronDataSchema', 'object',
+            {
+                'permanent_id': {'type': 'string'},
+                'authorization_identifier': {'type': 'string'},
+                'username': {'type': 'string'},
+                'personal_name': {'type': 'string'},
+                'email_address': {'type': 'string'},
+                'block_reason': {'type': 'string'},
+                'external_type': {'type': 'string'},
+            }
+        )
+
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
         self.spec.components.parameter(
