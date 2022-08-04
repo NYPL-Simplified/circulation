@@ -553,8 +553,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         key = '{http://librarysimplified.org/terms/drm}vendor'
         assert self.adobe_vendor_id.username == element.attrib[key]
-
-        [token, device_management_link] = element
+        [token] = element
 
         assert '{http://librarysimplified.org/terms/drm}clientToken' == token.tag
         # token.text is a token which we can decode, since we know
@@ -566,15 +565,6 @@ class TestLibraryAnnotator(VendorIDTest):
             Configuration.WEBSITE_URL, library
         ).value
         assert (expected_url, patron_identifier) == decoded
-
-        assert "link" == device_management_link.tag
-        assert ("http://librarysimplified.org/terms/drm/rel/devices" ==
-            device_management_link.attrib['rel'])
-        expect_url = self.annotator.url_for(
-            'adobe_drm_devices', library_short_name=library.short_name,
-            _external=True
-        )
-        assert expect_url == device_management_link.attrib['href']
 
         # If we call adobe_id_tags again we'll get a distinct tag
         # object that renders to the same XML.
@@ -1047,16 +1037,12 @@ class TestLibraryAnnotator(VendorIDTest):
         # and the patron's patron identifier for Adobe purposes.
         assert (self.adobe_vendor_id.username ==
             licensor.attrib['{http://librarysimplified.org/terms/drm}vendor'])
-        [client_token, device_management_link] = licensor
+        [client_token] = licensor
         expected = ConfigurationSetting.for_library_and_externalintegration(
             self._db, ExternalIntegration.USERNAME, self._default_library, self.registry
         ).value.upper()
         assert client_token.text.startswith(expected)
         assert adobe_patron_identifier in client_token.text
-        assert ("{http://www.w3.org/2005/Atom}link" ==
-            device_management_link.tag)
-        assert ("http://librarysimplified.org/terms/drm/rel/devices" ==
-            device_management_link.attrib['rel'])
 
         # Unlike other places this tag shows up, we use the
         # 'scheme' attribute to explicitly state that this
