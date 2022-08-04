@@ -997,6 +997,60 @@ def lookup_patron():
 @requires_admin
 @requires_csrf_token
 def reset_adobe_id():
+    """Delete all Credentials for a patron that are relevant to the patron's Adobe Account ID.
+    ---
+    post:
+      tags:
+        - administration
+      summary: Delete all Credentials for a patron that are relevant to the patron's Adobe Account ID.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: library_short_name
+          description: Short identifying code for a library
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: String
+            example: Identifier for patron
+      responses:
+        200:
+          description: A text confirmation that the password was updated
+          content:
+            text/html:
+              schema: string
+              example: |
+                "Adobe ID for patron %(name_or_auth_id)s has been reset."
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+              example: NO_SUCH_PATRON
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_patron_controller.reset_adobe_id()
 
 @app.route("/admin/metadata_services", methods=['GET', 'POST'])
