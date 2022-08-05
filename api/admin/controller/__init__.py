@@ -670,8 +670,7 @@ class PatronController(AdminCirculationManagerController):
         """
         Delete all Credentials for a patron that are relevant to the patron's Adobe Account ID.
 
-        :param authenticator: A LibraryAuthenticator. This is for mocking during tests;
-            it's not necessary to provide it normal
+        :param authenticator: A LibraryAuthenticator. This is for mocking during tests; it's not necessary to provide it normal
         """
         patrondata = self._load_patrondata(authenticator)
 

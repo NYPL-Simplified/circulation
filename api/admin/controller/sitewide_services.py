@@ -93,8 +93,7 @@ class SitewideServicesController(SettingsController):
             return Response(str(service.id), 200)
 
     def validate_form_fields(self, protocols, **fields):
-        """The 'name' and 'protocol' fields cannot be blank, and the protocol must
-        be selected from the list of recognized protocols."""
+        """The 'name' and 'protocol' fields cannot be blank, and the protocol must be selected from the list of recognized protocols."""
 
         name = fields.get("name")
         protocol = fields.get("protocol")

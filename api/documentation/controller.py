@@ -415,6 +415,7 @@ class OpenAPIController:
         )
 
         self.addComponent(
+<<<<<<< HEAD
             'schema', 'MARCRollContributorsDict', 'object',
             {
                 'MARCRoleCode': {
@@ -554,12 +555,55 @@ class OpenAPIController:
                                     'licenses': {'type': 'integer'},
                                     'available_licenses': {'type': 'integer'}
                                 }
+=======
+            'schema', 'ProtocolDictSchema', 'array',
+            {
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string'},
+                        'label': {'type': 'string'},
+                        'description': {'type': 'string'},
+                        'instructions': {'type': 'string'},
+                        'sitewide': {'type': 'string'},
+                        'settings': {'type': 'string'},
+                        'child_settings': {'type': 'string'},
+                        'library_settings': {'type': 'string'},
+                        'supports_registration': {'type': 'string'},
+                        'supports_staging': {'type': 'string'},
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'AuthServicesDictSchema', 'array',
+            {
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'id': {'type': 'string'},
+                        'name': {'type': 'string'},
+                        'protocol': {'$ref': '#/components/schemas/ProtocolString'},
+                        'settings': {
+                            'type': 'object',
+                            'properties': {
+                                'key': {'type': 'string'}
+                            }
+                        },
+                        'libraries': {
+                            'type': 'object',
+                            'properties': {
+                                'short_name': {'type': 'string'},
+                                'key': {'type': 'string'}
+>>>>>>> 8aa2ccb579f5d63db1fa97f1570c82269fffd60d
                             }
                         }
                     }
                 }
             }
         )
+<<<<<<< HEAD
         self.addComponent(
             'schema', 'ClassificationsSchema', 'object',
             {
@@ -600,6 +644,50 @@ class OpenAPIController:
             'schema', 'WorkListsPost', 'object', 
             {
                 'lists': {'type': 'object'}
+=======
+
+        self.addComponent(
+            'schema', 'AdminAuthServicesSchema', 'object',
+            {
+                'admin_auth_services': {'$ref': '#/components/schemas/AuthServicesDictSchema'},
+                'protocols': {'$ref': '#/components/schemas/ProtocolDictSchema'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'AdminAuthPost', 'object',
+            {
+                'protocol': {
+                    'type': 'string',
+                    'description': 'The name of a protocol to lookup'
+                },
+                'id': {'type': 'string'},
+                'name': {'type': 'string'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'LoggingServicesGetSchema', 'object',
+            {
+                'logging_services': {
+                    'type': 'object',
+                    'description': 'A list of available logging services'
+                    },
+                'protocol': {'$ref': '#/components/schemas/ProtocolDictSchema'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'PatronDataSchema', 'object',
+            {
+                'permanent_id': {'type': 'string'},
+                'authorization_identifier': {'type': 'string'},
+                'username': {'type': 'string'},
+                'personal_name': {'type': 'string'},
+                'email_address': {'type': 'string'},
+                'block_reason': {'type': 'string'},
+                'external_type': {'type': 'string'},
+>>>>>>> 8aa2ccb579f5d63db1fa97f1570c82269fffd60d
             }
         )
 
