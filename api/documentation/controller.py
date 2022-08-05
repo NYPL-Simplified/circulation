@@ -417,14 +417,10 @@ class OpenAPIController:
         self.addComponent(
             'schema', 'MARCRollContributorsDict', 'object',
             {
-                'items': {
-                    'type': 'object',
-                    'properties': {
-                        'MARCRoleCode': {'type': 'string'},
-                        'ContributorRole': {'type': 'string'},
-                        'MARCRoleCode': 'ContributorRole'
-                    }
-                }
+                'MARCRoleCode': {
+                    'type': 'string', 
+                    'description': 'Contributor role'
+                },
             }
         )
         self.addComponent(
@@ -598,6 +594,13 @@ class OpenAPIController:
                 'target_age_maximum': {'type': 'integer'},
                 'fiction': {'type': 'boolean'},
             },
+        )
+        
+        self.addComponent(
+            'schema', 'WorkListsPost', 'object', 
+            {
+                'lists': {'type': 'object'}
+            }
         )
 
     def addParameters(self):

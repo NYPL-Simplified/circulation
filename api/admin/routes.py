@@ -395,7 +395,7 @@ def work_classifications(identifier_type, identifier):
     ---
     get:
       tags:
-        - lists
+        - works
       summary: Return list of this work's classifications.
       description: |
         Return list of this work's classifications.
@@ -476,7 +476,7 @@ def work_custom_lists(identifier_type, identifier):
     ---
     get:
       tags: 
-        - lists
+        - works
       summary: A custom list of works
       description: |
         This endpoint fetches a custom list of works.
@@ -529,6 +529,11 @@ def work_custom_lists(identifier_type, identifier):
         - BasicAuth: []
       parameters:
             - X-CSRF-TOKEN
+            - in: path
+              name: library_short_name
+              description: Short identifying code for a library
+              schema:
+                type: string
             - in: url
               name: identifier type
               schema:
@@ -538,9 +543,14 @@ def work_custom_lists(identifier_type, identifier):
               name: identifier
               schema: String
               description: An identifier string, used with `identifier_type` to look up an Identifier.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: WorkListsPost
       responses:
         200:
-          description: Success OK
+          description: Success OK, Lanes and Lists updated for new custom list.
         404:
           description: |
             NO_LICENSE error
@@ -680,13 +690,8 @@ def roles():
       summary: Return a mapping from MARC codes to contributor roles.
       description: |
         This end point returns a map of MARC Codes to contributor roles that are currently available with this system.
-      responses:
-        200:
-          description: List of MARC codes mapped to Contributor roles
-          content: 
-            application/json:
-              schema: MARCRollContributorsDict
-            example:
+
+        example:
               {"act":"Actor",
               "adp":"Adapter",
               "aft":"Afterword Author",
@@ -712,6 +717,12 @@ def roles():
               "trl":"Translator",
               "win":"Introduction Author",
               "wpr":"Foreword Author"}
+      responses:
+        200:
+          description: List of MARC codes mapped to Contributor roles
+          content: 
+            application/json:
+              schema: MARCRollContributorsDict
     """
     return app.manager.admin_work_controller.roles()
 
@@ -840,7 +851,7 @@ def bulk_circulation_events():
     ---
     get:
       tags: 
-        - lists
+        - analytics
       summary: Return CSV array of the library bulk circulation events.
       description: |
           Returns a CSV array of bulk circulation events between 2 dates.
@@ -909,7 +920,7 @@ def circulation_events():
         ---
         get:
           tags: 
-            - lists
+            - analytics
           summary: Return JSON of recent circulation events
           security: 
             - BasicAuth: []
@@ -959,7 +970,7 @@ def stats():
         ---
         get:
           tags:
-            - administration
+            - analytics
           summary: Return object of library statistics by library name and total stattistics.
           security:
             - BasicAuth: []
