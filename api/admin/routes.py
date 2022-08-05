@@ -959,7 +959,7 @@ def lookup_patron():
             example: Identifier for patron
       responses:
         200:
-          description: A text confirmation that the password was updated
+          description: A JSON of Patron Data
           content:
             text/html:
               schema: PatronDataSchema
@@ -1020,7 +1020,7 @@ def reset_adobe_id():
             example: Identifier for patron
       responses:
         200:
-          description: A text confirmation that the password was updated
+          description: Adobe ID for the patron has been reset
           content:
             text/html:
               schema: string

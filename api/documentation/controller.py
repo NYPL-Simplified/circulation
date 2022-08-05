@@ -464,7 +464,10 @@ class OpenAPIController:
         self.addComponent(
             'schema', 'AdminAuthPost', 'object',
             {
-                'protocol': {'type': 'string'},
+                'protocol': {
+                    'type': 'string',
+                    'description': 'The name of a protocol to lookup'
+                },
                 'id': {'type': 'string'},
                 'name': {'type': 'string'}
             }
