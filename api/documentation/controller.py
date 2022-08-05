@@ -17,13 +17,14 @@ class OpenAPIController:
 
     def __init__(self):
         self.spec = self.generateSpecBase()
-    
+
     def addComponent(self,
-        componentType, schemaName, schemaType, schemaProps,
-        requiredFields=None):
+                     componentType, schemaName, schemaType, schemaProps,
+                     requiredFields=None):
         addComponentFunc = getattr(self.spec.components, componentType)
 
-        schemaProps = {'properties': schemaProps} if schemaType == 'object' else schemaProps
+        schemaProps = {
+            'properties': schemaProps} if schemaType == 'object' else schemaProps
 
         schemaComponent = {
             'type': schemaType,
@@ -58,7 +59,8 @@ class OpenAPIController:
 
         self.addComponent(
             'schema', 'SiteAdminRoles', 'string',
-            {'enum': ['system', 'manager-all', 'manager', 'librarian-all', 'librarian']}
+            {'enum': ['system', 'manager-all',
+                      'manager', 'librarian-all', 'librarian']}
         )
 
         self.addComponent(
@@ -133,14 +135,21 @@ class OpenAPIController:
                 'enum': [
                     'self',  # OPDS Reference to current document
                     'alternate',  # Alternate, non-OPDS representation
-                    'http://opds-spec.org/acquisition',  # Generic Access link where a resource may be accessed
-                    'http://opds-spec.org/acquisition/open-access',  # Free access (no payment, registration or log-in required)
-                    'http://opds-spec.org/acquisition/borrow',  # Resource may be borrowed from source
+                    # Generic Access link where a resource may be accessed
+                    'http://opds-spec.org/acquisition',
+                    # Free access (no payment, registration or log-in required)
+                    'http://opds-spec.org/acquisition/open-access',
+                    # Resource may be borrowed from source
+                    'http://opds-spec.org/acquisition/borrow',
                     'http://opds-spec.org/acquisition/buy',  # Resource may be bought from source
-                    'http://opds-spec.org/acquisition/sample',  # A subset of the resource can be viewed
-                    'http://opds-spec.org/acquisition/subscribe',  # A complete resource may be retrieved on the basis of a larger subscription
-                    'http://opds-spec.org/image',  # A representation of a resource (i.e. a cover)
-                    'http://opds-spec.org/image/thumbnail'  # A smaller representation of a resource
+                    # A subset of the resource can be viewed
+                    'http://opds-spec.org/acquisition/sample',
+                    # A complete resource may be retrieved on the basis of a larger subscription
+                    'http://opds-spec.org/acquisition/subscribe',
+                    # A representation of a resource (i.e. a cover)
+                    'http://opds-spec.org/image',
+                    # A smaller representation of a resource
+                    'http://opds-spec.org/image/thumbnail'
                 ]
             }
         )
@@ -196,7 +205,7 @@ class OpenAPIController:
                 'atom:author': {
                     'type': 'array',
                     'items': {'$ref': '#/components/schemas/AtomAuthor'}
-                },    
+                },
                 'atom:rights': {'type': 'string'},
                 'atom:summary': {'type': 'string'},
                 'atom:content': {'type': 'string'},
@@ -215,7 +224,7 @@ class OpenAPIController:
                 'simplified:pwid': {'type': 'string'},
                 'atom:additionalType': {'type': 'string'},
                 'atom:series': {
-                    'type': 'array', 
+                    'type': 'array',
                     'items': {'$ref': '#/components/schemas/AtomSeries'}
                 },
                 'dcterms:language': {'type': 'string'},
@@ -260,7 +269,7 @@ class OpenAPIController:
         )
 
         self.addComponent(
-            'schema', 'CustomListResponse', 'object',
+            'schema', 'CustomListResponseSchema', 'object',
             {
                 'custom_lists': {
                     'type': 'array',
@@ -406,6 +415,147 @@ class OpenAPIController:
         )
 
         self.addComponent(
+<<<<<<< HEAD
+            'schema', 'MARCRollContributorsDict', 'object',
+            {
+                'MARCRoleCode': {
+                    'type': 'string', 
+                    'description': 'Contributor role'
+                },
+            }
+        )
+        self.addComponent(
+            'schema', 'LanguageCodesSchema', 'object',
+            {
+                'language_code': {
+                    'type': 'array',
+                    'description': 'A dict of ISO language codes and associated language names',
+                    'items': {
+                        'type': 'string',
+                        'description': 'Language names associated with the ISO code'
+
+                    }
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'MediaSchema', 'object',
+            {
+                'href': {
+                    'type': 'string',
+                    'description': 'String of media type with associated Schema URL'
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'BulkCirculationEvents', 'array',
+            {'items': {
+                'type': 'string',
+                'description': 'A CSV of circulation events for the selected library.'
+            }
+            }
+        )
+        self.addComponent(
+            'schema', 'CustomListCollectionArray', 'array',
+            {
+                'array': {
+                    'type': 'array',
+                    'items': {'$ref': '#/components/schemas/CustomListCollection'}
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'LicenseSchema', 'object',
+            {
+                'URI': {
+                    'type': 'object',
+                    'properties': {
+                        'allows_derivatives': {'type': 'boolean'},
+                        'name': {
+                            'type': 'string',
+                            'description': 'License name from associated URL'
+                        },
+                        'open_access': {'type': 'boolean'}
+                    }
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'CirculationEventSchema', 'object',
+            {
+                'circulation_events': {
+                    'type': 'array',
+                    'description': 'Array of circulation events',
+                    'items': {
+                        'type': 'object',
+                        'description': 'Event',
+                        'properties': {
+                            'id': {'type': 'string'},
+                            'type': {'type': 'string'},
+                            'time': {
+                                'type': 'string',
+                                'format': 'date'
+                            },
+                            'book': {
+                                'type': 'object',
+                                'properties': {
+                                    'title': {'type': 'string'},
+                                    'url': {'$ref': '#/components/schemas/OPDSLink'},
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'LibraryStatsSchema', 'object',
+            {
+                'items': {
+                    'type': 'array',
+                    'description': 'Array of library stats',
+                    'items': {
+                        'type': 'object',
+                        'description': 'Library name or "total"',
+                        'properties': {
+                            'patron': {
+                                'type': 'object',
+                                'properties': {
+                                    'total': {'type': 'integer'},
+                                    'with_active_loans': {'type': 'integer'},
+                                    'with_active_loans_or_holds': {
+                                        'type': 'integer'
+                                    },
+                                    'loans': {'type': 'integer'},
+                                    'holds': {'type': 'integer'}
+                                }
+                            },
+                            'inventory': {
+                                'type': 'object',
+                                'properties': {
+                                    'titles': {
+                                        'type': 'integer',
+                                        'description': 'total title count'
+                                    },
+                                    'licenses': {
+                                        'type': 'integer',
+                                        'description': 'total license count'
+                                    },
+                                    'available_license_count': {
+                                        'type': 'integer',
+                                        'description': 'total available'
+                                    }
+                                }
+                            },
+                            'collections': {
+                                'type': 'object',
+                                'properties': {
+                                    'licensed_titles': {'type': 'integer'},
+                                    'open_access_titles': {'type': 'integer'},
+                                    'licenses': {'type': 'integer'},
+                                    'available_licenses': {'type': 'integer'}
+                                }
+=======
             'schema', 'ProtocolDictSchema', 'array',
             {
                 'items': {
@@ -446,12 +596,55 @@ class OpenAPIController:
                             'properties': {
                                 'short_name': {'type': 'string'},
                                 'key': {'type': 'string'}
+>>>>>>> 8aa2ccb579f5d63db1fa97f1570c82269fffd60d
                             }
                         }
                     }
                 }
             }
         )
+<<<<<<< HEAD
+        self.addComponent(
+            'schema', 'ClassificationsSchema', 'object',
+            {
+                'book': {
+                    'type': 'object',
+                    'description': 'The work searched for in parameters',
+                    'properties': {
+                        'identifier_type': {'type': 'string'},
+                        'identifier': {'type': 'string'},
+                    }
+                },
+                'classifications': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'type ': {'type': 'string'},
+                            'name': {'type': 'string'},
+                            'source': {'type': 'string'},
+                            'weight': {'type': 'integer'}
+                        }
+                    }
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'EditClassificationsPost', 'object',
+            {
+                'genre': {'type': 'string'},
+                'audiences': {'type': 'string'},
+                'target_age_minimum': {'type': 'integer'},
+                'target_age_maximum': {'type': 'integer'},
+                'fiction': {'type': 'boolean'},
+            },
+        )
+        
+        self.addComponent(
+            'schema', 'WorkListsPost', 'object', 
+            {
+                'lists': {'type': 'object'}
+=======
 
         self.addComponent(
             'schema', 'AdminAuthServicesSchema', 'object',
@@ -494,6 +687,7 @@ class OpenAPIController:
                 'email_address': {'type': 'string'},
                 'block_reason': {'type': 'string'},
                 'external_type': {'type': 'string'},
+>>>>>>> 8aa2ccb579f5d63db1fa97f1570c82269fffd60d
             }
         )
 
@@ -513,7 +707,7 @@ class OpenAPIController:
     def addPaths(self):
         for name, method in adminRoutes.__dict__.items():
             self.addPath(name, method)
-    
+
     def addPath(self, name, method):
         if inspect.isfunction(method):
             try:
@@ -522,7 +716,7 @@ class OpenAPIController:
                 logger.warning(f'{name} unable to create view')
                 pass
 
-    @classmethod
+    @ classmethod
     def generateSpecBase(cls):
         # Initialize OpenAPI Spec Document
         return APISpec(
@@ -565,7 +759,7 @@ class OpenAPIController:
             plugins=[FlaskPlugin(), CSRFPlugin()]
         )
 
-    @classmethod
+    @ classmethod
     def generateSpec(cls):
         specManager = cls()
 
@@ -575,4 +769,3 @@ class OpenAPIController:
         specManager.addPaths()
 
         return specManager.spec.to_dict()
-
