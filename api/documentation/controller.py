@@ -415,7 +415,6 @@ class OpenAPIController:
         )
 
         self.addComponent(
-<<<<<<< HEAD
             'schema', 'MARCRollContributorsDict', 'object',
             {
                 'MARCRoleCode': {
@@ -508,6 +507,7 @@ class OpenAPIController:
                 }
             }
         )
+
         self.addComponent(
             'schema', 'LibraryStatsSchema', 'object',
             {
@@ -555,7 +555,14 @@ class OpenAPIController:
                                     'licenses': {'type': 'integer'},
                                     'available_licenses': {'type': 'integer'}
                                 }
-=======
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
             'schema', 'ProtocolDictSchema', 'array',
             {
                 'items': {
@@ -596,14 +603,12 @@ class OpenAPIController:
                             'properties': {
                                 'short_name': {'type': 'string'},
                                 'key': {'type': 'string'}
->>>>>>> 8aa2ccb579f5d63db1fa97f1570c82269fffd60d
                             }
                         }
                     }
                 }
             }
         )
-<<<<<<< HEAD
         self.addComponent(
             'schema', 'ClassificationsSchema', 'object',
             {
@@ -644,7 +649,8 @@ class OpenAPIController:
             'schema', 'WorkListsPost', 'object', 
             {
                 'lists': {'type': 'object'}
-=======
+            }
+        )
 
         self.addComponent(
             'schema', 'AdminAuthServicesSchema', 'object',
@@ -687,7 +693,6 @@ class OpenAPIController:
                 'email_address': {'type': 'string'},
                 'block_reason': {'type': 'string'},
                 'external_type': {'type': 'string'},
->>>>>>> 8aa2ccb579f5d63db1fa97f1570c82269fffd60d
             }
         )
 
