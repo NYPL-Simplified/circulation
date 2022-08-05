@@ -604,6 +604,94 @@ def collection_library_registrations():
 @requires_admin
 @requires_csrf_token
 def admin_auth_services():
+    """Manage admin auth services
+    ---
+    get:
+      tags: 
+        - administration
+      summary: Fetch dict of admin auth services
+      description: |
+        Fetch admin auth protocol. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: Dict of admin auth services
+          content:
+            application/json:
+              schema: AdminAuthServicesSchema
+        4XX:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              schema: ProblemResponse
+              example: |
+                AdminNotAuthorized
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - administration
+      summary: Create or update admin auth protocol.
+      description: |
+        Create or update admin auth protocol. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: AdminAuthPost
+      responses:
+        200:
+          description: Name of admin auth service protocol
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: OPDS Import
+        201:
+          description: Name of newly created admin auth service protocol
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: OPDS 2.0 Import
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, or other issue with the current request. These are returned as JSON objects.
+          content:
+            application/json:
+              schema: ProblemResponse
+              example: |
+                "AdminNotAuthorized, NO_PROTOCOL_FOR_NEW_SERVICE,CANNOT_CHANGE_PROTOCOL, MISSING_SERVICE,INVALID_CONFIGURATION_OPTION, UNKNOWN_LANGUAGE, INVALID_NUMBER,INVALID_URL, INVALID_EMAIL, UNKNOWN_PROTOCOL,"
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_auth_services_controller.process_admin_auth_services()
 
 @app.route("/admin/admin_auth_service/<protocol>", methods=["DELETE"])
@@ -612,6 +700,51 @@ def admin_auth_services():
 @requires_admin
 @requires_csrf_token
 def admin_auth_service(protocol):
+    """Delete admin auth services
+    ---
+    delete:
+      tags:
+        - administration
+      summary: Delete admin auth service.
+      description: |
+        Delete admin auth protocol. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: protocol
+          schema:
+            type: string
+          description: The name of the protocol to be deleted
+      responses:
+        200:
+          description: Name of admin auth service protocol
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: Deleted
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, or other issue with the current request. These are returned as JSON objects.
+          content:
+            application/json:
+              schema: ProblemResponse
+              example: |
+                "MISSING_SERVICE"
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_auth_services_controller.process_delete(protocol)
 
 @app.route("/admin/individual_admins", methods=['GET', 'POST'])
@@ -803,6 +936,58 @@ def patron_auth_self_tests(identifier):
 @requires_admin
 @requires_csrf_token
 def lookup_patron():
+    """Look up personal information about a patron via the ILS
+    ---
+    post:
+      tags:
+        - administration
+      summary: Look up personal information about a patron via the ILS.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: library_short_name
+          description: Short identifying code for a library
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: String
+            example: Identifier for patron
+      responses:
+        200:
+          description: A JSON of Patron Data
+          content:
+            text/html:
+              schema: PatronDataSchema
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+              example: NO_SUCH_PATRON
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_patron_controller.lookup_patron()
 
 @library_route("/admin/manage_patrons/reset_adobe_id", methods=['POST'])
@@ -812,6 +997,60 @@ def lookup_patron():
 @requires_admin
 @requires_csrf_token
 def reset_adobe_id():
+    """Delete all Credentials for a patron that are relevant to the patron's Adobe Account ID.
+    ---
+    post:
+      tags:
+        - administration
+      summary: Delete all Credentials for a patron that are relevant to the patron's Adobe Account ID.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: library_short_name
+          description: Short identifying code for a library
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: String
+            example: Identifier for patron
+      responses:
+        200:
+          description: Adobe ID for the patron has been reset
+          content:
+            text/html:
+              schema: string
+              example: |
+                "Adobe ID for patron %(name_or_auth_id)s has been reset."
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+              example: NO_SUCH_PATRON
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_patron_controller.reset_adobe_id()
 
 @app.route("/admin/metadata_services", methods=['GET', 'POST'])
@@ -965,6 +1204,94 @@ def sitewide_setting(key):
 @requires_admin
 @requires_csrf_token
 def logging_services():
+    """Manage logging services
+    ---
+    get:
+      tags: 
+        - administration
+      summary: Fetch list of logging services and associated protocols
+      description: Fetch list of logging services and protocols for admins
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: Dict of logging services and associated protocols
+          content:
+            application/json:
+              schema: LoggingServicesGetSchema
+        4XX:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              schema: ProblemResponse
+              example: |
+                MISSING_SERVICE
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - administration
+      summary: Create or update logging services
+      description: |
+        Create or update logging services and associated protocols.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: AdminAuthPost
+      responses:
+        200:
+          description: Service id
+          content:
+            text/html:
+              schema: 
+                type: string
+        201:
+          description: Service id
+          content:
+            text/html:
+              schema: 
+                type: string
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_logging_services_controller.process_services()
 
 @app.route("/admin/logging_service/<key>", methods=["DELETE"])
@@ -1722,8 +2049,37 @@ def diagnostics():
 @app.route('/admin/sign_in_again')
 @allows_cors(allowed_domain_type=set({"admin"}))
 def admin_sign_in_again():
-    """Allows an  admin with expired credentials to sign back in
-    from a new browser tab so they won't lose changes.
+    """Redirects signed-in users, or displays sign-in page
+    ---
+    get:
+      tags:
+        - authentication
+      summary: Display sign-in page or redirect signed-in admins to requested page
+      description: |
+        The method checks to see if an `admin_email`, `auth_type`, and `csrf_token` are configured in the current session.
+        If available it validates that these are active credentials and redirects the user to their requested page.
+
+        Allows an  admin with expired credentials to sign back in from a new browser tab so they won't lose changes.
+      responses:
+        200:
+          description: The HTML sign-in page that includes available sign-in methods
+        302:
+          description: A redirect to the requested page for signed-in admins
+        4XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
+            * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+          content:
+            application/json:
+              schema: ProblemResponse 
     """
     admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
     csrf_token = app.manager.admin_sign_in_controller.get_csrf_token()
