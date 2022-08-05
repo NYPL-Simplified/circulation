@@ -692,31 +692,33 @@ def roles():
         This end point returns a map of MARC Codes to contributor roles that are currently available with this system.
 
         example:
-              {"act":"Actor",
-              "adp":"Adapter",
-              "aft":"Afterword Author",
-              "art":"Artist",
-              "asn":"Associated name",
-              "aut":"Author",
-              "cmp":"Composer",
-              "com":"Compiler",
-              "cph":"Copyright holder",
-              "ctb":"Contributor",
-              "drt":"Director",
-              "dsr":"Designer",
-              "edt":"Editor",
-              "eng":"Engineer",
-              "ill":"Illustrator",
-              "lyr":"Lyricist",
-              "mus":"Musician",
-              "nrt":"Narrator",
-              "pht":"Photographer",
-              "prf":"Performer",
-              "pro":"Producer",
-              "trc":"Transcriber",
-              "trl":"Translator",
-              "win":"Introduction Author",
-              "wpr":"Foreword Author"}
+          ```
+          {"act":"Actor",
+          "adp":"Adapter",
+          "aft":"Afterword Author",
+          "art":"Artist",
+          "asn":"Associated name",
+          "aut":"Author",
+          "cmp":"Composer",
+          "com":"Compiler",
+          "cph":"Copyright holder",
+          "ctb":"Contributor",
+          "drt":"Director",
+          "dsr":"Designer",
+          "edt":"Editor",
+          "eng":"Engineer",
+          "ill":"Illustrator",
+          "lyr":"Lyricist",
+          "mus":"Musician",
+          "nrt":"Narrator",
+          "pht":"Photographer",
+          "prf":"Performer",
+          "pro":"Producer",
+          "trc":"Transcriber",
+          "trl":"Translator",
+          "win":"Introduction Author",
+          "wpr":"Foreword Author"}
+          ```
       responses:
         200:
           description: List of MARC codes mapped to Contributor roles
