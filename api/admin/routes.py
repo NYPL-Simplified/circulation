@@ -444,6 +444,57 @@ def work_classifications(identifier_type, identifier):
 @returns_problem_detail
 @requires_admin
 def work_preview_book_cover(identifier_type, identifier):
+    """Return a preview of the submitted cover image information.
+    ---
+    get:
+      tags:
+        - works
+      summary: Return a preview of the submitted cover image information.
+      description: |
+        Return a preview of the submitted cover image information.
+      security:
+        - BasicAuth: []
+      parameters:
+        - in: path
+          name: library_short_name
+          schema:
+            type: string
+          description: The short code of a library that holds the requested work
+        - in: path
+          name: identifier_type
+          schema:
+            type: string
+          description: The type of the identifier being used to retrieve a work
+        - in: path
+          name: identifier
+          schema:
+            type: string
+          description: An identifier for a work record
+      responses:
+        200:
+          description: |
+            Base 64 encoded image preview of book cover
+          content:
+            image/png:
+              schema: 
+                type: string
+                format: binary
+        4XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
+            * NO_LICENSE_POOL
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+          content:
+            application/json:
+              schema: ProblemResponse 
+    """
     return app.manager.admin_work_controller.preview_book_cover(identifier_type, identifier)
 
 
@@ -453,6 +504,57 @@ def work_preview_book_cover(identifier_type, identifier):
 @returns_problem_detail
 @requires_admin
 def work_change_book_cover(identifier_type, identifier):
+    """Save a new book cover based on the submitted form.
+    ---
+    post:
+      tags:
+        - works
+      summary: Save a new book cover based on the submitted form.
+      description: |
+        Save a new book cover based on the submitted form.
+      security:
+        - BasicAuth: []
+      parameters:
+        - in: path
+          name: library_short_name
+          schema:
+            type: string
+          description: The short code of a library that holds the requested work
+        - in: path
+          name: identifier_type
+          schema:
+            type: string
+          description: The type of the identifier being used to retrieve a work
+        - in: path
+          name: identifier
+          schema:
+            type: string
+          description: An identifier for a work record
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: ChangeBookCoverForm
+      responses:
+        200:
+          description: |
+            Success response that a work cover has been changed
+        4XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
+            * INVALID_IMAGE
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+          content:
+            application/json:
+              schema: ProblemResponse 
+    """
     return app.manager.admin_work_controller.change_book_cover(identifier_type, identifier)
 
 
@@ -748,6 +850,52 @@ def unsuppress(identifier_type, identifier):
 @requires_admin
 @requires_csrf_token
 def refresh(identifier_type, identifier):
+    """Refresh the metadata for a book from the content server.
+    ---
+    post:
+      tags:
+        - works
+      summary: Refresh the metadata for a book from the content server.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: library_short_name
+          schema:
+            type: string
+          description: The short code of a library that holds the requested work
+        - in: path
+          name: identifier_type
+          schema:
+            type: string
+          description: The type of the identifier being used to retrieve a work
+        - in: path
+          name: identifier
+          schema:
+            type: string
+          description: An identifier for a work record
+      responses:
+        200:
+          description: Confirmation of successful update of metadata associated with a work.
+        4XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
+            * METADATA_REFRESH_PENDING
+            * METADATA_REFRESH_FAILURE
+            * REMOTE_INTEGRATION_FAILED
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+          content:
+            application/json:
+              schema: ProblemResponse 
+    """
     return app.manager.admin_work_controller.refresh_metadata(identifier_type, identifier)
 
 

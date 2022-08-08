@@ -806,7 +806,8 @@ class WorkController(AdminCirculationManagerController):
             return INVALID_IMAGE.detailed(_("Image file or image URL is required."))
         elif image_url and not Validator()._is_url(image_url, []):
             return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=image_url))
-
+            
+        #TODO remove unused title_position.
         title_position = flask.request.form.get("title_position")
         if image_url and not image_file:
             image_file = BytesIO(urllib.request.urlopen(image_url).read())

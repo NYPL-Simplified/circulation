@@ -724,6 +724,20 @@ class OpenAPIController:
             }
         )
 
+        self.addComponent(
+            'schema', 'ChangeBookCoverForm', 'object',
+            {
+                'rights_status': {'type': 'string'},
+                'rights_explanation': {'type': 'string'},
+                'cover_file': {
+                    'type': 'string',
+                    'format': 'binary'
+                },
+                'cover_url': {'type': 'string'},
+                'title_position': {'type': 'string'}
+            }
+        )
+
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
         self.spec.components.parameter(
