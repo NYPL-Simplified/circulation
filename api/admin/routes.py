@@ -641,12 +641,12 @@ def edit(identifier_type, identifier):
 @requires_admin
 @requires_csrf_token
 def suppress(identifier_type, identifier):
-    """Edit a work's metadata.
+    """Suppress the license pool associated with a book.
     ---
     post:
       tags:
         - works
-      summary: Edit a work's metadata.
+      summary: Suppress the license pool associated with a book.
       security:
         - BasicAuth: []
       parameters:
@@ -666,20 +666,14 @@ def suppress(identifier_type, identifier):
           schema:
             type: string
           description: An identifier for a work record
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema: EditWorkPostForm
       responses:
         200:
-          description: Confirmation of successful operation.
+          description: Confirmation of successful suppression of license pools associated with a work.
         4XX:
           description: |
             An error including:
             * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
-            * INVALID_SERIES_POSITION
-            * INVALID_RATING
+            * NO_LICENSE_POOL
           content:
             application/json:
               schema: ProblemResponse 
@@ -701,6 +695,50 @@ def suppress(identifier_type, identifier):
 @requires_admin
 @requires_csrf_token
 def unsuppress(identifier_type, identifier):
+    """Unsuppress all license pools associated with a book.
+    ---
+    post:
+      tags:
+        - works
+      summary: Unsuppress all license pools associated with a book.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: library_short_name
+          schema:
+            type: string
+          description: The short code of a library that holds the requested work
+        - in: path
+          name: identifier_type
+          schema:
+            type: string
+          description: The type of the identifier being used to retrieve a work
+        - in: path
+          name: identifier
+          schema:
+            type: string
+          description: An identifier for a work record
+      responses:
+        200:
+          description: Confirmation of successful unsuppression of license pools associated with a work.
+        4XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
+            * NO_LICENSE_POOL
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+          content:
+            application/json:
+              schema: ProblemResponse 
+    """
     return app.manager.admin_work_controller.unsuppress(identifier_type, identifier)
 
 
