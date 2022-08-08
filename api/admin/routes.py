@@ -1127,7 +1127,38 @@ def suppressed():
 @returns_json_or_response_or_problem_detail
 @requires_admin
 def genres():
-    """Returns a JSON representation of complete genre tree."""
+    """Returns a JSON representation of complete genre tree.
+    ---
+    get:
+      tags: 
+        - works
+      summary: Returns a JSON representation of complete genre tree.
+      description: |
+          Returns a JSON representation of complete genre tree.
+      security: 
+        - BasicAuth: []
+      responses:
+        200:
+          description: Returns a JSON representation of complete genre tree.
+          content:
+            application/json:
+              schema: GenresSchema
+        4XX:
+          description: |
+            An error including:
+            * `LIBRARY_NOT_FOUND`: Library was not found.
+            * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+          content:
+            application/json:
+              schema: ProblemResponse 
+    """
     return app.manager.admin_feed_controller.genres()
 
 

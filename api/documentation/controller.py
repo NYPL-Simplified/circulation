@@ -738,6 +738,29 @@ class OpenAPIController:
             }
         )
 
+        self.addComponent(
+            'schema', 'GenrePropsSchema', 'object',
+            {
+                'name': {'type': 'string'},
+                'parents': {
+                    'type': 'array',
+                    'items': {'type': 'string'}
+                },
+                'subgenres': {
+                    'type': 'array',
+                    'items': {'type': 'string'}
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'GenresSchema', 'object',
+            {
+                'Fiction': {'$ref': '#/components/schemas/GenrePropsSchema'},
+                'Nonfiction': {'$ref': '#/components/schemas/GenrePropsSchema'}
+            }
+        )
+
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
         self.spec.components.parameter(
