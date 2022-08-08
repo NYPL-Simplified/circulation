@@ -495,7 +495,8 @@ def work_custom_lists(identifier_type, identifier):
               description: A type of identifier, e.g. "ISBN".
             - in: url
               name: identifier
-              schema: string
+              schema: 
+                type: string
               description: An identifier string, used with `identifier_type` to look up an Identifier.
       responses:
         200:
@@ -528,7 +529,7 @@ def work_custom_lists(identifier_type, identifier):
       security: 
         - BasicAuth: []
       parameters:
-            - X-CSRF-TOKEN
+            - X-CSRF-Token
             - in: path
               name: library_short_name
               description: Short identifying code for a library
@@ -541,7 +542,8 @@ def work_custom_lists(identifier_type, identifier):
               description: A type of identifier, e.g. "ISBN".
             - in: url
               name: identifier
-              schema: String
+              schema: 
+                type: string
               description: An identifier string, used with `identifier_type` to look up an Identifier.
       requestBody:
         required: true
@@ -611,7 +613,7 @@ def edit(identifier_type, identifier):
             schema: EditWorkPostForm
       responses:
         200:
-          description: Confirmation of successful operation.
+          description: Confirmation of successful update to a work's metadata.
         4XX:
           description: |
             An error including:
@@ -639,6 +641,56 @@ def edit(identifier_type, identifier):
 @requires_admin
 @requires_csrf_token
 def suppress(identifier_type, identifier):
+    """Edit a work's metadata.
+    ---
+    post:
+      tags:
+        - works
+      summary: Edit a work's metadata.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: library_short_name
+          schema:
+            type: string
+          description: The short code of a library that holds the requested work
+        - in: path
+          name: identifier_type
+          schema:
+            type: string
+          description: The type of the identifier being used to retrieve a work
+        - in: path
+          name: identifier
+          schema:
+            type: string
+          description: An identifier for a work record
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: EditWorkPostForm
+      responses:
+        200:
+          description: Confirmation of successful operation.
+        4XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
+            * INVALID_SERIES_POSITION
+            * INVALID_RATING
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+          content:
+            application/json:
+              schema: ProblemResponse 
+    """
     return app.manager.admin_work_controller.suppress(identifier_type, identifier)
 
 
@@ -1469,7 +1521,8 @@ def lookup_patron():
         required: true
         content:
           multipart/form-data:
-            schema: String
+            schema: 
+              type: string
             example: Identifier for patron
       responses:
         200:
@@ -1531,14 +1584,16 @@ def reset_adobe_id():
         required: true
         content:
           multipart/form-data:
-            schema: String
+            schema: 
+              type: string
             example: Identifier for patron
       responses:
         200:
           description: Adobe ID for the patron has been reset
           content:
             text/html:
-              schema: string
+              schema: 
+                type: string
               example: |
                 "Adobe ID for patron %(name_or_auth_id)s has been reset."
         4XX:
@@ -1878,7 +1933,7 @@ def custom_lists():
           description: Returns a simple object that contains an array of list objects
           content:
             application/json:
-              schema: CustomListResponse
+              schema: CustomListResponseSchema
         403:
           description: The current admin is not an authorized librarian for the current library
           content:

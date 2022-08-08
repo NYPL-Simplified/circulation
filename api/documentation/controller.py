@@ -320,7 +320,7 @@ class OpenAPIController:
                 'name': {'type': 'string'},
                 'entries': {
                     'type': 'array',
-                    'items': {'$ref': '#/components/schema/ListEntry'}
+                    'items': {'$ref': '#/components/schemas/ListEntry'}
                 },
                 'collections': {
                     'type': 'array',
@@ -693,6 +693,34 @@ class OpenAPIController:
                 'email_address': {'type': 'string'},
                 'block_reason': {'type': 'string'},
                 'external_type': {'type': 'string'},
+            }
+        )
+
+        self.addComponent(
+            'schema', 'EditWorkPostForm', 'object',
+            {
+                'title': {'type': 'string'},
+                'subtitle': {'type': 'string'},
+                'contributor-role': {
+                    'type': 'array',
+                    'items': {'type': 'string'}
+                },
+                'contributor-name': {
+                    'type': 'array',
+                    'items': {'type': 'string'}
+                },
+                'series': {'type': 'string'},
+                'series_position': {'type': 'integer'},
+                'medium': {'type': 'string'},
+                'language': {'type': 'string'},
+                'publisher': {'type': 'string'},
+                'imprint': {'type': 'string'},
+                'issued': {
+                    'type': 'string',
+                    'format': 'date'
+                },
+                'rating': {'type': 'integer'},
+                'summary': {'type': 'string'}
             }
         )
 
