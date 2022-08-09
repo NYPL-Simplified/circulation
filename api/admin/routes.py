@@ -605,7 +605,7 @@ def work_custom_lists(identifier_type, identifier):
           description: An array of lists a work belongs to.
           content:
             application/json:
-              schema: CustomListResponseSchema
+              schema: CustomListResponse
         404:
           description: |
             NO_LICENSE error
@@ -2119,7 +2119,7 @@ def custom_lists():
           description: Returns a simple object that contains an array of list objects
           content:
             application/json:
-              schema: CustomListResponseSchema
+              schema: CustomListResponse
         403:
           description: The current admin is not an authorized librarian for the current library
           content:

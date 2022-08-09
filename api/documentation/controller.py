@@ -269,7 +269,7 @@ class OpenAPIController:
         )
 
         self.addComponent(
-            'schema', 'CustomListResponseSchema', 'object',
+            'schema', 'CustomListResponse', 'object',
             {
                 'custom_lists': {
                     'type': 'array',
