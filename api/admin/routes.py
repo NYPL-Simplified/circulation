@@ -1344,6 +1344,69 @@ def library(library_uuid):
 @requires_admin
 @requires_csrf_token
 def collections():
+    """Return collections and protocols object.
+        ---
+        get:
+          tags:
+            - administration
+          summary: Return collections and protocols object.
+          security:
+            - BasicAuth: []
+          responses:
+            200:
+              description: Collections and protocols object
+              content:
+                application/json:
+                  schema: CollectionsGetSchema
+            4XX:
+              description: |
+                An error including:
+                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+              content:
+                application/json:
+                  schema: ProblemResponse
+            5XX:
+              description: |
+                An error including:
+                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+              content:
+                application/json:
+                  schema: ProblemResponse
+        post:
+          tags:
+            - administration
+          summary: Create or update a collection of works
+          security:
+            - BasicAuth: []
+          parameters:
+            - X-CSRF-Token
+          requestBody:
+            required: true
+            content:
+              multipart/form-data:
+                schema: AdminAuthPost
+          responses:
+            2XX:
+              description: Collections and protocols object
+              content:
+                application/json:
+                  schema:
+                    type: string
+            4XX:
+              description: |
+                An error including:
+                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+              content:
+                application/json:
+                  schema: ProblemResponse
+            5XX:
+              description: |
+                An error including:
+                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+              content:
+                application/json:
+                  schema: ProblemResponse
+    """
     return app.manager.admin_collection_settings_controller.process_collections()
 
 
@@ -1353,6 +1416,44 @@ def collections():
 @requires_admin
 @requires_csrf_token
 def collection(collection_id):
+    """Delete a collection.
+      ---
+      delete:
+          tags:
+            - administration
+          summary: Delete a collection
+          security:
+            - BasicAuth: []
+          parameters:
+            - X-CSRF-Token
+            - in: path
+              name: collection_id
+              schema:
+                type: string
+                description: The id of the collection to be deleted
+          responses:
+            200:
+              description: Collections and protocols object
+              content:
+                application/json:
+                  schema:
+                    type: string
+                    example: Deleted
+            4XX:
+              description: |
+                An error including:
+                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+              content:
+                application/json:
+                  schema: ProblemResponse
+            5XX:
+              description: |
+                An error including:
+                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+              content:
+                application/json:
+                  schema: ProblemResponse
+    """
     return app.manager.admin_collection_settings_controller.process_delete(collection_id)
 
 
@@ -1371,6 +1472,70 @@ def collection_self_tests(identifier):
 @requires_admin
 @requires_csrf_token
 def collection_library_registrations():
+    """Return a collection of library registrations.
+        ---
+        get:
+          tags:
+            - administration
+          summary: Return a collection of library registrations.
+          security:
+            - BasicAuth: []
+          responses:
+            200:
+              description: Collections and protocols object
+              content:
+                application/json:
+                  schema: CollectionLibRegistrations
+            4XX:
+              description: |
+                An error including:
+                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+              content:
+                application/json:
+                  schema: ProblemResponse
+            5XX:
+              description: |
+                An error including:
+                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+              content:
+                application/json:
+                  schema: ProblemResponse
+        post:
+          tags:
+            - administration
+          summary: Register a library and it's collections.
+          security:
+            - BasicAuth: []
+          parameters:
+            - X-CSRF-Token
+          requestBody:
+            required: true
+            content:
+              multipart/form-data:
+                schema: CollectionsLibraryRegistrationPost
+          responses:
+            200:
+              description: Collections and protocols object
+              content:
+                application/json:
+                  schema:
+                    type: string
+                    example: Success
+            4XX:
+              description: |
+                An error including:
+                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+              content:
+                application/json:
+                  schema: ProblemResponse
+            5XX:
+              description: |
+                An error including:
+                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+              content:
+                application/json:
+                  schema: ProblemResponse
+    """
     return app.manager.admin_collection_library_registrations_controller.process_collection_library_registrations()
 
 

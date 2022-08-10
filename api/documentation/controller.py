@@ -673,6 +673,28 @@ class OpenAPIController:
         )
 
         self.addComponent(
+            'schema', 'CollectionLibRegistrations', 'object',
+            {
+                'library_registrations': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'id': 'string',
+                            'library_info': {
+                                'type': 'object',
+                                'properties': {
+                                    'short_name': {'type': 'string'},
+                                    'status': {'type': 'object'}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
             'schema', 'LoggingServicesGetSchema', 'object',
             {
                 'logging_services': {
@@ -758,6 +780,47 @@ class OpenAPIController:
             {
                 'Fiction': {'$ref': '#/components/schemas/GenrePropsSchema'},
                 'Nonfiction': {'$ref': '#/components/schemas/GenrePropsSchema'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'CollectionsGetSchema', 'object',
+            {
+                'collections': {
+                    'type': 'object',
+                    'properties': {
+                        'id': {'type': 'string'},
+                        'name': {'type': 'string'},
+                        'protocol': {
+                            'type': 'string',
+                            'description': 'A protocol name string'
+                        },
+                        'parent_id': {'type': 'string'}
+                    }
+                },
+                'protocols': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string'},
+                        'label': {'type': 'string'},
+                        'description': {'type': 'string'},
+                        'settings': {
+                            'type': 'array',
+                            'items': {
+                                'type': 'object',
+                                'description': 'Mirror integration settings'
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'CollectionsLibraryRegistrationPost', 'object',
+            {
+                'collection_id': {'type': 'string'},
+                'library_short_name': {'type': 'string'}
             }
         )
 
