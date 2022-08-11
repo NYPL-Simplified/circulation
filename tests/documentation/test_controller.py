@@ -36,7 +36,7 @@ class TestDocumentationController:
                         == '#/components/schemas/CustomListResponse'
 
             # Assert presence of paths without docstrings
-            assert testSpec['paths']['/admin/admin_css'] == {}
+            assert testSpec['paths']['/admin/static/circulation-web.css'] == {}
 
             # Assert that localhost is the default server
             assert testSpec['servers'][0]['url'] == 'http://localhost'
