@@ -1146,7 +1146,6 @@ def genres():
         4XX:
           description: |
             An error including:
-            * `LIBRARY_NOT_FOUND`: Library was not found.
             * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
           content:
             application/json:
@@ -1392,6 +1391,7 @@ def collections():
                 application/json:
                   schema:
                     type: string
+                    example: Collection.id
             4XX:
               description: |
                 An error including:
