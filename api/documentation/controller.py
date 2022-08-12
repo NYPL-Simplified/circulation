@@ -824,6 +824,38 @@ class OpenAPIController:
             }
         )
 
+        self.addComponent(
+            'schema', 'MetadataGetSchema', 'object',
+            {
+                'metadata_services': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'id': {'type': 'string'},
+                            'protocol': {'type': 'string'},
+                            'settings': {'type': 'object'},
+                            'libraries': {'type': 'array'}
+                        }
+                    }
+                },
+                'protocols': {'$ref': '#/components/schemas/ProtocolDictSchema'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'MetadataPostForm', 'object',
+            {
+                'protocol': {
+                    'type': 'string',
+                    'description': 'The name of a protocol to lookup'
+                },
+                'id': {'type': 'string'},
+                'name': {'type': 'string'},
+                'url': {'type': 'string'}
+            }
+        )
+
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
         self.spec.components.parameter(

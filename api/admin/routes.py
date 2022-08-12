@@ -2012,12 +2012,12 @@ def reset_adobe_id():
 @requires_admin
 @requires_csrf_token
 def metadata_services():
-    """Delete all Credentials for a patron that are relevant to the patron's Adobe Account ID.
+    """Fetch or edit metadata services
     ---
     get:
       tags:
         - administration
-      summary: Delete all Credentials for a patron that are relevant to the patron's Adobe Account ID.
+      summary: Return a JSON representation of metadata services and protocols
       security:
         - BasicAuth: []
       responses:
@@ -2025,10 +2025,7 @@ def metadata_services():
           description: Adobe ID for the patron has been reset
           content:
             text/html:
-              schema: 
-                type: string
-              example: |
-                "Adobe ID for patron %(name_or_auth_id)s has been reset."
+              schema: MetadataGetSchema
         4XX:
           description: |
             These are anticipated errors due to a malformed request, invalid option, 
@@ -2042,7 +2039,6 @@ def metadata_services():
           content:
             application/json:
               schema: ProblemResponse
-              example: NO_SUCH_PATRON
         5XX:
           description: |
             An unanticipated bug in the system that could not be properly handled.
@@ -2056,32 +2052,25 @@ def metadata_services():
     post:
       tags:
         - administration
-      summary: Delete all Credentials for a patron that are relevant to the patron's Adobe Account ID.
+      summary: Create or edit metadata services.
       security:
         - BasicAuth: []
       parameters:
         - X-CSRF-Token
-        - in: path
-          name: library_short_name
-          description: Short identifying code for a library
-          schema:
-            type: string
       requestBody:
         required: true
         content:
           multipart/form-data:
-            schema: 
-              type: string
-            example: Identifier for patron
+            schema: MetadataPostForm
       responses:
-        200:
-          description: Adobe ID for the patron has been reset
+        2XX:
+          description: The id of the service that has been edited or created.
           content:
             text/html:
               schema: 
                 type: string
               example: |
-                "Adobe ID for patron %(name_or_auth_id)s has been reset."
+                "Service.id"
         4XX:
           description: |
             These are anticipated errors due to a malformed request, invalid option, 
@@ -2095,7 +2084,6 @@ def metadata_services():
           content:
             application/json:
               schema: ProblemResponse
-              example: NO_SUCH_PATRON
         5XX:
           description: |
             An unanticipated bug in the system that could not be properly handled.
