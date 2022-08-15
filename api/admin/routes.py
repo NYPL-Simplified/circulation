@@ -2386,14 +2386,8 @@ def search_services():
           multipart/form-data:
             schema: AdminAuthPost
       responses:
-        200:
-          description: Service id
-          content:
-            text/html:
-              schema: 
-                type: string
-        201:
-          description: Service id
+        2XX:
+          description: Updated or created service id
           content:
             text/html:
               schema: 
