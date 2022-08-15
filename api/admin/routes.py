@@ -2104,6 +2104,53 @@ def metadata_services():
 @requires_admin
 @requires_csrf_token
 def metadata_service(service_id):
+    """Delete a metadata service.
+    ---
+    delete:
+      tags:
+        - administration
+      summary: Delete a metadata service.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: service_id
+          description: Id of metadata service to be deleted.
+          schema:
+            type: string
+      responses:
+        200:
+          description: Metadata service has been deleted.
+          content:
+            text/html:
+              schema: |
+                type: string
+                example: Deleted
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_metadata_services_controller.process_delete(service_id)
 
 
