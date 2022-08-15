@@ -418,7 +418,7 @@ class OpenAPIController:
             'schema', 'MARCRollContributorsDict', 'object',
             {
                 'MARCRoleCode': {
-                    'type': 'string', 
+                    'type': 'string',
                     'description': 'Contributor role'
                 },
             }
@@ -644,9 +644,9 @@ class OpenAPIController:
                 'fiction': {'type': 'boolean'},
             },
         )
-        
+
         self.addComponent(
-            'schema', 'WorkListsPost', 'object', 
+            'schema', 'WorkListsPost', 'object',
             {
                 'lists': {'type': 'object'}
             }
@@ -695,12 +695,12 @@ class OpenAPIController:
         )
 
         self.addComponent(
-            'schema', 'LoggingServicesGetSchema', 'object',
+            'schema', 'CreatedServicesGetSchema', 'object',
             {
-                'logging_services': {
+                '*_services': {
                     'type': 'object',
-                    'description': 'A list of available logging services'
-                    },
+                    'description': 'A list of available _ services'
+                },
                 'protocol': {'$ref': '#/components/schemas/ProtocolDictSchema'}
             }
         )
@@ -828,25 +828,25 @@ class OpenAPIController:
             'schema', 'ServicesSchema', 'array',
             {
                 'items': {
-                        'type': 'object',
-                        'properties': {
+                    'type': 'object',
+                    'properties': {
                             'libraries': {
                                 'type': 'array',
                                 'items': {'type': 'string'}
-                                },
-                            'id': {'type': 'string'},
-                            'protocol': {'type': 'string'},
-                            'settings': {'type': 'object'},
-                        }
+                            },
+                        'id': {'type': 'string'},
+                        'protocol': {'type': 'string'},
+                        'settings': {'type': 'object'},
                     }
+                }
             }
         )
 
         self.addComponent(
             'schema', 'ServicesGetSchema', 'object',
             {
-                '*_services': { '$ref': '#/components/schemas/ServicesSchema'
-                },
+                '*_services': {'$ref': '#/components/schemas/ServicesSchema'
+                               },
                 'protocols': {'$ref': '#/components/schemas/ProtocolDictSchema'}
             }
         )

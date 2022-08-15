@@ -2334,6 +2334,94 @@ def cdn_service(service_id):
 @requires_admin
 @requires_csrf_token
 def search_services():
+    """Manage search services
+    ---
+    get:
+      tags: 
+        - administration
+      summary: Fetch list of search services and associated protocols
+      description: Fetch list of search services and protocols for admins
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: Dict of search services and associated protocols
+          content:
+            application/json:
+              schema: CreatedServicesGetSchema
+        4XX:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              schema: ProblemResponse
+              example: |
+                MISSING_SERVICE
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - administration
+      summary: Create or update search services
+      description: |
+        Create or update search services and associated protocols.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: AdminAuthPost
+      responses:
+        200:
+          description: Service id
+          content:
+            text/html:
+              schema: 
+                type: string
+        201:
+          description: Service id
+          content:
+            text/html:
+              schema: 
+                type: string
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_search_services_controller.process_services()
 
 
@@ -2447,7 +2535,7 @@ def logging_services():
           description: Dict of logging services and associated protocols
           content:
             application/json:
-              schema: LoggingServicesGetSchema
+              schema: CreatedServicesGetSchema
         4XX:
           description: |
             An authentication error in which the user could not be authenticated, or 
