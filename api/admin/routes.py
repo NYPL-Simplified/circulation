@@ -2022,10 +2022,10 @@ def metadata_services():
         - BasicAuth: []
       responses:
         200:
-          description: Adobe ID for the patron has been reset
+          description: JSON of metadata services and protocols
           content:
             text/html:
-              schema: MetadataGetSchema
+              schema: ServicesGetSchema
         4XX:
           description: |
             These are anticipated errors due to a malformed request, invalid option, 
@@ -2061,7 +2061,7 @@ def metadata_services():
         required: true
         content:
           multipart/form-data:
-            schema: MetadataPostForm
+            schema: ServicesPostForm
       responses:
         2XX:
           description: The id of the service that has been edited or created.
@@ -2169,6 +2169,89 @@ def metadata_service_self_tests(identifier):
 @requires_admin
 @requires_csrf_token
 def analytics_services():
+    """Fetch or edit analytics services
+    ---
+    get:
+      tags:
+        - analytics
+      summary: Return a JSON representation of analytics services and protocols
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: JSON of analytics services and protocols
+          content:
+            text/html:
+              schema: ServicesGetSchema
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - analytics
+      summary: Create or edit analytics services.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: ServicesPostForm
+      responses:
+        2XX:
+          description: The id of the service that has been edited or created.
+          content:
+            text/html:
+              schema: 
+                type: string
+              example: |
+                "Service.id"
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse    
+    """
     return app.manager.admin_analytics_services_controller.process_analytics_services()
 
 

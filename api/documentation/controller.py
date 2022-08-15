@@ -825,26 +825,34 @@ class OpenAPIController:
         )
 
         self.addComponent(
-            'schema', 'MetadataGetSchema', 'object',
+            'schema', 'ServicesSchema', 'array',
             {
-                'metadata_services': {
-                    'type': 'array',
-                    'items': {
+                'items': {
                         'type': 'object',
                         'properties': {
+                            'libraries': {
+                                'type': 'array',
+                                'items': {'type': 'string'}
+                                },
                             'id': {'type': 'string'},
                             'protocol': {'type': 'string'},
                             'settings': {'type': 'object'},
-                            'libraries': {'type': 'array'}
                         }
                     }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'ServicesGetSchema', 'object',
+            {
+                '*_services': { '$ref': '#/components/schemas/ServicesSchema'
                 },
                 'protocols': {'$ref': '#/components/schemas/ProtocolDictSchema'}
             }
         )
 
         self.addComponent(
-            'schema', 'MetadataPostForm', 'object',
+            'schema', 'ServicesPostForm', 'object',
             {
                 'protocol': {
                     'type': 'string',
