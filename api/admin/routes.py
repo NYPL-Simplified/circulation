@@ -1118,7 +1118,33 @@ def complaints():
 @returns_problem_detail
 @requires_admin
 def suppressed():
-    """Returns a feed of suppressed works."""
+    """Returns an OPDS feed of suppressed works.
+    ---
+    get:
+      tags:
+        - administration
+      summary: Returns an OPDS feed of suppressed works.
+      responses:
+        200:
+          description: An OPDS Feed response of Hidden Books.
+          content:
+            application/json:
+              schema: OPDSFeedResponse
+        4XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `INTERNAL_SERVER_ERROR`: API server error.
+          content:
+            application/json:
+              schema: ProblemResponse 
+    """
     return app.manager.admin_feed_controller.suppressed()
 
 
