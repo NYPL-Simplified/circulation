@@ -511,49 +511,49 @@ class OpenAPIController:
         self.addComponent(
             'schema', 'LibraryStatsSchema', 'object',
             {
-                'items': {
-                    'type': 'array',
-                    'description': 'Array of library stats',
-                    'items': {
-                        'type': 'object',
-                        'description': 'Library name or "total"',
-                        'properties': {
-                            'patron': {
-                                'type': 'object',
-                                'properties': {
-                                    'total': {'type': 'integer'},
-                                    'with_active_loans': {'type': 'integer'},
-                                    'with_active_loans_or_holds': {
-                                        'type': 'integer'
-                                    },
-                                    'loans': {'type': 'integer'},
-                                    'holds': {'type': 'integer'}
-                                }
-                            },
-                            'inventory': {
-                                'type': 'object',
-                                'properties': {
-                                    'titles': {
-                                        'type': 'integer',
-                                        'description': 'total title count'
-                                    },
-                                    'licenses': {
-                                        'type': 'integer',
-                                        'description': 'total license count'
-                                    },
-                                    'available_license_count': {
-                                        'type': 'integer',
-                                        'description': 'total available'
+                'library_stats': {
+                    'type': 'object',
+                    'properties': {
+                        'library': {
+                            'type': 'object',
+                            'properties': {
+                                'patron': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'total': {'type': 'integer'},
+                                        'with_active_loans': {'type': 'integer'},
+                                        'with_active_loans_or_holds': {
+                                            'type': 'integer'
+                                        },
+                                        'loans': {'type': 'integer'},
+                                        'holds': {'type': 'integer'}
                                     }
-                                }
-                            },
-                            'collections': {
-                                'type': 'object',
-                                'properties': {
-                                    'licensed_titles': {'type': 'integer'},
-                                    'open_access_titles': {'type': 'integer'},
-                                    'licenses': {'type': 'integer'},
-                                    'available_licenses': {'type': 'integer'}
+                                },
+                                'inventory': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'titles': {
+                                            'type': 'integer',
+                                            'description': 'total title count'
+                                        },
+                                        'licenses': {
+                                            'type': 'integer',
+                                            'description': 'total license count'
+                                        },
+                                        'available_license_count': {
+                                            'type': 'integer',
+                                            'description': 'total available'
+                                        }
+                                    }
+                                },
+                                'collections': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'licensed_titles': {'type': 'integer'},
+                                        'open_access_titles': {'type': 'integer'},
+                                        'licenses': {'type': 'integer'},
+                                        'available_licenses': {'type': 'integer'}
+                                    }
                                 }
                             }
                         }
