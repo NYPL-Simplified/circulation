@@ -864,6 +864,23 @@ class OpenAPIController:
             }
         )
 
+        self.addComponent(
+            'schema', 'WorkComplaintsSchema', 'object',
+            {
+                'book': {
+                    'type': 'object',
+                    'properties': {
+                        'identifier_type': {'type': 'string'},
+                        'identifier': {'type': 'string'}
+                    }
+                },
+                'complaints': {
+                    'type': 'object',
+                    'description': 'A counter object of complaint types for a given work'
+                }
+            }
+        )
+
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
         self.spec.components.parameter(

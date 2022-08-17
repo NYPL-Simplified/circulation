@@ -564,6 +564,50 @@ def work_change_book_cover(identifier_type, identifier):
 @returns_json_or_response_or_problem_detail
 @requires_admin
 def work_complaints(identifier_type, identifier):
+    """Return detailed complaint information for admins.
+    ---
+    get:
+      tags:
+        - works
+      summary: Return detailed complaint information for admins.
+      security:
+        - BasicAuth: []
+      parameters:
+        - in: path
+          name: library_short_name
+          schema:
+            type: string
+          description: The short code of a library that holds the requested work
+        - in: path
+          name: identifier_type
+          schema:
+            type: string
+          description: The type of the identifier being used to retrieve a work
+        - in: path
+          name: identifier
+          schema:
+            type: string
+          description: An identifier for a work record.
+      responses:
+        200:
+          content:
+            application/json:
+              schema: WorkComplaintsSchema
+        4XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+          content:
+            application/json:
+              schema: ProblemResponse 
+    """
     return app.manager.admin_work_controller.complaints(identifier_type, identifier)
 
 
@@ -906,6 +950,57 @@ def refresh(identifier_type, identifier):
 @requires_admin
 @requires_csrf_token
 def resolve_complaints(identifier_type, identifier):
+    """Resolve all complaints for a particular license pool and complaint type.
+    ---
+    post:
+      tags:
+        - works
+      summary: Resolve all complaints for a particular license pool and complaint type.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: library_short_name
+          schema:
+            type: string
+          description: The short code of a library that holds the requested work
+        - in: path
+          name: identifier_type
+          schema:
+            type: string
+          description: The type of the identifier being used to retrieve a work
+        - in: path
+          name: identifier
+          schema:
+            type: string
+          description: An identifier for a work record
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: 
+              type: string
+              name: type
+      responses:
+        200:
+          description: Resolved all complaints for a particular license pool and complaint type.
+        4XX:
+          description: |
+            An error including:
+            * UNRECOGNIZED_COMPLAINT
+            * COMPLAINT_ALREADY_RESOLVED
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+          content:
+            application/json:
+              schema: ProblemResponse 
+    """
     return app.manager.admin_work_controller.resolve_complaints(identifier_type, identifier)
 
 
@@ -1109,6 +1204,39 @@ def rights_status():
 @returns_problem_detail
 @requires_admin
 def complaints():
+    """Returns an OPDS feed of complaints.
+    ---
+    get:
+      tags:
+        - administration
+      summary: Returns an OPDS feed of complaints.
+      parameters:
+        - in: path
+          name: library_short_name
+          description: Short identifying code for a library
+          schema:
+            type: string
+      responses:
+        200:
+          description: An OPDS Feed response of Complaints.
+          content:
+            application/json:
+              schema: OPDSFeedResponse
+        4XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_MECHANISM_NOT_CONFIGURED`: Google OAuth not available
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `INTERNAL_SERVER_ERROR`: API server error.
+          content:
+            application/json:
+              schema: ProblemResponse 
+    """
     return app.manager.admin_feed_controller.complaints()
 
 
@@ -1124,6 +1252,12 @@ def suppressed():
       tags:
         - administration
       summary: Returns an OPDS feed of suppressed works.
+      parameters:
+        - in: path
+          name: library_short_name
+          description: Short identifying code for a library
+          schema:
+            type: string
       responses:
         200:
           description: An OPDS Feed response of Hidden Books.
