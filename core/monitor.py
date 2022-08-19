@@ -884,7 +884,10 @@ class PatronRecordReaper(ReaperMonitor):
     MODEL_CLASS = Patron
     TIMESTAMP_FIELD = 'authorization_expires'
     MAX_AGE = 60
-ReaperMonitor.REGISTRY.append(PatronRecordReaper)
+
+# NOTE: This reaper does not correlate to our current policy and is being paused
+#       It may be renabled at any time by un-commenting the line below
+# ReaperMonitor.REGISTRY.append(PatronRecordReaper)
 
 
 class WorkReaper(ReaperMonitor):
