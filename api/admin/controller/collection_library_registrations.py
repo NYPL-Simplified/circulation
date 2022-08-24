@@ -17,6 +17,7 @@ from core.util.http import HTTP
 from core.util.problem_detail import ProblemDetail
 from . import SettingsController
 
+
 class CollectionLibraryRegistrationsController(SettingsController):
     """Use the OPDS Directory Registration Protocol to register a
     Collection with its remote source of truth.
@@ -30,10 +31,10 @@ class CollectionLibraryRegistrationsController(SettingsController):
         self.shared_collection_provider_apis = [SharedODLAPI]
 
     def process_collection_library_registrations(self,
-            do_get=HTTP.debuggable_get,
-            do_post=HTTP.debuggable_post,
-            key=None,
-            registration_class=Registration):
+                                                 do_get=HTTP.debuggable_get,
+                                                 do_post=HTTP.debuggable_post,
+                                                 key=None,
+                                                 registration_class=Registration):
 
         registration_class = registration_class or Registration
         self.require_system_admin()
@@ -100,8 +101,7 @@ class CollectionLibraryRegistrationsController(SettingsController):
         return Response(str(_("Success")), 200)
 
     def look_up_collection(self, collection_id):
-        """Find the collection that the user is trying to register the library with,
-        and check that it actually exists."""
+        """Find the collection that the user is trying to register the library with, and check that it actually exists."""
 
         collection = get_one(self._db, Collection, id=collection_id)
         if not collection:
