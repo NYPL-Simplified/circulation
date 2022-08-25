@@ -2349,9 +2349,8 @@ class DatabaseBackedWorkList(WorkList):
             # Use a subquery to obtain the CustomList IDs of all
             # CustomLists from this DataSource. This is significantly
             # simpler than adding a join against CustomList.
-            customlist_ids = Select(
-                [CustomList.id],
-                CustomList.data_source_id==self.list_datasource_id
+            customlist_ids = select(CustomList.id).where(
+                CustomList.data_source_id == self.list_datasource_id
             )
         else:
             customlist_ids = self.customlist_ids

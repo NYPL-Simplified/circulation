@@ -612,23 +612,6 @@ def adobe_vendor_id_accountinfo():
 def adobe_vendor_id_status():
     return app.manager.adobe_vendor_id.status_handler()
 
-# DRM Device Management Protocol implementation for ACS.
-@library_route('/AdobeAuth/devices', methods=['GET', 'POST'])
-@has_library
-@allows_cors(allowed_domain_type=set({"admin"}))
-@requires_auth
-@returns_problem_detail
-def adobe_drm_devices():
-    return app.manager.adobe_device_management.device_id_list_handler()
-
-@library_route('/AdobeAuth/devices/<device_id>', methods=['DELETE'])
-@has_library
-@allows_cors(allowed_domain_type=set({"admin"}))
-@requires_auth
-@returns_problem_detail
-def adobe_drm_device(device_id):
-    return app.manager.adobe_device_management.device_id_handler(device_id)
-
 # Route that issues temporary tokens for Basic HTTP Auth
 @library_route('/http_basic_auth_token')
 @has_library

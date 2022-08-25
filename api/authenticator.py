@@ -502,12 +502,6 @@ class CirculationPatronProfileStorage(PatronProfileStorage):
             adobe_drm['drm:scheme'] = "http://librarysimplified.org/terms/drm/scheme/ACS"
             drm.append(adobe_drm)
 
-            device_link['rel'] = 'http://librarysimplified.org/terms/drm/rel/devices'
-            device_link['href'] = self.url_for(
-                "adobe_drm_devices", library_short_name=self.patron.library.short_name, _external=True
-            )
-            links.append(device_link)
-
             annotations_link = dict(
                 rel="http://www.w3.org/ns/oa#annotationService",
                 type=AnnotationWriter.CONTENT_TYPE,
@@ -908,7 +902,7 @@ class LibraryAuthenticator(object):
         )
         return jwt.encode(
             payload, self.bearer_token_signing_secret, algorithm='HS256'
-        ).decode("utf-8")
+        )
 
     def decode_bearer_token_from_header(self, header):
         """Extract auth provider name and access token from an Authenticate

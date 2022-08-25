@@ -1810,10 +1810,10 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 for pool in identifier.licensed_through:
                     if pool.licenses_owned > 0:
                         if pool.presentation_edition:
-                            self.log.warn("Removing %s (%s) from circulation",
+                            self.log.warning("Removing %s (%s) from circulation",
                                           pool.presentation_edition.title, pool.presentation_edition.author)
                         else:
-                            self.log.warn(
+                            self.log.warning(
                                 "Removing unknown work %s from circulation.",
                                 identifier.identifier
                             )
@@ -2290,7 +2290,7 @@ class RBDigitalRepresentationExtractor(object):
                 drm_scheme = DeliveryMechanism.NO_DRM
                 formats.append(FormatData(content_type, drm_scheme))
             else:
-                cls.log.warn("Unfamiliar format: %s", metadata.medium)
+                cls.log.warning("Unfamiliar format: %s", metadata.medium)
 
             # Make a CirculationData so we can write the formats,
             circulationdata = CirculationData(

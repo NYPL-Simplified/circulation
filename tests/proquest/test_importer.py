@@ -1112,7 +1112,7 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
         any response returned by ProQuestAPIClient.download_all_feed_pages without having any prior CoverageRecords.
 
         :param feeds: List of ProQuest OPDS 2.0 paged feeds
-        :type feeds: List[webpub_manifest_parser.opds2.ast.OPDS2Feed]
+        :type feeds: List[core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed]
 
         :param expected_calls: List of expected ProQuestOPDS2ImportMonitor.import_one_feed calls
         :type expected_calls: List[call]
@@ -1158,7 +1158,7 @@ class TestProQuestOPDS2ImportMonitor(DatabaseTest):
             - after the import process finished, it deletes the temporary directory
 
         :param feed_pages: List of ProQuest OPDS 2.0 paged feeds
-        :type feed_pages: List[webpub_manifest_parser.opds2.ast.OPDS2Feed]
+        :type feed_pages: List[core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed]
         """
         # Arrange
         client = create_autospec(spec=ProQuestAPIClient)

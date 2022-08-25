@@ -162,7 +162,7 @@ class Library(Base, HasFullTableCache):
                 # There are no libraries in the system, so no default.
                 return None
             [default_library] = libraries
-            logging.warn(
+            logging.warning(
                 "No default library, setting %s as default." % (
                     default_library.short_name
                 )
@@ -172,7 +172,7 @@ class Library(Base, HasFullTableCache):
             # race condition. Fix it by arbitrarily designating one
             # of the libraries as the default.
             default_library = defaults[0]
-            logging.warn(
+            logging.warning(
                 "Multiple default libraries, setting %s as default." % (
                     default_library.short_name
                 )

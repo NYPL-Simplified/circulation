@@ -1005,6 +1005,11 @@ class TestCollection:
         collection.marked_for_deletion = True
         collection.delete(search_index=index)
 
+        # Normally this gets done through collection.delete(), but due to the
+        # enumeration the work's license pool's deletion isn't committed so it
+        # needs to be done here.
+        work.delete(index)
+
         # It's gone.
         assert collection not in db_session.query(Collection).all()
 

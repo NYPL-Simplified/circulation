@@ -399,7 +399,7 @@ class BaseCoverageProvider(object):
                     unhandled_items.remove(item.obj)
                 record = self.record_failure_as_coverage_record(item)
                 if item.transient:
-                    self.log.warn(
+                    self.log.warning(
                         "Transient failure covering %r: %s",
                         item.obj, item.exception
                     )
@@ -427,7 +427,7 @@ class BaseCoverageProvider(object):
         # Perhaps some records were ignored--they neither succeeded nor
         # failed. Treat them as transient failures.
         for item in unhandled_items:
-            self.log.warn(
+            self.log.warning(
                 "%r was ignored by a coverage provider that was supposed to cover it.", item
             )
             failure = self.failure_for_ignored_item(item)
@@ -932,7 +932,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
                 replace=self.replacement_policy,
             )
         except Exception as e:
-            self.log.warn(
+            self.log.warning(
                 "Error applying metadata to edition %d: %s",
                 edition.id, e, exc_info=e
             )
@@ -1292,7 +1292,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
                 collection_name = " to collection %s" % self.collection.name
             else:
                 collection_name = ""
-            self.log.warn(
+            self.log.warning(
                 "Error applying circulationdata%s: %s",
                 collection_name, e, exc_info=e
             )

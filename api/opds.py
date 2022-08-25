@@ -1110,7 +1110,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         if not self.identifies_patrons and rel != OPDSFeed.OPEN_ACCESS_REL:
             return
         if isinstance(delivery_mechanism, LicensePoolDeliveryMechanism):
-            logging.warn("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
+            logging.warning("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
             delivery_mechanism = delivery_mechanism.delivery_mechanism
         format_types = AcquisitionFeed.format_types(delivery_mechanism)
         if not format_types:
@@ -1207,15 +1207,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                 patron_key.text = token
                 drm_licensor.append(patron_key)
 
-                # Add the link to the DRM Device Management Protocol
-                # endpoint. See:
-                # https://github.com/NYPL-Simplified/Simplified/wiki/DRM-Device-Management
-                device_list_link = OPDSFeed.makeelement("link")
-                device_list_link.attrib['rel'] = 'http://librarysimplified.org/terms/drm/rel/devices'
-                device_list_link.attrib['href'] = self.url_for(
-                    "adobe_drm_devices", library_short_name=self.library.short_name, _external=True
-                )
-                drm_licensor.append(device_list_link)
                 cached = [drm_licensor]
 
             self._adobe_id_tags[cache_key] = cached
@@ -1387,7 +1378,7 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
                      rel=OPDSFeed.ACQUISITION_REL):
         """Create a new fulfillment link."""
         if isinstance(delivery_mechanism, LicensePoolDeliveryMechanism):
-            logging.warn("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
+            logging.warning("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
             delivery_mechanism = delivery_mechanism.delivery_mechanism
         format_types = AcquisitionFeed.format_types(delivery_mechanism)
         if not format_types:

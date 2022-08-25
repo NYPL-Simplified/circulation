@@ -1178,11 +1178,11 @@ class AcquisitionFeed(OPDSFeed):
 
         # There's no reason to present a book that has no active license pool.
         if not identifier:
-            logging.warn("%r HAS NO IDENTIFIER", work)
+            logging.warning("%r HAS NO IDENTIFIER", work)
             return None
 
         if not active_license_pool and not even_if_no_license_pool:
-            logging.warn("NO ACTIVE LICENSE POOL FOR %r", work)
+            logging.warning("NO ACTIVE LICENSE POOL FOR %r", work)
             return self.error_message(
                 identifier,
                 403,
@@ -1190,7 +1190,7 @@ class AcquisitionFeed(OPDSFeed):
             )
 
         if not active_edition:
-            logging.warn("NO ACTIVE EDITION FOR %r", active_license_pool)
+            logging.warning("NO ACTIVE EDITION FOR %r", active_license_pool)
             return self.error_message(
                 identifier,
                 403,
@@ -1320,7 +1320,7 @@ class AcquisitionFeed(OPDSFeed):
             additional_type = Edition.medium_to_additional_type.get(
                 edition.medium)
             if not additional_type:
-                logging.warn("No additionalType for medium %s",
+                logging.warning("No additionalType for medium %s",
                              edition.medium)
             additional_type_field = AtomFeed.schema_("additionalType")
             kw[additional_type_field] = additional_type
