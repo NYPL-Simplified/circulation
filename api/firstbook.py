@@ -85,7 +85,7 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     # End implementation of BasicAuthenticationProvider abstract methods.
 
     def remote_pin_test(self, barcode, pin):
-        url = self.root + "&accesscode=%s&pin=%s" % tuple(map(
+        url = self.root + "/rest/V1/serialcode?code=%s&pin=%s" % tuple(map(
             urllib.parse.quote, (barcode, pin)
         ))
         try:
