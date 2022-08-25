@@ -9,7 +9,6 @@ from flask import (
 )
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_sqlalchemy_session import flask_scoped_session
-from sqlalchemy.orm import sessionmaker
 from .config import Configuration
 from core.model import (
     ConfigurationSetting,

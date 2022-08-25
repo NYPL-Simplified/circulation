@@ -226,6 +226,9 @@ class Monitor(object):
             duration.total_seconds(),
         )
 
+        # Close existing database session and associated connection objects
+        self._db.close()
+
     def run_once(self, progress):
         """Do the actual work of the Monitor.
 
