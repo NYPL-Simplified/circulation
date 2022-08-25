@@ -982,6 +982,19 @@ def resolve_complaints(identifier_type, identifier):
             schema: 
               type: string
               name: type
+              example: |
+                'wrong-genre',
+                'wrong-audience',
+                'wrong-age-range',
+                'wrong-title',
+                'wrong-medium',
+                'wrong-author',
+                'bad-cover-image',
+                'bad-description',
+                'cannot-fulfill-loan',
+                'cannot-issue-loan',
+                'cannot-render',
+                'cannot-return',
       responses:
         200:
           description: Resolved all complaints for a particular license pool and complaint type.
@@ -1451,7 +1464,7 @@ def stats():
     get:
       tags:
         - analytics
-      summary: Return object of library statistics by library name and total stattistics.
+      summary: Return object of library statistics by library name and total statistics.
       security:
         - BasicAuth: []
       responses:

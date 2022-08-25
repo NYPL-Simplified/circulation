@@ -876,7 +876,10 @@ class OpenAPIController:
                 },
                 'complaints': {
                     'type': 'object',
-                    'description': 'A counter object of complaint types for a given work'
+                    'description': 'A counter object of complaint types for a given work.  Types: wrong-genre, wrong-audience, wrong-age-range, wrong-title, wrong-medium, wrong-author, bad-cover-image, bad-description, cannot-fulfill-loan, cannot-issue-loan, cannot-render, cannot-return.',
+                    'properties': {
+                        'complaint_type': {'type': 'integer'}
+                    }
                 }
             }
         )
