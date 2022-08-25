@@ -170,9 +170,6 @@ class Script(object):
             self.update_timestamp(None, start_time, stack_trace)
             raise
 
-        # Close existing database session and associated connection objects
-        self._db.close()
-
     def load_configuration(self):
         if not Configuration.cdns_loaded_from_database():
             Configuration.load(self._db)
@@ -3104,9 +3101,6 @@ class WhereAreMyBooksScript(CollectionInputScript):
         for collection in collections:
             self.explain_collection(collection)
             self.out("\n")
-
-        # Close existing database session and associated connection objects
-        self._db.close()
 
     def check_library(self, library):
         """Make sure a library is properly set up to show works."""
