@@ -23,7 +23,7 @@ for library in _db.query(Library):
     if num_lanes:
         logging.info("%s has %d lanes, not doing anything.", library.name, num_lanes)
     else:
-        logging.warn("%s has no lanes, creating some.", library.name)
+        logging.warning("%s has no lanes, creating some.", library.name)
         try:
             create_default_lanes(_db, library)
         except Exception as e:

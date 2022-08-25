@@ -90,7 +90,7 @@ from api.opds import (
 )
 
 from api.testing import VendorIDTest
-from api.adobe_vendor_id import AuthdataUtility
+from api.util.short_client_token import ShortClientTokenUtility
 from api.novelist import NoveListAPI
 from api.lanes import ContributorLane, CrawlableCustomListBasedLane
 import jwt
@@ -522,7 +522,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # An Adobe ID-specific identifier has been created for the patron.
         [adobe_id_identifier] = [x for x in patron.credentials
                                  if x not in old_credentials]
-        assert (AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER ==
+        assert (ShortClientTokenUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER ==
             adobe_id_identifier.type)
         assert (DataSource.INTERNAL_PROCESSING ==
             adobe_id_identifier.data_source.name)
@@ -553,28 +553,18 @@ class TestLibraryAnnotator(VendorIDTest):
 
         key = '{http://librarysimplified.org/terms/drm}vendor'
         assert self.adobe_vendor_id.username == element.attrib[key]
-
-        [token, device_management_link] = element
+        [token] = element
 
         assert '{http://librarysimplified.org/terms/drm}clientToken' == token.tag
         # token.text is a token which we can decode, since we know
         # the secret.
         token = token.text
-        authdata = AuthdataUtility.from_config(library)
+        authdata = ShortClientTokenUtility.from_config(library)
         decoded = authdata.decode_short_client_token(token)
         expected_url = ConfigurationSetting.for_library(
             Configuration.WEBSITE_URL, library
         ).value
         assert (expected_url, patron_identifier) == decoded
-
-        assert "link" == device_management_link.tag
-        assert ("http://librarysimplified.org/terms/drm/rel/devices" ==
-            device_management_link.attrib['rel'])
-        expect_url = self.annotator.url_for(
-            'adobe_drm_devices', library_short_name=library.short_name,
-            _external=True
-        )
-        assert expect_url == device_management_link.attrib['href']
 
         # If we call adobe_id_tags again we'll get a distinct tag
         # object that renders to the same XML.
@@ -1015,7 +1005,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # Putting the last loan activity sync into an Flask Response
         # strips timezone information from it,
         # so to verify we have the right value we must do the same.
-        last_sync_naive = patron.last_loan_activity_sync.replace(tzinfo=None)
+        last_sync_naive = patron.last_loan_activity_sync
         assert (last_sync_naive - response.last_modified).total_seconds() < 1
 
         # No entries in the feed...
@@ -1041,22 +1031,18 @@ class TestLibraryAnnotator(VendorIDTest):
         parser = OPDSXMLParser()
         licensor = parser._xpath1(tree, "//atom:feed/drm:licensor")
 
-        adobe_patron_identifier = AuthdataUtility._adobe_patron_identifier(patron)
+        adobe_patron_identifier = ShortClientTokenUtility._adobe_patron_identifier(patron)
 
         # The DRM licensing information includes the Adobe vendor ID
         # and the patron's patron identifier for Adobe purposes.
         assert (self.adobe_vendor_id.username ==
             licensor.attrib['{http://librarysimplified.org/terms/drm}vendor'])
-        [client_token, device_management_link] = licensor
+        [client_token] = licensor
         expected = ConfigurationSetting.for_library_and_externalintegration(
             self._db, ExternalIntegration.USERNAME, self._default_library, self.registry
         ).value.upper()
         assert client_token.text.startswith(expected)
         assert adobe_patron_identifier in client_token.text
-        assert ("{http://www.w3.org/2005/Atom}link" ==
-            device_management_link.tag)
-        assert ("http://librarysimplified.org/terms/drm/rel/devices" ==
-            device_management_link.attrib['rel'])
 
         # Unlike other places this tag shows up, we use the
         # 'scheme' attribute to explicitly state that this

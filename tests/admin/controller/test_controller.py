@@ -47,10 +47,7 @@ from api.admin.problem_details import (
 )
 from api.admin.routes import setup_admin
 from api.admin.validator import Validator
-from api.adobe_vendor_id import (
-    AdobeVendorIDModel
-)
-from api.adobe_vendor_id import AuthdataUtility
+from api.util.short_client_token import ShortClientTokenUtility
 from api.authenticator import (
     PatronData,
 )
@@ -763,10 +760,7 @@ class TestPatronController(AdminControllerTest):
         patron.authorization_identifier = self._str
 
         self._credential(
-            patron=patron, type=AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE
-        )
-        self._credential(
-            patron=patron, type=AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER
+            patron=patron, type=ShortClientTokenUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER
         )
 
         # This PatronController will always return a specific

@@ -27,7 +27,7 @@ To avoid database lockups, `circ-scripts` should be deployed as a single instanc
 
 ## Using These Images
 
-You will need **a PostgreSQL instance URL** in the format `postgres://[username]:[password]@[host]:[port]/[database_name]`. Check the `./docker-compose.yml` file for an example. With this URL, you can create containers for both the web application (`circ-webapp`) and for the background cron jobs that import and update books and otherwise keep the app running smoothly (`circ-scripts`). Either container can be used to initialize or migrate the database. During the first deployment against a brand new database, the first container run can use the default `SIMPLIFIED_DB_TASK='auto'` or be run manually with `SIMPLIFIED_DB_TASK='init'`. See the "Environment Variables" section below for more information.
+You will need **a PostgreSQL instance URL** in the format `postgresql://[username]:[password]@[host]:[port]/[database_name]`. Check the `./docker-compose.yml` file for an example. With this URL, you can create containers for both the web application (`circ-webapp`) and for the background cron jobs that import and update books and otherwise keep the app running smoothly (`circ-scripts`). Either container can be used to initialize or migrate the database. During the first deployment against a brand new database, the first container run can use the default `SIMPLIFIED_DB_TASK='auto'` or be run manually with `SIMPLIFIED_DB_TASK='init'`. See the "Environment Variables" section below for more information.
 
 ### circ-webapp (**deprecated name:** circ-deploy)
 
@@ -38,7 +38,7 @@ Once the webapp Docker image is built, we can run it in a container with the fol
 # about the values listed here and their alternatives.
 $ docker run --name webapp -d \
     --p 80:80 \
-    -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
+    -e SIMPLIFIED_PRODUCTION_DATABASE='postgresql://[username]:[password]@[host]:[port]/[database_name]' \
     nypl/circ-webapp:2.1
 ```
 
@@ -55,7 +55,7 @@ Once the scripts Docker image is built, we can run it in a container with the fo
 # about the values listed here and their alternatives.
 $ docker run --name scripts -d \
     -e TZ='YOUR_TIMEZONE_STRING' \
-    -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
+    -e SIMPLIFIED_PRODUCTION_DATABASE='postgresql://[username]:[password]@[host]:[port]/[database_name]' \
     nypl/circ-scripts:2.1
 ```
 
@@ -76,7 +76,7 @@ Because containers based on `circ-exec` are built, run their job, and are destro
 # about the values listed here and their alternatives.
 $ docker run --name search_index_refresh -it \
     -e SIMPLIFIED_SCRIPT_NAME='refresh_materialized_views' \
-    -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
+    -e SIMPLIFIED_PRODUCTION_DATABASE='postgresql://[username]:[password]@[host]:[port]/[database_name]' \
     nypl/circ-exec:2.1
 ```
 

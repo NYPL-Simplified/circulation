@@ -699,7 +699,7 @@ def create_lane_for_small_collection(_db, library, parent, languages, priority=0
     try:
         language_identifier = LanguageCodes.name_for_languageset(languages)
     except ValueError as e:
-        logging.getLogger().warn(
+        logging.getLogger().warning(
             "Could not create a lane for small collection with languages %s", languages
         )
         return 0
@@ -762,7 +762,7 @@ def create_lane_for_tiny_collection(_db, library, parent, languages, priority=0)
     try:
         name = LanguageCodes.name_for_languageset(languages)
     except ValueError as e:
-        logging.getLogger().warn(
+        logging.getLogger().warning(
             "Could not create a lane for tiny collection with languages %s", languages
         )
         return 0

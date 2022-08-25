@@ -36,8 +36,8 @@ $ python3 -m venv env
 Then include the database URLS as environment variables at the end in `/env/bin/activate`. These databases should be created before this step and more information can be found in the [Library Simplified wiki](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions):
 
 ```
-export SIMPLIFIED_PRODUCTION_DATABASE="postgres://simplified:[password]@localhost:5432/simplified_circulation_dev"
-export SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:[password]@localhost:5432/simplified_circulation_test"
+export SIMPLIFIED_PRODUCTION_DATABASE="postgresql://simplified:[password]@localhost:5432/simplified_circulation_dev"
+export SIMPLIFIED_TEST_DATABASE="postgresql://simplified_test:[password]@localhost:5432/simplified_circulation_test"
 ```
 
 Activate the virtual environment:
@@ -129,7 +129,7 @@ following environment variables:
 Make sure the ports and usernames are updated to reflect the local configuration.
 ```
 # Set environment variables
-export SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:9005/simplified_circulation_test"
+export SIMPLIFIED_TEST_DATABASE="postgresql://simplified_test:test@localhost:9005/simplified_circulation_test"
 export SIMPLIFIED_TEST_ELASTICSEARCH="http://localhost:9006"
 export SIMPLIFIED_TEST_MINIO_ENDPOINT_URL="http://localhost:9007"
 export SIMPLIFIED_TEST_MINIO_USER="simplified"

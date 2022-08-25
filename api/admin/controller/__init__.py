@@ -34,7 +34,7 @@ from api.admin.password_admin_authentication_provider import PasswordAdminAuthen
 from api.admin.template_styles import (body_style, error_style, hr_style, section_style, small_link_style)
 from api.admin.templates import admin as admin_template
 from api.admin.validator import Validator
-from api.adobe_vendor_id import AuthdataUtility
+from api.util.short_client_token import ShortClientTokenUtility
 from api.authenticator import (CannotCreateLocalPatron, LibraryAuthenticator, PatronData)
 from api.axis import Axis360API
 from api.bibliotheca import BibliothecaAPI
@@ -196,13 +196,13 @@ class AdminController:
 
                     if role.get("library") and not library:
                         msg = "%s authentication provider specifiec an unknown library for a new admin: %s"
-                        self.log.warn(msg % (admin_details.get("type"), role.get("library")))
+                        self.log.warning(msg % (admin_details.get("type"), role.get("library")))
                     else:
                         admin.add_role(role.get("role"), library)
 
                 else:
                     msg = "%s authentication provider specified an unknown role for a new admin: %s"
-                    self.log.warn(msg % (admin_details.get("type"), role.get("role")))
+                    self.log.warning(msg % (admin_details.get("type"), role.get("role")))
 
         # Set up the admin's flask session.
         flask.session["admin_email"] = admin_details.get("email")
@@ -656,7 +656,7 @@ class PatronController(AdminCirculationManagerController):
             )
 
         # Wipe the Patron's 'identifier for Adobe ID purposes'.
-        for credential in AuthdataUtility.adobe_relevant_credentials(patron):
+        for credential in ShortClientTokenUtility.adobe_relevant_credentials(patron):
             self._db.delete(credential)
 
         if patron.username:
@@ -1860,7 +1860,7 @@ class SettingsController(AdminCirculationManagerController):
             message = lgt("Exception getting self-test results for %s %s: %s")
             error_message = str(e)
             args = (self.type, item.name, error_message)
-            logging.warn(message, *args, exc_info=error_message)
+            logging.warning(message, *args, exc_info=error_message)
             self_test_results = dict(exception=message % args)
 
         return self_test_results

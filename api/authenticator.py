@@ -18,7 +18,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import or_
 from werkzeug.datastructures import Headers
 
-from api.adobe_vendor_id import AuthdataUtility
+from api.util.short_client_token import ShortClientTokenUtility
 from api.annotations import AnnotationWriter
 from api.announcements import Announcements
 from api.custom_patron_catalog import CustomPatronCatalog
@@ -493,7 +493,7 @@ class CirculationPatronProfileStorage(PatronProfileStorage):
         links = []
         device_link = {}
 
-        authdata = AuthdataUtility.from_config(self.patron.library)
+        authdata = ShortClientTokenUtility.from_config(self.patron.library)
         if authdata:
             vendor_id, token = authdata.short_client_token_for_patron(self.patron)
             adobe_drm = {}
@@ -501,12 +501,6 @@ class CirculationPatronProfileStorage(PatronProfileStorage):
             adobe_drm['drm:clientToken'] = token
             adobe_drm['drm:scheme'] = "http://librarysimplified.org/terms/drm/scheme/ACS"
             drm.append(adobe_drm)
-
-            device_link['rel'] = 'http://librarysimplified.org/terms/drm/rel/devices'
-            device_link['href'] = self.url_for(
-                "adobe_drm_devices", library_short_name=self.patron.library.short_name, _external=True
-            )
-            links.append(device_link)
 
             annotations_link = dict(
                 rel="http://www.w3.org/ns/oa#annotationService",
@@ -908,7 +902,7 @@ class LibraryAuthenticator(object):
         )
         return jwt.encode(
             payload, self.bearer_token_signing_secret, algorithm='HS256'
-        ).decode("utf-8")
+        )
 
     def decode_bearer_token_from_header(self, header):
         """Extract auth provider name and access token from an Authenticate

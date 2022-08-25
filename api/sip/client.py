@@ -115,7 +115,7 @@ class named(object):
             dictionary.
         """
         if self.length and len(value) != self.length:
-            self.log.warn(
+            self.log.warning(
                 "Expected string of length %d for field %s, but got %r",
                 self.length, self.sip_code, value
             )
@@ -768,7 +768,7 @@ class SIPClient(Constants):
         if summary.count('Y') > 1:
             # This violates the spec but in my tests it seemed to
             # work, so we'll allow it.
-            self.log.warn(
+            self.log.warning(
                 'Summary requested too many kinds of detailed information: %s' %
                 summary
             )

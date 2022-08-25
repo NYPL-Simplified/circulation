@@ -204,7 +204,7 @@ class TestSitewideRegistration(SettingsControllerTest):
             # The JWT proves that we control the public/private key pair.
             public_key, private_key = self.manager.sitewide_key_pair
             parsed = jwt.decode(
-                doc['jwt'], public_key, algorithm='RS256'
+                doc['jwt'], public_key, algorithms='RS256'
             )
 
             # The JWT must be valid or jwt.decode() would have raised

@@ -16,9 +16,7 @@ from sqlalchemy import (
     or_,
 )
 
-from api.adobe_vendor_id import (
-    AuthdataUtility,
-)
+from api.util.short_client_token import ShortClientTokenUtility
 from api.bibliotheca import (
     BibliothecaCirculationSweep
 )
@@ -358,7 +356,7 @@ class CacheRepresentationPerLane(TimestampScript, LaneSweeperScript):
                 if alpha:
                     self.languages.append(alpha)
                 else:
-                    self.log.warn("Ignored unrecognized language code %s", alpha)
+                    self.log.warning("Ignored unrecognized language code %s", alpha)
         self.max_depth = parsed.max_depth
         self.min_depth = parsed.min_depth
 
@@ -579,22 +577,22 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         for entrypoint_name in chosen_entrypoints:
             entrypoint = EntryPoint.BY_INTERNAL_NAME.get(entrypoint_name)
             if not entrypoint:
-                logging.warn("Ignoring unknown entry point %s" % entrypoint_name)
+                logging.warning("Ignoring unknown entry point %s" % entrypoint_name)
                 continue
             if not entrypoint_name in allowed_entrypoint_names:
-                logging.warn("Ignoring disabled entry point %s" % entrypoint_name)
+                logging.warning("Ignoring disabled entry point %s" % entrypoint_name)
                 continue
             for order in chosen_orders:
                 if order not in allowed_orders:
-                    logging.warn("Ignoring unsupported ordering %s" % order)
+                    logging.warning("Ignoring unsupported ordering %s" % order)
                     continue
                 for availability in chosen_availabilities:
                     if availability not in allowed_availabilities:
-                        logging.warn("Ignoring unsupported availability %s" % availability)
+                        logging.warning("Ignoring unsupported availability %s" % availability)
                         continue
                     for collection in chosen_collections:
                         if collection not in allowed_collections:
-                            logging.warn("Ignoring unsupported collection %s" % collection)
+                            logging.warning("Ignoring unsupported collection %s" % collection)
                             continue
                         facets = Facets(
                             library=library, collection=collection,
@@ -828,7 +826,7 @@ class AdobeAccountIDResetScript(PatronInputScript):
             )
 
         if patrons and self.delete:
-            self.log.warn(
+            self.log.warning(
                 """This is not a drill.
 Running this script will permanently disconnect %d patron(s) from their Adobe account IDs.
 They will be unable to fulfill any existing loans that involve Adobe-encrypted files.
@@ -839,7 +837,7 @@ You'll get another chance to back out before the database session is committed."
             time.sleep(5)
         self.process_patrons(patrons)
         if self.delete:
-            self.log.warn("All done. Sleeping for five seconds before committing.")
+            self.log.warning("All done. Sleeping for five seconds before committing.")
             time.sleep(5)
             self._db.commit()
 
@@ -853,7 +851,7 @@ You'll get another chance to back out before the database session is committed."
             patron.authorization_identifier or patron.username
             or patron.external_identifier
         )
-        for credential in AuthdataUtility.adobe_relevant_credentials(patron):
+        for credential in ShortClientTokenUtility.adobe_relevant_credentials(patron):
             self.log.info(
                 ' Deleting "%s" credential "%s"',
                 credential.type, credential.credential
@@ -896,7 +894,7 @@ class AvailabilityRefreshScript(IdentifierInputScript):
             provider = Axis360BibliographicCoverageProvider(self._db)
             provider.process_batch(identifiers)
         else:
-            self.log.warn("Cannot update coverage for %r" % identifier.type)
+            self.log.warning("Cannot update coverage for %r" % identifier.type)
 
 
 class LanguageListScript(LibraryInputScript):
@@ -930,7 +928,7 @@ class CompileTranslationsScript(Script):
         for language in languages:
             base_path = "translations/%s/LC_MESSAGES" % language
             if not os.path.exists(base_path):
-                logging.warn("No translations for configured language %s" % language)
+                logging.warning("No translations for configured language %s" % language)
                 continue
 
             os.system("rm %(path)s/messages.po" % dict(path=base_path))
@@ -1361,7 +1359,7 @@ class DirectoryImportScript(TimestampScript):
             default_medium_type=None
     ):
         if dry_run:
-            self.log.warn(
+            self.log.warning(
                 "This is a dry run. No files will be uploaded and nothing will change in the database."
             )
 
@@ -1753,7 +1751,7 @@ class DirectoryImportScript(TimestampScript):
 
         # If we went through that whole loop without returning,
         # we have failed.
-        logging.warn(
+        logging.warning(
             "Could not find %s for %s. Looked in: %s",
             file_type, base_filename, ", ".join(attempts)
         )
@@ -1787,7 +1785,7 @@ class LaneResetScript(LibraryInputScript):
             )
 
         if libraries and self.reset:
-            self.log.warn(
+            self.log.warning(
                 """This is not a drill.
 Running this script will permanently reset the lanes for %d libraries. Any lanes created from
 custom lists will be deleted (though the lists themselves will be preserved).
@@ -1815,7 +1813,7 @@ You'll get another chance to back out before the database session is committed."
         output.write(new_lane_output)
 
         if self.reset:
-            self.log.warn("All done. Sleeping for five seconds before committing.")
+            self.log.warning("All done. Sleeping for five seconds before committing.")
             time.sleep(5)
             self._db.commit()
 
