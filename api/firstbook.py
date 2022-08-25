@@ -110,7 +110,8 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
 
         Defined solely so it can be overridden in the mock.
         """
-        return requests.get(url)
+        header = {'Authorization': 'Bearer %s' % self.key}
+        return requests.get(url, headers=header)
 
 
 class MockFirstBookResponse(object):
