@@ -17,13 +17,14 @@ from core.model import (
     Patron,
 )
 
+
 class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
 
-    NAME = 'First Book (deprecated)'
+    NAME = 'First Book (New 8/2022)'
 
     DESCRIPTION = _("""
         An authentication service for Open eBooks that authenticates
-        using access codes and PINs. (This is the old version.)""")
+        using access codes and PINs. (This is the new version as of 8/2022.)""")
 
     DISPLAY_NAME = NAME
     DEFAULT_IDENTIFIER_LABEL = _("Access Code")
@@ -40,26 +41,26 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = '^[0-9]+$'
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "format": "url", "label": _("URL"), "required": True },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Key"), "required": True },
+        {"key": ExternalIntegration.URL, "format": "url",
+            "label": _("URL"), "required": True},
+        {"key": ExternalIntegration.PASSWORD,
+            "label": _("Key"), "required": True},
     ] + BasicAuthenticationProvider.SETTINGS
 
     log = logging.getLogger("First Book authentication API")
 
-    def __init__(self, library_id, integration, analytics=None, root=None):
-        super(FirstBookAuthenticationAPI, self).__init__(library_id, integration, analytics)
+    def __init__(self, library_id, integration, analytics=None, root=None, secret=None):
+        super(FirstBookAuthenticationAPI, self).__init__(
+            library_id, integration, analytics)
         if not root:
-            url = integration.url
-            key = integration.password
-            if not (url and key):
+            root = integration.url
+            self.key = secret or integration.password
+            if not (root and self.key):
                 raise CannotLoadConfiguration(
                     "First Book server not configured."
                 )
-            if '?' in url:
-                url += '&'
-            else:
-                url += '?'
-            root = url + 'key=' + key
+        if root[-1] == '/':
+            root = root[:-1]
         self.root = root
 
     # Begin implementation of BasicAuthenticationProvider abstract
@@ -121,6 +122,7 @@ class MockFirstBookResponse(object):
         if isinstance(content, str):
             content = content.encode("utf8")
         self.content = content
+
 
 class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
 
