@@ -680,12 +680,15 @@ class OpenAPIController:
                     'items': {
                         'type': 'object',
                         'properties': {
-                            'id': 'string',
+                            'id': {'type': 'string'},
                             'library_info': {
-                                'type': 'object',
-                                'properties': {
-                                    'short_name': {'type': 'string'},
-                                    'status': {'type': 'object'}
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'short_name': {'type': 'string'},
+                                        'status': {'type': 'string'}
+                                    }
                                 }
                             }
                         }
@@ -787,15 +790,23 @@ class OpenAPIController:
             'schema', 'CollectionsGetSchema', 'object',
             {
                 'collections': {
-                    'type': 'object',
-                    'properties': {
-                        'id': {'type': 'string'},
-                        'name': {'type': 'string'},
-                        'protocol': {
-                            'type': 'string',
-                            'description': 'A protocol name string'
-                        },
-                        'parent_id': {'type': 'string'}
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'id': {'type': 'string'},
+                            'name': {'type': 'string'},
+                            'protocol': {
+                                'type': 'string',
+                                'description': 'A protocol name string'
+                            },
+                            'parent_id': {'type': 'string'},
+                            'settings': {'type': 'object'},
+                            'libraries': {
+                                'type': 'array',
+                                'items': {'type': 'object'}
+                            }
+                        }
                     }
                 },
                 'protocols': {

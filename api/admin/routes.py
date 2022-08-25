@@ -1082,7 +1082,7 @@ def roles():
     ---
     get:
       tags: 
-        - administration
+        - standard lists
       summary: Return a mapping from MARC codes to contributor roles.
       description: |
         This end point returns a map of MARC Codes to contributor roles that are currently available with this system.
@@ -1133,7 +1133,7 @@ def languages():
     ---
     get:
       tags: 
-        - administration
+        - standard lists
       summary: Returns a JSON of language_codes and associated list of language names
       responses:
         200:
@@ -1153,7 +1153,7 @@ def media():
     ---
     get:
       tags:
-        - administration
+        - standard lists
       summary: Return links to schema.org for associated media type.
       responses:
         200:
@@ -1182,7 +1182,7 @@ def rights_status():
       ---
       get:
         tags:
-          - administration
+          - standard lists
         summary: Return supported rights stats, names, and open access authorization.
         description: |
           This method returns a dictionary or liscense URIs. Each URI key of the dictionary contains A name string of the license, if the license allows derivatives, and if it is open access or not.
@@ -1304,7 +1304,7 @@ def genres():
     ---
     get:
       tags: 
-        - works
+        - standard lists
       summary: Returns a JSON representation of complete genre tree.
       description: |
           Returns a JSON representation of complete genre tree.
@@ -1516,17 +1516,17 @@ def library(library_uuid):
 @requires_admin
 @requires_csrf_token
 def collections():
-    """Return collections and protocols object.
+    """Fetch, create, or update collections and protocols objects.
         ---
         get:
           tags:
             - administration
-          summary: Return collections and protocols object.
+          summary: Return JSON of all collections and protocols.
           security:
             - BasicAuth: []
           responses:
             200:
-              description: Collections and protocols object
+              description: JSON representation of all collections and protocols.
               content:
                 application/json:
                   schema: CollectionsGetSchema
@@ -1559,7 +1559,7 @@ def collections():
                 schema: AdminAuthPost
           responses:
             2XX:
-              description: Collections and protocols object
+              description: Id of updated or created Collection
               content:
                 application/json:
                   schema:
@@ -1606,7 +1606,7 @@ def collection(collection_id):
                 description: The id of the collection to be deleted
           responses:
             200:
-              description: Collections and protocols object
+              description: Confirmation of deleted Collection
               content:
                 application/json:
                   schema:
@@ -1645,17 +1645,17 @@ def collection_self_tests(identifier):
 @requires_admin
 @requires_csrf_token
 def collection_library_registrations():
-    """Return a collection of library registrations.
+    """Manage collections and associated libraries.
         ---
         get:
           tags:
             - administration
-          summary: Return a collection of library registrations.
+          summary: Fetch JSON of collections and associated libraries.
           security:
             - BasicAuth: []
           responses:
             200:
-              description: Collections and protocols object
+              description: JSON of collections and their associated libraries.
               content:
                 application/json:
                   schema: CollectionLibRegistrations
@@ -1676,7 +1676,7 @@ def collection_library_registrations():
         post:
           tags:
             - administration
-          summary: Register a library and it's collections.
+          summary: Register a collection with a library.
           security:
             - BasicAuth: []
           parameters:
@@ -1688,7 +1688,7 @@ def collection_library_registrations():
                 schema: CollectionsLibraryRegistrationPost
           responses:
             200:
-              description: Collections and protocols object
+              description: Confirmation of successful library registration.
               content:
                 application/json:
                   schema:
