@@ -418,7 +418,7 @@ class OpenAPIController:
             'schema', 'MARCRollContributorsDict', 'object',
             {
                 'MARCRoleCode': {
-                    'type': 'string', 
+                    'type': 'string',
                     'description': 'Contributor role'
                 },
             }
@@ -644,9 +644,9 @@ class OpenAPIController:
                 'fiction': {'type': 'boolean'},
             },
         )
-        
+
         self.addComponent(
-            'schema', 'WorkListsPost', 'object', 
+            'schema', 'WorkListsPost', 'object',
             {
                 'lists': {'type': 'object'}
             }
@@ -673,12 +673,37 @@ class OpenAPIController:
         )
 
         self.addComponent(
-            'schema', 'LoggingServicesGetSchema', 'object',
+            'schema', 'CollectionLibRegistrations', 'object',
             {
-                'logging_services': {
+                'library_registrations': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'id': {'type': 'string'},
+                            'library_info': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'short_name': {'type': 'string'},
+                                        'status': {'type': 'string'}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'CreatedServicesGetSchema', 'object',
+            {
+                '*_services': {
                     'type': 'object',
-                    'description': 'A list of available logging services'
-                    },
+                    'description': 'A list of available _ services'
+                },
                 'protocol': {'$ref': '#/components/schemas/ProtocolDictSchema'}
             }
         )
@@ -735,6 +760,118 @@ class OpenAPIController:
                 },
                 'cover_url': {'type': 'string'},
                 'title_position': {'type': 'string'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'GenrePropsSchema', 'object',
+            {
+                'name': {'type': 'string'},
+                'parents': {
+                    'type': 'array',
+                    'items': {'type': 'string'}
+                },
+                'subgenres': {
+                    'type': 'array',
+                    'items': {'type': 'string'}
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'GenresSchema', 'object',
+            {
+                'Fiction': {'$ref': '#/components/schemas/GenrePropsSchema'},
+                'Nonfiction': {'$ref': '#/components/schemas/GenrePropsSchema'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'CollectionsGetSchema', 'object',
+            {
+                'collections': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'id': {'type': 'string'},
+                            'name': {'type': 'string'},
+                            'protocol': {
+                                'type': 'string',
+                                'description': 'A protocol name string'
+                            },
+                            'parent_id': {'type': 'string'},
+                            'settings': {'type': 'object'},
+                            'libraries': {
+                                'type': 'array',
+                                'items': {'type': 'object'}
+                            }
+                        }
+                    }
+                },
+                'protocols': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string'},
+                        'label': {'type': 'string'},
+                        'description': {'type': 'string'},
+                        'settings': {
+                            'type': 'array',
+                            'items': {
+                                'type': 'object',
+                                'description': 'Mirror integration settings'
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'CollectionsLibraryRegistrationPost', 'object',
+            {
+                'collection_id': {'type': 'string'},
+                'library_short_name': {'type': 'string'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'ServicesSchema', 'array',
+            {
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                            'libraries': {
+                                'type': 'array',
+                                'items': {'type': 'string'}
+                            },
+                        'id': {'type': 'string'},
+                        'protocol': {'type': 'string'},
+                        'settings': {'type': 'object'},
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'ServicesGetSchema', 'object',
+            {
+                '*_services': {'$ref': '#/components/schemas/ServicesSchema'
+                               },
+                'protocols': {'$ref': '#/components/schemas/ProtocolDictSchema'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'ServicesPostForm', 'object',
+            {
+                'protocol': {
+                    'type': 'string',
+                    'description': 'The name of a protocol to lookup'
+                },
+                'id': {'type': 'string'},
+                'name': {'type': 'string'},
+                'url': {'type': 'string'}
             }
         )
 

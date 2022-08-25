@@ -974,7 +974,7 @@ def roles():
     ---
     get:
       tags: 
-        - administration
+        - standard lists
       summary: Return a mapping from MARC codes to contributor roles.
       description: |
         This end point returns a map of MARC Codes to contributor roles that are currently available with this system.
@@ -1025,7 +1025,7 @@ def languages():
     ---
     get:
       tags: 
-        - administration
+        - standard lists
       summary: Returns a JSON of language_codes and associated list of language names
       responses:
         200:
@@ -1045,7 +1045,7 @@ def media():
     ---
     get:
       tags:
-        - administration
+        - standard lists
       summary: Return links to schema.org for associated media type.
       responses:
         200:
@@ -1074,7 +1074,7 @@ def rights_status():
       ---
       get:
         tags:
-          - administration
+          - standard lists
         summary: Return supported rights stats, names, and open access authorization.
         description: |
           This method returns a dictionary or liscense URIs. Each URI key of the dictionary contains A name string of the license, if the license allows derivatives, and if it is open access or not.
@@ -1127,7 +1127,37 @@ def suppressed():
 @returns_json_or_response_or_problem_detail
 @requires_admin
 def genres():
-    """Returns a JSON representation of complete genre tree."""
+    """Returns a JSON representation of complete genre tree.
+    ---
+    get:
+      tags: 
+        - standard lists
+      summary: Returns a JSON representation of complete genre tree.
+      description: |
+          Returns a JSON representation of complete genre tree.
+      security: 
+        - BasicAuth: []
+      responses:
+        200:
+          description: Returns a JSON representation of complete genre tree.
+          content:
+            application/json:
+              schema: GenresSchema
+        4XX:
+          description: |
+            An error including:
+            * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+          content:
+            application/json:
+              schema: ProblemResponse 
+        5XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+          content:
+            application/json:
+              schema: ProblemResponse 
+    """
     return app.manager.admin_feed_controller.genres()
 
 
@@ -1313,6 +1343,70 @@ def library(library_uuid):
 @requires_admin
 @requires_csrf_token
 def collections():
+    """Fetch, create, or update collections and protocols objects.
+        ---
+        get:
+          tags:
+            - administration
+          summary: Return JSON of all collections and protocols.
+          security:
+            - BasicAuth: []
+          responses:
+            200:
+              description: JSON representation of all collections and protocols.
+              content:
+                application/json:
+                  schema: CollectionsGetSchema
+            4XX:
+              description: |
+                An error including:
+                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+              content:
+                application/json:
+                  schema: ProblemResponse
+            5XX:
+              description: |
+                An error including:
+                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+              content:
+                application/json:
+                  schema: ProblemResponse
+        post:
+          tags:
+            - administration
+          summary: Create or update a collection of works
+          security:
+            - BasicAuth: []
+          parameters:
+            - X-CSRF-Token
+          requestBody:
+            required: true
+            content:
+              multipart/form-data:
+                schema: AdminAuthPost
+          responses:
+            2XX:
+              description: Id of updated or created Collection
+              content:
+                application/json:
+                  schema:
+                    type: string
+                    example: Collection.id
+            4XX:
+              description: |
+                An error including:
+                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+              content:
+                application/json:
+                  schema: ProblemResponse
+            5XX:
+              description: |
+                An error including:
+                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+              content:
+                application/json:
+                  schema: ProblemResponse
+    """
     return app.manager.admin_collection_settings_controller.process_collections()
 
 
@@ -1322,6 +1416,44 @@ def collections():
 @requires_admin
 @requires_csrf_token
 def collection(collection_id):
+    """Delete a collection.
+      ---
+      delete:
+          tags:
+            - administration
+          summary: Delete a collection
+          security:
+            - BasicAuth: []
+          parameters:
+            - X-CSRF-Token
+            - in: path
+              name: collection_id
+              schema:
+                type: string
+                description: The id of the collection to be deleted
+          responses:
+            200:
+              description: Confirmation of deleted Collection
+              content:
+                application/json:
+                  schema:
+                    type: string
+                    example: Deleted
+            4XX:
+              description: |
+                An error including:
+                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+              content:
+                application/json:
+                  schema: ProblemResponse
+            5XX:
+              description: |
+                An error including:
+                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+              content:
+                application/json:
+                  schema: ProblemResponse
+    """
     return app.manager.admin_collection_settings_controller.process_delete(collection_id)
 
 
@@ -1340,6 +1472,70 @@ def collection_self_tests(identifier):
 @requires_admin
 @requires_csrf_token
 def collection_library_registrations():
+    """Manage collections and associated libraries.
+        ---
+        get:
+          tags:
+            - administration
+          summary: Fetch JSON of collections and associated libraries.
+          security:
+            - BasicAuth: []
+          responses:
+            200:
+              description: JSON of collections and their associated libraries.
+              content:
+                application/json:
+                  schema: CollectionLibRegistrations
+            4XX:
+              description: |
+                An error including:
+                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+              content:
+                application/json:
+                  schema: ProblemResponse
+            5XX:
+              description: |
+                An error including:
+                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+              content:
+                application/json:
+                  schema: ProblemResponse
+        post:
+          tags:
+            - administration
+          summary: Register a collection with a library.
+          security:
+            - BasicAuth: []
+          parameters:
+            - X-CSRF-Token
+          requestBody:
+            required: true
+            content:
+              multipart/form-data:
+                schema: CollectionsLibraryRegistrationPost
+          responses:
+            200:
+              description: Confirmation of successful library registration.
+              content:
+                application/json:
+                  schema:
+                    type: string
+                    example: Success
+            4XX:
+              description: |
+                An error including:
+                * `INVALID_ADMIN_CREDENTIALS`: Auth was unable to validate the authenticated email address
+              content:
+                application/json:
+                  schema: ProblemResponse
+            5XX:
+              description: |
+                An error including:
+                * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+              content:
+                application/json:
+                  schema: ProblemResponse
+    """
     return app.manager.admin_collection_library_registrations_controller.process_collection_library_registrations()
 
 
@@ -1816,6 +2012,89 @@ def reset_adobe_id():
 @requires_admin
 @requires_csrf_token
 def metadata_services():
+    """Fetch or edit metadata services
+    ---
+    get:
+      tags:
+        - administration
+      summary: Return a JSON representation of metadata services and protocols
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: JSON of metadata services and protocols
+          content:
+            text/html:
+              schema: ServicesGetSchema
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - administration
+      summary: Create or edit metadata services.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: ServicesPostForm
+      responses:
+        2XX:
+          description: The id of the service that has been edited or created.
+          content:
+            text/html:
+              schema: 
+                type: string
+              example: |
+                "Service.id"
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse    
+    """
     return app.manager.admin_metadata_services_controller.process_metadata_services()
 
 
@@ -1825,6 +2104,53 @@ def metadata_services():
 @requires_admin
 @requires_csrf_token
 def metadata_service(service_id):
+    """Delete a metadata service.
+    ---
+    delete:
+      tags:
+        - administration
+      summary: Delete a metadata service.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: service_id
+          description: Id of metadata service to be deleted.
+          schema:
+            type: string
+      responses:
+        200:
+          description: Metadata service has been deleted.
+          content:
+            text/html:
+              schema: |
+                type: string
+                example: Deleted
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_metadata_services_controller.process_delete(service_id)
 
 
@@ -1843,6 +2169,89 @@ def metadata_service_self_tests(identifier):
 @requires_admin
 @requires_csrf_token
 def analytics_services():
+    """Fetch or edit analytics services
+    ---
+    get:
+      tags:
+        - analytics
+      summary: Return a JSON representation of analytics services and protocols
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: JSON of analytics services and protocols
+          content:
+            text/html:
+              schema: ServicesGetSchema
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - analytics
+      summary: Create or edit analytics services.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: ServicesPostForm
+      responses:
+        2XX:
+          description: The id of the service that has been edited or created.
+          content:
+            text/html:
+              schema: 
+                type: string
+              example: |
+                "Service.id"
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse    
+    """
     return app.manager.admin_analytics_services_controller.process_analytics_services()
 
 
@@ -1852,6 +2261,52 @@ def analytics_services():
 @requires_admin
 @requires_csrf_token
 def analytics_service(service_id):
+    """Delete an analytics service.
+    ---
+    delete:
+      tags:
+        - analytics
+      summary: Delete an analytics service.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: service_id
+          description: Id of analytics service to be deleted.
+          schema:
+            type: string
+      responses:
+        200:
+          description: Analytics service has been deleted.
+          content:
+            text/html:
+              schema: |
+                type: string
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_analytics_services_controller.process_delete(service_id)
 
 
@@ -1879,6 +2334,88 @@ def cdn_service(service_id):
 @requires_admin
 @requires_csrf_token
 def search_services():
+    """Manage search services
+    ---
+    get:
+      tags: 
+        - administration
+      summary: Fetch list of search services and associated protocols
+      description: Fetch list of search services and protocols for admins
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: Dict of search services and associated protocols
+          content:
+            application/json:
+              schema: CreatedServicesGetSchema
+        4XX:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              schema: ProblemResponse
+              example: |
+                MISSING_SERVICE
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - administration
+      summary: Create or update search services
+      description: |
+        Create or update search services and associated protocols.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: AdminAuthPost
+      responses:
+        2XX:
+          description: Updated or created service id
+          content:
+            text/html:
+              schema: 
+                type: string
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_search_services_controller.process_services()
 
 
@@ -1888,6 +2425,52 @@ def search_services():
 @requires_admin
 @requires_csrf_token
 def search_service(service_id):
+    """Delete a search service.
+    ---
+    delete:
+      tags:
+        - administration
+      summary: Delete a search service.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: service_id
+          description: Id of search service to be deleted.
+          schema:
+            type: string
+      responses:
+        200:
+          description: Search service has been deleted.
+          content:
+            text/html:
+              schema: |
+                type: string
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_search_services_controller.process_delete(service_id)
 
 
@@ -1992,7 +2575,7 @@ def logging_services():
           description: Dict of logging services and associated protocols
           content:
             application/json:
-              schema: LoggingServicesGetSchema
+              schema: CreatedServicesGetSchema
         4XX:
           description: |
             An authentication error in which the user could not be authenticated, or 
