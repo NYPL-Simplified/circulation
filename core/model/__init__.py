@@ -287,8 +287,7 @@ class PresentationCalculationPolicy(object):
 def dump_query(query):
     dialect = query.session.bind.dialect
     statement = query.statement
-    comp = compiler.SQLCompiler(dialect, statement)
-    comp.compile()
+    comp = compiler.SQLCompiler(dialect, statement) 
     enc = dialect.encoding
     params = {}
     for k,v in list(comp.params.items()):

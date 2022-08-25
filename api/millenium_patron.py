@@ -356,7 +356,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                 try:
                     fines = MoneyUtility.parse(v)
                 except ValueError:
-                    self.log.warn(
+                    self.log.warning(
                         'Malformed fine amount for patron: "%s". Treating as no fines.'
                     )
                     fines = Money("0", "USD")
@@ -373,7 +373,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                     expires_local = expires_local.date()
                     authorization_expires = expires_local
                 except ValueError:
-                    self.log.warn(
+                    self.log.warning(
                         'Malformed expiration date for patron: "%s". Treating as unexpirable.',
                         v
                     )
@@ -447,7 +447,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             kv = line[:-4]
             if not '=' in kv:
                 # This shouldn't happen, but there's no need to crash.
-                self.log.warn("Unexpected line in patron dump: %s", line)
+                self.log.warning("Unexpected line in patron dump: %s", line)
                 continue
             yield kv.split('=', 1)
 

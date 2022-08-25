@@ -12,7 +12,7 @@ from PIL import Image
 import re
 import requests
 from sqlalchemy import (
-    Binary,
+    LargeBinary,
     Column,
     DateTime,
     Float,
@@ -219,7 +219,7 @@ class Resource(Base):
 
         # Humans have voted positively on this Resource, and now it's
         # being rejected regardless.
-        logging.warn("Rejecting Resource with positive votes: %r", self)
+        logging.warning("Rejecting Resource with positive votes: %r", self)
 
         # Make the voted_quality negative without impacting the weight
         # of existing votes so the value can be restored relatively
@@ -565,7 +565,7 @@ class Representation(Base, MediaTypes):
     image_width = Column(Integer, index=True)
 
     # The content of the representation itself.
-    content = Column(Binary)
+    content = Column(LargeBinary)
 
     # Instead of being stored in the database, the content of the
     # representation may be stored on a local file relative to the

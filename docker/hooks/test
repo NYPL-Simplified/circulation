@@ -23,8 +23,8 @@ echo "Postgres IP: $pghost"
 # Create a base and deployment container with this tag.
 docker run -d -p 80:80 \
   -e SIMPLIFIED_DB_TASK="init" \
-  -e SIMPLIFIED_TEST_DATABASE="postgres://simplified:test@${pghost}:5432/docker_test" \
-  -e SIMPLIFIED_PRODUCTION_DATABASE="postgres://simplified:test@${pghost}:5432/docker_prod" \
+  -e SIMPLIFIED_TEST_DATABASE="postgresql://simplified:test@${pghost}:5432/docker_test" \
+  -e SIMPLIFIED_PRODUCTION_DATABASE="postgresql://simplified:test@${pghost}:5432/docker_prod" \
   --name circ --rm "$IMAGE_NAME"
 
 # A method to check that runit services are running inside the container

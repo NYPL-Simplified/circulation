@@ -57,7 +57,7 @@ class TestWork:
             edition=work.presentation_edition,
             data_source_name=DataSource.OVERDRIVE
         )
-        lp2.work = work
+        work.license_pools.append(lp2)
 
         complaint_type = random.choice(list(Complaint.VALID_TYPES))
         complaint1, _ = Complaint.register(lp1, complaint_type, "blah", "blah")
@@ -2522,7 +2522,7 @@ class TestWorkConsolidation:
         _, abcd_commercial = create_edition(db_session, with_license_pool=True, with_open_access_download=True)
         abcd_commercial.open_access = False
         abcd_commercial.presentation_edition.permanent_work_id = "abcd"
-        abcd_commercial.work = work1
+        work1.license_pools.append(abcd_commercial)
 
         # Here's another Work containing an open-access LicensePool
         # for literary work "efgh".
@@ -2535,7 +2535,7 @@ class TestWorkConsolidation:
         # work.
         _, efgh_2 = create_edition(db_session, with_license_pool=True, with_open_access_download=True)
         efgh_2.presentation_edition.permanent_work_id = "efgh"
-        efgh_2.work = work1
+        work1.license_pools.append(efgh_2)
 
         # Let's fix these problems.
         work1.make_exclusive_open_access_for_permanent_work_id("abcd", Edition.BOOK_MEDIUM, "eng")

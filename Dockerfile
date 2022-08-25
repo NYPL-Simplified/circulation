@@ -63,7 +63,7 @@ COPY ./docker/localdev_postgres_init.sh /docker-entrypoint-initdb.d/localdev_pos
 #
 ###############################################################################
 
-FROM ubuntu:18.04 as circulation_base
+FROM ubuntu:20.04 as circulation_base
 
 ARG DEBIAN_FRONTEND="noninteractive"
 ARG NODESOURCE_KEYFILE="https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
@@ -75,15 +75,16 @@ RUN apt-get update \
     ca-certificates \
     gnupg \
  && curl -sSL ${NODESOURCE_KEYFILE} | apt-key add - \
- && echo "deb https://deb.nodesource.com/node_10.x bionic main" >> /etc/apt/sources.list.d/nodesource.list \
- && echo "deb-src https://deb.nodesource.com/node_10.x bionic main" >> /etc/apt/sources.list.d/nodesource.list \
+ && echo "deb https://deb.nodesource.com/node_14.x focal main" >> /etc/apt/sources.list.d/nodesource.list \
+ && echo "deb-src https://deb.nodesource.com/node_14.x focal main" >> /etc/apt/sources.list.d/nodesource.list \
  && apt-get update \
  && apt-get install --yes --no-install-recommends \
     build-essential \
+    pkg-config \
     software-properties-common \
     language-pack-en \
     git \
-    python3.6 \
+    python3.10 \
     python3-dev \
     python3-setuptools \
     python3-venv \
@@ -128,21 +129,15 @@ RUN python3 -m venv ${SIMPLIFIED_VENV} \
  && ${SIMPLIFIED_VENV}/bin/python3 -m textblob.download_corpora \
  && mv /root/nltk_data /usr/lib
 
-# Copy over the Python requirements files for both CM and core
+# Copy over the Python requirements files
 COPY --chown=simplified:simplified ./requirements*.txt ./
-COPY --chown=simplified:simplified ./core/requirements*.txt ./core/
 
 # Keep there from being a clash between dm.xmlsec and libssl.
 ENV CPPFLAGS="-DXMLSEC_NO_XKMS=1"
 
 # Install the Python dependencies
-RUN ${SIMPLIFIED_VENV}/bin/python3 -m pip install -U wheel \
+RUN ${SIMPLIFIED_VENV}/bin/python3 -m pip install -U wheel pip setuptools \
  && ${SIMPLIFIED_VENV}/bin/python3 -m pip install -r ./requirements.txt
-
-# We're switching to gunicorn for the wsgi server, and supervisor for process management,
-# so we'll remove uWSGI here, add supervisor here, and then install gunicorn only for the
-# images that need it.
-RUN ${SIMPLIFIED_VENV}/bin/python3 -m pip uninstall --yes uWSGI
 
 # Make sure we rotate our logs appropriately
 COPY docker/logrotate.conf /etc/logrotate.conf

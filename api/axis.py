@@ -615,7 +615,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         collection = self.collection
         pool = identifier.licensed_through_collection(collection)
         if not pool:
-            self.log.warn(
+            self.log.warning(
                 "Was about to reap %r but no local license pool in this collection.",
                 identifier
             )
@@ -1180,7 +1180,7 @@ class BibliographicParser(Axis360Parser):
                 continue
 
             if informal_name not in self.DELIVERY_DATA_FOR_AXIS_FORMAT:
-                self.log.warn("Unrecognized Axis format name for %s: %s" % (
+                self.log.warning("Unrecognized Axis format name for %s: %s" % (
                     identifier, informal_name
                 ))
             elif self.DELIVERY_DATA_FOR_AXIS_FORMAT.get(informal_name):

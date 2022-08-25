@@ -444,7 +444,7 @@ class ContributorData(object):
                     identifier_obj, self.display_name, sort_name
                 )
             else:
-                log.warn(
+                log.warning(
                     "Canonicalizer could not find sort name for %r/%s",
                     identifier_obj, self.display_name
                 )
@@ -770,7 +770,7 @@ class MetaToModelUtility(object):
 
         if ((not identifier) or (link_obj.identifier and identifier != link_obj.identifier)):
             # insanity found
-            self.log.warn("Tried to mirror a link with an invalid identifier %r" % identifier)
+            self.log.warning("Tried to mirror a link with an invalid identifier %r" % identifier)
             return
 
         max_age = None
@@ -804,6 +804,10 @@ class MetaToModelUtility(object):
                     pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
                     self.log.error(pool.license_exception)
             return
+
+        # If the collection is accessed later than here
+        # a TypeError: can't escape str to binary is raised
+        collection = pools[0].collection if pools else None
 
         # If we fetched the representation and it hasn't changed,
         # the previously mirrored version is fine. Don't mirror it
@@ -865,7 +869,6 @@ class MetaToModelUtility(object):
             )
 
         # Mirror it.
-        collection = pools[0].collection if pools else None
         mirror.mirror_one(representation, mirror_to=mirror_url, collection=collection)
 
         # If we couldn't mirror an open/protected access link representation, suppress
@@ -1276,7 +1279,7 @@ class CirculationData(MetaToModelUtility):
                 # still loans we'll need it.
                 # But if we track individual licenses for other protocols,
                 # we may need to handle this differently.
-                self.log.warn("License %i is no longer available but still has loans." % license.id)
+                self.log.warning("License %i is no longer available but still has loans." % license.id)
 
         # Finally, if we have data for a specific Collection's license
         # for this book, find its LicensePool and update it.
@@ -2208,7 +2211,7 @@ class CSVMetadataImporter(object):
         language = self._field(row, self.language_field, self.default_language)
         medium = self._field(row, self.medium_field, self.default_medium)
         if medium not in list(Edition.medium_to_additional_type.keys()):
-            self.log.warn("Ignored unrecognized medium %s" % medium)
+            self.log.warning("Ignored unrecognized medium %s" % medium)
             medium = Edition.BOOK_MEDIUM
         series = self._field(row, self.series_field)
         publisher = self._field(row, self.publisher_field)
@@ -2333,7 +2336,7 @@ class CSVMetadataImporter(object):
             try:
                 value = to_utc(parse(value))
             except ValueError:
-                self.log.warn('Could not parse date "%s"' % value)
+                self.log.warning('Could not parse date "%s"' % value)
                 value = None
         return value
 
