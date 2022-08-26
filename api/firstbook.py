@@ -151,11 +151,11 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
                 self.failure_status_code, "Error %s" % self.failure_status_code
             )
         qa = urllib.parse.parse_qs(url)
-        for code in qa:
-            if code == 'pin':
+        for key in qa:
+            if key == 'pin':
                 (pin,) = qa['pin']
             else:
-                (code,) = qa[code]
+                (code,) = qa[key]
         if code in self.valid and self.valid[code] == pin:
             return MockFirstBookResponse(200, self.SUCCESS)
         else:

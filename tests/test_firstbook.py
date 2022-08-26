@@ -29,7 +29,7 @@ class TestFirstBook(DatabaseTest):
         super(TestFirstBook, self).setup_method()
         self.integration = self._external_integration(
             ExternalIntegration.PATRON_AUTH_GOAL)
-        self.api = self.mock_api(dict(ABCD="1234"))
+        self.api = self.mock_api(dict(EVQUGA62LY="6413"))
 
     def mock_api(self, *args, **kwargs):
         "Create a MockFirstBookAuthenticationAPI."
@@ -46,7 +46,7 @@ class TestFirstBook(DatabaseTest):
         api = FirstBookAuthenticationAPI(self._default_library, integration)
 
         # Verify that the configuration details were stored properly.
-        assert 'http://example.com/?key=the_key' == api.root
+        assert 'http://example.com' == api.root
 
         # Test the default server-side authentication regular expressions.
         assert False == api.server_side_validation("foo' or 1=1 --;", "1234")
@@ -55,7 +55,7 @@ class TestFirstBook(DatabaseTest):
         assert True == api.server_side_validation("foo@bar", "1234")
 
     def test_authentication_success(self):
-        assert True == self.api.remote_pin_test("ABCD", "1234")
+        assert True == self.api.remote_pin_test("EVQUGA62LY", "6413")
 
     def test_authentication_failure(self):
         assert False == self.api.remote_pin_test("ABCD", "9999")
@@ -66,14 +66,9 @@ class TestFirstBook(DatabaseTest):
         assert False == self.api.remote_pin_test("abcd", "9999")
 
     def test_remote_authenticate(self):
-        patrondata = self.api.remote_authenticate("abcd", "1234")
-        assert "ABCD" == patrondata.permanent_id
-        assert "ABCD" == patrondata.authorization_identifier
-        assert None == patrondata.username
-
-        patrondata = self.api.remote_authenticate("ABCD", "1234")
-        assert "ABCD" == patrondata.permanent_id
-        assert "ABCD" == patrondata.authorization_identifier
+        patrondata = self.api.remote_authenticate("EVQUGA62LY", "6413")
+        assert "EVQUGA62LY" == patrondata.permanent_id
+        assert "EVQUGA62LY" == patrondata.authorization_identifier
         assert None == patrondata.username
 
     def test_broken_service_remote_pin_test(self):
