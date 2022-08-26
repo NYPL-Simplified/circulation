@@ -47,6 +47,7 @@ class TestFirstBook(DatabaseTest):
 
         # Verify that the configuration details were stored properly.
         assert 'http://example.com' == api.root
+        assert 'the_key' == api.key
 
         # Test the default server-side authentication regular expressions.
         assert False == api.server_side_validation("foo' or 1=1 --;", "1234")
