@@ -54,11 +54,6 @@ class TestFirstBook(DatabaseTest):
         assert True == api.server_side_validation("foo", "1234")
         assert True == api.server_side_validation("foo@bar", "1234")
 
-        # Try another case where the root URL has multiple arguments.
-        integration.url = "http://example.com/?foo=bar"
-        api = FirstBookAuthenticationAPI(self._default_library, integration)
-        assert 'http://example.com/?foo=bar&key=the_key' == api.root
-
     def test_authentication_success(self):
         assert True == self.api.remote_pin_test("ABCD", "1234")
 
@@ -81,12 +76,12 @@ class TestFirstBook(DatabaseTest):
         assert "ABCD" == patrondata.authorization_identifier
         assert None == patrondata.username
 
-
     def test_broken_service_remote_pin_test(self):
         api = self.mock_api(failure_status_code=502)
         with pytest.raises(RemoteInitiatedServerError) as excinfo:
             api.remote_pin_test("key", "pin")
-        assert "Got unexpected response code 502. Content: Error 502" in str(excinfo.value)
+        assert "Got unexpected response code 502. Content: Error 502" in str(
+            excinfo.value)
 
     def test_bad_connection_remote_pin_test(self):
         api = self.mock_api(bad_connection=True)
@@ -105,4 +100,5 @@ class TestFirstBook(DatabaseTest):
             docs = self.api.authentication_flow_document(self._db)
             for doc in docs:
                 assert self.api.DISPLAY_NAME == doc['description']
-                assert doc['type'] in [self.api.FLOW_TYPE_BASIC, self.api.FLOW_TYPE_OAUTH]
+                assert doc['type'] in [
+                    self.api.FLOW_TYPE_BASIC, self.api.FLOW_TYPE_OAUTH]
