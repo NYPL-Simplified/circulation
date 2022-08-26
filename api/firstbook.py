@@ -151,13 +151,15 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
                 self.failure_status_code, "Error %s" % self.failure_status_code
             )
         qa = urllib.parse.parse_qs(url)
-        if 'accesscode' in qa and 'pin' in qa:
-            [code] = qa['accesscode']
-            [pin] = qa['pin']
-            if code in self.valid and self.valid[code] == pin:
-                return MockFirstBookResponse(200, self.SUCCESS)
+        for code in qa:
+            if code == 'pin':
+                (pin,) = qa['pin']
             else:
-                return MockFirstBookResponse(200, self.FAILURE)
+                (code,) = qa[code]
+        if code in self.valid and self.valid[code] == pin:
+            return MockFirstBookResponse(200, self.SUCCESS)
+        else:
+            return MockFirstBookResponse(200, self.FAILURE)
 
 
 # Specify which of the classes defined in this module is the
