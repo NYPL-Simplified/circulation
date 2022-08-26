@@ -9,7 +9,7 @@ from api.admin.problem_details import *
 from api.admin.validator import PatronAuthenticationValidatorFactory
 from api.authenticator import AuthenticationProvider
 from api.clever import CleverAuthenticationAPI
-from api.firstbook import FirstBookAuthenticationAPI as OldFirstBookAuthenticationAPI
+from api.firstbook import FirstBookAuthenticationAPI as NewFirstBookAuthenticationAPI
 from api.firstbook2 import FirstBookAuthenticationAPI
 from api.kansas_patron import KansasAuthenticationAPI
 from api.millenium_patron import MilleniumPatronAPI
@@ -31,7 +31,7 @@ class PatronAuthServicesController(SettingsController):
                               MilleniumPatronAPI,
                               SIP2AuthenticationProvider,
                               FirstBookAuthenticationAPI,
-                              OldFirstBookAuthenticationAPI,
+                              NewFirstBookAuthenticationAPI,
                               CleverAuthenticationAPI,
                               KansasAuthenticationAPI,
                               SAMLWebSSOAuthenticationProvider
@@ -39,12 +39,12 @@ class PatronAuthServicesController(SettingsController):
         self.protocols = self._get_integration_protocols(self.provider_apis)
 
         self.basic_auth_protocols = [SimpleAuthenticationProvider.__module__,
-                                MilleniumPatronAPI.__module__,
-                                SIP2AuthenticationProvider.__module__,
-                                FirstBookAuthenticationAPI.__module__,
-                                OldFirstBookAuthenticationAPI.__module__,
-                                KansasAuthenticationAPI.__module__,
-                               ]
+                                     MilleniumPatronAPI.__module__,
+                                     SIP2AuthenticationProvider.__module__,
+                                     FirstBookAuthenticationAPI.__module__,
+                                     NewFirstBookAuthenticationAPI.__module__,
+                                     KansasAuthenticationAPI.__module__,
+                                     ]
         self.type = _("patron authentication service")
         self._validator_factory = PatronAuthenticationValidatorFactory()
 
@@ -57,11 +57,14 @@ class PatronAuthServicesController(SettingsController):
             return self.process_post()
 
     def process_get(self):
-        services = self._get_integration_info(ExternalIntegration.PATRON_AUTH_GOAL, self.protocols)
+        services = self._get_integration_info(
+            ExternalIntegration.PATRON_AUTH_GOAL, self.protocols)
 
         for service in services:
-            service_object = get_one(self._db, ExternalIntegration, id=service.get("id"), goal=ExternalIntegration.PATRON_AUTH_GOAL)
-            service["self_test_results"] = self._get_prior_test_results(service_object, self._find_protocol_class(service_object))
+            service_object = get_one(self._db, ExternalIntegration, id=service.get(
+                "id"), goal=ExternalIntegration.PATRON_AUTH_GOAL)
+            service["self_test_results"] = self._get_prior_test_results(
+                service_object, self._find_protocol_class(service_object))
         return dict(
             patron_auth_services=services,
             protocols=self.protocols
@@ -77,7 +80,8 @@ class PatronAuthServicesController(SettingsController):
         id = flask.request.form.get("id")
         if id:
             # Find an existing service to edit
-            auth_service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.PATRON_AUTH_GOAL)
+            auth_service = get_one(
+                self._db, ExternalIntegration, id=id, goal=ExternalIntegration.PATRON_AUTH_GOAL)
             if not auth_service:
                 return MISSING_SERVICE
             if protocol != auth_service.protocol:
@@ -104,7 +108,8 @@ class PatronAuthServicesController(SettingsController):
             auth_service.name = name
 
         [protocol] = [p for p in self.protocols if p.get("name") == protocol]
-        result = self._set_integration_settings_and_libraries(auth_service, protocol)
+        result = self._set_integration_settings_and_libraries(
+            auth_service, protocol)
         if isinstance(result, ProblemDetail):
             return result
 
@@ -119,7 +124,8 @@ class PatronAuthServicesController(SettingsController):
             return Response(str(auth_service.id), 200)
 
     def _find_protocol_class(self, service_object):
-        [protocol_class] = [p for p in self.provider_apis if p.__module__ == service_object.protocol]
+        [protocol_class] = [
+            p for p in self.provider_apis if p.__module__ == service_object.protocol]
         return protocol_class
 
     def validate_form_fields(self, protocol):
@@ -135,7 +141,8 @@ class PatronAuthServicesController(SettingsController):
         name = flask.request.form.get("name")
         if name:
             if auth_service.name != name:
-                service_with_name = get_one(self._db, ExternalIntegration, name=name)
+                service_with_name = get_one(
+                    self._db, ExternalIntegration, name=name)
                 if service_with_name:
                     return INTEGRATION_NAME_ALREADY_IN_USE
             return name
@@ -186,7 +193,8 @@ class PatronAuthServicesController(SettingsController):
         to configure this patron auth service."""
 
         for library in auth_service.libraries:
-            error = self.check_library_integrations(library) or self.check_external_type(library, auth_service) or self.check_identifier_restriction(library, auth_service)
+            error = self.check_library_integrations(library) or self.check_external_type(
+                library, auth_service) or self.check_identifier_restriction(library, auth_service)
             if error:
                 return error
 
