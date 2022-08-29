@@ -5,7 +5,7 @@ import socket
 import ssl
 import urllib
 from functools import partial
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from core.mock_analytics_provider import MockAnalyticsProvider
@@ -40,6 +40,7 @@ from core.metadata_layer import (
 
 from core.scripts import RunCollectionCoverageProviderScript
 
+from core.util.flask_util import Response
 from core.util.http import RemoteIntegrationException
 from core.util.problem_detail import ProblemDetail
 
@@ -1981,7 +1982,8 @@ class TestAxis360AcsFulfillmentInfo:
     def mock_request(self):
         # Create a mock request object that we can use in the tests
         mock_request = MagicMock()
-        mock_request.__enter__.return_value = MagicMock(return_value="")
+        mock_request_enter = MagicMock(read=MagicMock(return_value=""), status=200, headers={})
+        mock_request.__enter__.return_value = mock_request_enter
         mock_request.__exit__.return_value = None
         return mock_request
 
@@ -2015,10 +2017,12 @@ class TestAxis360AcsFulfillmentInfo:
         # then make sure that when the request is built the %3a character encoded in the
         # string is not uppercased to be %3A.
         called_url = None
+
         def mock_urlopen(url, **kwargs):
             nonlocal called_url
             called_url = url
             return mock_request
+
         patch_urllib_urlopen(mock_urlopen)
         fulfillment = fulfillment_info(content_link="https://test.com/?param=%3atest123")
         response = fulfillment.as_response
@@ -2058,16 +2062,20 @@ class TestAxis360AcsFulfillmentInfo:
             (False, ssl.CERT_NONE, False)
         ]
     )
-    def test_verify_ssl(self, patch_urllib_urlopen, fulfillment_info, verify, verify_mode, check_hostname):
+    def test_verify_ssl(self, patch_urllib_urlopen, mock_request, fulfillment_info, verify, verify_mode, check_hostname):
         # Make sure that when the verify parameter of the fulfillment method is set we use the
         # correct SSL context to either verify or not verify the ssl certificate for the
         # URL we are fetching.
-        patch_urllib_urlopen(MagicMock())
+
+        mock_urlopen = MagicMock(return_value=mock_request)
+
+        patch_urllib_urlopen(mock_urlopen)
         fulfillment = fulfillment_info(verify=verify)
-        response = fulfillment.as_response
-        mock = urllib.request.urlopen
-        mock.assert_called()
-        assert 'context' in mock.call_args[1]
-        context = mock.call_args[1]['context']
+
+        fulfillment.as_response
+
+        mock_urlopen.assert_called()
+        assert 'context' in mock_urlopen.call_args[1]
+        context = mock_urlopen.call_args[1]['context']
         assert context.verify_mode == verify_mode
         assert context.check_hostname == check_hostname
