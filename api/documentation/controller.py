@@ -17,13 +17,14 @@ class OpenAPIController:
 
     def __init__(self):
         self.spec = self.generateSpecBase()
-    
+
     def addComponent(self,
-        componentType, schemaName, schemaType, schemaProps,
-        requiredFields=None):
+                     componentType, schemaName, schemaType, schemaProps,
+                     requiredFields=None):
         addComponentFunc = getattr(self.spec.components, componentType)
 
-        schemaProps = {'properties': schemaProps} if schemaType == 'object' else schemaProps
+        schemaProps = {
+            'properties': schemaProps} if schemaType == 'object' else schemaProps
 
         schemaComponent = {
             'type': schemaType,
@@ -58,7 +59,8 @@ class OpenAPIController:
 
         self.addComponent(
             'schema', 'SiteAdminRoles', 'string',
-            {'enum': ['system', 'manager-all', 'manager', 'librarian-all', 'librarian']}
+            {'enum': ['system', 'manager-all',
+                      'manager', 'librarian-all', 'librarian']}
         )
 
         self.addComponent(
@@ -133,14 +135,21 @@ class OpenAPIController:
                 'enum': [
                     'self',  # OPDS Reference to current document
                     'alternate',  # Alternate, non-OPDS representation
-                    'http://opds-spec.org/acquisition',  # Generic Access link where a resource may be accessed
-                    'http://opds-spec.org/acquisition/open-access',  # Free access (no payment, registration or log-in required)
-                    'http://opds-spec.org/acquisition/borrow',  # Resource may be borrowed from source
+                    # Generic Access link where a resource may be accessed
+                    'http://opds-spec.org/acquisition',
+                    # Free access (no payment, registration or log-in required)
+                    'http://opds-spec.org/acquisition/open-access',
+                    # Resource may be borrowed from source
+                    'http://opds-spec.org/acquisition/borrow',
                     'http://opds-spec.org/acquisition/buy',  # Resource may be bought from source
-                    'http://opds-spec.org/acquisition/sample',  # A subset of the resource can be viewed
-                    'http://opds-spec.org/acquisition/subscribe',  # A complete resource may be retrieved on the basis of a larger subscription
-                    'http://opds-spec.org/image',  # A representation of a resource (i.e. a cover)
-                    'http://opds-spec.org/image/thumbnail'  # A smaller representation of a resource
+                    # A subset of the resource can be viewed
+                    'http://opds-spec.org/acquisition/sample',
+                    # A complete resource may be retrieved on the basis of a larger subscription
+                    'http://opds-spec.org/acquisition/subscribe',
+                    # A representation of a resource (i.e. a cover)
+                    'http://opds-spec.org/image',
+                    # A smaller representation of a resource
+                    'http://opds-spec.org/image/thumbnail'
                 ]
             }
         )
@@ -196,7 +205,7 @@ class OpenAPIController:
                 'atom:author': {
                     'type': 'array',
                     'items': {'$ref': '#/components/schemas/AtomAuthor'}
-                },    
+                },
                 'atom:rights': {'type': 'string'},
                 'atom:summary': {'type': 'string'},
                 'atom:content': {'type': 'string'},
@@ -215,7 +224,7 @@ class OpenAPIController:
                 'simplified:pwid': {'type': 'string'},
                 'atom:additionalType': {'type': 'string'},
                 'atom:series': {
-                    'type': 'array', 
+                    'type': 'array',
                     'items': {'$ref': '#/components/schemas/AtomSeries'}
                 },
                 'dcterms:language': {'type': 'string'},
@@ -311,7 +320,7 @@ class OpenAPIController:
                 'name': {'type': 'string'},
                 'entries': {
                     'type': 'array',
-                    'items': {'$ref': '#/components/schema/ListEntry'}
+                    'items': {'$ref': '#/components/schemas/ListEntry'}
                 },
                 'collections': {
                     'type': 'array',
@@ -405,6 +414,487 @@ class OpenAPIController:
             }
         )
 
+        self.addComponent(
+            'schema', 'MARCRollContributorsDict', 'object',
+            {
+                'MARCRoleCode': {
+                    'type': 'string',
+                    'description': 'Contributor role'
+                },
+            }
+        )
+        self.addComponent(
+            'schema', 'LanguageCodesSchema', 'object',
+            {
+                'language_code': {
+                    'type': 'array',
+                    'description': 'A dict of ISO language codes and associated language names',
+                    'items': {
+                        'type': 'string',
+                        'description': 'Language names associated with the ISO code'
+
+                    }
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'MediaSchema', 'object',
+            {
+                'href': {
+                    'type': 'string',
+                    'description': 'String of media type with associated Schema URL'
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'BulkCirculationEvents', 'array',
+            {'items': {
+                'type': 'string',
+                'description': 'A CSV of circulation events for the selected library.'
+            }
+            }
+        )
+        self.addComponent(
+            'schema', 'CustomListCollectionArray', 'array',
+            {
+                'array': {
+                    'type': 'array',
+                    'items': {'$ref': '#/components/schemas/CustomListCollection'}
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'LicenseSchema', 'object',
+            {
+                'URI': {
+                    'type': 'object',
+                    'properties': {
+                        'allows_derivatives': {'type': 'boolean'},
+                        'name': {
+                            'type': 'string',
+                            'description': 'License name from associated URL'
+                        },
+                        'open_access': {'type': 'boolean'}
+                    }
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'CirculationEventSchema', 'object',
+            {
+                'circulation_events': {
+                    'type': 'array',
+                    'description': 'Array of circulation events',
+                    'items': {
+                        'type': 'object',
+                        'description': 'Event',
+                        'properties': {
+                            'id': {'type': 'string'},
+                            'type': {'type': 'string'},
+                            'time': {
+                                'type': 'string',
+                                'format': 'date'
+                            },
+                            'book': {
+                                'type': 'object',
+                                'properties': {
+                                    'title': {'type': 'string'},
+                                    'url': {'$ref': '#/components/schemas/OPDSLink'},
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'LibraryStatsSchema', 'object',
+            {
+                'library_stats': {
+                    'type': 'object',
+                    'properties': {
+                        'library': {
+                            'type': 'object',
+                            'properties': {
+                                'patron': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'total': {'type': 'integer'},
+                                        'with_active_loans': {'type': 'integer'},
+                                        'with_active_loans_or_holds': {
+                                            'type': 'integer'
+                                        },
+                                        'loans': {'type': 'integer'},
+                                        'holds': {'type': 'integer'}
+                                    }
+                                },
+                                'inventory': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'titles': {
+                                            'type': 'integer',
+                                            'description': 'total title count'
+                                        },
+                                        'licenses': {
+                                            'type': 'integer',
+                                            'description': 'total license count'
+                                        },
+                                        'available_license_count': {
+                                            'type': 'integer',
+                                            'description': 'total available'
+                                        }
+                                    }
+                                },
+                                'collections': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'licensed_titles': {'type': 'integer'},
+                                        'open_access_titles': {'type': 'integer'},
+                                        'licenses': {'type': 'integer'},
+                                        'available_licenses': {'type': 'integer'}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'ProtocolDictSchema', 'array',
+            {
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string'},
+                        'label': {'type': 'string'},
+                        'description': {'type': 'string'},
+                        'instructions': {'type': 'string'},
+                        'sitewide': {'type': 'string'},
+                        'settings': {'type': 'string'},
+                        'child_settings': {'type': 'string'},
+                        'library_settings': {'type': 'string'},
+                        'supports_registration': {'type': 'string'},
+                        'supports_staging': {'type': 'string'},
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'AuthServicesDictSchema', 'array',
+            {
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'id': {'type': 'string'},
+                        'name': {'type': 'string'},
+                        'protocol': {'$ref': '#/components/schemas/ProtocolString'},
+                        'settings': {
+                            'type': 'object',
+                            'properties': {
+                                'key': {'type': 'string'}
+                            }
+                        },
+                        'libraries': {
+                            'type': 'object',
+                            'properties': {
+                                'short_name': {'type': 'string'},
+                                'key': {'type': 'string'}
+                            }
+                        }
+                    }
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'ClassificationsSchema', 'object',
+            {
+                'book': {
+                    'type': 'object',
+                    'description': 'The work searched for in parameters',
+                    'properties': {
+                        'identifier_type': {'type': 'string'},
+                        'identifier': {'type': 'string'},
+                    }
+                },
+                'classifications': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'type ': {'type': 'string'},
+                            'name': {'type': 'string'},
+                            'source': {'type': 'string'},
+                            'weight': {'type': 'integer'}
+                        }
+                    }
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'EditClassificationsPost', 'object',
+            {
+                'genre': {'type': 'string'},
+                'audiences': {'type': 'string'},
+                'target_age_minimum': {'type': 'integer'},
+                'target_age_maximum': {'type': 'integer'},
+                'fiction': {'type': 'boolean'},
+            },
+        )
+
+        self.addComponent(
+            'schema', 'WorkListsPost', 'object',
+            {
+                'lists': {'type': 'object'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'AdminAuthServicesSchema', 'object',
+            {
+                'admin_auth_services': {'$ref': '#/components/schemas/AuthServicesDictSchema'},
+                'protocols': {'$ref': '#/components/schemas/ProtocolDictSchema'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'AdminAuthPost', 'object',
+            {
+                'protocol': {
+                    'type': 'string',
+                    'description': 'The name of a protocol to lookup'
+                },
+                'id': {'type': 'string'},
+                'name': {'type': 'string'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'CollectionLibRegistrations', 'object',
+            {
+                'library_registrations': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'id': {'type': 'string'},
+                            'library_info': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'short_name': {'type': 'string'},
+                                        'status': {'type': 'string'}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'CreatedServicesGetSchema', 'object',
+            {
+                '*_services': {
+                    'type': 'object',
+                    'description': 'A list of available _ services'
+                },
+                'protocol': {'$ref': '#/components/schemas/ProtocolDictSchema'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'PatronDataSchema', 'object',
+            {
+                'permanent_id': {'type': 'string'},
+                'authorization_identifier': {'type': 'string'},
+                'username': {'type': 'string'},
+                'personal_name': {'type': 'string'},
+                'email_address': {'type': 'string'},
+                'block_reason': {'type': 'string'},
+                'external_type': {'type': 'string'},
+            }
+        )
+
+        self.addComponent(
+            'schema', 'EditWorkPostForm', 'object',
+            {
+                'title': {'type': 'string'},
+                'subtitle': {'type': 'string'},
+                'contributor-role': {
+                    'type': 'array',
+                    'items': {'type': 'string'}
+                },
+                'contributor-name': {
+                    'type': 'array',
+                    'items': {'type': 'string'}
+                },
+                'series': {'type': 'string'},
+                'series_position': {'type': 'integer'},
+                'medium': {'type': 'string'},
+                'language': {'type': 'string'},
+                'publisher': {'type': 'string'},
+                'imprint': {'type': 'string'},
+                'issued': {
+                    'type': 'string',
+                    'format': 'date'
+                },
+                'rating': {'type': 'integer'},
+                'summary': {'type': 'string'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'ChangeBookCoverForm', 'object',
+            {
+                'rights_status': {'type': 'string'},
+                'rights_explanation': {'type': 'string'},
+                'cover_file': {
+                    'type': 'string',
+                    'format': 'binary'
+                },
+                'cover_url': {'type': 'string'},
+                'title_position': {'type': 'string'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'GenrePropsSchema', 'object',
+            {
+                'name': {'type': 'string'},
+                'parents': {
+                    'type': 'array',
+                    'items': {'type': 'string'}
+                },
+                'subgenres': {
+                    'type': 'array',
+                    'items': {'type': 'string'}
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'GenresSchema', 'object',
+            {
+                'Fiction': {'$ref': '#/components/schemas/GenrePropsSchema'},
+                'Nonfiction': {'$ref': '#/components/schemas/GenrePropsSchema'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'CollectionsGetSchema', 'object',
+            {
+                'collections': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'id': {'type': 'string'},
+                            'name': {'type': 'string'},
+                            'protocol': {
+                                'type': 'string',
+                                'description': 'A protocol name string'
+                            },
+                            'parent_id': {'type': 'string'},
+                            'settings': {'type': 'object'},
+                            'libraries': {
+                                'type': 'array',
+                                'items': {'type': 'object'}
+                            }
+                        }
+                    }
+                },
+                'protocols': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string'},
+                        'label': {'type': 'string'},
+                        'description': {'type': 'string'},
+                        'settings': {
+                            'type': 'array',
+                            'items': {
+                                'type': 'object',
+                                'description': 'Mirror integration settings'
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'CollectionsLibraryRegistrationPost', 'object',
+            {
+                'collection_id': {'type': 'string'},
+                'library_short_name': {'type': 'string'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'ServicesSchema', 'array',
+            {
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                            'libraries': {
+                                'type': 'array',
+                                'items': {'type': 'string'}
+                            },
+                        'id': {'type': 'string'},
+                        'protocol': {'type': 'string'},
+                        'settings': {'type': 'object'},
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'ServicesGetSchema', 'object',
+            {
+                '*_services': {'$ref': '#/components/schemas/ServicesSchema'
+                               },
+                'protocols': {'$ref': '#/components/schemas/ProtocolDictSchema'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'ServicesPostForm', 'object',
+            {
+                'protocol': {
+                    'type': 'string',
+                    'description': 'The name of a protocol to lookup'
+                },
+                'id': {'type': 'string'},
+                'name': {'type': 'string'},
+                'url': {'type': 'string'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'WorkComplaintsSchema', 'object',
+            {
+                'book': {
+                    'type': 'object',
+                    'properties': {
+                        'identifier_type': {'type': 'string'},
+                        'identifier': {'type': 'string'}
+                    }
+                },
+                'complaints': {
+                    'type': 'object',
+                    'description': 'A counter object of complaint types for a given work.  Types: wrong-genre, wrong-audience, wrong-age-range, wrong-title, wrong-medium, wrong-author, bad-cover-image, bad-description, cannot-fulfill-loan, cannot-issue-loan, cannot-render, cannot-return.',
+                    'properties': {
+                        'complaint_type': {'type': 'integer'}
+                    }
+                }
+            }
+        )
+
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
         self.spec.components.parameter(
@@ -421,7 +911,7 @@ class OpenAPIController:
     def addPaths(self):
         for name, method in adminRoutes.__dict__.items():
             self.addPath(name, method)
-    
+
     def addPath(self, name, method):
         if inspect.isfunction(method):
             try:
@@ -430,7 +920,7 @@ class OpenAPIController:
                 logger.warning(f'{name} unable to create view')
                 pass
 
-    @classmethod
+    @ classmethod
     def generateSpecBase(cls):
         # Initialize OpenAPI Spec Document
         return APISpec(
@@ -473,7 +963,7 @@ class OpenAPIController:
             plugins=[FlaskPlugin(), CSRFPlugin()]
         )
 
-    @classmethod
+    @ classmethod
     def generateSpec(cls):
         specManager = cls()
 
@@ -483,4 +973,3 @@ class OpenAPIController:
         specManager.addPaths()
 
         return specManager.spec.to_dict()
-
