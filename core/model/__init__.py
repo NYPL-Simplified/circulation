@@ -341,7 +341,7 @@ class SessionManager(object):
         """
         if url in cls.engine_for_url:
             engine = cls.engine_for_url[url]
-            return engine, engine.connect()
+            return engine
 
         engine = cls.engine(url)
         if initialize_schema:
@@ -388,7 +388,7 @@ class SessionManager(object):
             # everything, we can't short-circuit this method with a
             # cache.
             cls.engine_for_url[url] = engine
-        return engine, engine.connect()
+        return engine
 
     @classmethod
     def initialize_schema(cls, engine):
@@ -402,14 +402,13 @@ class SessionManager(object):
 
     @classmethod
     def session(cls, url, initialize_data=True, initialize_schema=True):
-        engine = connection = 0
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=SAWarning)
-            engine, connection = cls.initialize(
+            engine = cls.initialize(
                 url, initialize_data=initialize_data,
                 initialize_schema=initialize_schema
             )
-        session = Session(connection)
+        session = Session(engine)
         if initialize_data:
             session = cls.initialize_data(session)
         return session
