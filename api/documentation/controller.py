@@ -584,7 +584,7 @@ class OpenAPIController:
         )
 
         self.addComponent(
-            'schema', 'AuthServicesDictSchema', 'array',
+            'schema', 'ServicesDictSchema', 'array',
             {
                 'items': {
                     'type': 'object',
@@ -653,15 +653,15 @@ class OpenAPIController:
         )
 
         self.addComponent(
-            'schema', 'AdminAuthServicesSchema', 'object',
+            'schema', 'AdminServicesSchema', 'object',
             {
-                'admin_auth_services': {'$ref': '#/components/schemas/AuthServicesDictSchema'},
+                '*_services': {'$ref': '#/components/schemas/ServicesDictSchema'},
                 'protocols': {'$ref': '#/components/schemas/ProtocolDictSchema'}
             }
         )
 
         self.addComponent(
-            'schema', 'AdminAuthPost', 'object',
+            'schema', 'AdminProtocolPost', 'object',
             {
                 'protocol': {
                     'type': 'string',

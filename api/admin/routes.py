@@ -1383,7 +1383,7 @@ def collections():
             required: true
             content:
               multipart/form-data:
-                schema: AdminAuthPost
+                schema: AdminProtocolPost
           responses:
             2XX:
               description: Id of updated or created Collection
@@ -1561,7 +1561,7 @@ def admin_auth_services():
           description: Dict of admin auth services
           content:
             application/json:
-              schema: AdminAuthServicesSchema
+              schema: AdminServicesSchema
         4XX:
           description: |
             An authentication error in which the user could not be authenticated, or 
@@ -1598,7 +1598,7 @@ def admin_auth_services():
         required: true
         content:
           multipart/form-data:
-            schema: AdminAuthPost
+            schema: AdminProtocolPost
       responses:
         200:
           description: Name of admin auth service protocol
@@ -2384,7 +2384,7 @@ def search_services():
         required: true
         content:
           multipart/form-data:
-            schema: AdminAuthPost
+            schema: AdminProtocolPost
       responses:
         2XX:
           description: Updated or created service id
@@ -2507,6 +2507,87 @@ def storage_service(service_id):
 @requires_admin
 @requires_csrf_token
 def catalog_services():
+    """Manage admin catalog services
+    ---
+    get:
+      tags: 
+        - administration
+      summary: Fetch JSON representation of catalog services.
+      description: |
+        Fetch admin catalog protocols and services. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: JSON of catalog services
+          content:
+            application/json:
+              schema: AdminServicesSchema
+        4XX:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              schema: ProblemResponse
+              example: |
+                AdminNotAuthorized
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - administration
+      summary: Create or update admin catalog protocol.
+      description: |
+        Create or update admin catalog protocol. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: AdminProtocolPost
+      responses:
+        2XX:
+          description: Name of admin catalog protocol
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: Service ID
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, or other issue with the current request. These are returned as JSON objects.
+          content:
+            application/json:
+              schema: ProblemResponse
+              example: |
+                "AdminNotAuthorized, NO_PROTOCOL_FOR_NEW_SERVICE,CANNOT_CHANGE_PROTOCOL, MISSING_SERVICE,INVALID_CONFIGURATION_OPTION"
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_catalog_services_controller.process_catalog_services()
 
 
@@ -2611,9 +2692,9 @@ def logging_services():
         required: true
         content:
           multipart/form-data:
-            schema: AdminAuthPost
+            schema: AdminProtocolPost
       responses:
-        200:
+        2XX:
           description: Service id
           content:
             text/html:
