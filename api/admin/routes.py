@@ -2651,6 +2651,87 @@ def catalog_service(service_id):
 @requires_admin
 @requires_csrf_token
 def discovery_services():
+    """Manage admin discovery services
+    ---
+    get:
+      tags: 
+        - administration
+      summary: Fetch JSON representation of discovery services.
+      description: |
+        Fetch admin catalog protocols and services. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: JSON of discovery services
+          content:
+            application/json:
+              schema: AdminServicesSchema
+        4XX:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              schema: ProblemResponse
+              example: |
+                AdminNotAuthorized
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - administration
+      summary: Create or update admin discovery protocol.
+      description: |
+        Create or update admin discovery protocol. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: AdminDiscoveryPost
+      responses:
+        2XX:
+          description: Name of admin discovery protocol
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: Protocol ID
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, or other issue with the current request. These are returned as JSON objects.
+          content:
+            application/json:
+              schema: ProblemResponse
+              example: |
+                "AdminNotAuthorized, NO_PROTOCOL_FOR_NEW_SERVICE,CANNOT_CHANGE_PROTOCOL, MISSING_SERVICE,INVALID_CONFIGURATION_OPTION"
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_discovery_services_controller.process_discovery_services()
 
 
@@ -2660,6 +2741,51 @@ def discovery_services():
 @requires_admin
 @requires_csrf_token
 def discovery_service(service_id):
+    """Delete a discovery service
+    ---
+    delete:
+      tags:
+        - administration
+      summary: Delete a discovery service.
+      description: |
+        Delete catalog service. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: service_id
+          schema:
+            type: string
+          description: The name of the service to be deleted
+      responses:
+        200:
+          description: Confirmation of deletion of discovery service.
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: Deleted
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, or other issue with the current request. These are returned as JSON objects.
+          content:
+            application/json:
+              schema: ProblemResponse
+              example: |
+                "MISSING_SERVICE"
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_discovery_services_controller.process_delete(service_id)
 
 
@@ -2793,6 +2919,87 @@ def logging_service(key):
 @requires_admin
 @requires_csrf_token
 def discovery_service_library_registrations():
+    """Manage library discovery services and registration
+    ---
+    get:
+      tags: 
+        - administration
+      summary: Fetch list of discovery services and associated libraries
+      description: Make a list of all discovery services, each with the list of libraries registered with that service and the status of the registration
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: Dict of logging services and associated protocols
+          content:
+            application/json:
+              schema: DiscoveryServiceGet
+        4XX:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              schema: ProblemResponse
+              example: |
+                MISSING_SERVICE
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - administration
+      summary: Register a library with RemoteRegistry
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: DiscoverServiceRegPost
+      responses:
+        2XX:
+          description: Confirmation of library discovery service registration
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: Success
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_discovery_service_library_registrations_controller.process_discovery_service_library_registrations()
 
 
