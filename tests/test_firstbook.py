@@ -46,7 +46,7 @@ class TestFirstBook(DatabaseTest):
         api = FirstBookAuthenticationAPI(self._default_library, integration)
 
         # Verify that the configuration details were stored properly.
-        assert 'http://example.com' == api.root
+        assert 'http://example.com/' == api.root
         assert 'the_key' == api.key
 
         # Test the default server-side authentication regular expressions.

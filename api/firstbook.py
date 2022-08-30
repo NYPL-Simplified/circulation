@@ -40,6 +40,8 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = '^[A-Za-z0-9@]+$'
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = '^[0-9]+$'
 
+    API_PATH = 'rest/V1/serialcode?'
+
     SETTINGS = [
         {"key": ExternalIntegration.URL, "format": "url",
             "label": _("URL"), "required": True},
@@ -59,8 +61,6 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
                 raise CannotLoadConfiguration(
                     "First Book server not configured."
                 )
-        if root[-1] == '/':
-            root = root[:-1]
         self.root = root
 
     # Begin implementation of BasicAuthenticationProvider abstract
@@ -85,9 +85,7 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     # End implementation of BasicAuthenticationProvider abstract methods.
 
     def remote_pin_test(self, barcode, pin):
-        url = self.root + "/rest/V1/serialcode?code=%s&pin=%s" % tuple(map(
-            urllib.parse.quote, (barcode, pin)
-        ))
+        url = self.root + self.API_PATH + "code=%d&pin=%s" % (barcode, pin)
         try:
             response = self.request(url)
         except requests.exceptions.ConnectionError as e:
@@ -106,9 +104,9 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
         return False
 
     def request(self, url):
-        """Make an HTTP request.
+        """Make an HTTP request with proper Authorization headers.
 
-        Defined solely so it can be overridden in the mock.
+        This is overridden in test mock.
         """
         header = {'Authorization': 'Bearer %s' % self.key}
         return requests.get(url, headers=header)
@@ -127,7 +125,7 @@ class MockFirstBookResponse(object):
 
 class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
 
-    SUCCESS = '"Valid Code Pin Pair"'
+    SUCCESS = '{"code":200,"message":"Valid Code Pin Pair"}'
     FAILURE = '{"code":404,"message":"Access Code Pin Pair not found"}'
 
     def __init__(self, library, integration, valid={}, bad_connection=False,
