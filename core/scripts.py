@@ -413,6 +413,9 @@ class RunThreadedCollectionCoverageProviderScript(Script):
                     job_queue.put(job)
                     offset += batch_size
 
+        # Close existing database session and associated connection objects
+        self._db.close()
+
     def get_query_and_batch_sizes(self, provider):
         qu = provider.items_that_need_coverage(
             count_as_covered=BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
@@ -1744,6 +1747,9 @@ class CustomListManagementScript(Script):
         self.membership_manager.update()
         self._db.commit()
 
+        # Close existing database session and associated connection objects
+        self._db.close()
+
 
 class CollectionType(Enum):
     OPEN_ACCESS = 'OPEN_ACCESS'
@@ -2339,6 +2345,9 @@ class DatabaseMigrationScript(Script):
         else:
             print("No new migrations found. Your database is up-to-date.")
 
+        # Close existing database session and associated connection objects
+        self._db.close()
+
     def fetch_migration_files(self):
         """Pulls migration files from the expected locations
 
@@ -2666,6 +2675,9 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
         self.update_timestamps(most_recent_sql_migration)
         self.update_timestamps(most_recent_python_migration)
         self._db.commit()
+
+        # Close existing database session and associated connection objects
+        self._db.close()
 
 
 class CheckContributorNamesInDB(IdentifierInputScript):
@@ -3189,6 +3201,9 @@ class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
     def run(self, cmd_args=None):
         parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
         self.do_run(parsed.collections)
+
+        # Close existing database session and associated connection objects
+        self._db.close()
 
     def do_run(self, collections=None):
         collection_ids = list()
