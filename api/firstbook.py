@@ -54,9 +54,9 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     def __init__(self, library_id, integration, analytics=None, root=None, secret=None):
         super(FirstBookAuthenticationAPI, self).__init__(
             library_id, integration, analytics)
+        self.key = secret or integration.password
         if not root:
             root = integration.url
-            self.key = secret or integration.password
             if not (root and self.key):
                 raise CannotLoadConfiguration(
                     "First Book server not configured."
@@ -86,8 +86,9 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
 
     def remote_pin_test(self, barcode, pin):
         url = self.root + self.API_PATH + "code=%s&pin=%s" % (barcode, pin)
+        header = {'Authorization': 'Bearer %s' % self.key}
         try:
-            response = self.request(url)
+            response = self.request(url, header)
         except requests.exceptions.ConnectionError as e:
             raise RemoteInitiatedServerError(
                 str(e),
@@ -103,12 +104,11 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
             return True
         return False
 
-    def request(self, url):
-        """Make an HTTP request with proper Authorization headers.
+    def request(self, url, header):
+        """Make an HTTP request.
 
-        This is overridden in test mock.
+        Defined to be overridden in test mock.
         """
-        header = {'Authorization': 'Bearer %s' % self.key}
         return requests.get(url, headers=header)
 
 
@@ -139,7 +139,9 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
         self.bad_connection = bad_connection
         self.failure_status_code = failure_status_code
 
-    def request(self, url):
+    def request(self, url, header):
+        if not header:
+            raise RemoteInitiatedServerError
         if self.bad_connection:
             # Simulate a bad connection.
             raise requests.exceptions.ConnectionError("Could not connect!")
