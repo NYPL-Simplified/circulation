@@ -85,7 +85,7 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     # End implementation of BasicAuthenticationProvider abstract methods.
 
     def remote_pin_test(self, barcode, pin):
-        url = self.root + self.API_PATH + "code=%d&pin=%s" % (barcode, pin)
+        url = self.root + self.API_PATH + "code=%s&pin=%s" % (barcode, pin)
         try:
             response = self.request(url)
         except requests.exceptions.ConnectionError as e:
@@ -125,7 +125,7 @@ class MockFirstBookResponse(object):
 
 class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
 
-    SUCCESS = '{"code":200,"message":"Valid Code Pin Pair"}'
+    SUCCESS = '"Valid Code Pin Pair"'
     FAILURE = '{"code":404,"message":"Access Code Pin Pair not found"}'
 
     def __init__(self, library, integration, valid={}, bad_connection=False,
