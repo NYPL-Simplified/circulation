@@ -61,7 +61,10 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import textwrap
-import urllib.request, urllib.parse, urllib.error
+import urllib.request
+import urllib.parse
+import urllib.error
+
 
 class WorkController(AdminCirculationManagerController):
 
@@ -76,7 +79,8 @@ class WorkController(AdminCirculationManagerController):
         """
         self.require_librarian(flask.request.library)
 
-        work = self.load_work(flask.request.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library,
+                              identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -91,7 +95,8 @@ class WorkController(AdminCirculationManagerController):
         """Return detailed complaint information for admins."""
         self.require_librarian(flask.request.library)
 
-        work = self.load_work(flask.request.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library,
+                              identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -139,7 +144,7 @@ class WorkController(AdminCirculationManagerController):
             Contributor.PRODUCER_ROLE,
             Contributor.TRANSCRIBER_ROLE,
             Contributor.TRANSLATOR_ROLE,
-            ]:
+        ]:
             marc_to_role[CODES[role]] = role
         return marc_to_role
 
@@ -152,8 +157,7 @@ class WorkController(AdminCirculationManagerController):
         return Edition.additional_type_to_medium
 
     def rights_status(self):
-        """Return the supported rights status values with their names and whether
-        they are open access."""
+        """Return the supported rights status values with their names and whether they are open access."""
         return {uri: dict(name=name,
                           open_access=(uri in RightsStatus.OPEN_ACCESS),
                           allows_derivatives=(uri in RightsStatus.ALLOWS_DERIVATIVES))
@@ -170,13 +174,15 @@ class WorkController(AdminCirculationManagerController):
         # db so that it can overrule other data sources that set a value,
         # unlike other sources which set empty fields to None.
 
-        work = self.load_work(flask.request.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library,
+                              identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
         changed = False
 
-        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        staff_data_source = DataSource.lookup(
+            self._db, DataSource.LIBRARY_STAFF)
         primary_identifier = work.presentation_edition.primary_identifier
         staff_edition, is_new = get_one_or_create(
             self._db, Edition,
@@ -199,14 +205,16 @@ class WorkController(AdminCirculationManagerController):
 
         # The form data includes roles and names for contributors in the same order.
         new_contributor_roles = flask.request.form.getlist("contributor-role")
-        new_contributor_names = [str(n) for n in flask.request.form.getlist("contributor-name")]
+        new_contributor_names = [
+            str(n) for n in flask.request.form.getlist("contributor-name")]
         # The first author in the form is considered the primary author, even
         # though there's no separate MARC code for that.
         for i, role in enumerate(new_contributor_roles):
             if role == Contributor.AUTHOR_ROLE:
                 new_contributor_roles[i] = Contributor.PRIMARY_AUTHOR_ROLE
                 break
-        roles_and_names = list(zip(new_contributor_roles, new_contributor_names))
+        roles_and_names = list(
+            zip(new_contributor_roles, new_contributor_names))
 
         # Remove any contributions that weren't in the form, and remove contributions
         # that already exist from the list so they won't be added again.
@@ -217,7 +225,8 @@ class WorkController(AdminCirculationManagerController):
                 deleted_contributions = True
                 changed = True
             else:
-                roles_and_names.remove((contribution.role, contribution.contributor.display_name))
+                roles_and_names.remove(
+                    (contribution.role, contribution.contributor.display_name))
         if deleted_contributions:
             # Ensure the staff edition's contributions are up-to-date when
             # calculating the presentation edition later.
@@ -234,7 +243,8 @@ class WorkController(AdminCirculationManagerController):
                     return UNKNOWN_ROLE.detailed(
                         _("Role %(role)s is not one of the known contributor roles.",
                           role=role))
-                contributor = staff_edition.add_contributor(name=name, roles=[role])
+                contributor = staff_edition.add_contributor(
+                    name=name, roles=[role])
                 contributor.display_name = name
                 changed = True
 
@@ -330,7 +340,8 @@ class WorkController(AdminCirculationManagerController):
                     _("The rating must be a number between %(low)s and %(high)s.",
                       low=scale[0], high=scale[1]))
             if (new_rating - scale[0]) / (scale[1] - scale[0]) != work.quality:
-                primary_identifier.add_measurement(staff_data_source, Measurement.RATING, new_rating, weight=WorkController.STAFF_WEIGHT)
+                primary_identifier.add_measurement(
+                    staff_data_source, Measurement.RATING, new_rating, weight=WorkController.STAFF_WEIGHT)
                 changed = True
                 changed_rating = True
 
@@ -376,7 +387,8 @@ class WorkController(AdminCirculationManagerController):
         self.require_librarian(flask.request.library)
 
         # Turn source + identifier into a LicensePool
-        pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
+        pools = self.load_licensepools(
+            flask.request.library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
             # Something went wrong.
             return pools
@@ -398,7 +410,8 @@ class WorkController(AdminCirculationManagerController):
         self.require_librarian(flask.request.library)
 
         # Turn source + identifier into a group of LicensePools
-        pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
+        pools = self.load_licensepools(
+            flask.request.library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
             # Something went wrong.
             return pools
@@ -412,13 +425,15 @@ class WorkController(AdminCirculationManagerController):
         """Refresh the metadata for a book from the content server"""
         self.require_librarian(flask.request.library)
 
-        work = self.load_work(flask.request.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library,
+                              identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
         if not provider and work.license_pools:
             try:
-                provider = MetadataWranglerCollectionRegistrar(work.license_pools[0].collection)
+                provider = MetadataWranglerCollectionRegistrar(
+                    work.license_pools[0].collection)
             except CannotLoadConfiguration:
                 return METADATA_REFRESH_FAILURE
 
@@ -432,7 +447,7 @@ class WorkController(AdminCirculationManagerController):
         if record.exception:
             # There was a coverage failure.
             if (str(record.exception).startswith("201") or
-                str(record.exception).startswith("202")):
+                    str(record.exception).startswith("202")):
                 # A 201/202 error means it's never looked up this work before
                 # so it's started the resolution process or looking for sources.
                 return METADATA_REFRESH_PENDING
@@ -445,7 +460,8 @@ class WorkController(AdminCirculationManagerController):
         """Resolve all complaints for a particular license pool and complaint type."""
         self.require_librarian(flask.request.library)
 
-        work = self.load_work(flask.request.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library,
+                              identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -468,10 +484,19 @@ class WorkController(AdminCirculationManagerController):
         return Response("", 200)
 
     def classifications(self, identifier_type, identifier):
-        """Return list of this work's classifications."""
+        """Return list of this work's classifications.
+
+        Args:
+            identifier_type (string): Type of identifier e.g ISBN
+            identifier (string): Identifier for a work
+
+        Returns:
+            dict: A dict of work with list of classifications for the work.
+        """
         self.require_librarian(flask.request.library)
 
-        work = self.load_work(flask.request.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library,
+                              identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -505,11 +530,13 @@ class WorkController(AdminCirculationManagerController):
         """Edit a work's audience, target age, fiction status, and genres."""
         self.require_librarian(flask.request.library)
 
-        work = self.load_work(flask.request.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library,
+                              identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
-        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        staff_data_source = DataSource.lookup(
+            self._db, DataSource.LIBRARY_STAFF)
 
         # Previous staff classifications
         primary_identifier = work.presentation_edition.primary_identifier
@@ -554,11 +581,13 @@ class WorkController(AdminCirculationManagerController):
 
         # Update target age if present
         new_target_age_min = flask.request.form.get("target_age_min")
-        new_target_age_min = int(new_target_age_min) if new_target_age_min else None
+        new_target_age_min = int(
+            new_target_age_min) if new_target_age_min else None
         new_target_age_max = flask.request.form.get("target_age_max")
-        new_target_age_max = int(new_target_age_max) if new_target_age_max else None
+        new_target_age_max = int(
+            new_target_age_max) if new_target_age_max else None
         if new_target_age_max is not None and new_target_age_min is not None and \
-            new_target_age_max < new_target_age_min:
+                new_target_age_max < new_target_age_min:
             return INVALID_EDIT.detailed(_("Minimum target age must be less than maximum target age."))
 
         if work.target_age:
@@ -575,7 +604,8 @@ class WorkController(AdminCirculationManagerController):
 
             # Create a new classification with a high weight - higher than audience
             if new_target_age_min and new_target_age_max:
-                age_range_identifier = "%s-%s" % (new_target_age_min, new_target_age_max)
+                age_range_identifier = "%s-%s" % (
+                    new_target_age_min, new_target_age_max)
                 primary_identifier.classify(
                     data_source=staff_data_source,
                     subject_type=Subject.AGE_RANGE,
@@ -586,7 +616,8 @@ class WorkController(AdminCirculationManagerController):
         # Update fiction status
         # If fiction status hasn't changed but genres have changed,
         # we still want to ensure that there's a staff classification
-        new_fiction = True if flask.request.form.get("fiction") == "fiction" else False
+        new_fiction = True if flask.request.form.get(
+            "fiction") == "fiction" else False
         if new_fiction != work.fiction or genres_changed:
             # Delete previous staff fiction classifications
             for c in old_classifications:
@@ -672,8 +703,8 @@ class WorkController(AdminCirculationManagerController):
     def _validate_cover_image(self, image):
         image_width, image_height = image.size
         if image_width < self.MINIMUM_COVER_WIDTH or image_height < self.MINIMUM_COVER_HEIGHT:
-           return INVALID_IMAGE.detailed(_("Cover image must be at least %(width)spx in width and %(height)spx in height.",
-                                                 width=self.MINIMUM_COVER_WIDTH, height=self.MINIMUM_COVER_HEIGHT))
+            return INVALID_IMAGE.detailed(_("Cover image must be at least %(width)spx in width and %(height)spx in height.",
+                                            width=self.MINIMUM_COVER_WIDTH, height=self.MINIMUM_COVER_HEIGHT))
         return True
 
     def _process_cover_image(self, work, image, title_position):
@@ -692,8 +723,10 @@ class WorkController(AdminCirculationManagerController):
 
             admin_dir = os.path.dirname(os.path.split(__file__)[0])
             package_dir = os.path.join(admin_dir, "../..")
-            bold_font_path = os.path.join(package_dir, "resources/OpenSans-Bold.ttf")
-            regular_font_path = os.path.join(package_dir, "resources/OpenSans-Regular.ttf")
+            bold_font_path = os.path.join(
+                package_dir, "resources/OpenSans-Bold.ttf")
+            regular_font_path = os.path.join(
+                package_dir, "resources/OpenSans-Regular.ttf")
             font_size = image_width // 20
             bold_font = ImageFont.truetype(bold_font_path, font_size)
             regular_font = ImageFont.truetype(regular_font_path, font_size)
@@ -716,7 +749,8 @@ class WorkController(AdminCirculationManagerController):
             ascent, descent = bold_font.getmetrics()
             line_height = ascent + descent
 
-            total_text_height = line_height * (len(title_lines) + len(author_lines))
+            total_text_height = line_height * \
+                (len(title_lines) + len(author_lines))
             rectangle_height = total_text_height + line_height
 
             rectangle_width = max_line_width + 2 * padding
@@ -731,14 +765,14 @@ class WorkController(AdminCirculationManagerController):
 
             draw.rectangle([(start_x, start_y),
                             (start_x + rectangle_width, start_y + rectangle_height)],
-                           fill=(255,255,255,255))
+                           fill=(255, 255, 255, 255))
 
             current_y = start_y + line_height / 2
             for lines, font in [(title_lines, bold_font), (author_lines, regular_font)]:
                 for line in lines:
                     line_width, ignore = font.getsize(line)
                     draw.text((start_x + (rectangle_width - line_width) / 2, current_y),
-                              line, font=font, fill=(0,0,0,255))
+                              line, font=font, fill=(0, 0, 0, 255))
                     current_y += line_height
 
             del draw
@@ -748,11 +782,13 @@ class WorkController(AdminCirculationManagerController):
     def preview_book_cover(self, identifier_type, identifier):
         """Return a preview of the submitted cover image information."""
         self.require_librarian(flask.request.library)
-        work = self.load_work(flask.request.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library,
+                              identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
-        image = self.generate_cover_image(work, identifier_type, identifier, True)
+        image = self.generate_cover_image(
+            work, identifier_type, identifier, True)
         if isinstance(image, ProblemDetail):
             return image
 
@@ -770,7 +806,8 @@ class WorkController(AdminCirculationManagerController):
             return INVALID_IMAGE.detailed(_("Image file or image URL is required."))
         elif image_url and not Validator()._is_url(image_url, []):
             return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=image_url))
-
+            
+        #TODO remove unused title_position.
         title_position = flask.request.form.get("title_position")
         if image_url and not image_file:
             image_file = BytesIO(urllib.request.urlopen(image_url).read())
@@ -802,7 +839,8 @@ class WorkController(AdminCirculationManagerController):
             image.save(original_buffer, format="PNG")
             original_content = original_buffer.getvalue()
             if not original_href:
-                original_href = Hyperlink.generic_uri(data_source, work.presentation_edition.primary_identifier, Hyperlink.IMAGE, content=original_content)
+                original_href = Hyperlink.generic_uri(
+                    data_source, work.presentation_edition.primary_identifier, Hyperlink.IMAGE, content=original_content)
 
             image = self._process_cover_image(work, image, title_position)
 
@@ -822,7 +860,8 @@ class WorkController(AdminCirculationManagerController):
         return original, derivation_settings, cover_href, cover_rights_explanation
 
     def _get_collection_from_pools(self, identifier_type, identifier):
-        pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
+        pools = self.load_licensepools(
+            flask.request.library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
             return pools
         if not pools:
@@ -836,7 +875,8 @@ class WorkController(AdminCirculationManagerController):
 
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
 
-        work = self.load_work(flask.request.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library,
+                              identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -846,14 +886,16 @@ class WorkController(AdminCirculationManagerController):
         if not rights_uri:
             return INVALID_IMAGE.detailed(_("You must specify the image's license."))
 
-        collection = self._get_collection_from_pools(identifier_type, identifier)
+        collection = self._get_collection_from_pools(
+            identifier_type, identifier)
         if isinstance(collection, ProblemDetail):
             return collection
 
         # Look for an appropriate mirror to store this cover image. Since the
         # mirror should be used for covers, we don't need a mirror for books.
         mirrors = mirrors or dict(
-            covers_mirror=MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS),
+            covers_mirror=MirrorUploader.for_collection(
+                collection, ExternalIntegrationLink.COVERS),
             books_mirror=None
         )
         if not mirrors.get(ExternalIntegrationLink.COVERS):
@@ -863,14 +905,16 @@ class WorkController(AdminCirculationManagerController):
         if isinstance(image, ProblemDetail):
             return image
 
-        original, derivation_settings, cover_href, cover_rights_explanation = self._original_cover_info(image, work, data_source, rights_uri, rights_explanation)
+        original, derivation_settings, cover_href, cover_rights_explanation = self._original_cover_info(
+            image, work, data_source, rights_uri, rights_explanation)
 
         buffer = BytesIO()
         image.save(buffer, format="PNG")
         content = buffer.getvalue()
 
         if not cover_href:
-            cover_href = Hyperlink.generic_uri(data_source, work.presentation_edition.primary_identifier, Hyperlink.IMAGE, content=content)
+            cover_href = Hyperlink.generic_uri(
+                data_source, work.presentation_edition.primary_identifier, Hyperlink.IMAGE, content=content)
 
         cover_data = LinkData(
             Hyperlink.IMAGE, href=cover_href,
@@ -913,7 +957,8 @@ class WorkController(AdminCirculationManagerController):
         return Response(_("Success"), 200)
 
     def _count_complaints_for_work(self, work):
-        complaint_types = [complaint.type for complaint in work.complaints if not complaint.resolved]
+        complaint_types = [
+            complaint.type for complaint in work.complaints if not complaint.resolved]
         return Counter(complaint_types)
 
     def custom_lists(self, identifier_type, identifier):
@@ -924,7 +969,8 @@ class WorkController(AdminCirculationManagerController):
         if isinstance(work, ProblemDetail):
             return work
 
-        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        staff_data_source = DataSource.lookup(
+            self._db, DataSource.LIBRARY_STAFF)
 
         if flask.request.method == "GET":
             lists = []
@@ -958,12 +1004,14 @@ class WorkController(AdminCirculationManagerController):
 
                 if id:
                     is_new = False
-                    list = get_one(self._db, CustomList, id=int(id), name=name, library=library, data_source=staff_data_source)
+                    list = get_one(self._db, CustomList, id=int(
+                        id), name=name, library=library, data_source=staff_data_source)
                     if not list:
                         self._db.rollback()
                         return MISSING_CUSTOM_LIST.detailed(_("Could not find list \"%(list_name)s\"", list_name=name))
                 else:
-                    list, is_new = create(self._db, CustomList, name=name, data_source=staff_data_source, library=library)
+                    list, is_new = create(
+                        self._db, CustomList, name=name, data_source=staff_data_source, library=library)
                     list.created = utc_now()
                 entry, was_new = list.add_entry(work, featured=True)
                 if was_new:

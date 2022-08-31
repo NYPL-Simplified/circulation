@@ -1,12 +1,13 @@
 import datetime
 import json
-import os
 import re
+import socket
+import ssl
+import urllib
+from functools import partial
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from lxml import etree
-from io import StringIO
-from core.analytics import Analytics
 from core.mock_analytics_provider import MockAnalyticsProvider
 from core.coverage import CoverageFailure
 
@@ -19,8 +20,6 @@ from core.model import (
     ExternalIntegration,
     Hyperlink,
     Identifier,
-    LicensePool,
-    LicensePoolDeliveryMechanism,
     LinkRelations,
     Loan,
     MediaTypes,
@@ -40,12 +39,10 @@ from core.metadata_layer import (
 )
 
 from core.scripts import RunCollectionCoverageProviderScript
-from core.testing import MockRequestsResponse
 
-from core.util.http import (
-    RemoteIntegrationException,
-    HTTP,
-)
+from core.util.flask_util import Response
+from core.util.http import RemoteIntegrationException
+from core.util.problem_detail import ProblemDetail
 
 from api.authenticator import BasicAuthenticationProvider
 
@@ -53,6 +50,7 @@ from api.axis import (
     AudiobookMetadataParser,
     AvailabilityResponseParser,
     Axis360API,
+    Axis360AcsFulfillmentInfo,
     Axis360BibliographicCoverageProvider,
     Axis360CirculationMonitor,
     Axis360FulfillmentInfo,
@@ -66,7 +64,6 @@ from api.axis import (
     HoldResponseParser,
     JSONResponseParser,
     MockAxis360API,
-    ResponseParser,
 )
 
 from core.testing import DatabaseTest
@@ -933,6 +930,21 @@ class TestAxis360API(Axis360Test):
         # the licenses_owned change and one for the licenses_available
         # change.
         assert 5 == analytics.count
+
+    @pytest.mark.parametrize(
+        ("setting", "setting_value", "attribute", "attribute_value"),
+        [
+            (Axis360API.VERIFY_SSL, None, "verify_certificate", True),
+            (Axis360API.VERIFY_SSL, "True", "verify_certificate", True),
+            (Axis360API.VERIFY_SSL, "False", "verify_certificate", False),
+        ]
+    )
+    def test_integration_settings(self, setting, setting_value, attribute, attribute_value):
+        external_integration = self.collection.external_integration
+        if setting_value is not None:
+            external_integration.setting(setting).value = setting_value
+        api = MockAxis360API(self._db, self.collection)
+        assert getattr(api, attribute) == attribute_value
 
 
 class TestCirculationMonitor(Axis360Test):
@@ -1963,3 +1975,107 @@ class TestAxis360BibliographicCoverageProvider(Axis360Test):
         )
         assert [] == identifier.licensed_through
         assert [] == identifier.primarily_identifies
+
+
+class TestAxis360AcsFulfillmentInfo:
+    @pytest.fixture
+    def mock_request(self):
+        # Create a mock request object that we can use in the tests
+        mock_request = MagicMock()
+        mock_request_enter = MagicMock(read=MagicMock(return_value=""), status=200, headers={})
+        mock_request.__enter__.return_value = mock_request_enter
+        mock_request.__exit__.return_value = None
+        return mock_request
+
+    @pytest.fixture
+    def fulfillment_info(self):
+        # A partial of the Axis360AcsFulfillmentInfo object to make it easier to
+        # create these objects in our tests by supplying default parameters
+        params = {
+            "collection": 0,
+            "content_type": None,
+            "content": None,
+            "content_expires": None,
+            "data_source_name": None,
+            "identifier_type": None,
+            "identifier": None,
+            "verify": None,
+            "content_link": "https://fake.url"
+        }
+        return partial(Axis360AcsFulfillmentInfo, **params)
+
+    @pytest.fixture
+    def patch_urllib_urlopen(self, monkeypatch):
+        # Monkeypatch the urllib.request.urlopen function to whatever is passed into
+        # this function.
+        def patch_urlopen(mock):
+            monkeypatch.setattr(urllib.request, "urlopen", mock)
+        return patch_urlopen
+
+    def test_url_encoding_not_capitalized(self, patch_urllib_urlopen, mock_request, fulfillment_info):
+        # Mock the urllopen function to make sure that the URL is not actually requested
+        # then make sure that when the request is built the %3a character encoded in the
+        # string is not uppercased to be %3A.
+        called_url = None
+
+        def mock_urlopen(url, **kwargs):
+            nonlocal called_url
+            called_url = url
+            return mock_request
+
+        patch_urllib_urlopen(mock_urlopen)
+        fulfillment = fulfillment_info(content_link="https://test.com/?param=%3atest123")
+        response = fulfillment.as_response
+        assert called_url is not None
+        assert called_url.selector == "/?param=%3atest123"
+        assert called_url.host == "test.com"
+        assert type(response) == Response
+        mock_request.__enter__.assert_called()
+        mock_request.__enter__.return_value.read.assert_called()
+        assert 'status' in dir(mock_request.__enter__.return_value)
+        assert 'headers' in dir(mock_request.__enter__.return_value)
+        mock_request.__exit__.assert_called()
+
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            urllib.error.HTTPError(url="", code=301, msg="", hdrs={}, fp=Mock()),
+            socket.timeout(),
+            urllib.error.URLError(reason=""),
+            ssl.SSLError()
+        ],
+        ids=lambda val: val.__class__.__name__
+    )
+    def test_exception_returns_problem_detail(self, patch_urllib_urlopen, fulfillment_info, exception):
+        # Check that when the urlopen function throws an exception, we catch the exception and
+        # we turn it into a problem detail to be returned to the client. This mimics the behavior
+        # of the http utils function that we are bypassing with this fulfillment method.
+        patch_urllib_urlopen(Mock(side_effect=exception))
+        fulfillment = fulfillment_info()
+        response = fulfillment.as_response
+        assert type(response) == ProblemDetail
+
+    @pytest.mark.parametrize(
+        ("verify", "verify_mode", "check_hostname"),
+        [
+            (True, ssl.CERT_REQUIRED, True),
+            (False, ssl.CERT_NONE, False)
+        ]
+    )
+    def test_verify_ssl(self, patch_urllib_urlopen, mock_request, fulfillment_info, verify, verify_mode, check_hostname):
+        # Make sure that when the verify parameter of the fulfillment method is set we use the
+        # correct SSL context to either verify or not verify the ssl certificate for the
+        # URL we are fetching.
+
+        mock_urlopen = MagicMock(return_value=mock_request)
+
+        patch_urllib_urlopen(mock_urlopen)
+        fulfillment = fulfillment_info(verify=verify)
+
+        fulfillment.as_response
+
+        mock_urlopen.assert_called()
+        assert 'context' in mock_urlopen.call_args[1]
+        context = mock_urlopen.call_args[1]['context']
+        assert context.verify_mode == verify_mode
+        assert context.check_hostname == check_hostname

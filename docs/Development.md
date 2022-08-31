@@ -58,20 +58,20 @@ While the cluster is running (and after the web server has started), you should 
 
 Other lifecycle management commands (a full list is available via `make help`):
 
-* `make stop` / `make start` - after running `make up`, you can pause and unpause the cluster without destroying the containers
-* `make down` - stops the cluster and removes the containers and virtual network
-* `make clean` - stops the cluster, removes the containers and virtual network, and the db volume
-* `make full-clean` - same as `make clean`, but also deletes the Docker images for the cluster
+- `make stop` / `make start` - after running `make up`, you can pause and unpause the cluster without destroying the containers
+- `make down` - stops the cluster and removes the containers and virtual network
+- `make clean` - stops the cluster, removes the containers and virtual network, and the db volume
+- `make full-clean` - same as `make clean`, but also deletes the Docker images for the cluster
 
 ### Accessing the Containers
 
 While the cluster is running, you can access the containers with these commands:
 
-* `make db-session` - Starts a `psql` session on the database container as the superuser
-* `make webapp-shell` - Open a bash shell on the webapp container
-* `make webapp-py-repl` - Open a Python REPL session on the webapp container, in the project's virtualenv
-* `make scripts-shell` - Open a bash shell on the scripts container
-* `make scripts-py-repl` - Open a Python REPL session on the scripts container, in the project's virtualenv
+- `make db-session` - Starts a `psql` session on the database container as the superuser
+- `make webapp-shell` - Open a bash shell on the webapp container
+- `make webapp-py-repl` - Open a Python REPL session on the webapp container, in the project's virtualenv
+- `make scripts-shell` - Open a bash shell on the scripts container
+- `make scripts-py-repl` - Open a Python REPL session on the scripts container, in the project's virtualenv
 
 ## Testing
 
@@ -92,23 +92,23 @@ make test-x
 You can ignore the `Makefile` and directly issue the `pytest` command to the webapp container via `docker exec`, as follows:
 
 ```shell
-docker exec -it cm_local_webapp pipenv run pytest tests
+docker exec -it cm_local_webapp runinvenv /simplified_venv pytest tests
 ```
 
 That gives you access to all of the standard options to `pytest`, allowing variations like:
 
 ```shell
 # Fail fast with -x
-docker exec -it --env TESTING=1 cm_local_webapp pipenv run pytest -x tests
+docker exec -it --env TESTING=1 cm_local_webapp runinvenv /simplified_venv pytest -x tests
 
-# Run a particular test class
-docker exec -it --env TESTING=1 cm_local_webapp pipenv \run pytest tests/test_decorators.py::TestDecorators
+# Run a particular test class !!!!!Correct!!!!!
+docker exec -it cm_local_webapp runinvenv /simplified_venv pytest tests/admin/test_routes.py::TestAdminSignIn
 
 # Run a specific test method
-docker exec -it --env TESTING=1 cm_local_webapp pipenv run pytest tests/test_decorators.py::TestDecorators::test_uses_location_from_ip
+docker exec -it --env TESTING=1 cm_local_webapp runinvenv /simplified_venv pytest tests/test_decorators.py::TestDecorators::test_uses_location_from_ip
 
 # Turn off the warnings output
-docker exec -it --env TESTING=1 cm_local_webapp pipenv run pytest --disable-warnings tests
+docker exec -it --env TESTING=1 cm_local_webapp runinvenv /simplified_venv --disable-warnings tests
 ```
 
 The full set of options to the `pytest` executable is available at [https://docs.pytest.org/en/6.2.x/usage.html](https://docs.pytest.org/en/6.2.x/usage.html)
