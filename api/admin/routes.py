@@ -1549,7 +1549,7 @@ def admin_auth_services():
     ---
     get:
       tags: 
-        - administration
+        - administration services
       summary: Fetch dict of admin auth services
       description: |
         Fetch admin auth protocol. The following restrictions apply:
@@ -1585,7 +1585,7 @@ def admin_auth_services():
               schema: ProblemResponse
     post:
       tags:
-        - administration
+        - administration services
       summary: Create or update admin auth protocol.
       description: |
         Create or update admin auth protocol. The following restrictions apply:
@@ -1646,7 +1646,7 @@ def admin_auth_service(protocol):
     ---
     delete:
       tags:
-        - administration
+        - administration services
       summary: Delete admin auth service.
       description: |
         Delete admin auth protocol. The following restrictions apply:
@@ -2016,7 +2016,7 @@ def metadata_services():
     ---
     get:
       tags:
-        - administration
+        - administration services
       summary: Return a JSON representation of metadata services and protocols
       security:
         - BasicAuth: []
@@ -2051,7 +2051,7 @@ def metadata_services():
               schema: ProblemResponse
     post:
       tags:
-        - administration
+        - administration services
       summary: Create or edit metadata services.
       security:
         - BasicAuth: []
@@ -2173,7 +2173,7 @@ def analytics_services():
     ---
     get:
       tags:
-        - analytics
+        - administration services
       summary: Return a JSON representation of analytics services and protocols
       security:
         - BasicAuth: []
@@ -2208,7 +2208,7 @@ def analytics_services():
               schema: ProblemResponse
     post:
       tags:
-        - analytics
+        - administration services
       summary: Create or edit analytics services.
       security:
         - BasicAuth: []
@@ -2338,7 +2338,7 @@ def search_services():
     ---
     get:
       tags: 
-        - administration
+        - administration services
       summary: Fetch list of search services and associated protocols
       description: Fetch list of search services and protocols for admins
       security:
@@ -2372,7 +2372,7 @@ def search_services():
               schema: ProblemResponse
     post:
       tags:
-        - administration
+        - administration services
       summary: Create or update search services
       description: |
         Create or update search services and associated protocols.
@@ -2507,14 +2507,14 @@ def storage_service(service_id):
 @requires_admin
 @requires_csrf_token
 def catalog_services():
-    """Manage admin catalog services
+    """Manage catalog services.
     ---
     get:
       tags: 
-        - administration
+        - administration services
       summary: Fetch JSON representation of catalog services.
       description: |
-        Fetch admin catalog protocols and services. The following restrictions apply:
+        Fetch catalog protocols and services. The following restrictions apply:
         * Requires admin
       security:
         - BasicAuth: []
@@ -2547,10 +2547,10 @@ def catalog_services():
               schema: ProblemResponse
     post:
       tags:
-        - administration
-      summary: Create or update admin catalog protocol.
+        - administration services
+      summary: Create or update catalog protocol.
       description: |
-        Create or update admin catalog protocol. The following restrictions apply:
+        Create or update catalog protocol. The following restrictions apply:
         * Requires admin
       security:
         - BasicAuth: []
@@ -2563,7 +2563,7 @@ def catalog_services():
             schema: AdminProtocolPost
       responses:
         2XX:
-          description: Name of admin catalog protocol
+          description: Name of catalog protocol
           content:
             text/html:
               schema: 
@@ -2601,7 +2601,7 @@ def catalog_service(service_id):
     ---
     delete:
       tags:
-        - administration
+        - administration services
       summary: Delete a catalog service.
       description: |
         Delete catalog service. The following restrictions apply:
@@ -2655,7 +2655,7 @@ def discovery_services():
     ---
     get:
       tags: 
-        - administration
+        - administration services
       summary: Fetch JSON representation of discovery services.
       description: |
         Fetch admin catalog protocols and services. The following restrictions apply:
@@ -2691,7 +2691,7 @@ def discovery_services():
               schema: ProblemResponse
     post:
       tags:
-        - administration
+        - administration services
       summary: Create or update admin discovery protocol.
       description: |
         Create or update admin discovery protocol. The following restrictions apply:
@@ -2745,7 +2745,7 @@ def discovery_service(service_id):
     ---
     delete:
       tags:
-        - administration
+        - administration services
       summary: Delete a discovery service.
       description: |
         Delete catalog service. The following restrictions apply:
@@ -2817,7 +2817,7 @@ def logging_services():
     ---
     get:
       tags: 
-        - administration
+        - administration services
       summary: Fetch list of logging services and associated protocols
       description: Fetch list of logging services and protocols for admins
       security:
@@ -2851,7 +2851,7 @@ def logging_services():
               schema: ProblemResponse
     post:
       tags:
-        - administration
+        - administration services
       summary: Create or update logging services
       description: |
         Create or update logging services and associated protocols.
