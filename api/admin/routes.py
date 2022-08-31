@@ -2658,7 +2658,7 @@ def discovery_services():
         - administration services
       summary: Fetch JSON representation of discovery services.
       description: |
-        Fetch discovery protocols and services. The following restrictions apply:
+        Fetch discovery services and protocols. The following restrictions apply:
         * Requires admin
       security:
         - BasicAuth: []
