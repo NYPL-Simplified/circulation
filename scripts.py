@@ -168,6 +168,8 @@ class CreateWorksForIdentifiersScript(Script):
                     self.process_batch(batch)
                     batch = []
 
+        self._db.close()
+
     def process_batch(self, batch):
         response = self.lookup.lookup(batch)
 
@@ -237,6 +239,9 @@ class MetadataCalculationScript(Script):
                 checkpoint()
         checkpoint()
 
+        # Close existing database session and associated connection objects
+        self._db.close()
+
 class FillInAuthorScript(MetadataCalculationScript):
     """Fill in Edition.sort_author for Editions that have a list of
     Contributors, but no .sort_author.
@@ -272,6 +277,9 @@ class UpdateStaffPicksScript(Script):
         reader = csv.DictReader(inp, dialect='excel-tab')
         importer.to_customlist(self._db, reader)
         self._db.commit()
+
+        # Close existing database session and associated connection objects
+        self._db.close()
 
     def open(self):
         if len(sys.argv) > 1:
