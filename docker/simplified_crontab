@@ -119,8 +119,8 @@ PID1_STDERR=/proc/1/fd/2
 0 0 * * * core/bin/run update_custom_list_size |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # update_lane_size - Update the cached sizes of all lanes.
-#   Frequency: Minute 0 of hour 10 (once daily)
-0  10 * * * core/bin/run update_lane_size |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 2 of hour 10 (once daily)
+2 10 * * * core/bin/run update_lane_size |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 #### Bibliographic metadata maintenance ######################################
 
@@ -129,28 +129,28 @@ PID1_STDERR=/proc/1/fd/2
 30 3 * * * core/bin/run update_nyt_best_seller_lists |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # work_presentation_editions - Re-generate presentation editions of any Works that need it.
-#   Frequency: Minute 0 of every 3rd hour
-0 */3 * * * core/bin/run work_presentation_editions |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 7 of every 3rd hour from 1 through 23
+7 1-23/3 * * * core/bin/run work_presentation_editions |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # work_classification - Re-classify any Works that need it.
-#   Frequency: Minute 0 of every 3rd hour
-0 */3 * * * core/bin/run work_classification |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 3 of every 3rd hour from 2 through 23
+3 2-23/3 * * * core/bin/run work_classification |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # work_classify_unchecked_subjects - (Re)calculate the presentation of works associated with unchecked subjects.
-#   Frequency: Minute 30 of hour 22 (once daily)
-30 22 * * * core/bin/run work_classify_unchecked_subjects |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 32 of hour 22 (once daily)
+32 22 * * * core/bin/run work_classify_unchecked_subjects |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # opds_entry_coverage - Make sure all presentation-ready works have up-to-date OPDS entries.
-#   Frequency: Minute 40 of hour 22 (once daily)
-40 22 * * * core/bin/run opds_entry_coverage |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 42 of hour 22 (once daily)
+42 22 * * * core/bin/run opds_entry_coverage |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # marc_record_coverage - Make sure all presentation-ready works have up-to-date MARC records.
-#   Frequency: Minute 40 of hour 23 (once daily)
-40 23 * * * core/bin/run marc_record_coverage |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 53 of hour 23 (once daily)
+53 23 * * * core/bin/run marc_record_coverage |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # database_reaper - Remove miscellaneous expired things (Credentials, CachedFeeds, Loans, etc.) from the database.
-#   Frequency: Minute 0 of hour 2 (once daily)
-0 2 * * * core/bin/run database_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 4 of hour 2 (once daily)
+4 2 * * * core/bin/run database_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # novelist_update - Get all ISBNs for all collections in a library and send to NoveList.
 #   Frequency: Minute 0 of hour 0, on Sundays (once weekly)
@@ -190,8 +190,8 @@ PID1_STDERR=/proc/1/fd/2
 #--- Overdrive ---------------------------------------------------------------
 
 # overdrive_new_titles - Look for new titles added to Overdrive collections which slipped through the cracks.
-#   Frequency: Minute 25 of every hour
-25 */1 * * * core/bin/run overdrive_new_titles |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 37 of every hour
+37 */1 * * * core/bin/run overdrive_new_titles |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # overdrive_monitor_recent - Monitor the Overdrive collections by going through the recently changed list.
 #   Frequency: Every 15th minute
@@ -208,12 +208,12 @@ PID1_STDERR=/proc/1/fd/2
 #--- Enki --------------------------------------------------------------------
 
 # enki_reaper - Monitor the Enki collection by looking for books with lost licenses.
-#   Frequency: Minute 8 of every 6th hour
-8 */6 * * * core/bin/run enki_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 43 of every 6th hour
+43 */6 * * * core/bin/run enki_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # enki_import - monitor the Enki collection by asking about recently changed books.
-#   Frequency: Minute 0 of every 6th hour
-0 */6 * * * core/bin/run enki_import |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 17 of every 6th hour from 4 to 23
+17 4-23/6 * * * core/bin/run enki_import |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 #--- OPDS For Distributors ---------------------------------------------------
 
@@ -247,19 +247,19 @@ PID1_STDERR=/proc/1/fd/2
 
 # odl_import_monitor - Update the circulation manager server with new books from ODL collections.
 #   Frequency: Minute 0 of hour 6 (once daily)
-0 6 * * * core/bin/run odl_import_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+52 6 * * * core/bin/run odl_import_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # odl_hold_reaper - Check for ODL holds that have expired and delete them.
-#   Frequency: Minute 8 of every 4th hour
-8 */4 * * * core/bin/run odl_hold_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 12 of every 4th hour
+12 */4 * * * core/bin/run odl_hold_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # odl_reaper - Check for ODL licenses that have expired and delete them. TODO: Find out why this isn't in the scripts wiki page.
-#   Frequency: Minute 25 of every hour
-25 */1 * * * core/bin/run odl_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 22 of every hour
+22 */1 * * * core/bin/run odl_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # shared_odl_import_monitor - Update the circulation manager server with new books from shared ODL collections.
-#   Frequency: Minute 5 of every 6th hour
-5 */6 * * * core/bin/run shared_odl_import_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 17 of every 6th hour
+17 */6 * * * core/bin/run shared_odl_import_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 #--- ProQuest ----------------------------------------------------------------
 
@@ -270,8 +270,8 @@ PID1_STDERR=/proc/1/fd/2
 #--- SAML --------------------------------------------------------------------
 
 # saml_monitor - Refreshes SAML federated metadata.
-#   Frequency: Minute 0 of hour 5 (once daily)
-0 5 * * * core/bin/run saml_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 42 of hour 4 (once daily)
+42 4 * * * core/bin/run saml_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 #### DEPRECATED ##############################################################
 
