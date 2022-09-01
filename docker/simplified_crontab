@@ -166,8 +166,8 @@ PID1_STDERR=/proc/1/fd/2
 #--- Axis 360 ----------------------------------------------------------------
 
 # axis_monitor - Monitor the Axis 360 collection by asking about recently changed books.
-#   Frequency: Every 15th minute
-*/15 * * * * core/bin/run axis_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Every 15th minute from 3 through 59
+3-59/15 * * * * core/bin/run axis_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # axis_reaper - Monitor the Axis collection by looking for books that have been removed.
 #   Frequency: Minute 50 of every hour
@@ -176,16 +176,16 @@ PID1_STDERR=/proc/1/fd/2
 #--- Bibliotheca -------------------------------------------------------------
 
 # bibliotheca_monitor - Monitor the Bibliotheca collections by asking about recently changed events.
-#   Frequency: Every 15th minute
-*/15 * * * * core/bin/run bibliotheca_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Every 15th minute from 6 through 59
+6-59/15 * * * * core/bin/run bibliotheca_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # bibliotheca_purchase_monitor - Ask the Bibliotheca API about license purchases, potentially purchases that happened many years in the past.
 #   Frequency: Minute 20 of every hour
 20 */1 * * * core/bin/run bibliotheca_purchase_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # bibliotheca_circulation_sweep - Sweep through our Bibliotheca collections verifying circulation stats.
-#   Frequency: Minute 35 of every hour
-35 */1 * * * core/bin/run bibliotheca_circulation_sweep |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Minute 32 of every hour
+32 */1 * * * core/bin/run bibliotheca_circulation_sweep |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 #--- Overdrive ---------------------------------------------------------------
 
@@ -194,12 +194,12 @@ PID1_STDERR=/proc/1/fd/2
 37 */1 * * * core/bin/run overdrive_new_titles |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # overdrive_monitor_recent - Monitor the Overdrive collections by going through the recently changed list.
-#   Frequency: Every 15th minute
-*/15 * * * * core/bin/run overdrive_monitor_recent |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Every 15th minute from 9 through 59
+9-59/15 * * * * core/bin/run overdrive_monitor_recent |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # overdrive_reaper - Monitor the Overdrive collections by looking for books with lost licenses.
-#   Frequency: Every 15th minute
-*/15 * * * * core/bin/run overdrive_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+#   Frequency: Every 15th minute from 12 through 59
+12-59/15 * * * * core/bin/run overdrive_reaper |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # overdrive_format_sweep - Sweep through our Overdrive collections updating delivery mechanisms.
 #   Frequency: Every 10 of every hour
@@ -246,7 +246,7 @@ PID1_STDERR=/proc/1/fd/2
 #--- ODL import --------------------------------------------------------------
 
 # odl_import_monitor - Update the circulation manager server with new books from ODL collections.
-#   Frequency: Minute 0 of hour 6 (once daily)
+#   Frequency: Minute 52 of hour 6 (once daily)
 52 6 * * * core/bin/run odl_import_monitor |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # odl_hold_reaper - Check for ODL holds that have expired and delete them.
