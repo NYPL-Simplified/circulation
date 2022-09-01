@@ -104,7 +104,7 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
             return True
         return False
 
-    def request(self, url, header):
+    def request(self, url, header={}):
         """Make an HTTP request.
 
         Defined to be overridden in test mock.
