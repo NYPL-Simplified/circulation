@@ -17,13 +17,14 @@ from core.model import (
     Patron,
 )
 
+
 class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
 
-    NAME = 'First Book (deprecated)'
+    NAME = 'First Book (New 8/2022)'
 
     DESCRIPTION = _("""
         An authentication service for Open eBooks that authenticates
-        using access codes and PINs. (This is the old version.)""")
+        using access codes and PINs. (This is the new version as of 8/2022.)""")
 
     DISPLAY_NAME = NAME
     DEFAULT_IDENTIFIER_LABEL = _("Access Code")
@@ -39,27 +40,27 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = '^[A-Za-z0-9@]+$'
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = '^[0-9]+$'
 
+    API_PATH = 'rest/V1/serialcode?'
+
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "format": "url", "label": _("URL"), "required": True },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Key"), "required": True },
+        {"key": ExternalIntegration.URL, "format": "url",
+            "label": _("URL"), "required": True},
+        {"key": ExternalIntegration.PASSWORD,
+            "label": _("Key"), "required": True},
     ] + BasicAuthenticationProvider.SETTINGS
 
     log = logging.getLogger("First Book authentication API")
 
-    def __init__(self, library_id, integration, analytics=None, root=None):
-        super(FirstBookAuthenticationAPI, self).__init__(library_id, integration, analytics)
+    def __init__(self, library_id, integration, analytics=None, root=None, secret=None):
+        super(FirstBookAuthenticationAPI, self).__init__(
+            library_id, integration, analytics)
+        self.key = secret or integration.password
         if not root:
-            url = integration.url
-            key = integration.password
-            if not (url and key):
+            root = integration.url
+            if not (root and self.key):
                 raise CannotLoadConfiguration(
                     "First Book server not configured."
                 )
-            if '?' in url:
-                url += '&'
-            else:
-                url += '?'
-            root = url + 'key=' + key
         self.root = root
 
     # Begin implementation of BasicAuthenticationProvider abstract
@@ -84,11 +85,10 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     # End implementation of BasicAuthenticationProvider abstract methods.
 
     def remote_pin_test(self, barcode, pin):
-        url = self.root + "&accesscode=%s&pin=%s" % tuple(map(
-            urllib.parse.quote, (barcode, pin)
-        ))
+        url = self.root + self.API_PATH + "code=%s&pin=%s" % (barcode, pin)
+        header = {'Authorization': 'Bearer %s' % self.key}
         try:
-            response = self.request(url)
+            response = self.request(url, header)
         except requests.exceptions.ConnectionError as e:
             raise RemoteInitiatedServerError(
                 str(e),
@@ -104,12 +104,12 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
             return True
         return False
 
-    def request(self, url):
+    def request(self, url, header={}):
         """Make an HTTP request.
 
-        Defined solely so it can be overridden in the mock.
+        Defined to be overridden in test mock.
         """
-        return requests.get(url)
+        return requests.get(url, headers=header)
 
 
 class MockFirstBookResponse(object):
@@ -121,6 +121,7 @@ class MockFirstBookResponse(object):
         if isinstance(content, str):
             content = content.encode("utf8")
         self.content = content
+
 
 class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
 
@@ -138,7 +139,9 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
         self.bad_connection = bad_connection
         self.failure_status_code = failure_status_code
 
-    def request(self, url):
+    def request(self, url, header):
+        if not header:
+            raise RemoteInitiatedServerError
         if self.bad_connection:
             # Simulate a bad connection.
             raise requests.exceptions.ConnectionError("Could not connect!")
@@ -148,13 +151,15 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
                 self.failure_status_code, "Error %s" % self.failure_status_code
             )
         qa = urllib.parse.parse_qs(url)
-        if 'accesscode' in qa and 'pin' in qa:
-            [code] = qa['accesscode']
-            [pin] = qa['pin']
-            if code in self.valid and self.valid[code] == pin:
-                return MockFirstBookResponse(200, self.SUCCESS)
+        for key in qa:
+            if key == 'pin':
+                (pin,) = qa['pin']
             else:
-                return MockFirstBookResponse(200, self.FAILURE)
+                (code,) = qa[key]
+        if code in self.valid and self.valid[code] == pin:
+            return MockFirstBookResponse(200, self.SUCCESS)
+        else:
+            return MockFirstBookResponse(200, self.FAILURE)
 
 
 # Specify which of the classes defined in this module is the
