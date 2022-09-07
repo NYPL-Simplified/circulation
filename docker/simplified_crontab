@@ -78,7 +78,14 @@
 #   /var/log/simplified that's named after the script it was asked to run. Those
 #   messages will typically NOT appear in the container output or the cron.log file.
 #
-##############################################################################
+############################################################################### # A database maintenance window is needed between 01:00 and 03:00 on Wednesdays
+if [[ $(date +%u) -eq 3 && $(date +%H) -eq 1 ]]; then
+  echo "I don't run at this time"
+  exit 1
+elif [[ $(date +%u) -eq 3 && $(date +%H) -eq 1 ]]; then
+  echo "I don't run at this time"
+  exit 1
+fi
 
 ## Environment Variables for Cron Shells #####################################
 
