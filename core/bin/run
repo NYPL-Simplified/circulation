@@ -2,6 +2,14 @@
 
 #### Housekeeping functions and variables ####################################
 
+if [[ $(date +%u) -eq 3 && $(date +%H) -eq 1 ]]; then
+  echo "I don't run at this time"
+  exit 1
+elif [[ $(date +%u) -eq 3 && $(date +%H) -eq 2 ]]; then
+  echo "I don't run at this time"
+  exit 1
+fi
+
 THIS_SCRIPTS_NAME="$(basename $0)"
 
 function display_help () {
