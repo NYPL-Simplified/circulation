@@ -19,11 +19,11 @@ jobs:
             ECR_REPOSITORY: ${{ secrets.BPL_ECR_REPOSITORY }}
             AWS_ACCESS_KEY_ID: ${{ secrets.SE_AWS_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY: ${{ secrets.SE_AWS_SECRET_ACCESS_KEY }}
-          - project: OE
+        - project: OE
             ECR_REPOSITORY: ${{ secrets.OE_ECR_REPOSITORY }}
             AWS_ACCESS_KEY_ID: ${{ secrets.OE_AWS_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY: ${{ secrets.OE_AWS_SECRET_ACCESS_KEY }}
-          - project: SE
+        - project: SE
             ECR_REPOSITORY: ${{ secrets.SE_ECR_REPOSITORY }}
             AWS_ACCESS_KEY_ID: ${{ secrets.SE_AWS_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY: ${{ secrets.SE_AWS_SECRET_ACCESS_KEY }}
