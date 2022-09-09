@@ -10,21 +10,21 @@ jobs:
     name: Publish image to ECR
     if: github.event.pull_request.merged
     runs-on: ubuntu-latest
-		strategy:
-			matrix:
-				project: [BPL, OE, SE]
+    strategy:
+      matrix:
+        project: [BPL, OE, SE]
         stage: [cm_scripts_active, cm_webapp_active, cm_exec_active]
-				include:
-					- project: BPL
-						ECR_REPOSITORY: ${{ secrets.BPL_ECR_REPOSITORY }}
+        include:
+        - project: BPL
+            ECR_REPOSITORY: ${{ secrets.BPL_ECR_REPOSITORY }}
             AWS_ACCESS_KEY_ID: ${{ secrets.SE_AWS_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY: ${{ secrets.SE_AWS_SECRET_ACCESS_KEY }}
-					- project: OE
-						ECR_REPOSITORY: ${{ secrets.OE_ECR_REPOSITORY }}
+          - project: OE
+            ECR_REPOSITORY: ${{ secrets.OE_ECR_REPOSITORY }}
             AWS_ACCESS_KEY_ID: ${{ secrets.OE_AWS_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY: ${{ secrets.OE_AWS_SECRET_ACCESS_KEY }}
-					- project: SE
-						ECR_REPOSITORY: ${{ secrets.SE_ECR_REPOSITORY }}
+          - project: SE
+            ECR_REPOSITORY: ${{ secrets.SE_ECR_REPOSITORY }}
             AWS_ACCESS_KEY_ID: ${{ secrets.SE_AWS_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY: ${{ secrets.SE_AWS_SECRET_ACCESS_KEY }}
     steps:
