@@ -16,17 +16,17 @@ jobs:
         stage: [cm_scripts_active, cm_webapp_active, cm_exec_active]
         include:
         - project: BPL
-            ECR_REPOSITORY: ${{ secrets.BPL_ECR_REPOSITORY }}
-            AWS_ACCESS_KEY_ID: ${{ secrets.SE_AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY: ${{ secrets.SE_AWS_SECRET_ACCESS_KEY }}
+          ECR_REPOSITORY: ${{ secrets.BPL_ECR_REPOSITORY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.SE_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SE_AWS_SECRET_ACCESS_KEY }}
         - project: OE
-            ECR_REPOSITORY: ${{ secrets.OE_ECR_REPOSITORY }}
-            AWS_ACCESS_KEY_ID: ${{ secrets.OE_AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY: ${{ secrets.OE_AWS_SECRET_ACCESS_KEY }}
+          ECR_REPOSITORY: ${{ secrets.OE_ECR_REPOSITORY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.OE_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.OE_AWS_SECRET_ACCESS_KEY }}
         - project: SE
-            ECR_REPOSITORY: ${{ secrets.SE_ECR_REPOSITORY }}
-            AWS_ACCESS_KEY_ID: ${{ secrets.SE_AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY: ${{ secrets.SE_AWS_SECRET_ACCESS_KEY }}
+          ECR_REPOSITORY: ${{ secrets.SE_ECR_REPOSITORY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.SE_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SE_AWS_SECRET_ACCESS_KEY }}
     steps:
       - name: checkout
         uses: actions/checkout@v3
