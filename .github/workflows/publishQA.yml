@@ -1,0 +1,61 @@
+# On merge to qa, build a container and deploy to ECR
+name: Publish QA
+on:
+  pull_request:
+    branches: [qa]
+    types: [closed]
+
+jobs:
+  publish_and_deploy_qa:
+    name: Publish image to ECR
+    if: github.event.pull_request.merged
+    runs-on: ubuntu-latest
+		strategy:
+			matrix:
+				project: [BPL, OE, SE]
+        stage: [cm_scripts_active, cm_webapp_active, cm_exec_active]
+				include:
+					- project: BPL
+						ECR_REPOSITORY: ${{ secrets.BPL_ECR_REPOSITORY }}
+            AWS_ACCESS_KEY_ID: ${{ secrets.SE_AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.SE_AWS_SECRET_ACCESS_KEY }}
+					- project: OE
+						ECR_REPOSITORY: ${{ secrets.OE_ECR_REPOSITORY }}
+            AWS_ACCESS_KEY_ID: ${{ secrets.OE_AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.OE_AWS_SECRET_ACCESS_KEY }}
+					- project: SE
+						ECR_REPOSITORY: ${{ secrets.SE_ECR_REPOSITORY }}
+            AWS_ACCESS_KEY_ID: ${{ secrets.SE_AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.SE_AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: Configure QA AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        env:
+          AWS_ACCESS_KEY_ID: ${{ matrix.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ matrix.AWS_SECRET_ACCESS_KEY }}
+        with:
+          aws-access-key-id: $AWS_ACCESS_KEY_ID
+          aws-secret-access-key: $AWS_SECRET_ACCESS_KEY
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ matrix.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG . --target ${{ matrix.stage }}
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:qa-latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:qa-latest
+
+      - name: Force ECS Update
+        run: |
+          aws ecs update-service --cluster ${{ matrix.ECR_REPOSITORY }} --service <service_name> --force-new-deployment
