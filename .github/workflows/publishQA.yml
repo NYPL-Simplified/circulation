@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         project: [BPL, OE, SE]
-        stage: [cm_scripts_active, cm_webapp_active, cm_exec_active]
+        stage: [cm_scripts_active, cm_webapp_active]
         include:
         - project: BPL
           ECR_REPOSITORY: ${{ secrets.BPL_ECR_REPOSITORY }}
