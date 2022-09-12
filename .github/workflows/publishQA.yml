@@ -27,6 +27,10 @@ jobs:
           ECR_REPOSITORY: ${{ secrets.SE_ECR_REPOSITORY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.SE_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.SE_AWS_SECRET_ACCESS_KEY }}
+        - stage: cm_scripts_active
+          container_tag: qa-cron-latest
+        - stage: cm_webapp_active:
+          container_tag: qa-latest
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -50,11 +54,12 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ matrix.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
+          CONTAINER_TAG: ${{ matrix.container_tag }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG . --target ${{ matrix.stage }}
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:qa-latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:qa-latest
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$CONTAINER_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$CONTAINER_TAG
 
       - name: Force ECS Update
         run: |
