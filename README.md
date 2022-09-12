@@ -182,6 +182,22 @@ This project runs all the unit tests through Github Actions for new pull request
 
 As mentioned above, Github Actions is also used to build and deploy Sphinx documentation to Github Pages. The relevant file can be found in `.github/workflows/docks.yml`.
 
+## Running with NewRelic
+
+This codebase includes the provision for instrumenting the API and background scripts with [NewRelic](https://newrelic.com/) for error monitoring, metrics and other purposes. By default this is disabled for local development, and will not function when deployed without specific provisions. The steps below assume you have signed up for a NewRelic account and have access to an API key that can be used to instrument your application.
+
+To instrument when running via docker compose locally three steps must be taken.
+1. You must have the NewRelic infrastructure agent running on your local development machine. This can be installed via `brew` on macOS, or other means (see NewRelic documentation)
+1. A `.env` file must be provided in the root directory that contains the following line: `NEW_RELIC_LICENSE_KEY=[your_newrelic_key_here]`
+2. The `NEW_RELIC_MONITOR_MODE` environment variable must be set to `'true'` in the docker compose file you are currently using
+
+To instrument your deployment Circulation Manager instances you must provide the following environment variables as runtime variables to the docker container(s) running the CM (how you do so depends on your production environment):
+- `NEW_RELIC_APP_NAME`: String that identifies your application
+- `NEW_RELIC_MONITOR_MODE`: Boolean formatted as a string
+- `NEW_RELIC_CONFIG_FILE`: Absolute path to config file, without changes should be `/home/simplified/circulation/newrelic.ini`
+- `NEW_RELIC_ENVIRONMENT`: Specifies dev/qa/prod
+- `NEW_RELIC_LICENSE_KEY`: An API key for your NewRelic account
+
 ## Contributing
 
 See [here](CONTRIBUTING.md) for more information.

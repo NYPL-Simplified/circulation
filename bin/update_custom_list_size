@@ -3,11 +3,21 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from core.scripts import UpdateCustomListSizeScript     # noqa: E402
+def update_custom_list_size():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-UpdateCustomListSizeScript().run()
+    from core.scripts import UpdateCustomListSizeScript     # noqa: E402
+
+    UpdateCustomListSizeScript().run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='update_custom_list_size', group='Scripts'):
+        update_custom_list_size()

@@ -2,13 +2,22 @@
 """Bring in the entire history of all NYT best-seller lists."""
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
+def update_nyt_best_seller_lists():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-from scripts import NYTBestSellerListsScript        # noqa: E402
+    from scripts import NYTBestSellerListsScript        # noqa: E402
 
-include_history = ('history' in sys.argv)
+    include_history = ('history' in sys.argv)
 
-NYTBestSellerListsScript(include_history).run()
+    NYTBestSellerListsScript(include_history).run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='update_nyt_best_seller_lists', group='Scripts'):
+        update_nyt_best_seller_lists()

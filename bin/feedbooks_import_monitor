@@ -3,17 +3,27 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from core.scripts import OPDSImportScript                                   # noqa: E402
-from core.model import ExternalIntegration                                  # noqa: E402
-from api.feedbooks import (FeedbooksOPDSImporter, FeedbooksImportMonitor)   # noqa: E402
+def feedbooks_import_monitor():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-OPDSImportScript(
-    importer_class=FeedbooksOPDSImporter,
-    monitor_class=FeedbooksImportMonitor,
-    protocol=ExternalIntegration.FEEDBOOKS
-).run()
+    from core.scripts import OPDSImportScript                                   # noqa: E402
+    from core.model import ExternalIntegration                                  # noqa: E402
+    from api.feedbooks import (FeedbooksOPDSImporter, FeedbooksImportMonitor)   # noqa: E402
+
+    OPDSImportScript(
+        importer_class=FeedbooksOPDSImporter,
+        monitor_class=FeedbooksImportMonitor,
+        protocol=ExternalIntegration.FEEDBOOKS
+    ).run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='feedbooks_import_monitor', group='Scripts'):
+        feedbooks_import_monitor()
