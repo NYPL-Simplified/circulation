@@ -63,4 +63,4 @@ jobs:
 
       - name: Force ECS Update
         run: |
-          aws ecs update-service --cluster ${{ matrix.ECR_REPOSITORY }} --service <service_name> --force-new-deployment
+          aws ecs update-service --cluster ${{ matrix.ECR_REPOSITORY }} --service ${{ matrix.ECR_REPOSITORY }} --force-new-deployment
