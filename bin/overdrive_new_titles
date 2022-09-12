@@ -3,12 +3,22 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from core.scripts import RunCollectionMonitorScript             # noqa: E402
-from api.overdrive import NewTitlesOverdriveCollectionMonitor   # noqa: E402
+def overdrive_new_titles():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-RunCollectionMonitorScript(NewTitlesOverdriveCollectionMonitor).run()
+    from core.scripts import RunCollectionMonitorScript             # noqa: E402
+    from api.overdrive import NewTitlesOverdriveCollectionMonitor   # noqa: E402
+
+    RunCollectionMonitorScript(NewTitlesOverdriveCollectionMonitor).run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='overdrive_new_titles', group='Scripts'):
+        overdrive_new_titles()

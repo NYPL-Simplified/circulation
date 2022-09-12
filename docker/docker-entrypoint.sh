@@ -33,6 +33,17 @@ printenv | grep -e 'SIMPLIFIED' -e 'LIBSIMPLE' | sed 's/^/export /' > $SIMPLIFIE
 chown simplified:simplified $SIMPLIFIED_ENV_SCRIPT
 export SIMPLIFIED_ENV_SCRIPT
 
+
+##############################################################################
+# Make a file that can be sourced by cron jobs to provide New Relic config
+##############################################################################
+
+NEW_RELIC_ENV_SCRIPT=${SIMPLIFIED_HOME}/new_relic.sh
+touch $NEW_RELIC_ENV_SCRIPT
+printenv | grep -e 'NEW_RELIC' | sed 's/^/export /' > $NEW_RELIC_ENV_SCRIPT
+chown simplified:simplified $NEW_RELIC_ENV_SCRIPT
+export NEW_RELIC_ENV_SCRIPT
+
 ##############################################################################
 # Wait for the database to be ready before doing more initialization work
 ##############################################################################

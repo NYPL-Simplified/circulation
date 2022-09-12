@@ -3,12 +3,22 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from core.coverage import WorkPresentationEditionCoverageProvider       # noqa: E402
-from core.scripts import RunWorkCoverageProviderScript                  # noqa: E402
+def work_presentation_editions():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-RunWorkCoverageProviderScript(WorkPresentationEditionCoverageProvider).run()
+    from core.coverage import WorkPresentationEditionCoverageProvider       # noqa: E402
+    from core.scripts import RunWorkCoverageProviderScript                  # noqa: E402
+
+    RunWorkCoverageProviderScript(WorkPresentationEditionCoverageProvider).run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='work_presentation_editions', group='Scripts'):
+        work_presentation_editions()
