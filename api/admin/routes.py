@@ -1556,7 +1556,7 @@ def collections():
             required: true
             content:
               multipart/form-data:
-                schema: AdminAuthPost
+                schema: AdminProtocolPost
           responses:
             2XX:
               description: Id of updated or created Collection
@@ -1722,7 +1722,7 @@ def admin_auth_services():
     ---
     get:
       tags: 
-        - administration
+        - administration services
       summary: Fetch dict of admin auth services
       description: |
         Fetch admin auth protocol. The following restrictions apply:
@@ -1734,7 +1734,7 @@ def admin_auth_services():
           description: Dict of admin auth services
           content:
             application/json:
-              schema: AdminAuthServicesSchema
+              schema: AdminServicesSchema
         4XX:
           description: |
             An authentication error in which the user could not be authenticated, or 
@@ -1758,7 +1758,7 @@ def admin_auth_services():
               schema: ProblemResponse
     post:
       tags:
-        - administration
+        - administration services
       summary: Create or update admin auth protocol.
       description: |
         Create or update admin auth protocol. The following restrictions apply:
@@ -1771,7 +1771,7 @@ def admin_auth_services():
         required: true
         content:
           multipart/form-data:
-            schema: AdminAuthPost
+            schema: AdminProtocolPost
       responses:
         200:
           description: Name of admin auth service protocol
@@ -1819,7 +1819,7 @@ def admin_auth_service(protocol):
     ---
     delete:
       tags:
-        - administration
+        - administration services
       summary: Delete admin auth service.
       description: |
         Delete admin auth protocol. The following restrictions apply:
@@ -2189,7 +2189,7 @@ def metadata_services():
     ---
     get:
       tags:
-        - administration
+        - administration services
       summary: Return a JSON representation of metadata services and protocols
       security:
         - BasicAuth: []
@@ -2224,7 +2224,7 @@ def metadata_services():
               schema: ProblemResponse
     post:
       tags:
-        - administration
+        - administration services
       summary: Create or edit metadata services.
       security:
         - BasicAuth: []
@@ -2346,7 +2346,7 @@ def analytics_services():
     ---
     get:
       tags:
-        - analytics
+        - administration services
       summary: Return a JSON representation of analytics services and protocols
       security:
         - BasicAuth: []
@@ -2381,7 +2381,7 @@ def analytics_services():
               schema: ProblemResponse
     post:
       tags:
-        - analytics
+        - administration services
       summary: Create or edit analytics services.
       security:
         - BasicAuth: []
@@ -2511,7 +2511,7 @@ def search_services():
     ---
     get:
       tags: 
-        - administration
+        - administration services
       summary: Fetch list of search services and associated protocols
       description: Fetch list of search services and protocols for admins
       security:
@@ -2545,7 +2545,7 @@ def search_services():
               schema: ProblemResponse
     post:
       tags:
-        - administration
+        - administration services
       summary: Create or update search services
       description: |
         Create or update search services and associated protocols.
@@ -2557,7 +2557,7 @@ def search_services():
         required: true
         content:
           multipart/form-data:
-            schema: AdminAuthPost
+            schema: AdminProtocolPost
       responses:
         2XX:
           description: Updated or created service id
@@ -2680,6 +2680,87 @@ def storage_service(service_id):
 @requires_admin
 @requires_csrf_token
 def catalog_services():
+    """Manage catalog services.
+    ---
+    get:
+      tags: 
+        - administration services
+      summary: Fetch JSON representation of catalog services.
+      description: |
+        Fetch catalog protocols and services. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: JSON of catalog services
+          content:
+            application/json:
+              schema: AdminServicesSchema
+        4XX:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              schema: ProblemResponse
+              example: |
+                AdminNotAuthorized
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - administration services
+      summary: Create or update catalog protocol.
+      description: |
+        Create or update catalog protocol. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: AdminProtocolPost
+      responses:
+        2XX:
+          description: Name of catalog protocol
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: Service ID
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, or other issue with the current request. These are returned as JSON objects.
+          content:
+            application/json:
+              schema: ProblemResponse
+              example: |
+                "AdminNotAuthorized, NO_PROTOCOL_FOR_NEW_SERVICE,CANNOT_CHANGE_PROTOCOL, MISSING_SERVICE,INVALID_CONFIGURATION_OPTION"
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_catalog_services_controller.process_catalog_services()
 
 
@@ -2689,6 +2770,51 @@ def catalog_services():
 @requires_admin
 @requires_csrf_token
 def catalog_service(service_id):
+    """Delete a catalog service
+    ---
+    delete:
+      tags:
+        - administration services
+      summary: Delete a catalog service.
+      description: |
+        Delete catalog service. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: service_id
+          schema:
+            type: string
+          description: The name of the service to be deleted
+      responses:
+        200:
+          description: Confirmation of deletion of catalog service.
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: Deleted
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, or other issue with the current request. These are returned as JSON objects.
+          content:
+            application/json:
+              schema: ProblemResponse
+              example: |
+                "MISSING_SERVICE"
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_catalog_services_controller.process_delete(service_id)
 
 
@@ -2698,6 +2824,87 @@ def catalog_service(service_id):
 @requires_admin
 @requires_csrf_token
 def discovery_services():
+    """Manage admin discovery services
+    ---
+    get:
+      tags: 
+        - administration services
+      summary: Fetch JSON representation of discovery services.
+      description: |
+        Fetch discovery services and protocols. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: JSON of discovery services
+          content:
+            application/json:
+              schema: AdminServicesSchema
+        4XX:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              schema: ProblemResponse
+              example: |
+                AdminNotAuthorized
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - administration services
+      summary: Create or update admin discovery protocol.
+      description: |
+        Create or update admin discovery protocol. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: AdminDiscoveryPost
+      responses:
+        2XX:
+          description: Name of admin discovery protocol
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: Protocol ID
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, or other issue with the current request. These are returned as JSON objects.
+          content:
+            application/json:
+              schema: ProblemResponse
+              example: |
+                "AdminNotAuthorized, NO_PROTOCOL_FOR_NEW_SERVICE,CANNOT_CHANGE_PROTOCOL, MISSING_SERVICE,INVALID_CONFIGURATION_OPTION"
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_discovery_services_controller.process_discovery_services()
 
 
@@ -2707,6 +2914,51 @@ def discovery_services():
 @requires_admin
 @requires_csrf_token
 def discovery_service(service_id):
+    """Delete a discovery service
+    ---
+    delete:
+      tags:
+        - administration services
+      summary: Delete a discovery service.
+      description: |
+        Delete catalog service. The following restrictions apply:
+        * Requires admin
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+        - in: path
+          name: service_id
+          schema:
+            type: string
+          description: The name of the service to be deleted
+      responses:
+        200:
+          description: Confirmation of deletion of discovery service.
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: Deleted
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, or other issue with the current request. These are returned as JSON objects.
+          content:
+            application/json:
+              schema: ProblemResponse
+              example: |
+                "MISSING_SERVICE"
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_discovery_services_controller.process_delete(service_id)
 
 
@@ -2738,7 +2990,7 @@ def logging_services():
     ---
     get:
       tags: 
-        - administration
+        - administration services
       summary: Fetch list of logging services and associated protocols
       description: Fetch list of logging services and protocols for admins
       security:
@@ -2772,7 +3024,7 @@ def logging_services():
               schema: ProblemResponse
     post:
       tags:
-        - administration
+        - administration services
       summary: Create or update logging services
       description: |
         Create or update logging services and associated protocols.
@@ -2784,9 +3036,9 @@ def logging_services():
         required: true
         content:
           multipart/form-data:
-            schema: AdminAuthPost
+            schema: AdminProtocolPost
       responses:
-        200:
+        2XX:
           description: Service id
           content:
             text/html:
@@ -2840,6 +3092,87 @@ def logging_service(key):
 @requires_admin
 @requires_csrf_token
 def discovery_service_library_registrations():
+    """Manage library discovery services and registration
+    ---
+    get:
+      tags: 
+        - administration
+      summary: Fetch list of discovery services and associated libraries
+      description: Make a list of all discovery services, each with the list of libraries registered with that service and the status of the registration
+      security:
+        - BasicAuth: []
+      responses:
+        200:
+          description: Dict of logging services and associated protocols
+          content:
+            application/json:
+              schema: DiscoveryServiceGet
+        4XX:
+          description: |
+            An authentication error in which the user could not be authenticated, or 
+            is outherwise un-authorized to perform this action.
+
+            This returns an HTML page with details of the error and a link to the sign-in page.
+          content:
+            text/html:
+              schema: ProblemResponse
+              example: |
+                MISSING_SERVICE
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    post:
+      tags:
+        - administration
+      summary: Register a library with RemoteRegistry
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: DiscoverServiceRegPost
+      responses:
+        2XX:
+          description: Confirmation of library discovery service registration
+          content:
+            text/html:
+              schema: 
+                type: string
+                example: Success
+        4XX:
+          description: |
+            These are anticipated errors due to a malformed request, invalid option, 
+            or other issue with the current request. These are returned as JSON objects with 
+            a uniquely identifying URI. Possible URIs for this endpoint are:
+            * `http://librarysimplified.org/terms/problem/incomplete-configuration`
+            * `http://librarysimplified.org/terms/problem/invalid-email`
+            * `http://librarysimplified.org/terms/problem/unknown-role`
+            * `http://librarysimplified.org/terms/problem/library-not-found`
+            * `http://librarysimplified.org/terms/problem/missing-pgcrypto-extension`
+          content:
+            application/json:
+              schema: ProblemResponse
+        5XX:
+          description: |
+            An unanticipated bug in the system that could not be properly handled.
+
+            If the API server is running in debug mode the output will contain a traceback, 
+            otherwise a basic error message will be displayed.
+          content:
+            text/html:
+              example: An internal error occurred
+              schema: ProblemResponse
+    """
     return app.manager.admin_discovery_service_library_registrations_controller.process_discovery_service_library_registrations()
 
 
