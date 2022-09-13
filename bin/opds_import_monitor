@@ -3,11 +3,21 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from core.scripts import OPDSImportScript       # noqa: E402
+def opds_import_monitor():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-OPDSImportScript().run()
+    from core.scripts import OPDSImportScript       # noqa: E402
+
+    OPDSImportScript().run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='opds_import_monitor', group='Scripts'):
+        opds_import_monitor()

@@ -3,11 +3,21 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from scripts import SharedODLImportScript       # noqa: E402
+def shared_odl_import_monitor():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-SharedODLImportScript().run()
+    from scripts import SharedODLImportScript       # noqa: E402
+
+    SharedODLImportScript().run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='shared_odl_import_monitor', group='Scripts'):
+        shared_odl_import_monitor()
