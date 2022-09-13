@@ -3,12 +3,22 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from core.coverage import WorkClassificationCoverageProvider        # noqa: E402
-from core.scripts import RunWorkCoverageProviderScript              # noqa: E402
+def work_classification():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-RunWorkCoverageProviderScript(WorkClassificationCoverageProvider).run()
+    from core.coverage import WorkClassificationCoverageProvider        # noqa: E402
+    from core.scripts import RunWorkCoverageProviderScript              # noqa: E402
+
+    RunWorkCoverageProviderScript(WorkClassificationCoverageProvider).run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='work_classification', group='Scripts'):
+        work_classification()

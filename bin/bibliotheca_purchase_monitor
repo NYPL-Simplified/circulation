@@ -6,11 +6,21 @@ that happened many years in the past.
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from api.bibliotheca import BibliothecaPurchaseMonitor, RunBibliothecaPurchaseMonitorScript     # noqa: E402
+def bibliotheca_purchase_monitor():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-RunBibliothecaPurchaseMonitorScript(BibliothecaPurchaseMonitor).run()
+    from api.bibliotheca import BibliothecaPurchaseMonitor, RunBibliothecaPurchaseMonitorScript     # noqa: E402
+
+    RunBibliothecaPurchaseMonitorScript(BibliothecaPurchaseMonitor).run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='bibliotheca_purchase_monitor', group='Scripts'):
+        bibliotheca_purchase_monitor()

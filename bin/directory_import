@@ -3,13 +3,23 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-# NOTE: We need to import it explicitly to initialize MirrorUploader.IMPLEMENTATION_REGISTRY
-from api.lcp import mirror                      # noqa: E402,F401
-from scripts import DirectoryImportScript       # noqa: E402
+def directory_import():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-DirectoryImportScript().run()
+    # NOTE: We need to import it explicitly to initialize MirrorUploader.IMPLEMENTATION_REGISTRY
+    from api.lcp import mirror                      # noqa: E402,F401
+    from scripts import DirectoryImportScript       # noqa: E402
+
+    DirectoryImportScript().run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='directory_import', group='Scripts'):
+        directory_import()

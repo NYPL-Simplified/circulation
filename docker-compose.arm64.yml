@@ -47,6 +47,11 @@ services:
       context: .
       target: cm_scripts_local
     environment:
+      NEW_RELIC_APP_NAME: Circulation Manager (TEST)
+      NEW_RELIC_MONITOR_MODE: 'false'
+      NEW_RELIC_CONFIG_FILE: /home/simplified/circulation/newrelic.ini
+      NEW_RELIC_ENVIRONMENT: local
+      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
       SIMPLIFIED_PRODUCTION_DATABASE: postgresql://simplified:simplified@cm_local_db:5434/simplified_circulation_dev
       SIMPLIFIED_TEST_DATABASE: postgresql://simplified_test:simplified_test@cm_local_db:5434/simplified_circulation_test
       SIMPLIFIED_ELASTICSEARCH_URL: http://cm_local_es:9200
@@ -67,6 +72,11 @@ services:
       context: .
       target: cm_webapp_local
     environment:
+      NEW_RELIC_APP_NAME: Circulation Manager (TEST)
+      NEW_RELIC_MONITOR_MODE: 'false'
+      NEW_RELIC_CONFIG_FILE: /home/simplified/circulation/newrelic.ini
+      NEW_RELIC_ENVIRONMENT: local
+      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
       SIMPLIFIED_PRODUCTION_DATABASE: postgresql://simplified:simplified@cm_local_db:5434/simplified_circulation_dev
       SIMPLIFIED_TEST_DATABASE: postgresql://simplified_test:simplified_test@cm_local_db:5434/simplified_circulation_test
       SIMPLIFIED_ELASTICSEARCH_URL: http://cm_local_es:9200

@@ -8,34 +8,44 @@ Currently, there is no way to configure SAML federations in the admin interface.
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from api.saml.metadata.federations.loader import (              # noqa: E402
-    SAMLFederatedIdentityProviderLoader,
-    SAMLMetadataLoader,
-)
-from api.saml.metadata.federations.validator import (           # noqa: E402
-    SAMLFederatedMetadataExpirationValidator,
-    SAMLFederatedMetadataValidatorChain,
-    SAMLMetadataSignatureValidator,
-)
-from api.saml.metadata.monitor import SAMLMetadataMonitor       # noqa: E402
-from api.saml.metadata.parser import SAMLMetadataParser         # noqa: E402
-from core.scripts import RunMonitorScript                       # noqa: E402
+def saml_monitor():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-saml_metadata_loader = SAMLMetadataLoader()
-saml_metadata_validator = SAMLFederatedMetadataValidatorChain(
-    [SAMLFederatedMetadataExpirationValidator(), SAMLMetadataSignatureValidator()]
-)
-saml_metadata_parser = SAMLMetadataParser(skip_incorrect_providers=True)
-saml_federated_idp_loader = SAMLFederatedIdentityProviderLoader(
-    saml_metadata_loader, saml_metadata_validator, saml_metadata_parser
-)
-run_monitor_script = RunMonitorScript(
-    SAMLMetadataMonitor, loader=saml_federated_idp_loader
-)
+    from api.saml.metadata.federations.loader import (              # noqa: E402
+        SAMLFederatedIdentityProviderLoader,
+        SAMLMetadataLoader,
+    )
+    from api.saml.metadata.federations.validator import (           # noqa: E402
+        SAMLFederatedMetadataExpirationValidator,
+        SAMLFederatedMetadataValidatorChain,
+        SAMLMetadataSignatureValidator,
+    )
+    from api.saml.metadata.monitor import SAMLMetadataMonitor       # noqa: E402
+    from api.saml.metadata.parser import SAMLMetadataParser         # noqa: E402
+    from core.scripts import RunMonitorScript                       # noqa: E402
 
-run_monitor_script.run()
+    saml_metadata_loader = SAMLMetadataLoader()
+    saml_metadata_validator = SAMLFederatedMetadataValidatorChain(
+        [SAMLFederatedMetadataExpirationValidator(), SAMLMetadataSignatureValidator()]
+    )
+    saml_metadata_parser = SAMLMetadataParser(skip_incorrect_providers=True)
+    saml_federated_idp_loader = SAMLFederatedIdentityProviderLoader(
+        saml_metadata_loader, saml_metadata_validator, saml_metadata_parser
+    )
+    run_monitor_script = RunMonitorScript(
+        SAMLMetadataMonitor, loader=saml_federated_idp_loader
+    )
+
+    run_monitor_script.run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='saml_monitor', group='Scripts'):
+        saml_monitor()
