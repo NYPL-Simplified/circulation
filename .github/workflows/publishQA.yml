@@ -31,6 +31,24 @@ jobs:
           container_tag: qa-cron-latest
         - stage: cm_webapp_active
           container_tag: qa-latest
+        - project: BPL
+          stage: cm_scripts_active
+          cluster_service: ${{ secrets.BPL_SCRIPTS_CLUSTER_SERVICE }}
+        - project: BPL
+          stage: cm_webapp_active
+          cluster_service: ${{ secrets.BPL_WEBAPP_CLUSTER_SERVICE }}
+        - project: OE
+          stage: cm_scripts_active
+          cluster_service: ${{ secrets.OE_SCRIPTS_CLUSTER_SERVICE }}
+        - project: OE
+          stage: cm_webapp_active
+          cluster_service: ${{ secrets.OE_WEBAPP_CLUSTER_SERVICE }}
+        - project: SE
+          stage: cm_scripts_active
+          cluster_service: ${{ secrets.SE_SCRIPTS_CLUSTER_SERVICE }}
+        - project: SE
+          stage: cm_webapp_active
+          cluster_service: ${{ secrets.SE_WEBAPP_CLUSTER_SERVICE }}
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -63,4 +81,4 @@ jobs:
 
       - name: Force ECS Update
         run: |
-          aws ecs update-service --cluster ${{ matrix.ECR_REPOSITORY }} --service ${{ matrix.ECR_REPOSITORY }} --force-new-deployment
+          aws ecs update-service --cluster ${{ matrix.cluster_service }} --service ${{ matrix.cluster_service }} --force-new-deployment
