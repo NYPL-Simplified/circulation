@@ -1,6 +1,15 @@
 #!/bin/bash
 
 #### Housekeeping functions and variables ####################################
+# This is to halt the script runner create a manual database maintenance window between 01:00 and 03:00 on Wendesdays.
+
+if [[ $(date +%u) -eq 3 && $(date +%H) -eq 1 ]]; then
+  echo "I don't run at this time"
+  exit 0
+elif [[ $(date +%u) -eq 3 && $(date +%H) -eq 2 ]]; then
+  echo "I don't run at this time"
+  exit 0
+fi
 
 THIS_SCRIPTS_NAME="$(basename $0)"
 
@@ -171,11 +180,14 @@ export PYTHONDONTWRITEBYTECODE=1
 # Make sure we have the SIMPLIFIED_* env vars
 source $CM_REPO_ROOT/../environment.sh
 
+# Set the necessary NEW_RELIC_* env vars
+source $CM_REPO_ROOT/../new_relic.sh
+
 #### Run the script and append its output to its log file. ###################
 
 log_info_to_stdout "$SCRIPT_NAME" "started"
 
-source $SIMPLIFIED_VENV/bin/activate && $FULL_SCRIPT_PATH "$@" >> $LOG_FILE 2>&1
+source $SIMPLIFIED_VENV/bin/activate && newrelic-admin run-program $FULL_SCRIPT_PATH "$@" >> $LOG_FILE 2>&1
 
 if [ $? -eq 0 ]; then
   log_info_to_stdout "$SCRIPT_NAME" "completed"

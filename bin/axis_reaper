@@ -3,12 +3,21 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
+def axis_reaper():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-from core.scripts import RunCollectionMonitorScript     # noqa: E402
-from api.axis import AxisCollectionReaper               # noqa: E402
+    from core.scripts import RunCollectionMonitorScript     # noqa: E402
+    from api.axis import AxisCollectionReaper               # noqa: E402
 
-RunCollectionMonitorScript(AxisCollectionReaper).run()
+    RunCollectionMonitorScript(AxisCollectionReaper).run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='axis_reaper', group='Scripts'):
+        axis_reaper()

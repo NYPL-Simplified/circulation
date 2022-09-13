@@ -56,7 +56,7 @@ nameparser==1.1.1
 # ndg-httpsclient ensures we support SNI-based SSL
 ndg-httpsclient==0.5.1
 # newrelic is an NYPL-sepcific requirement that might be removeable.
-newrelic==5.18.0.148
+newrelic==7.14.0.177
 # nltk is a textblob dependency.
 nltk==3.7
 oauth2client==4.1.3
