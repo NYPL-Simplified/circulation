@@ -78,6 +78,6 @@ jobs:
 
       - name: Force ECS Update
         env:
-          cluster_service: ${{ secret[matrix.cluster_service] }}
+          cluster_service: ${{ secrets[matrix.cluster_service] }}
         run: |
           aws ecs update-service --cluster $cluster_service --service $cluster_service --force-new-deployment
