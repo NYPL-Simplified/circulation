@@ -1,6 +1,15 @@
 #!/bin/bash
 
 #### Housekeeping functions and variables ####################################
+# This is to halt the script runner create a manual database maintenance window between 01:00 and 03:00 on Wendesdays.
+
+if [[ $(date +%u) -eq 3 && $(date +%H) -eq 1 ]]; then
+  echo "I don't run at this time"
+  exit 0
+elif [[ $(date +%u) -eq 3 && $(date +%H) -eq 2 ]]; then
+  echo "I don't run at this time"
+  exit 0
+fi
 
 THIS_SCRIPTS_NAME="$(basename $0)"
 
