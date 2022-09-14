@@ -34,11 +34,9 @@ jobs:
         - project: BPL
           stage: cm_scripts_active
           cluster_service: BPL_SCRIPTS_CLUSTER_SERVICE
-          container_tag: bpl-cron-qa-latest
         - project: BPL
           stage: cm_webapp_active
           cluster_service: BPL_WEBAPP_CLUSTER_SERVICE
-          container_tag: bpl-qa-latest
         - project: OE
           stage: cm_scripts_active
           cluster_service: OE_SCRIPTS_CLUSTER_SERVICE
@@ -51,7 +49,6 @@ jobs:
         - project: SE
           stage: cm_webapp_active
           cluster_service: SE_WEBAPP_CLUSTER_SERVICE
-      max-parallel: 1
     steps:
       - name: checkout
         uses: actions/checkout@v3
