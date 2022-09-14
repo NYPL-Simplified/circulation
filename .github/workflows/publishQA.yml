@@ -51,6 +51,7 @@ jobs:
         - project: SE
           stage: cm_webapp_active
           cluster_service: SE_WEBAPP_CLUSTER_SERVICE
+      max-parallel: 1
     steps:
       - name: checkout
         uses: actions/checkout@v3
