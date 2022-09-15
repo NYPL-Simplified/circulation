@@ -40,7 +40,7 @@ export SIMPLIFIED_ENV_SCRIPT
 
 NEW_RELIC_ENV_SCRIPT=${SIMPLIFIED_HOME}/new_relic.sh
 touch $NEW_RELIC_ENV_SCRIPT
-printenv | grep -e 'NEW_RELIC' | sed 's/^/export /' > $NEW_RELIC_ENV_SCRIPT
+printenv | grep -e 'NEW_RELIC' | sed -e 's/\([A-Z_]*\)=\(.*\)/export \1="\2"/' > $NEW_RELIC_ENV_SCRIPT
 chown simplified:simplified $NEW_RELIC_ENV_SCRIPT
 export NEW_RELIC_ENV_SCRIPT
 
