@@ -112,7 +112,8 @@ class LinkProperties(Node):
     orientation = EnumProperty(
         "orientation", required=False, items=["auto", "landscape", "portrait"]
     )
-    page = EnumProperty("page", required=False, items=["left", "right", "center"])
+    page = EnumProperty("page", required=False, items=[
+                        "left", "right", "center"])
     spread = EnumProperty(
         "spread", required=False, items=["auto", "both", "none", "landscape"]
     )
@@ -144,7 +145,8 @@ class Link(Node):
     type = StringProperty("type", required=False)
     title = StringProperty("title", required=False)
     rels = ArrayOfStringsProperty("rel", required=False)
-    properties = TypeProperty("properties", required=False, nested_type=LinkProperties)
+    properties = TypeProperty(
+        "properties", required=False, nested_type=LinkProperties)
     height = IntegerProperty("height", required=False, exclusive_minimum=0)
     width = IntegerProperty("width", required=False, exclusive_minimum=0)
     bitrate = NumberProperty("bitrate", required=False, exclusive_minimum=0)
@@ -153,12 +155,14 @@ class Link(Node):
     alternates = ArrayProperty(
         "alternate",
         required=False,
-        item_parser=TypeParser("core.util.webpub_manifest_parser.core.ast.Link"),
+        item_parser=TypeParser(
+            "core.util.webpub_manifest_parser.core.ast.Link"),
     )
     children = ArrayProperty(
         "children",
         required=False,
-        item_parser=TypeParser("core.util.webpub_manifest_parser.core.ast.Link"),
+        item_parser=TypeParser(
+            "core.util.webpub_manifest_parser.core.ast.Link"),
     )
 
     def __init__(  # pylint: disable=R0913
@@ -459,11 +463,11 @@ class ArrayOfContributorsProperty(BaseArrayProperty):
             }
           ]
     """
-
     PARSER = AnyOfParser(
         [
             StringParser(),
-            ArrayParser(AnyOfParser([StringParser(), TypeParser(Contributor)])),
+            ArrayParser(AnyOfParser(
+                [StringParser(), TypeParser(Contributor)])),
             TypeParser(Contributor),
         ]
     )
@@ -498,7 +502,8 @@ class Subject(Node, PropertiesGrouping):
         :rtype: int
         """
         return hash(
-            (self.name, self.sort_as, self.code, self.scheme, frozenset(self.links))
+            (self.name, self.sort_as, self.code,
+             self.scheme, frozenset(self.links))
         )
 
     def __repr__(self):
@@ -722,11 +727,14 @@ class PresentationMetadata(Metadata):
     clipped = BooleanProperty("clipped", False)
     continuous = BooleanProperty("continuous", False)
     fit = EnumProperty("fit", False, ["width", "height", "contain", "cover"])
-    orientation = EnumProperty("orientation", False, ["auto", "landscape", "portrait"])
+    orientation = EnumProperty("orientation", False, [
+                               "auto", "landscape", "portrait"])
     overflow = EnumProperty(
-        "overflow", False, ["auto", "paginated", "scrolled", "scrolled-continuous"]
+        "overflow", False, ["auto", "paginated",
+                            "scrolled", "scrolled-continuous"]
     )
-    spread = EnumProperty("spread", False, ["auto", "both", "none", "landscape"])
+    spread = EnumProperty(
+        "spread", False, ["auto", "both", "none", "landscape"])
 
 
 class CompactCollection(Node):
