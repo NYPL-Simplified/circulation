@@ -1,11 +1,17 @@
 import os
 from newrelic import agent
+from newrelic.api.exceptions import ConfigurationError
 
 if os.environ.get('NEW_RELIC_LICENSE_KEY', None):
-    agent.initialize(
-        config_file='/home/simplified/circulation/newrelic.ini',
-        environment=os.environ.get('DEVELOPMENT_STAGE', 'local')
-    )
+    try:
+        agent.initialize(
+            config_file='/home/simplified/circulation/newrelic.ini',
+            environment=os.environ.get('DEVELOPMENT_STAGE', 'local')
+        )
+    except ConfigurationError:
+        # If we receive this error, the NR Agent was initialized in a script
+        # and therefore we can safely skip this (some scripts use API calls)
+        pass
 
 import logging
 import urllib.parse
