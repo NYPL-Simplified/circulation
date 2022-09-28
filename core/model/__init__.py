@@ -309,7 +309,8 @@ class SessionManager(object):
     @classmethod
     def engine(cls, url=None):
         url = url or Configuration.database_url()
-        return create_engine(url, echo=DEBUG)
+        # Default sqlalchemy QueuePool pool_size is 10 and max_overflow is 20. This triples it.
+        return create_engine(url, echo=DEBUG, pool_size=30, max_overflow=60)
 
     @classmethod
     def sessionmaker(cls, url=None, session=None):
