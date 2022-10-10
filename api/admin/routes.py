@@ -4003,16 +4003,16 @@ def admin_view(collection=None, book=None, etc=None, **kwargs):
           description: Catchall for single-page URLs
       responses:
         200:
-          content:
-            text/html:
-              example: "Your admin account doesn't have access to any libraries. Contact your library manager for assistance."
-        200:
           description: Rendered html template
           content:
             text/html:
               schema: AdminViewPageSchema
         302:
           description: Redirect to admin_sign_in page if not signed in and redirects to original URL after sign in.
+        401:
+          content:
+            text/html:
+              example: "Your admin account doesn't have access to any libraries. Contact your library manager for assistance."
         5XX:
           description: |
             An error including:
