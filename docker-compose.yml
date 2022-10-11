@@ -61,6 +61,8 @@ services:
         source: .
         target: /home/simplified/circulation
         read_only: true
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
 
   webapp:
     container_name: cm_local_webapp

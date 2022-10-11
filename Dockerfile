@@ -100,6 +100,7 @@ RUN apt-get update \
     libxmlsec1-dev \
     libxmlsec1-openssl \
     libxml2-dev \
+    ntp \
  && locale-gen en_US \
  && update-locale LANG=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 \
  && apt-get clean --yes \
@@ -107,6 +108,9 @@ RUN apt-get update \
 
 ENV LANG="en_US.UTF-8"
 ENV LC_CTYPE="en_US.UTF-8"
+
+# Enable Network Time Protocol to run script container on host time
+RUN systemctl enable ntp
 
 # Create simplified group and user, and log directory
 RUN groupadd --gid 1000 simplified \
