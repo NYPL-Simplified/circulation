@@ -2719,7 +2719,7 @@ class DatabaseVacuum(Script):
     def __init__(self):
         super(Script, self).__init__()
 
-    def run(self, subcommand='FULL'):
+    def do_run(self, subcommand='FULL'):
         """Run the database vacuum
 
         Args:
