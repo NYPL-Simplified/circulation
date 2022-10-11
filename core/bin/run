@@ -16,7 +16,6 @@ elif [[ $(date +%u) -eq 3 && $(date +%H) -eq 2 ]]; then
   echo "I don't run at this time"
   exit 0
 fi
-echo $(date +%z)
 
 THIS_SCRIPTS_NAME="$(basename $0)"
 

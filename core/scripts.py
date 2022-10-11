@@ -8,6 +8,8 @@ import sys
 import traceback
 import unicodedata
 import uuid
+import time
+from datetime import datetime
 from pdb import set_trace
 from collections import defaultdict
 from enum import Enum
@@ -2714,18 +2716,40 @@ class DatabaseVacuum(Script):
         Script (_type_): _description_
     """
 
-    def __init__(self, _db=None, full=True):
-        db = _db or self._db
-        self.full = full
-        super(Script, self).__init__(db)
+    def __init__(self):
+        super(Script, self).__init__()
 
-    def run(self):
-        with self._db as db_session:
-            all_db_tables = db_session.metadata.tables.keys()
+    def run(self, subcommand='FULL'):
+        """Run the database vacuum
+
+        Args:
+            subcommand (str, optional): 
+                Can be any of these
+                FULL [ boolean ]
+                FREEZE [ boolean ]
+                VERBOSE [ boolean ]
+                ANALYZE [ boolean ]
+                DISABLE_PAGE_SKIPPING [ boolean ]
+                SKIP_LOCKED [ boolean ]
+                INDEX_CLEANUP { AUTO | ON | OFF }
+                PROCESS_TOAST [ boolean ]
+                TRUNCATE [ boolean ]
+        """
+        today = datetime.now().strftime("%m/%d/%Y")
+        start = time.time()
+        # Go back up to engine-level.
+        connection = self._db.get_bind()
+        # Get table names
+        all_db_tables = connection.table_names()
+        with self._db as session:
+            session.connection().connection.set_isolation_level(0)
             for table in all_db_tables:
                 self.log.info('Vacuuming table: %s' % table)
-                db_session.vacuum(table, full=self.full, verbose=True)
-        return TimestampData(achievements='All database tables vacuumed')
+                session.execute('VACUUM %s %s' % (subcommand, table))
+        end = time.time()
+        duration = end - start
+        self.log.info('Database vacuum completed on %s and took %d' %
+                      (today, duration))
 
 
 class CheckContributorNamesInDB(IdentifierInputScript):
