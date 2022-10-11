@@ -219,6 +219,7 @@ class TimestampScript(Script):
         )
         timestamp_data.apply(self._db)
 
+
 class RunMonitorScript(Script):
 
     def __init__(self, monitor, _db=None, **kwargs):
@@ -303,6 +304,7 @@ class RunReaperMonitorsScript(RunMultipleMonitorsScript):
 
 class RunCoverageProvidersScript(Script):
     """Alternate between multiple coverage providers."""
+
     def __init__(self, providers, _db=None):
         super(RunCoverageProvidersScript, self).__init__(_db=_db)
         self.providers = []
@@ -340,12 +342,14 @@ class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
     """Run the same CoverageProvider code for all Collections that
     get their licenses from the appropriate place.
     """
+
     def __init__(self, provider_class, _db=None, providers=None, **kwargs):
         _db = _db or self._db
         providers = providers or list()
         if provider_class:
             providers += self.get_providers(_db, provider_class, **kwargs)
-        super(RunCollectionCoverageProviderScript, self).__init__(providers, _db=_db)
+        super(RunCollectionCoverageProviderScript,
+              self).__init__(providers, _db=_db)
 
     def get_providers(self, _db, provider_class, **kwargs):
         return list(provider_class.all(_db, **kwargs))
@@ -357,8 +361,8 @@ class RunThreadedCollectionCoverageProviderScript(Script):
     DEFAULT_WORKER_SIZE = 5
 
     def __init__(self, provider_class, worker_size=None, _db=None,
-        **provider_kwargs
-    ):
+                 **provider_kwargs
+                 ):
         super(RunThreadedCollectionCoverageProviderScript, self).__init__(_db)
 
         self.worker_size = worker_size or self.DEFAULT_WORKER_SIZE
@@ -523,16 +527,17 @@ class IdentifierInputScript(InputScript):
         identifiers = []
 
         if not identifier_type:
-            raise ValueError("No identifier type specified! Use '--identifier-type=\"Database ID\"' to name identifiers by database ID.")
+            raise ValueError(
+                "No identifier type specified! Use '--identifier-type=\"Database ID\"' to name identifiers by database ID.")
 
         if len(arguments) == 0:
             if data_source:
                 identifiers = _db.query(Identifier).\
                     join(Identifier.licensed_through).\
                     filter(
-                        Identifier.type==identifier_type,
-                        LicensePool.data_source==data_source
-                    ).all()
+                        Identifier.type == identifier_type,
+                        LicensePool.data_source == data_source
+                ).all()
             return identifiers
 
         for arg in arguments:
@@ -567,7 +572,7 @@ class LibraryInputScript(InputScript):
         return cls.look_up_libraries(_db, parsed, *args, **kwargs)
 
     @classmethod
-    def arg_parser(cls, _db, multiple_libraries = True):
+    def arg_parser(cls, _db, multiple_libraries=True):
         parser = argparse.ArgumentParser()
         library_names = sorted(l.short_name for l in _db.query(Library))
         library_names = '"' + '", "'.join(library_names) + '"'
@@ -616,7 +621,7 @@ class LibraryInputScript(InputScript):
                 continue
             for field in (Library.short_name, Library.name):
                 try:
-                    library = _db.query(Library).filter(field==arg).one()
+                    library = _db.query(Library).filter(field == arg).one()
                 except NoResultFound:
                     continue
                 except MultipleResultsFound:
@@ -652,12 +657,14 @@ class PatronInputScript(LibraryInputScript):
         parsed = parser.parse_args(cmd_args)
         if stdin:
             stdin = cls.read_stdin_lines(stdin)
-        parsed = super(PatronInputScript, cls).look_up_libraries(_db, parsed, *args, **kwargs)
+        parsed = super(PatronInputScript, cls).look_up_libraries(
+            _db, parsed, *args, **kwargs)
         return cls.look_up_patrons(_db, parsed, stdin, *args, **kwargs)
 
     @classmethod
     def arg_parser(cls, _db):
-        parser = super(PatronInputScript, cls).arg_parser(_db, multiple_libraries=False)
+        parser = super(PatronInputScript, cls).arg_parser(
+            _db, multiple_libraries=False)
         parser.add_argument(
             'identifiers',
             help='A specific patron identifier to process.',
@@ -704,8 +711,8 @@ class PatronInputScript(LibraryInputScript):
                           Patron.external_identifier):
                 try:
                     patron = _db.query(Patron)\
-                        .filter(field==arg)\
-                        .filter(Patron.library_id==library.id)\
+                        .filter(field == arg)\
+                        .filter(Patron.library_id == library.id)\
                         .one()
                 except NoResultFound:
                     continue
@@ -757,11 +764,13 @@ class LaneSweeperScript(LibraryInputScript):
     def process_lane(self, lane):
         pass
 
+
 class CustomListSweeperScript(LibraryInputScript):
     """Do something to each custom list in a library."""
 
     def process_library(self, library):
-        lists = self._db.query(CustomList).filter(CustomList.library_id==library.id)
+        lists = self._db.query(CustomList).filter(
+            CustomList.library_id == library.id)
         for l in lists:
             self.process_custom_list(l)
         self._db.commit()
@@ -843,7 +852,6 @@ class RunCoverageProviderScript(IdentifierInputScript):
         self.provider = provider
         self.name = self.provider.service_name
 
-
     def extract_additional_command_line_arguments(self):
         """A hook method for subclasses.
 
@@ -854,9 +862,8 @@ class RunCoverageProviderScript(IdentifierInputScript):
         (as opposed to WorkCoverageProvider).
         """
         return {
-            "input_identifiers" : self.identifiers,
+            "input_identifiers": self.identifiers,
         }
-
 
     def do_run(self):
         if self.identifiers:
@@ -864,10 +871,12 @@ class RunCoverageProviderScript(IdentifierInputScript):
         else:
             self.provider.run()
 
+
 class ShowLibrariesScript(Script):
     """Show information about the libraries on a server."""
 
     name = "List the libraries on this server."
+
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
@@ -942,7 +951,6 @@ class ConfigureSiteScript(ConfigurationSettingScript):
         self.config = config
         super(ConfigureSiteScript, self).__init__(_db=_db)
 
-
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
@@ -988,6 +996,7 @@ class ConfigureSiteScript(ConfigurationSettingScript):
         site_configuration_has_changed(_db)
         _db.commit()
 
+
 class ConfigureLibraryScript(ConfigurationSettingScript):
     """Create a library or change its settings."""
     name = "Change a library's settings"
@@ -1024,7 +1033,8 @@ class ConfigureLibraryScript(ConfigurationSettingScript):
             # Currently there can only be one library, and one already exists.
             [library] = libraries
             if args.short_name and library.short_name != args.short_name:
-                raise ValueError("Could not locate library '%s'" % args.short_name)
+                raise ValueError("Could not locate library '%s'" %
+                                 args.short_name)
         else:
             # No existing library. Make one.
             library, ignore = get_one_or_create(
@@ -1050,6 +1060,7 @@ class ShowCollectionsScript(Script):
     """Show information about the collections on a server."""
 
     name = "List the collections on this server."
+
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
@@ -1094,6 +1105,7 @@ class ShowIntegrationsScript(Script):
     """Show information about the external integrations on a server."""
 
     name = "List the external integrations on this server."
+
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
@@ -1208,7 +1220,7 @@ class ConfigureCollectionScript(ConfigurationSettingScript):
         protocol = None
         name = args.name
         protocol = args.protocol
-        collection = get_one(_db, Collection, Collection.name==name)
+        collection = get_one(_db, Collection, Collection.name == name)
         if not collection:
             if protocol:
                 collection, is_new = Collection.by_name_and_protocol(
@@ -1294,7 +1306,7 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
         integration = None
         if id:
             integration = get_one(
-                _db, ExternalIntegration, ExternalIntegration.id==id
+                _db, ExternalIntegration, ExternalIntegration.id == id
             )
             if not integration:
                 raise ValueError("No integration with ID %s." % id)
@@ -1335,6 +1347,7 @@ class ShowLanesScript(Script):
     """Show information about the lanes on a server."""
 
     name = "List the lanes on this server."
+
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
@@ -1369,6 +1382,7 @@ class ShowLanesScript(Script):
             )
             output.write("\n\n")
 
+
 class ConfigureLaneScript(ConfigurationSettingScript):
     """Create a lane or change its settings."""
     name = "Change a lane's settings"
@@ -1387,7 +1401,8 @@ class ConfigureLaneScript(ConfigurationSettingScript):
         )
         parser.add_argument(
             '--library-short-name',
-            help='Short name of the library for this lane. Possible values: %s' % cls._library_names(_db),
+            help='Short name of the library for this lane. Possible values: %s' % cls._library_names(
+                _db),
         )
         parser.add_argument(
             '--parent-id',
@@ -1422,12 +1437,15 @@ class ConfigureLaneScript(ConfigurationSettingScript):
         lane = get_one(_db, Lane, id=id)
         if not lane:
             if args.library_short_name:
-                library = get_one(_db, Library, short_name=args.library_short_name)
+                library = get_one(
+                    _db, Library, short_name=args.library_short_name)
                 if not library:
-                    raise ValueError("No such library: \"%s\"." % args.library_short_name)
+                    raise ValueError("No such library: \"%s\"." %
+                                     args.library_short_name)
                 lane, is_new = create(_db, Lane, library=library)
             else:
-                raise ValueError("Library short name is required to create a new lane.")
+                raise ValueError(
+                    "Library short name is required to create a new lane.")
 
         if args.parent_id:
             lane.parent_id = args.parent_id
@@ -1440,6 +1458,7 @@ class ConfigureLaneScript(ConfigurationSettingScript):
         output.write("Lane settings stored.\n")
         output.write("\n".join(lane.explain()))
         output.write("\n")
+
 
 class AddClassificationScript(IdentifierInputScript):
     name = "Add a classification to an identifier"
@@ -1532,8 +1551,8 @@ class WorkProcessingScript(IdentifierInputScript):
     name = "Work processing script"
 
     def __init__(self, force=False, batch_size=10, _db=None,
-        cmd_args=None, stdin=sys.stdin
-    ):
+                 cmd_args=None, stdin=sys.stdin
+                 ):
         super(WorkProcessingScript, self).__init__(_db=_db)
 
         args = self.parse_command_line(
@@ -1576,14 +1595,14 @@ class WorkProcessingScript(IdentifierInputScript):
                     'Restricted to identifiers from DataSource "%s".', data_source
                 )
             source = DataSource.lookup(_db, data_source)
-            query = query.filter(LicensePool.data_source==source)
+            query = query.filter(LicensePool.data_source == source)
 
         if identifier_type:
             if log:
                 log.info(
                     'Restricted to identifier type "%s".' % identifier_type
                 )
-            query = query.filter(Identifier.type==identifier_type)
+            query = query.filter(Identifier.type == identifier_type)
 
         if log:
             log.info(
@@ -1622,7 +1641,7 @@ class WorkConsolidationScript(WorkProcessingScript):
         # We actually process LicensePools, not Works.
         qu = _db.query(LicensePool).join(LicensePool.identifier)
         if identifier_type:
-            qu = qu.filter(Identifier.type==identifier_type)
+            qu = qu.filter(Identifier.type == identifier_type)
         if identifiers:
             qu = qu.filter(
                 Identifier.identifier.in_([x.identifier for x in identifiers])
@@ -1638,7 +1657,7 @@ class WorkConsolidationScript(WorkProcessingScript):
     def do_run(self):
         super(WorkConsolidationScript, self).do_run()
         qu = self._db.query(Work).outerjoin(Work.license_pools).filter(
-            LicensePool.id==None
+            LicensePool.id == None
         )
         self.log.info(
             "Deleting %d Works that have no LicensePools." % qu.count()
@@ -1730,7 +1749,7 @@ class CustomListManagementScript(Script):
                  data_source_name, list_identifier, list_name,
                  primary_language, description,
                  **manager_kwargs
-             ):
+                 ):
         data_source = DataSource.lookup(self._db, data_source_name)
         self.custom_list, is_new = get_one_or_create(
             self._db, CustomList,
@@ -1874,7 +1893,8 @@ class OPDSImportScript(CollectionInputScript):
 
     def do_run(self, cmd_args=None):
         parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
-        collections = parsed.collections or Collection.by_protocol(self._db, self.protocol)
+        collections = parsed.collections or Collection.by_protocol(
+            self._db, self.protocol)
         for collection in collections:
             self.run_monitor(collection, force=parsed.force)
 
@@ -2085,7 +2105,8 @@ class DatabaseMigrationScript(Script):
             ):
                 _db = script._db
                 try:
-                    results = list(_db.execute(text(sql), dict(service=service)))
+                    results = list(_db.execute(
+                        text(sql), dict(service=service)))
                     if exception:
                         logging.error(
                             "Yes, everything should be fine -- I was able to find a timestamp in the new schema."
@@ -2321,7 +2342,7 @@ class DatabaseMigrationScript(Script):
         if not timestamp or not self.overall_timestamp:
             # There's no timestamp in the database! Raise an error.
             print("")
-            print (
+            print(
                 "NO TIMESTAMP FOUND. Either initialize your untouched database "
                 "with the script `core/bin/initialize_database` OR run this "
                 "script with a timestamp that indicates the last migration run "
@@ -2413,14 +2434,14 @@ class DatabaseMigrationScript(Script):
         timestamp_str = timestamp.finish.strftime('%Y%m%d')
         counter = timestamp.counter
 
-        if migration_file[:8]>=timestamp_str:
-            if migration_file[:8]>timestamp_str:
+        if migration_file[:8] >= timestamp_str:
+            if migration_file[:8] > timestamp_str:
                 is_after_timestamp = True
             elif counter:
                 count = self.MIGRATION_WITH_COUNTER.search(migration_file)
                 if count:
                     migration_num = int(count.groups()[0])
-                    if migration_num==counter:
+                    if migration_num == counter:
                         is_match = True
                     if migration_num > counter:
                         is_after_timestamp = True
@@ -2465,7 +2486,8 @@ class DatabaseMigrationScript(Script):
                         self.update_timestamps(migration_file)
                         continue
                     except Exception:
-                        raise_error(full_migration_path, "Migration has been halted.")
+                        raise_error(full_migration_path,
+                                    "Migration has been halted.")
         else:
             print("All new migrations have been run.")
 
@@ -2479,15 +2501,20 @@ class DatabaseMigrationScript(Script):
             with open(migration_path) as clause:
                 sql = clause.read()
 
-                transactionless = any([c for c in self.TRANSACTIONLESS_COMMANDS if c in sql.lower()])
-                one_tx_per_statement = bool(self.TRANSACTION_PER_STATEMENT.lower() in sql.lower())
-                ok_to_execute = not bool(self.DO_NOT_EXECUTE.lower() in sql.lower())
+                transactionless = any(
+                    [c for c in self.TRANSACTIONLESS_COMMANDS if c in sql.lower()])
+                one_tx_per_statement = bool(
+                    self.TRANSACTION_PER_STATEMENT.lower() in sql.lower())
+                ok_to_execute = not bool(
+                    self.DO_NOT_EXECUTE.lower() in sql.lower())
 
                 if ok_to_execute:
                     if transactionless:
-                        new_session = self._run_migration_without_transaction(sql)
+                        new_session = self._run_migration_without_transaction(
+                            sql)
                     elif one_tx_per_statement:
-                        commands = self._extract_statements_from_sql_file(migration_path)
+                        commands = self._extract_statements_from_sql_file(
+                            migration_path)
                         for command in commands:
                             self._db.execute(f"BEGIN;{command}COMMIT;")
                     else:
@@ -2593,14 +2620,14 @@ class DatabaseMigrationScript(Script):
             return
 
         # The dates of the scrips are the same so compare the counters
-        if finish_timestamp==last_run_date:
+        if finish_timestamp == last_run_date:
             # The current script has no counter, so it's the same script that ran
             # or an earlier script that ran
             if counter is None:
                 return
             # The previous script has a higher counter
             if (self.overall_timestamp.counter is not None and
-                self.overall_timestamp.counter > counter):
+                    self.overall_timestamp.counter > counter):
                 return
 
         self.overall_timestamp.update(
@@ -2680,6 +2707,27 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
         self._db.close()
 
 
+class DatabaseVacuum(Script):
+    """Script to vacuum all database tables
+
+    Args:
+        Script (_type_): _description_
+    """
+
+    def __init__(self, _db=None, full=True):
+        db = _db or self._db
+        self.full = full
+        super(Script, self).__init__(db)
+
+    def run(self):
+        with self._db as db_session:
+            all_db_tables = db_session.metadata.tables.keys()
+            for table in all_db_tables:
+                self.log.info('Vacuuming table: %s' % table)
+                db_session.vacuum(table, full=self.full, verbose=True)
+        return TimestampData(achievements='All database tables vacuumed')
+
+
 class CheckContributorNamesInDB(IdentifierInputScript):
     """ Checks that contributor sort_names are display_names in
     "last name, comma, other names" format.
@@ -2696,8 +2744,7 @@ class CheckContributorNamesInDB(IdentifierInputScript):
     """
 
     COMPLAINT_SOURCE = "CheckContributorNamesInDB"
-    COMPLAINT_TYPE = "http://librarysimplified.org/terms/problem/wrong-author";
-
+    COMPLAINT_TYPE = "http://librarysimplified.org/terms/problem/wrong-author"
 
     def __init__(self, _db=None, cmd_args=None, stdin=sys.stdin):
         super(CheckContributorNamesInDB, self).__init__(_db=_db)
@@ -2705,7 +2752,6 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         self.parsed_args = self.parse_command_line(
             _db=self._db, cmd_args=cmd_args, stdin=stdin
         )
-
 
     @classmethod
     def make_query(self, _db, identifier_type, identifiers, log=None):
@@ -2729,7 +2775,7 @@ class CheckContributorNamesInDB(IdentifierInputScript):
                 log.info(
                     'Restricted to identifier type "%s".' % identifier_type
                 )
-            query = query.filter(Identifier.type==identifier_type)
+            query = query.filter(Identifier.type == identifier_type)
 
         if log:
             log.info(
@@ -2737,7 +2783,6 @@ class CheckContributorNamesInDB(IdentifierInputScript):
             )
 
         return query.order_by(Edition.id)
-
 
     def do_run(self, batch_size=10):
 
@@ -2757,12 +2802,12 @@ class CheckContributorNamesInDB(IdentifierInputScript):
             for edition in editions:
                 if edition.contributions:
                     for contribution in edition.contributions:
-                        self.process_contribution_local(self._db, contribution, self.log)
+                        self.process_contribution_local(
+                            self._db, contribution, self.log)
             offset += batch_size
 
             self._db.commit()
         self._db.commit()
-
 
     def process_contribution_local(self, _db, contribution, log=None):
         if not contribution or not contribution.edition:
@@ -2773,7 +2818,8 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         identifier = contribution.edition.primary_identifier
 
         if contributor.sort_name and contributor.display_name:
-            computed_sort_name_local_new = unicodedata.normalize("NFKD", str(display_name_to_sort_name(contributor.display_name)))
+            computed_sort_name_local_new = unicodedata.normalize(
+                "NFKD", str(display_name_to_sort_name(contributor.display_name)))
             # Did HumanName parser produce a differet result from the plain comma replacement?
             if (contributor.sort_name.strip().lower() != computed_sort_name_local_new.strip().lower()):
                 error_message_detail = "Contributor[id=%s].sort_name is oddly different from computed_sort_name, human intervention required." % contributor.id
@@ -2788,24 +2834,27 @@ class CheckContributorNamesInDB(IdentifierInputScript):
                 # it probably means that a human metadata professional had added an explanation/expansion to the
                 # sort_name, s.a. "Bob A. Jones" --> "Bob A. (Allan) Jones", and we'd rather not replace this data
                 # with the "Jones, Bob A." that the auto-algorigthm would generate.
-                length_difference = len(contributor.sort_name.strip()) - len(computed_sort_name_local_new.strip())
+                length_difference = len(contributor.sort_name.strip(
+                )) - len(computed_sort_name_local_new.strip())
                 if abs(length_difference) > 3:
                     return self.process_local_mismatch(_db=_db, contribution=contribution,
-                        computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
+                                                       computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
 
-                match_ratio = contributor_name_match_ratio(contributor.sort_name, computed_sort_name_local_new, normalize_names=False)
+                match_ratio = contributor_name_match_ratio(
+                    contributor.sort_name, computed_sort_name_local_new, normalize_names=False)
 
                 if (match_ratio < 40):
                     # ask a human.  this kind of score can happen when the sort_name is a transliteration of the display_name,
                     # and is non-trivial to fix.
                     self.process_local_mismatch(_db=_db, contribution=contribution,
-                        computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
+                                                computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
                 else:
                     # we can fix it!
-                    output = "%s|\t%s|\t%s|\t%s|\tlocal_fix" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name_local_new)
+                    output = "%s|\t%s|\t%s|\t%s|\tlocal_fix" % (
+                        contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name_local_new)
                     print(output.encode("utf8"))
-                    self.set_contributor_sort_name(computed_sort_name_local_new, contribution)
-
+                    self.set_contributor_sort_name(
+                        computed_sort_name_local_new, contribution)
 
     @classmethod
     def set_contributor_sort_name(cls, sort_name, contribution):
@@ -2820,9 +2869,8 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         edition_contributions = contribution.edition.contributions
         for edition_contribution in edition_contributions:
             if ((edition_contribution.role == Contributor.PRIMARY_AUTHOR_ROLE) and
-                (edition_contribution.contributor.display_name == contribution.contributor.display_name)):
+                    (edition_contribution.contributor.display_name == contribution.contributor.display_name)):
                 contribution.edition.sort_author = sort_name
-
 
     def process_local_mismatch(self, _db, contribution, computed_sort_name, error_message_detail, log=None):
         """
@@ -2831,8 +2879,7 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         method in the child class in metadata_wrangler code, we sometimes go do a web query.
         """
         self.register_problem(source=self.COMPLAINT_SOURCE, contribution=contribution,
-            computed_sort_name=computed_sort_name, error_message_detail=error_message_detail, log=log)
-
+                              computed_sort_name=computed_sort_name, error_message_detail=error_message_detail, log=log)
 
     @classmethod
     def register_problem(cls, source, contribution, computed_sort_name, error_message_detail, log=None):
@@ -2845,19 +2892,18 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
         pools = contribution.edition.is_presentation_for
         try:
-            complaint, is_new = Complaint.register(pools[0], cls.COMPLAINT_TYPE, source, error_message_detail)
-            output = "%s|\t%s|\t%s|\t%s|\tcomplain|\t%s" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name, source)
+            complaint, is_new = Complaint.register(
+                pools[0], cls.COMPLAINT_TYPE, source, error_message_detail)
+            output = "%s|\t%s|\t%s|\t%s|\tcomplain|\t%s" % (
+                contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name, source)
             print(output.encode("utf8"))
         except ValueError as e:
             # log and move on, don't stop run
-            log.error("Error registering complaint: %r", contributor, exc_info=e)
+            log.error("Error registering complaint: %r",
+                      contributor, exc_info=e)
             success = False
 
         return success
-
-
-
-
 
 
 class Explain(IdentifierInputScript):
@@ -2870,7 +2916,8 @@ class Explain(IdentifierInputScript):
     TIME_FORMAT = "%Y-%m-%d %H:%M"
 
     def do_run(self, cmd_args=None, stdin=sys.stdin, stdout=sys.stdout):
-        param_args = self.parse_command_line(self._db, cmd_args=cmd_args, stdin=stdin)
+        param_args = self.parse_command_line(
+            self._db, cmd_args=cmd_args, stdin=stdin)
         identifier_ids = [x.id for x in param_args.identifiers]
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
@@ -2894,10 +2941,12 @@ class Explain(IdentifierInputScript):
             return
 
         # Tell about the Edition record.
-        output = "%s (%s, %s) according to %s" % (edition.title, edition.author, edition.medium, edition.data_source.name)
+        output = "%s (%s, %s) according to %s" % (
+            edition.title, edition.author, edition.medium, edition.data_source.name)
         self.write(output)
         self.write(" Permanent work ID: %s" % edition.permanent_work_id)
-        self.write(" Metadata URL: %s " % (self.METADATA_URL_TEMPLATE % edition.primary_identifier.urn))
+        self.write(" Metadata URL: %s " %
+                   (self.METADATA_URL_TEMPLATE % edition.primary_identifier.urn))
 
         seen = set()
         self.explain_identifier(edition.primary_identifier, True, seen, 1, 0)
@@ -2924,19 +2973,19 @@ class Explain(IdentifierInputScript):
 
         # Note:  Can change DB state.
         if work and presentation_calculation_policy is not None:
-             print("!!! About to calculate presentation!")
-             work.calculate_presentation(policy=presentation_calculation_policy)
-             print("!!! All done!")
-             print()
-             print("After recalculating presentation:")
-             self.explain_work(work)
-
+            print("!!! About to calculate presentation!")
+            work.calculate_presentation(policy=presentation_calculation_policy)
+            print("!!! All done!")
+            print()
+            print("After recalculating presentation:")
+            self.explain_work(work)
 
     def explain_contribution(self, contribution):
         contributor_id = contribution.contributor.id
         contributor_sort_name = contribution.contributor.sort_name
         contributor_display_name = contribution.contributor.display_name
-        self.write(" Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s, " % (contributor_id, contributor_sort_name, contributor_display_name))
+        self.write(" Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s, " % (
+            contributor_id, contributor_sort_name, contributor_display_name))
 
     def explain_identifier(self, identifier, primary, seen, strength, level):
         indent = "  " * level
@@ -2946,7 +2995,8 @@ class Explain(IdentifierInputScript):
             ident = "Identifier"
         if primary:
             strength = 1
-        self.write("%s %s: %s/%s (q=%s)" % (indent, ident, identifier.type, identifier.identifier, strength))
+        self.write("%s %s: %s/%s (q=%s)" % (indent, ident,
+                   identifier.type, identifier.identifier, strength))
 
         _db = Session.object_session(identifier)
         classifications = Identifier.classifications_for_identifier_ids(
@@ -2958,10 +3008,10 @@ class Explain(IdentifierInputScript):
                 genre = genre.name
             else:
                 genre = "(!genre)"
-            #print("%s  %s says: %s/%s %s w=%s" % (
+            # print("%s  %s says: %s/%s %s w=%s" % (
             #    indent, classification.data_source.name,
             #    subject.identifier, subject.name, genre, classification.weight
-            #))
+            # ))
         seen.add(identifier)
         for equivalency in identifier.equivalencies:
             if equivalency.id in seen:
@@ -2983,7 +3033,8 @@ class Explain(IdentifierInputScript):
             self.write(" Collection: %r" % pool.collection)
             libraries = [library.name for library in pool.collection.libraries]
             if libraries:
-                self.write(" Available to libraries: %s" % ", ".join(libraries))
+                self.write(" Available to libraries: %s" %
+                           ", ".join(libraries))
             else:
                 self.write("Not available to any libraries!")
         else:
@@ -2996,7 +3047,8 @@ class Explain(IdentifierInputScript):
                     fulfillable = "Fulfillable"
                 else:
                     fulfillable = "Unfulfillable"
-                self.write("  %s %s/%s" % (fulfillable, dm.content_type, dm.drm_scheme))
+                self.write("  %s %s/%s" %
+                           (fulfillable, dm.content_type, dm.drm_scheme))
         else:
             self.write(" No delivery mechanisms.")
         self.write(" %s owned, %d available, %d holds, %d reserves" % (
@@ -3006,7 +3058,8 @@ class Explain(IdentifierInputScript):
     def explain_work(self, work):
         self.write("Work info:")
         if work.presentation_edition:
-            self.write(" Identifier of presentation edition: %r" % work.presentation_edition.primary_identifier)
+            self.write(" Identifier of presentation edition: %r" %
+                       work.presentation_edition.primary_identifier)
         else:
             self.write(" No presentation edition.")
         self.write(" Fiction: %s" % work.fiction)
@@ -3069,6 +3122,7 @@ class WhereAreMyBooksScript(CollectionInputScript):
     This is a common problem on a new installation or when a new collection
     is being configured.
     """
+
     def __init__(self, _db=None, output=None, search=None):
         _db = _db or self._db
         super(WhereAreMyBooksScript, self).__init__(_db)
@@ -3076,7 +3130,8 @@ class WhereAreMyBooksScript(CollectionInputScript):
         try:
             self.search = search or ExternalSearchIndex(_db)
         except CannotLoadConfiguration:
-            self.out("Here's your problem: the search integration is missing or misconfigured.")
+            self.out(
+                "Here's your problem: the search integration is missing or misconfigured.")
             raise
 
     def out(self, s, *args):
@@ -3136,11 +3191,11 @@ class WhereAreMyBooksScript(CollectionInputScript):
         self.out('Examining collection "%s"', collection.name)
 
         base = self._db.query(Work).join(LicensePool).filter(
-            LicensePool.collection==collection
+            LicensePool.collection == collection
         )
 
-        ready = base.filter(Work.presentation_ready==True)
-        unready = base.filter(Work.presentation_ready==False)
+        ready = base.filter(Work.presentation_ready == True)
+        unready = base.filter(Work.presentation_ready == False)
 
         ready_count = ready.count()
         unready_count = unready.count()
@@ -3151,8 +3206,8 @@ class WhereAreMyBooksScript(CollectionInputScript):
         LPDM = LicensePoolDeliveryMechanism
         no_delivery_mechanisms = base.filter(
             ~exists().where(
-                and_(LicensePool.data_source_id==LPDM.data_source_id,
-                     LicensePool.identifier_id==LPDM.identifier_id)
+                and_(LicensePool.data_source_id == LPDM.data_source_id,
+                     LicensePool.identifier_id == LPDM.identifier_id)
             )
         ).count()
         if no_delivery_mechanisms > 0:
@@ -3162,7 +3217,7 @@ class WhereAreMyBooksScript(CollectionInputScript):
             )
 
         # Check if the license pools are suppressed.
-        suppressed = base.filter(LicensePool.suppressed==True).count()
+        suppressed = base.filter(LicensePool.suppressed == True).count()
         if suppressed > 0:
             self.out(
                 " %d works have suppressed LicensePools and won't show up.",
@@ -3193,6 +3248,7 @@ class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
     This script is helpful for accounting for and tracking collections on
     the metadata wrangler.
     """
+
     def __init__(self, _db=None, output=None):
         _db = _db or self._db
         super(ListCollectionMetadataIdentifiersScript, self).__init__(_db)
@@ -3216,6 +3272,7 @@ class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
 
         self.output.write('COLLECTIONS\n')
         self.output.write('='*50+'\n')
+
         def add_line(id, name, protocol, metadata_identifier):
             line = '(%s) %s/%s => %s\n' % (
                 id, name, protocol, metadata_identifier
@@ -3262,13 +3319,14 @@ class RemovesSearchCoverage(object):
     """Mix-in class for a script that might remove all coverage records
     for the search engine.
     """
+
     def remove_search_coverage_records(self):
         """Delete all search coverage records from the database.
 
         :return: The number of records deleted.
         """
         wcr = WorkCoverageRecord
-        clause = wcr.operation==wcr.UPDATE_SEARCH_INDEX_OPERATION
+        clause = wcr.operation == wcr.UPDATE_SEARCH_INDEX_OPERATION
         count = self._db.query(wcr).filter(clause).count()
         self._db.execute(wcr.__table__.delete().where(clause))
         return count
@@ -3306,6 +3364,7 @@ class SearchIndexCoverageRemover(TimestampScript, RemovesSearchCoverage):
     This guarantees the SearchIndexCoverageProvider will add
     fresh coverage for every Work the next time it runs.
     """
+
     def do_run(self):
         count = self.remove_search_coverage_records()
         return TimestampData(
@@ -3317,6 +3376,7 @@ class SearchIndexCoverageRemover(TimestampScript, RemovesSearchCoverage):
 
 class MockStdin(object):
     """Mock a list of identifiers passed in on standard input."""
+
     def __init__(self, *lines):
         self.lines = lines
 
