@@ -1,16 +1,10 @@
 #!/bin/bash
 set -ex
 
-image_branch="$IMAGE_BRANCH"
-
-if [[ -z "$image_branch" ]]; then
-  image_branch=`echo "cm_${DOCKER_REPO}_active" | sed "s/circ-//"`;
-fi
-
 # Clone the right version of the circulation code.
 docker build \
   --build-arg version=${SOURCE_BRANCH} \
   -f Dockerfile \
-  --target ${image_branch} \
+  --target ${IMAGE_BRANCH} \
   -t ${IMAGE_NAME} \
   --no-cache .
