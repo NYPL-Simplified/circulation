@@ -380,7 +380,7 @@ class ViewController(AdminController):
                             "Your admin account doesn't have access to any libraries. "
                             "Contact your library manager for assistance."
                         )
-                        return Response(lgt(msg), 200)
+                        return Response(lgt(msg), 401)
 
                     return redirect(self.url_for('admin_view', collection=library_name))
 

@@ -3971,6 +3971,56 @@ def admin_sign_in_again():
 @app.route('/admin/web/<path:etc>')  # catchall for single-page URLs
 @allows_cors(allowed_domain_type=set({"admin"}))
 def admin_view(collection=None, book=None, etc=None, **kwargs):
+    """Return admin html template and csrf token or redirect to sign in page if admin not signed in
+    ---
+    get:
+      tags:
+        - admin views
+      summary: See details in this documentation. This covers multiple end points. 
+      description: |
+        There are 5 separate end points that all point to the same view function and return an admin HTML template or redirect to a specific view of books and collections.  These end points include:
+
+          * /admin/web/<path:etc>
+          * /admin/web/book/<path:book>
+          * /admin/web/collection/<path:collection>
+          * /admin/web/collection/<path:collection>/book/<path:book>
+          * /admin/web/
+      parameters:
+        - in: path
+          name: collection
+          schema:
+            type: string
+          description: Name of collection
+        - in: path
+          name: book
+          schema:
+            type: string
+          description: Name of book
+        - in: path
+          name: etc
+          schema:
+            type: string
+          description: Catchall for single-page URLs
+      responses:
+        200:
+          description: Rendered html template
+          content:
+            text/html:
+              schema: AdminViewPageSchema
+        302:
+          description: Redirect to admin_sign_in page if not signed in and redirects to original URL after sign in.
+        401:
+          content:
+            text/html:
+              example: "Your admin account doesn't have access to any libraries. Contact your library manager for assistance."
+        5XX:
+          description: |
+            An error including:
+            * `ADMIN_AUTH_NOT_CONFIGURED`: No admin auth systems set up
+          content:
+            application/json:
+              schema: ProblemResponse 
+    """
     return app.manager.admin_view_controller(collection, book, path=etc)
 
 
