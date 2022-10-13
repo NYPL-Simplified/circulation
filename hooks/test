@@ -3,8 +3,8 @@
 set -ex
 
 # Create a container with test and production postgres databases.
-docker pull postgres:12.0-alpine;
-docker run -d --env POSTGRES_HOST_AUTH_METHOD=trust --name pg postgres:12.0-alpine;
+docker pull postgres:12.8-alpine;
+docker run -d --env POSTGRES_HOST_AUTH_METHOD=trust --name pg postgres:12.8-alpine;
 
 # Sleep to let PostgreSQL start up.
 sleep 15;
