@@ -65,12 +65,9 @@ if [[ ${IMAGE_NAME} == *"scripts"* ]]; then
   exit 0
 fi
 
-# If this is a webapp container, check that nginx and gunicorn are running
-if [[ ${IMAGE_NAME} == *"webapp"* ]]; then
-  check_service_status nginx
-  check_service_status gunicorn
-  exit 0
-fi
+# In a webapp container, check that nginx and uwsgi are running.
+check_service_status nginx
+check_service_status gunicorn
 
 # Make sure the web server is running.
 healthcheck=$(docker exec circ /bin/bash -c "curl --write-out \"%{http_code}\" --silent --output /dev/null http://localhost/healthcheck.html")
