@@ -1482,7 +1482,7 @@ class DirectoryImportScript(TimestampScript):
         :type collection_type: CollectionType
 
         :param metadata: Book's metadata
-        :type metadata: Metadata
+        :type metadata: core.metadata_layer.Metadata
 
         :param policy: Replacement policy
         :type policy: ReplacementPolicy
@@ -1528,7 +1528,7 @@ class DirectoryImportScript(TimestampScript):
         :type collection_type: CollectionType
 
         :param metadata: Book's metadata
-        :type metadata: Metadata
+        :type metadata: core.metadata_layer.Metadata
 
         :param policy: Replacement policy
         :type policy: ReplacementPolicy
