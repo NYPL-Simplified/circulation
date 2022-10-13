@@ -27,19 +27,23 @@ docker run -d -p 80:80 \
   -e SIMPLIFIED_PRODUCTION_DATABASE="postgresql://simplified:test@${pghost}:5432/docker_prod" \
   --name circ --rm "$IMAGE_NAME"
 
-# A method to check that runit services are running inside the container
+# A method to check that services are running inside the container
 function check_service_status()
 {
-  # The location of the runit service should be passed.
+  # The service name should be passed.
   service="$1"
 
   # Check the status of the service.
-  service_status=`docker exec circ /bin/bash -c "sv status $service"`
+  if [[ "$service" == "gunicorn" ]]; then
+    service_status=$(docker exec circ /bin/bash -c "supervisorctl status ${service}")
+  else
+    service_status=$(docker exec circ /bin/bash -c "service $service status")
+  fi
 
-  # Get the exit code for the sv call.
-  sv_status=$?
+  # Get the exit code for the service call.
+  svc_status=$?
 
-  if [[ "$sv_status" != 0 || "$service_status" =~ down ]]; then
+  if [[ "$svc_status" != 0 ]]; then
     echo "  FAIL: $service is not running"
     exit 1
   else
@@ -57,13 +61,16 @@ fi
 
 # If this is a scripts container, check that cron is running.
 if [[ ${IMAGE_NAME} == *"scripts"* ]]; then
-  check_service_status /etc/service/cron
+  check_service_status cron
   exit 0
 fi
 
-# In a webapp container, check that nginx and uwsgi are running.
-check_service_status /etc/service/nginx
-check_service_status /home/simplified/service/uwsgi
+# If this is a webapp container, check that nginx and gunicorn are running
+if [[ ${IMAGE_NAME} == *"webapp"* ]]; then
+  check_service_status nginx
+  check_service_status gunicorn
+  exit 0
+fi
 
 # Make sure the web server is running.
 healthcheck=$(docker exec circ /bin/bash -c "curl --write-out \"%{http_code}\" --silent --output /dev/null http://localhost/healthcheck.html")
