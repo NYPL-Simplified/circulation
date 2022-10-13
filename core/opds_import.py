@@ -664,7 +664,7 @@ class OPDSImporter(object):
         """Returns an associated Collection object
 
         :return: Associated Collection object
-        :rtype: Optional[Collection]
+        :rtype: Optional[core.model.collection.Collection]
         """
         if self._collection_id:
             return Collection.by_id(self._db, id=self._collection_id)

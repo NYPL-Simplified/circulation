@@ -124,7 +124,7 @@ class LCPAPI(BaseCirculationAPI, HasExternalIntegration):
         """Returns an associated Collection object
 
         :return: Associated Collection object
-        :rtype: Collection
+        :rtype: core.model.collection.Collection
         """
         return Collection.by_id(self._db, id=self._collection_id)
 

@@ -1420,7 +1420,7 @@ class DirectoryImportScript(TimestampScript):
         :type data_source_name: string
 
         :return: A 2-tuple (Collection, list of MirrorUploader instances)
-        :rtype: Tuple[Collection, List[MirrorUploader]]
+        :rtype: Tuple[core.model.collection.Collection, List[MirrorUploader]]
         """
         collection, is_new = Collection.by_name_and_protocol(
             self._db, collection_name, ExternalIntegration.LCP if collection_type == CollectionType.LCP else ExternalIntegration.MANUAL
@@ -1476,7 +1476,7 @@ class DirectoryImportScript(TimestampScript):
         """Creates a Work instance from metadata
 
         :param collection: Target collection
-        :type collection: Collection
+        :type collection: core.model.collection.Collection
 
         :param collection_type: Collection's type: open access/protected access
         :type collection_type: CollectionType
