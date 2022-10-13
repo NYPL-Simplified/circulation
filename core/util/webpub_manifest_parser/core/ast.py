@@ -445,7 +445,8 @@ class Contributor(Node):
 class ArrayOfContributorsProperty(BaseArrayProperty):
     """Property containing information about contributors.
 
-    For example:
+    For example::
+
         - "Herman Melville"
         - {
             name: "Herman Melville"
@@ -522,7 +523,8 @@ class Subject(Node, PropertiesGrouping):
 class ArrayOfSubjectsProperty(BaseArrayProperty):
     """Property containing information about subjects.
 
-    For example:
+    For example::
+
         - "Juvenile Fiction"
         - {
             name: "Juvenile Fiction"
