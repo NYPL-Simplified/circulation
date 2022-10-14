@@ -1,0 +1,21 @@
+core.util.webpub\_manifest\_parser.epub package
+===============================================
+
+Submodules
+----------
+
+core.util.webpub\_manifest\_parser.epub.ast module
+--------------------------------------------------
+
+.. automodule:: core.util.webpub_manifest_parser.epub.ast
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: core.util.webpub_manifest_parser.epub
+   :members:
+   :undoc-members:
+   :show-inheritance:

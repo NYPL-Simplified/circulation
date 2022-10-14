@@ -1,19 +1,19 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
     <title>api.saml.metadata package &#8212; Library Simplified Circulation Manager  documentation</title>
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="api.saml.metadata.federations package" href="api.saml.metadata.federations.html" />
@@ -34,10 +34,10 @@
 
           <div class="body" role="main">
             
-  <div class="section" id="api-saml-metadata-package">
-<h1>api.saml.metadata package<a class="headerlink" href="#api-saml-metadata-package" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="subpackages">
-<h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this headline">¶</a></h2>
+  <section id="api-saml-metadata-package">
+<h1>api.saml.metadata package<a class="headerlink" href="#api-saml-metadata-package" title="Permalink to this heading">¶</a></h1>
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this heading">¶</a></h2>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="api.saml.metadata.federations.html">api.saml.metadata.federations package</a><ul>
@@ -51,699 +51,651 @@
 </li>
 </ul>
 </div>
-</div>
-<div class="section" id="submodules">
-<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
-</div>
-<div class="section" id="module-api.saml.metadata.filter">
-<span id="api-saml-metadata-filter-module"></span><h2>api.saml.metadata.filter module<a class="headerlink" href="#module-api.saml.metadata.filter" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.saml.metadata.filter.SAMLSubjectFilter">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.filter.</code><code class="descname">SAMLSubjectFilter</code><span class="sig-paren">(</span><em>dsl_evaluator</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/filter.html#SAMLSubjectFilter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.filter.SAMLSubjectFilter" title="Permalink to this definition">¶</a></dt>
+</section>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading">¶</a></h2>
+</section>
+<section id="module-api.saml.metadata.filter">
+<span id="api-saml-metadata-filter-module"></span><h2>api.saml.metadata.filter module<a class="headerlink" href="#module-api.saml.metadata.filter" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.filter.SAMLSubjectFilter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.filter.</span></span><span class="sig-name descname"><span class="pre">SAMLSubjectFilter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dsl_evaluator</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/filter.html#SAMLSubjectFilter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.filter.SAMLSubjectFilter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Executes filter expressions.</p>
-<dl class="method">
-<dt id="api.saml.metadata.filter.SAMLSubjectFilter.execute">
-<code class="descname">execute</code><span class="sig-paren">(</span><em>expression</em>, <em>subject</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/filter.html#SAMLSubjectFilter.execute"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.filter.SAMLSubjectFilter.execute" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.saml.metadata.filter.SAMLSubjectFilter.execute">
+<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">expression</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subject</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/filter.html#SAMLSubjectFilter.execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.filter.SAMLSubjectFilter.execute" title="Permalink to this definition">¶</a></dt>
 <dd><p>Apply the expression to the subject and return a boolean value indicating whether it’s a valid subject.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>expression</strong> (<em>str</em>) – String containing the filter expression</li>
-<li><strong>subject</strong> (<a class="reference internal" href="#api.saml.metadata.model.SAMLSubject" title="api.saml.metadata.model.SAMLSubject"><em>api.saml.metadata.model.SAMLSubject</em></a>) – SAML subject</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>expression</strong> (<em>str</em>) – String containing the filter expression</p></li>
+<li><p><strong>subject</strong> (<a class="reference internal" href="#api.saml.metadata.model.SAMLSubject" title="api.saml.metadata.model.SAMLSubject"><em>api.saml.metadata.model.SAMLSubject</em></a>) – SAML subject</p></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Boolean value indicating whether it’s a valid subject</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">bool</p>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#api.saml.metadata.filter.SAMLSubjectFilterError" title="api.saml.metadata.filter.SAMLSubjectFilterError"><strong>SAMLSubjectFilterError</strong></a> – in the case of any errors occurred during expression evaluation</p>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Boolean value indicating whether it’s a valid subject</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#api.saml.metadata.filter.SAMLSubjectFilterError" title="api.saml.metadata.filter.SAMLSubjectFilterError"><strong>SAMLSubjectFilterError</strong></a> – in the case of any errors occurred during expression evaluation</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.saml.metadata.filter.SAMLSubjectFilter.validate">
-<code class="descname">validate</code><span class="sig-paren">(</span><em>expression</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/filter.html#SAMLSubjectFilter.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.filter.SAMLSubjectFilter.validate" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.saml.metadata.filter.SAMLSubjectFilter.validate">
+<span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">expression</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/filter.html#SAMLSubjectFilter.validate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.filter.SAMLSubjectFilter.validate" title="Permalink to this definition">¶</a></dt>
 <dd><p>Validate the filter expression.</p>
 <p>Try to apply the expression to a dummy Subject object containing all the known SAML attributes.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>expression</strong> (<em>str</em>) – String containing the filter expression</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Raise:</th><td class="field-body">SAMLSubjectFilterError</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>expression</strong> (<em>str</em>) – String containing the filter expression</p>
+</dd>
+<dt class="field-even">Raise<span class="colon">:</span></dt>
+<dd class="field-even"><p>SAMLSubjectFilterError</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="exception">
-<dt id="api.saml.metadata.filter.SAMLSubjectFilterError">
-<em class="property">exception </em><code class="descclassname">api.saml.metadata.filter.</code><code class="descname">SAMLSubjectFilterError</code><span class="sig-paren">(</span><em>inner_exception</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/filter.html#SAMLSubjectFilterError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.filter.SAMLSubjectFilterError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
+<dl class="py exception">
+<dt class="sig sig-object py" id="api.saml.metadata.filter.SAMLSubjectFilterError">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.filter.</span></span><span class="sig-name descname"><span class="pre">SAMLSubjectFilterError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inner_exception</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/filter.html#SAMLSubjectFilterError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.filter.SAMLSubjectFilterError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseError</span></code></a></p>
 <p>Raised in the case of any errors during execution of a filter expression.</p>
 </dd></dl>
 
-</div>
-<div class="section" id="module-api.saml.metadata.model">
-<span id="api-saml-metadata-model-module"></span><h2>api.saml.metadata.model module<a class="headerlink" href="#module-api.saml.metadata.model" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLAttribute">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLAttribute</code><span class="sig-paren">(</span><em>name</em>, <em>values</em>, <em>friendly_name=None</em>, <em>name_format=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLAttribute"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLAttribute" title="Permalink to this definition">¶</a></dt>
+</section>
+<section id="module-api.saml.metadata.model">
+<span id="api-saml-metadata-model-module"></span><h2>api.saml.metadata.model module<a class="headerlink" href="#module-api.saml.metadata.model" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttribute">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLAttribute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">friendly_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name_format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLAttribute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLAttribute" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Represents saml2:Attribute</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttribute.friendly_name">
-<code class="descname">friendly_name</code><a class="headerlink" href="#api.saml.metadata.model.SAMLAttribute.friendly_name" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttribute.friendly_name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">friendly_name</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLAttribute.friendly_name" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the attribute’s friendly name</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Attribute’s friendly name</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Attribute’s friendly name</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttribute.name">
-<code class="descname">name</code><a class="headerlink" href="#api.saml.metadata.model.SAMLAttribute.name" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttribute.name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLAttribute.name" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the attribute’s name</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Attribute’s name</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Attribute’s name</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttribute.name_format">
-<code class="descname">name_format</code><a class="headerlink" href="#api.saml.metadata.model.SAMLAttribute.name_format" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttribute.name_format">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name_format</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLAttribute.name_format" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the attribute’s name format</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Attribute’s name format</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Attribute’s name format</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttribute.values">
-<code class="descname">values</code><a class="headerlink" href="#api.saml.metadata.model.SAMLAttribute.values" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttribute.values">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">values</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLAttribute.values" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of the attribute’s values</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of the attribute’s values</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of the attribute’s values</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>List</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLAttributeStatement">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLAttributeStatement</code><span class="sig-paren">(</span><em>attributes</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLAttributeStatement"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeStatement" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeStatement">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLAttributeStatement</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attributes</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLAttributeStatement"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeStatement" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Represents saml2:AttributeStatement</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeStatement.attributes">
-<code class="descname">attributes</code><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeStatement.attributes" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeStatement.attributes">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">attributes</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeStatement.attributes" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns an attributes dictionary</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Dictionary containing attributes</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Dict[string, Attribute]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dictionary containing attributes</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dict[string, Attribute]</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLAttributeType">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLAttributeType</code><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLAttributeType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLAttributeType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLAttributeType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></p>
 <p>Enumeration of different attributes supported by different SAML IdPs</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.displayName">
-<code class="descname">displayName</code><em class="property"> = 'urn:oid:2.16.840.1.113730.3.1.241'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.displayName" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.displayName">
+<span class="sig-name descname"><span class="pre">displayName</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:2.16.840.1.113730.3.1.241'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.displayName" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduOrg">
-<code class="descname">eduOrg</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.2.2'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduOrg" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduOrg">
+<span class="sig-name descname"><span class="pre">eduOrg</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.2.2'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduOrg" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduOrgHomePageURI">
-<code class="descname">eduOrgHomePageURI</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.2.1.2'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduOrgHomePageURI" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduOrgHomePageURI">
+<span class="sig-name descname"><span class="pre">eduOrgHomePageURI</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.2.1.2'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduOrgHomePageURI" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduOrgIdentityAuthNPolicyURI">
-<code class="descname">eduOrgIdentityAuthNPolicyURI</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.2.1.3'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduOrgIdentityAuthNPolicyURI" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduOrgIdentityAuthNPolicyURI">
+<span class="sig-name descname"><span class="pre">eduOrgIdentityAuthNPolicyURI</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.2.1.3'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduOrgIdentityAuthNPolicyURI" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduOrgLegalName">
-<code class="descname">eduOrgLegalName</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.2.1.4'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduOrgLegalName" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduOrgLegalName">
+<span class="sig-name descname"><span class="pre">eduOrgLegalName</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.2.1.4'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduOrgLegalName" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduOrgSuperiorURI">
-<code class="descname">eduOrgSuperiorURI</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.2.1.5'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduOrgSuperiorURI" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduOrgSuperiorURI">
+<span class="sig-name descname"><span class="pre">eduOrgSuperiorURI</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.2.1.5'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduOrgSuperiorURI" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduOrgWhitePagesURI">
-<code class="descname">eduOrgWhitePagesURI</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.2.1.6'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduOrgWhitePagesURI" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduOrgWhitePagesURI">
+<span class="sig-name descname"><span class="pre">eduOrgWhitePagesURI</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.2.1.6'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduOrgWhitePagesURI" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPerson">
-<code class="descname">eduPerson</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.2'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPerson" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPerson">
+<span class="sig-name descname"><span class="pre">eduPerson</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.2'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPerson" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonAffiliation">
-<code class="descname">eduPersonAffiliation</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.1'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonAffiliation" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonAffiliation">
+<span class="sig-name descname"><span class="pre">eduPersonAffiliation</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.1'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonAffiliation" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonAssurance">
-<code class="descname">eduPersonAssurance</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.11'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonAssurance" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonAssurance">
+<span class="sig-name descname"><span class="pre">eduPersonAssurance</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.11'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonAssurance" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonEntitlement">
-<code class="descname">eduPersonEntitlement</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.7'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonEntitlement" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonEntitlement">
+<span class="sig-name descname"><span class="pre">eduPersonEntitlement</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.7'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonEntitlement" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonNickname">
-<code class="descname">eduPersonNickname</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.2'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonNickname" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonNickname">
+<span class="sig-name descname"><span class="pre">eduPersonNickname</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.2'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonNickname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonOrcid">
-<code class="descname">eduPersonOrcid</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.12'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonOrcid" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonOrcid">
+<span class="sig-name descname"><span class="pre">eduPersonOrcid</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.12'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonOrcid" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonOrgDN">
-<code class="descname">eduPersonOrgDN</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.3'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonOrgDN" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonOrgDN">
+<span class="sig-name descname"><span class="pre">eduPersonOrgDN</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.3'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonOrgDN" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonOrgUnitDN">
-<code class="descname">eduPersonOrgUnitDN</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.4'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonOrgUnitDN" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonOrgUnitDN">
+<span class="sig-name descname"><span class="pre">eduPersonOrgUnitDN</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.4'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonOrgUnitDN" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonPrimaryAffiliation">
-<code class="descname">eduPersonPrimaryAffiliation</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.5'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonPrimaryAffiliation" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonPrimaryAffiliation">
+<span class="sig-name descname"><span class="pre">eduPersonPrimaryAffiliation</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.5'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonPrimaryAffiliation" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonPrimaryOrgUnitDN">
-<code class="descname">eduPersonPrimaryOrgUnitDN</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.8'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonPrimaryOrgUnitDN" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonPrimaryOrgUnitDN">
+<span class="sig-name descname"><span class="pre">eduPersonPrimaryOrgUnitDN</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.8'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonPrimaryOrgUnitDN" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonPrincipalName">
-<code class="descname">eduPersonPrincipalName</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.6'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonPrincipalName" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonPrincipalName">
+<span class="sig-name descname"><span class="pre">eduPersonPrincipalName</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.6'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonPrincipalName" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonPrincipalNamePrior">
-<code class="descname">eduPersonPrincipalNamePrior</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.16'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonPrincipalNamePrior" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonPrincipalNamePrior">
+<span class="sig-name descname"><span class="pre">eduPersonPrincipalNamePrior</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.16'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonPrincipalNamePrior" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonScopedAffiliation">
-<code class="descname">eduPersonScopedAffiliation</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.9'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonScopedAffiliation" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonScopedAffiliation">
+<span class="sig-name descname"><span class="pre">eduPersonScopedAffiliation</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.9'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonScopedAffiliation" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonTargetedID">
-<code class="descname">eduPersonTargetedID</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.10'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonTargetedID" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonTargetedID">
+<span class="sig-name descname"><span class="pre">eduPersonTargetedID</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.10'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonTargetedID" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.eduPersonUniqueId">
-<code class="descname">eduPersonUniqueId</code><em class="property"> = 'urn:oid:1.3.6.1.4.1.5923.1.1.1.13'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonUniqueId" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.eduPersonUniqueId">
+<span class="sig-name descname"><span class="pre">eduPersonUniqueId</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:1.3.6.1.4.1.5923.1.1.1.13'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.eduPersonUniqueId" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.givenName">
-<code class="descname">givenName</code><em class="property"> = 'urn:oid:2.5.4.42'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.givenName" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.givenName">
+<span class="sig-name descname"><span class="pre">givenName</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:2.5.4.42'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.givenName" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.mail">
-<code class="descname">mail</code><em class="property"> = 'urn:oid:0.9.2342.19200300.100.1.3'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.mail" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.mail">
+<span class="sig-name descname"><span class="pre">mail</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:0.9.2342.19200300.100.1.3'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.mail" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.surname">
-<code class="descname">surname</code><em class="property"> = 'urn:oid:2.5.4.4'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.surname" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.surname">
+<span class="sig-name descname"><span class="pre">surname</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:2.5.4.4'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.surname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLAttributeType.uid">
-<code class="descname">uid</code><em class="property"> = 'urn:oid:0.9.2342.19200300.100.1.1'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.uid" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLAttributeType.uid">
+<span class="sig-name descname"><span class="pre">uid</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oid:0.9.2342.19200300.100.1.1'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLAttributeType.uid" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLBinding">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLBinding</code><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLBinding"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLBinding" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLBinding">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLBinding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLBinding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLBinding" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></p>
 <p>Enumeration of SAML bindings</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLBinding.DEFLATE">
-<code class="descname">DEFLATE</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:bindings:URL-Encoding:DEFLATE'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLBinding.DEFLATE" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLBinding.DEFLATE">
+<span class="sig-name descname"><span class="pre">DEFLATE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:2.0:bindings:URL-Encoding:DEFLATE'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLBinding.DEFLATE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLBinding.HTTP_ARTIFACT">
-<code class="descname">HTTP_ARTIFACT</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLBinding.HTTP_ARTIFACT" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLBinding.HTTP_ARTIFACT">
+<span class="sig-name descname"><span class="pre">HTTP_ARTIFACT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLBinding.HTTP_ARTIFACT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLBinding.HTTP_POST">
-<code class="descname">HTTP_POST</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLBinding.HTTP_POST" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLBinding.HTTP_POST">
+<span class="sig-name descname"><span class="pre">HTTP_POST</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLBinding.HTTP_POST" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLBinding.HTTP_REDIRECT">
-<code class="descname">HTTP_REDIRECT</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLBinding.HTTP_REDIRECT" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLBinding.HTTP_REDIRECT">
+<span class="sig-name descname"><span class="pre">HTTP_REDIRECT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLBinding.HTTP_REDIRECT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLBinding.SOAP">
-<code class="descname">SOAP</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:bindings:SOAP'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLBinding.SOAP" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLBinding.SOAP">
+<span class="sig-name descname"><span class="pre">SOAP</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:2.0:bindings:SOAP'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLBinding.SOAP" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLIdentityProviderMetadata">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLIdentityProviderMetadata</code><span class="sig-paren">(</span><em>entity_id</em>, <em>ui_info</em>, <em>organization</em>, <em>name_id_format</em>, <em>sso_service</em>, <em>slo_service=None</em>, <em>want_authn_requests_signed=False</em>, <em>signing_certificates=None</em>, <em>encryption_certificates=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLIdentityProviderMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLIdentityProviderMetadata" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.saml.metadata.model.SAMLProviderMetadata" title="api.saml.metadata.model.SAMLProviderMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.metadata.model.SAMLProviderMetadata</span></code></a></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLIdentityProviderMetadata">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLIdentityProviderMetadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">entity_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ui_info</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">organization</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name_id_format</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sso_service</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slo_service</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">want_authn_requests_signed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signing_certificates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encryption_certificates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLIdentityProviderMetadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLIdentityProviderMetadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.saml.metadata.model.SAMLProviderMetadata" title="api.saml.metadata.model.SAMLProviderMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">SAMLProviderMetadata</span></code></a></p>
 <p>Represents IdP metadata</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLIdentityProviderMetadata.encryption_certificates">
-<code class="descname">encryption_certificates</code><a class="headerlink" href="#api.saml.metadata.model.SAMLIdentityProviderMetadata.encryption_certificates" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLIdentityProviderMetadata.encryption_certificates">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">encryption_certificates</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLIdentityProviderMetadata.encryption_certificates" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of encryption certificates</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of encryption certificates</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[string]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of encryption certificates</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>List[string]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLIdentityProviderMetadata.signing_certificates">
-<code class="descname">signing_certificates</code><a class="headerlink" href="#api.saml.metadata.model.SAMLIdentityProviderMetadata.signing_certificates" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLIdentityProviderMetadata.signing_certificates">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">signing_certificates</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLIdentityProviderMetadata.signing_certificates" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of signing certificates</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of signing certificates</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[string]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of signing certificates</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>List[string]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLIdentityProviderMetadata.slo_service">
-<code class="descname">slo_service</code><a class="headerlink" href="#api.saml.metadata.model.SAMLIdentityProviderMetadata.slo_service" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLIdentityProviderMetadata.slo_service">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">slo_service</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLIdentityProviderMetadata.slo_service" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns Single Log-Out service’s metadata</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Single Log-Out service’s metadata</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.model.SAMLService" title="api.saml.metadata.model.SAMLService">SAMLService</a></td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Single Log-Out service’s metadata</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#api.saml.metadata.model.SAMLService" title="api.saml.metadata.model.SAMLService">SAMLService</a></p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLIdentityProviderMetadata.sso_service">
-<code class="descname">sso_service</code><a class="headerlink" href="#api.saml.metadata.model.SAMLIdentityProviderMetadata.sso_service" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLIdentityProviderMetadata.sso_service">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sso_service</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLIdentityProviderMetadata.sso_service" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns Single Sign-On service’s metadata</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Single Sign-On service’s metadata</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.model.SAMLService" title="api.saml.metadata.model.SAMLService">SAMLService</a></td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Single Sign-On service’s metadata</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#api.saml.metadata.model.SAMLService" title="api.saml.metadata.model.SAMLService">SAMLService</a></p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLIdentityProviderMetadata.want_authn_requests_signed">
-<code class="descname">want_authn_requests_signed</code><a class="headerlink" href="#api.saml.metadata.model.SAMLIdentityProviderMetadata.want_authn_requests_signed" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLIdentityProviderMetadata.want_authn_requests_signed">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">want_authn_requests_signed</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLIdentityProviderMetadata.want_authn_requests_signed" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the boolean value indicating to service providers
 whether or not they can expect an unsigned &lt;AuthnRequest&gt; message to be accepted by the identity provider</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Boolean value indicating to service providers
-whether or not they can expect an unsigned &lt;AuthnRequest&gt; message to be accepted by the identity provider</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Boolean value indicating to service providers
+whether or not they can expect an unsigned &lt;AuthnRequest&gt; message to be accepted by the identity provider</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLLocalizedMetadataItem">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLLocalizedMetadataItem</code><span class="sig-paren">(</span><em>value</em>, <em>language=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLLocalizedMetadataItem"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLLocalizedMetadataItem" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLLocalizedMetadataItem">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLLocalizedMetadataItem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">language</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLLocalizedMetadataItem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLLocalizedMetadataItem" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Represents md:localizedNameType.</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLLocalizedMetadataItem.language">
-<code class="descname">language</code><a class="headerlink" href="#api.saml.metadata.model.SAMLLocalizedMetadataItem.language" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLLocalizedMetadataItem.language">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">language</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLLocalizedMetadataItem.language" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return the value’s language.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Value’s language</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Value’s language</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLLocalizedMetadataItem.value">
-<code class="descname">value</code><a class="headerlink" href="#api.saml.metadata.model.SAMLLocalizedMetadataItem.value" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLLocalizedMetadataItem.value">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">value</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLLocalizedMetadataItem.value" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return the actual value.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Actual value</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Actual value</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLNameID">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLNameID</code><span class="sig-paren">(</span><em>name_format</em>, <em>name_qualifier</em>, <em>sp_name_qualifier</em>, <em>name_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLNameID"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLNameID" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameID">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLNameID</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name_format</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name_qualifier</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sp_name_qualifier</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLNameID"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLNameID" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Represents saml2:NameID</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLNameID.name_format">
-<code class="descname">name_format</code><a class="headerlink" href="#api.saml.metadata.model.SAMLNameID.name_format" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameID.name_format">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name_format</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLNameID.name_format" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns name ID’s format</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Name ID’s format</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Name ID’s format</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLNameID.name_id">
-<code class="descname">name_id</code><a class="headerlink" href="#api.saml.metadata.model.SAMLNameID.name_id" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameID.name_id">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name_id</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLNameID.name_id" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns name ID</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Name ID</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Name ID</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLNameID.name_qualifier">
-<code class="descname">name_qualifier</code><a class="headerlink" href="#api.saml.metadata.model.SAMLNameID.name_qualifier" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameID.name_qualifier">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name_qualifier</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLNameID.name_qualifier" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the security or administrative domain that qualifies the name identifier of the subject.
 This attribute provides a means to federate names from disparate user stores without collision</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Security or administrative domain that qualifies the name identifier of the subject.
-This attribute provides a means to federate names from disparate user stores without collision</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Security or administrative domain that qualifies the name identifier of the subject.
+This attribute provides a means to federate names from disparate user stores without collision</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLNameID.sp_name_qualifier">
-<code class="descname">sp_name_qualifier</code><a class="headerlink" href="#api.saml.metadata.model.SAMLNameID.sp_name_qualifier" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameID.sp_name_qualifier">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sp_name_qualifier</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLNameID.sp_name_qualifier" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the attribute that further qualifies a federated name identifier with the name of the service provider
 or affiliation of providers which has federated the principal’s identity</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Attribute that further qualifies a federated name identifier with the name of the service provider
-or affiliation of providers which has federated the principal’s identity</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Attribute that further qualifies a federated name identifier with the name of the service provider
+or affiliation of providers which has federated the principal’s identity</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLNameIDFormat">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLNameIDFormat</code><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLNameIDFormat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameIDFormat">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLNameIDFormat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLNameIDFormat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></p>
 <p>Enumeration of SAML name ID formats</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLNameIDFormat.EMAIL_ADDRESS">
-<code class="descname">EMAIL_ADDRESS</code><em class="property"> = 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.EMAIL_ADDRESS" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameIDFormat.EMAIL_ADDRESS">
+<span class="sig-name descname"><span class="pre">EMAIL_ADDRESS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.EMAIL_ADDRESS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLNameIDFormat.ENCRYPTED">
-<code class="descname">ENCRYPTED</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:nameid-format:encrypted'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.ENCRYPTED" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameIDFormat.ENCRYPTED">
+<span class="sig-name descname"><span class="pre">ENCRYPTED</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:2.0:nameid-format:encrypted'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.ENCRYPTED" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLNameIDFormat.ENTITY">
-<code class="descname">ENTITY</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:nameid-format:entity'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.ENTITY" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameIDFormat.ENTITY">
+<span class="sig-name descname"><span class="pre">ENTITY</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:2.0:nameid-format:entity'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.ENTITY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLNameIDFormat.KERBEROS">
-<code class="descname">KERBEROS</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.KERBEROS" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameIDFormat.KERBEROS">
+<span class="sig-name descname"><span class="pre">KERBEROS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.KERBEROS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLNameIDFormat.PERSISTENT">
-<code class="descname">PERSISTENT</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.PERSISTENT" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameIDFormat.PERSISTENT">
+<span class="sig-name descname"><span class="pre">PERSISTENT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.PERSISTENT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLNameIDFormat.TRANSIENT">
-<code class="descname">TRANSIENT</code><em class="property"> = 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.TRANSIENT" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameIDFormat.TRANSIENT">
+<span class="sig-name descname"><span class="pre">TRANSIENT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:2.0:nameid-format:transient'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.TRANSIENT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLNameIDFormat.UNSPECIFIED">
-<code class="descname">UNSPECIFIED</code><em class="property"> = 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.UNSPECIFIED" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameIDFormat.UNSPECIFIED">
+<span class="sig-name descname"><span class="pre">UNSPECIFIED</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.UNSPECIFIED" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLNameIDFormat.WINDOWS_DOMAIN_QUALIFIED_NAME">
-<code class="descname">WINDOWS_DOMAIN_QUALIFIED_NAME</code><em class="property"> = 'urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.WINDOWS_DOMAIN_QUALIFIED_NAME" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameIDFormat.WINDOWS_DOMAIN_QUALIFIED_NAME">
+<span class="sig-name descname"><span class="pre">WINDOWS_DOMAIN_QUALIFIED_NAME</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.WINDOWS_DOMAIN_QUALIFIED_NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLNameIDFormat.X509_SUBJECT_NAME">
-<code class="descname">X509_SUBJECT_NAME</code><em class="property"> = 'urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.X509_SUBJECT_NAME" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLNameIDFormat.X509_SUBJECT_NAME">
+<span class="sig-name descname"><span class="pre">X509_SUBJECT_NAME</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLNameIDFormat.X509_SUBJECT_NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLOrganization">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLOrganization</code><span class="sig-paren">(</span><em>organization_names=None</em>, <em>organization_display_names=None</em>, <em>organization_urls=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLOrganization"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLOrganization" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLOrganization">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLOrganization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">organization_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">organization_display_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">organization_urls</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLOrganization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLOrganization" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Represents md:Organization and contains basic information about an organization
 responsible for a SAML entity or role.</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLOrganization.organization_display_names">
-<code class="descname">organization_display_names</code><a class="headerlink" href="#api.saml.metadata.model.SAMLOrganization.organization_display_names" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLOrganization.organization_display_names">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">organization_display_names</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLOrganization.organization_display_names" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return a list of localized organization names that suitable for human consumption.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localized organization names that suitable for human consumption</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Optional[List[<a class="reference internal" href="#api.saml.metadata.model.SAMLLocalizedMetadataItem" title="api.saml.metadata.model.SAMLLocalizedMetadataItem">SAMLLocalizedMetadataItem</a>]]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of localized organization names that suitable for human consumption</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Optional[List[<a class="reference internal" href="#api.saml.metadata.model.SAMLLocalizedMetadataItem" title="api.saml.metadata.model.SAMLLocalizedMetadataItem">SAMLLocalizedMetadataItem</a>]]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLOrganization.organization_names">
-<code class="descname">organization_names</code><a class="headerlink" href="#api.saml.metadata.model.SAMLOrganization.organization_names" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLOrganization.organization_names">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">organization_names</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLOrganization.organization_names" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return a list of localized organization names that may or may not be
 suitable for human consumption.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localized organization names that may or may not be
-suitable for human consumption</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Optional[List[<a class="reference internal" href="#api.saml.metadata.model.SAMLLocalizedMetadataItem" title="api.saml.metadata.model.SAMLLocalizedMetadataItem">SAMLLocalizedMetadataItem</a>]]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of localized organization names that may or may not be
+suitable for human consumption</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Optional[List[<a class="reference internal" href="#api.saml.metadata.model.SAMLLocalizedMetadataItem" title="api.saml.metadata.model.SAMLLocalizedMetadataItem">SAMLLocalizedMetadataItem</a>]]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLOrganization.organization_urls">
-<code class="descname">organization_urls</code><a class="headerlink" href="#api.saml.metadata.model.SAMLOrganization.organization_urls" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLOrganization.organization_urls">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">organization_urls</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLOrganization.organization_urls" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return a list of localized organization URIs that specify a location to which to direct a user for
 additional information.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localized organization URIs that
-specify a location to which to direct a user for additional information</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Optional[List[<a class="reference internal" href="#api.saml.metadata.model.SAMLLocalizedMetadataItem" title="api.saml.metadata.model.SAMLLocalizedMetadataItem">SAMLLocalizedMetadataItem</a>]]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of localized organization URIs that
+specify a location to which to direct a user for additional information</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Optional[List[<a class="reference internal" href="#api.saml.metadata.model.SAMLLocalizedMetadataItem" title="api.saml.metadata.model.SAMLLocalizedMetadataItem">SAMLLocalizedMetadataItem</a>]]</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLProviderMetadata">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLProviderMetadata</code><span class="sig-paren">(</span><em>entity_id</em>, <em>ui_info</em>, <em>organization</em>, <em>name_id_format=&lt;SAMLNameIDFormat.UNSPECIFIED: 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLProviderMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLProviderMetadata" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLProviderMetadata">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLProviderMetadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">entity_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ui_info</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">organization</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name_id_format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">SAMLNameIDFormat.UNSPECIFIED</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLProviderMetadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLProviderMetadata" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Base class for IdentityProvider and ServiceProvider classes</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLProviderMetadata.entity_id">
-<code class="descname">entity_id</code><a class="headerlink" href="#api.saml.metadata.model.SAMLProviderMetadata.entity_id" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLProviderMetadata.entity_id">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">entity_id</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLProviderMetadata.entity_id" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the provider’s entityID</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Provider’s entityID</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Provider’s entityID</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLProviderMetadata.name_id_format">
-<code class="descname">name_id_format</code><a class="headerlink" href="#api.saml.metadata.model.SAMLProviderMetadata.name_id_format" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLProviderMetadata.name_id_format">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name_id_format</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLProviderMetadata.name_id_format" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the name ID format</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Name ID format</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Name ID format</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLProviderMetadata.organization">
-<code class="descname">organization</code><a class="headerlink" href="#api.saml.metadata.model.SAMLProviderMetadata.organization" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLProviderMetadata.organization">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">organization</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLProviderMetadata.organization" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the provider’s Organization object
 :return: Provider’s Organization object
 :rtype: SAMLOrganization</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLProviderMetadata.ui_info">
-<code class="descname">ui_info</code><a class="headerlink" href="#api.saml.metadata.model.SAMLProviderMetadata.ui_info" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLProviderMetadata.ui_info">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ui_info</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLProviderMetadata.ui_info" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the provider’s UIInfo object
 :return: Provider’s UIInfo object
 :rtype: SAMLUIInfo</p>
@@ -751,252 +703,227 @@ specify a location to which to direct a user for additional information</td>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLService">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLService</code><span class="sig-paren">(</span><em>url</em>, <em>binding</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLService"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLService" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLService">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLService</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">binding</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLService"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLService" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Represents a service: IdP’s SingleSignOnService, SingleLogOutService, SP’s AssertionConsumerService</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLService.binding">
-<code class="descname">binding</code><a class="headerlink" href="#api.saml.metadata.model.SAMLService.binding" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLService.binding">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">binding</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLService.binding" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the service’s binding</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Service’s binding</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.model.SAMLBinding" title="api.saml.metadata.model.SAMLBinding">SAMLBinding</a></td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Service’s binding</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#api.saml.metadata.model.SAMLBinding" title="api.saml.metadata.model.SAMLBinding">SAMLBinding</a></p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLService.url">
-<code class="descname">url</code><a class="headerlink" href="#api.saml.metadata.model.SAMLService.url" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLService.url">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">url</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLService.url" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the service’s URL</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Service’s URL</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Service’s URL</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLServiceProviderMetadata">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLServiceProviderMetadata</code><span class="sig-paren">(</span><em>entity_id</em>, <em>ui_info</em>, <em>organization</em>, <em>name_id_format</em>, <em>acs_service</em>, <em>authn_requests_signed=False</em>, <em>want_assertions_signed=False</em>, <em>certificate=None</em>, <em>private_key=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLServiceProviderMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLServiceProviderMetadata" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.saml.metadata.model.SAMLProviderMetadata" title="api.saml.metadata.model.SAMLProviderMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.saml.metadata.model.SAMLProviderMetadata</span></code></a></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLServiceProviderMetadata">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLServiceProviderMetadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">entity_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ui_info</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">organization</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name_id_format</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acs_service</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">authn_requests_signed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">want_assertions_signed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">certificate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">private_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLServiceProviderMetadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLServiceProviderMetadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.saml.metadata.model.SAMLProviderMetadata" title="api.saml.metadata.model.SAMLProviderMetadata"><code class="xref py py-class docutils literal notranslate"><span class="pre">SAMLProviderMetadata</span></code></a></p>
 <p>Represents SP metadata</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLServiceProviderMetadata.acs_service">
-<code class="descname">acs_service</code><a class="headerlink" href="#api.saml.metadata.model.SAMLServiceProviderMetadata.acs_service" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLServiceProviderMetadata.acs_service">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">acs_service</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLServiceProviderMetadata.acs_service" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns Assertion Consumer service’s metadata</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Assertion Consumer service’s metadata</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.model.SAMLService" title="api.saml.metadata.model.SAMLService">SAMLService</a></td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Assertion Consumer service’s metadata</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#api.saml.metadata.model.SAMLService" title="api.saml.metadata.model.SAMLService">SAMLService</a></p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLServiceProviderMetadata.authn_requests_signed">
-<code class="descname">authn_requests_signed</code><a class="headerlink" href="#api.saml.metadata.model.SAMLServiceProviderMetadata.authn_requests_signed" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLServiceProviderMetadata.authn_requests_signed">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">authn_requests_signed</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLServiceProviderMetadata.authn_requests_signed" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the value that indicates whether the &lt;samlp:AuthnRequest&gt; messages
 sent by this service provider will be signed</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Value that indicates whether the &lt;samlp:AuthnRequest&gt; messages
-sent by this service provider will be signed</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Value that indicates whether the &lt;samlp:AuthnRequest&gt; messages
+sent by this service provider will be signed</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLServiceProviderMetadata.certificate">
-<code class="descname">certificate</code><a class="headerlink" href="#api.saml.metadata.model.SAMLServiceProviderMetadata.certificate" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLServiceProviderMetadata.certificate">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">certificate</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLServiceProviderMetadata.certificate" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the certificate in X.509 format containing the public key used for signing SAML requests</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Certificate in X.509 format containing the public key used for signing SAML requests</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Certificate in X.509 format containing the public key used for signing SAML requests</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLServiceProviderMetadata.private_key">
-<code class="descname">private_key</code><a class="headerlink" href="#api.saml.metadata.model.SAMLServiceProviderMetadata.private_key" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLServiceProviderMetadata.private_key">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">private_key</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLServiceProviderMetadata.private_key" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the private key used for encrypting SAML requests</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Private key used for encrypting SAML requests</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Private key used for encrypting SAML requests</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLServiceProviderMetadata.want_assertions_signed">
-<code class="descname">want_assertions_signed</code><a class="headerlink" href="#api.saml.metadata.model.SAMLServiceProviderMetadata.want_assertions_signed" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLServiceProviderMetadata.want_assertions_signed">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">want_assertions_signed</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLServiceProviderMetadata.want_assertions_signed" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the value that indicates a requirement for the &lt;saml:Assertion&gt;
 elements received by this service provider to be signed</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Value that indicates a requirement for the &lt;saml:Assertion&gt;
-elements received by this service provider to be signed</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Value that indicates a requirement for the &lt;saml:Assertion&gt;
+elements received by this service provider to be signed</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLSubject">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLSubject</code><span class="sig-paren">(</span><em>name_id</em>, <em>attribute_statement</em>, <em>valid_till=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubject"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubject" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLSubject">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLSubject</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attribute_statement</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">valid_till</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubject"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubject" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Contains a name ID and a attribute statement</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLSubject.attribute_statement">
-<code class="descname">attribute_statement</code><a class="headerlink" href="#api.saml.metadata.model.SAMLSubject.attribute_statement" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLSubject.attribute_statement">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">attribute_statement</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLSubject.attribute_statement" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the attribute statement</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Attribute statement</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.model.SAMLAttributeStatement" title="api.saml.metadata.model.SAMLAttributeStatement">SAMLAttributeStatement</a></td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Attribute statement</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#api.saml.metadata.model.SAMLAttributeStatement" title="api.saml.metadata.model.SAMLAttributeStatement">SAMLAttributeStatement</a></p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLSubject.name_id">
-<code class="descname">name_id</code><a class="headerlink" href="#api.saml.metadata.model.SAMLSubject.name_id" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLSubject.name_id">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name_id</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLSubject.name_id" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the name ID</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Name ID</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.model.SAMLNameID" title="api.saml.metadata.model.SAMLNameID">SAMLNameID</a></td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Name ID</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#api.saml.metadata.model.SAMLNameID" title="api.saml.metadata.model.SAMLNameID">SAMLNameID</a></p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLSubject.valid_till">
-<code class="descname">valid_till</code><a class="headerlink" href="#api.saml.metadata.model.SAMLSubject.valid_till" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLSubject.valid_till">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">valid_till</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLSubject.valid_till" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the time till which the subject is valid.
 The default value is 30 minutes. Please refer to the Shibboleth IdP documentation for more details:
 - <a class="reference external" href="https://wiki.shibboleth.net/confluence/display/IDP30/SessionConfiguration">https://wiki.shibboleth.net/confluence/display/IDP30/SessionConfiguration</a></p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Time till which the subject is valid</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">datetime.timedelta</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Time till which the subject is valid</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>datetime.timedelta</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLSubjectJSONDecoder">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLSubjectJSONDecoder</code><span class="sig-paren">(</span><em>*</em>, <em>object_hook=None</em>, <em>parse_float=None</em>, <em>parse_int=None</em>, <em>parse_constant=None</em>, <em>strict=True</em>, <em>object_pairs_hook=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubjectJSONDecoder"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectJSONDecoder" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">json.decoder.JSONDecoder</span></code></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLSubjectJSONDecoder">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLSubjectJSONDecoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">object_hook</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parse_float</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parse_int</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parse_constant</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">object_pairs_hook</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubjectJSONDecoder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectJSONDecoder" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">JSONDecoder</span></code></p>
 <p>Subject’s JSON decoder.</p>
-<dl class="method">
-<dt id="api.saml.metadata.model.SAMLSubjectJSONDecoder.decode">
-<code class="descname">decode</code><span class="sig-paren">(</span><em>raw_subject</em>, <em>_w=&lt;built-in method match of re.Pattern object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubjectJSONDecoder.decode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectJSONDecoder.decode" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLSubjectJSONDecoder.decode">
+<span class="sig-name descname"><span class="pre">decode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_subject</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_w=&lt;built-in</span> <span class="pre">method</span> <span class="pre">match</span> <span class="pre">of</span> <span class="pre">re.Pattern</span> <span class="pre">object&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubjectJSONDecoder.decode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectJSONDecoder.decode" title="Permalink to this definition">¶</a></dt>
 <dd><p>Decode a JSON document into Subject object.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>raw_subject</strong> (<em>str</em>) – String containing JSON document</li>
-<li><strong>_w</strong> (<em>RegEx</em>) – Regular expression used to match white spaces</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>raw_subject</strong> (<em>str</em>) – String containing JSON document</p></li>
+<li><p><strong>_w</strong> (<em>RegEx</em>) – Regular expression used to match white spaces</p></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Subject object</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">api.saml.metadata.Subject</p>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Subject object</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>api.saml.metadata.Subject</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLSubjectJSONEncoder">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLSubjectJSONEncoder</code><span class="sig-paren">(</span><em>*</em>, <em>skipkeys=False</em>, <em>ensure_ascii=True</em>, <em>check_circular=True</em>, <em>allow_nan=True</em>, <em>sort_keys=False</em>, <em>indent=None</em>, <em>separators=None</em>, <em>default=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubjectJSONEncoder"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectJSONEncoder" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">json.encoder.JSONEncoder</span></code></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLSubjectJSONEncoder">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLSubjectJSONEncoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skipkeys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ensure_ascii</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_circular</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_nan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">separators</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubjectJSONEncoder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectJSONEncoder" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">JSONEncoder</span></code></p>
 <p>Subject’s JSON encoder</p>
-<dl class="method">
-<dt id="api.saml.metadata.model.SAMLSubjectJSONEncoder.default">
-<code class="descname">default</code><span class="sig-paren">(</span><em>subject</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubjectJSONEncoder.default"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectJSONEncoder.default" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLSubjectJSONEncoder.default">
+<span class="sig-name descname"><span class="pre">default</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubjectJSONEncoder.default"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectJSONEncoder.default" title="Permalink to this definition">¶</a></dt>
 <dd><p>Serializers a Subject object to JSON</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>subject</strong> (<em>api.saml.metadata.Subject</em>) – Subject object</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">String containing JSON representation of the Subject object</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subject</strong> (<em>api.saml.metadata.Subject</em>) – Subject object</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>String containing JSON representation of the Subject object</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLSubjectPatronIDExtractor">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLSubjectPatronIDExtractor</code><span class="sig-paren">(</span><em>use_name_id=True</em>, <em>attributes=None</em>, <em>regular_expression=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubjectPatronIDExtractor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectPatronIDExtractor" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLSubjectPatronIDExtractor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLSubjectPatronIDExtractor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_name_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regular_expression</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubjectPatronIDExtractor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectPatronIDExtractor" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Extracts a unique patron ID from SAML subjects.</p>
 <p>This class accepts several parameters in its constructor, allowing it to override its behavior.
@@ -1005,12 +932,12 @@ The default behavior is described below.</p>
 Different systems use different attributes, and all of them have their pros and cons.
 By default, this class looks for a unique patron ID in the following attributes.</p>
 <ol class="arabic">
-<li><p class="first">eduPersonUniqueId
+<li><p>eduPersonUniqueId
 (<a class="reference external" href="https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonUniqueId">https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonUniqueId</a>)</p>
 <p>A long-lived, non re-assignable, omnidirectional identifier suitable for use as a principal identifier
 by authentication providers or as a unique external key by applications.</p>
 </li>
-<li><p class="first">eduPersonTargetedID
+<li><p>eduPersonTargetedID
 (<a class="reference external" href="https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonTargetedID">https://wiki.refeds.org/display/STAN/eduPerson+2020-01#eduPerson2020-01-eduPersonTargetedID</a>)</p>
 <p>A persistent, non-reassigned, opaque identifier for a principal.
 eduPersonTargetedID is an abstracted version of the SAML V2.0 Name Identifier format of
@@ -1020,288 +947,271 @@ eduPersonTargetedID is an abstracted version of the SAML V2.0 Name Identifier fo
 of this specification. Its equivalent definition in SAML 2.0 has been replaced by a new specification
 for standard Subject Identifier attributes
 [<a class="reference external" href="https://docs.oasis-open.org/security/saml-subject-id-attr/v1.0/saml-subject-id-attr-v1.0.html">https://docs.oasis-open.org/security/saml-subject-id-attr/v1.0/saml-subject-id-attr-v1.0.html</a>],
-one of which (“<a class="reference external" href="urn:oasis:names:tc:SAML:attribute:pairwise-id">urn:oasis:names:tc:SAML:attribute:pairwise-id</a>”) is a direct replacement for this identifier
+one of which (”<a class="reference external" href="urn:oasis:names:tc:SAML:attribute:pairwise-id">urn:oasis:names:tc:SAML:attribute:pairwise-id</a>”) is a direct replacement for this identifier
 with a simpler syntax and safer comparison rules.
 Existing use of this attribute in SAML 1.1 or SAML 2.0 should be phased out
 in favor of the new Subject Identifier attributes.”</p>
 </li>
-<li><p class="first">uid
+<li><p>uid
 (<a class="reference external" href="http://oid-info.com/get/0.9.2342.19200300.100.1.1">http://oid-info.com/get/0.9.2342.19200300.100.1.1</a>)</p>
 <p>See IETF RFC 4519.
 IETF RFC 1274 uses the identifier “userid”.</p>
 </li>
-<li><p class="first">Name ID
+<li><p>Name ID
 The extractor fetches the first name ID it could find as a last resort which may no be correct.
-It might be better to fetch only persistent name IDs.</p>
-</li>
+It might be better to fetch only persistent name IDs.</p></li>
 </ol>
 <p>Also, please note that eduPersonTargetedID attribute and name IDs should be phased out and replaced with
 the pairwise-id attribute from the OASIS SAML 2.0 SubjectID Attributes Profile.
 However, it’s not yet supported by most of the IdPs.</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLSubjectPatronIDExtractor.PATRON_ID_REGULAR_EXPRESSION_NAMED_GROUP">
-<code class="descname">PATRON_ID_REGULAR_EXPRESSION_NAMED_GROUP</code><em class="property"> = 'patron_id'</em><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectPatronIDExtractor.PATRON_ID_REGULAR_EXPRESSION_NAMED_GROUP" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLSubjectPatronIDExtractor.PATRON_ID_REGULAR_EXPRESSION_NAMED_GROUP">
+<span class="sig-name descname"><span class="pre">PATRON_ID_REGULAR_EXPRESSION_NAMED_GROUP</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'patron_id'</span></em><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectPatronIDExtractor.PATRON_ID_REGULAR_EXPRESSION_NAMED_GROUP" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="api.saml.metadata.model.SAMLSubjectPatronIDExtractor.extract">
-<code class="descname">extract</code><span class="sig-paren">(</span><em>subject</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubjectPatronIDExtractor.extract"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectPatronIDExtractor.extract" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLSubjectPatronIDExtractor.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLSubjectPatronIDExtractor.extract"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLSubjectPatronIDExtractor.extract" title="Permalink to this definition">¶</a></dt>
 <dd><p>Extract a unique patron ID from the SAML subject.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>subject</strong> (<a class="reference internal" href="#api.saml.metadata.model.SAMLSubject" title="api.saml.metadata.model.SAMLSubject"><em>SAMLSubject</em></a>) – SAML subject</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Unique ID</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">string</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Unique patron ID if any</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">Optional[str]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subject</strong> (<a class="reference internal" href="#api.saml.metadata.model.SAMLSubject" title="api.saml.metadata.model.SAMLSubject"><em>SAMLSubject</em></a>) – SAML subject</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Unique ID</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>string</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Unique patron ID if any</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[str]</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.model.SAMLUIInfo">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.model.</code><code class="descname">SAMLUIInfo</code><span class="sig-paren">(</span><em>display_names=None</em>, <em>descriptions=None</em>, <em>information_urls=None</em>, <em>privacy_statement_urls=None</em>, <em>logo_urls=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLUIInfo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLUIInfo" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLUIInfo">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.model.</span></span><span class="sig-name descname"><span class="pre">SAMLUIInfo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">display_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">descriptions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">information_urls</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">privacy_statement_urls</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logo_urls</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/model.html#SAMLUIInfo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.model.SAMLUIInfo" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Represents mdui:UIInfoType and contains values that can be shown in the UI to describe IdPs/SPs.</p>
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLUIInfo.descriptions">
-<code class="descname">descriptions</code><a class="headerlink" href="#api.saml.metadata.model.SAMLUIInfo.descriptions" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLUIInfo.descriptions">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">descriptions</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLUIInfo.descriptions" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of localizable descriptions</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localizable descriptions</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[LocalizableMetadataItem]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of localizable descriptions</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>List[LocalizableMetadataItem]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLUIInfo.display_names">
-<code class="descname">display_names</code><a class="headerlink" href="#api.saml.metadata.model.SAMLUIInfo.display_names" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLUIInfo.display_names">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">display_names</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLUIInfo.display_names" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of localizable display names</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localizable display names</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[LocalizableMetadataItem]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of localizable display names</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>List[LocalizableMetadataItem]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLUIInfo.information_urls">
-<code class="descname">information_urls</code><a class="headerlink" href="#api.saml.metadata.model.SAMLUIInfo.information_urls" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLUIInfo.information_urls">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">information_urls</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLUIInfo.information_urls" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of localizable information URLs</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localizable information URLs</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[LocalizableMetadataItem]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of localizable information URLs</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>List[LocalizableMetadataItem]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLUIInfo.logo_urls">
-<code class="descname">logo_urls</code><a class="headerlink" href="#api.saml.metadata.model.SAMLUIInfo.logo_urls" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLUIInfo.logo_urls">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">logo_urls</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLUIInfo.logo_urls" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of localizable logo URLs</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localizable logo URLs</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[LocalizableMetadataItem]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of localizable logo URLs</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>List[LocalizableMetadataItem]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.model.SAMLUIInfo.privacy_statement_urls">
-<code class="descname">privacy_statement_urls</code><a class="headerlink" href="#api.saml.metadata.model.SAMLUIInfo.privacy_statement_urls" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.model.SAMLUIInfo.privacy_statement_urls">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">privacy_statement_urls</span></span><a class="headerlink" href="#api.saml.metadata.model.SAMLUIInfo.privacy_statement_urls" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of localizable privacy statement URLs</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of localizable privacy statement URLs</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">List[LocalizableMetadataItem]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of localizable privacy statement URLs</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>List[LocalizableMetadataItem]</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-</div>
-<div class="section" id="module-api.saml.metadata.monitor">
-<span id="api-saml-metadata-monitor-module"></span><h2>api.saml.metadata.monitor module<a class="headerlink" href="#module-api.saml.metadata.monitor" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.saml.metadata.monitor.SAMLMetadataMonitor">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.monitor.</code><code class="descname">SAMLMetadataMonitor</code><span class="sig-paren">(</span><em>db</em>, <em>loader</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/monitor.html#SAMLMetadataMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.monitor.SAMLMetadataMonitor" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.monitor.Monitor" title="core.monitor.Monitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.Monitor</span></code></a></p>
-<dl class="attribute">
-<dt id="api.saml.metadata.monitor.SAMLMetadataMonitor.MAX_AGE">
-<code class="descname">MAX_AGE</code><em class="property"> = datetime.timedelta(days=1)</em><a class="headerlink" href="#api.saml.metadata.monitor.SAMLMetadataMonitor.MAX_AGE" title="Permalink to this definition">¶</a></dt>
+</section>
+<section id="module-api.saml.metadata.monitor">
+<span id="api-saml-metadata-monitor-module"></span><h2>api.saml.metadata.monitor module<a class="headerlink" href="#module-api.saml.metadata.monitor" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.monitor.SAMLMetadataMonitor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.monitor.</span></span><span class="sig-name descname"><span class="pre">SAMLMetadataMonitor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loader</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/monitor.html#SAMLMetadataMonitor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.monitor.SAMLMetadataMonitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.monitor.Monitor" title="core.monitor.Monitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">Monitor</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.monitor.SAMLMetadataMonitor.MAX_AGE">
+<span class="sig-name descname"><span class="pre">MAX_AGE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">datetime.timedelta(days=1)</span></em><a class="headerlink" href="#api.saml.metadata.monitor.SAMLMetadataMonitor.MAX_AGE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.monitor.SAMLMetadataMonitor.SERVICE_NAME">
-<code class="descname">SERVICE_NAME</code><em class="property"> = 'SAML Metadata Monitor'</em><a class="headerlink" href="#api.saml.metadata.monitor.SAMLMetadataMonitor.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.saml.metadata.monitor.SAMLMetadataMonitor.SERVICE_NAME">
+<span class="sig-name descname"><span class="pre">SERVICE_NAME</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'SAML</span> <span class="pre">Metadata</span> <span class="pre">Monitor'</span></em><a class="headerlink" href="#api.saml.metadata.monitor.SAMLMetadataMonitor.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="api.saml.metadata.monitor.SAMLMetadataMonitor.run_once">
-<code class="descname">run_once</code><span class="sig-paren">(</span><em>progress</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/monitor.html#SAMLMetadataMonitor.run_once"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.monitor.SAMLMetadataMonitor.run_once" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.saml.metadata.monitor.SAMLMetadataMonitor.run_once">
+<span class="sig-name descname"><span class="pre">run_once</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">progress</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/monitor.html#SAMLMetadataMonitor.run_once"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.monitor.SAMLMetadataMonitor.run_once" title="Permalink to this definition">¶</a></dt>
 <dd><p>Do the actual work of the Monitor.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>progress</strong> – A TimestampData representing the
-work done by the Monitor up to this point.</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A TimestampData representing how you want the
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>progress</strong> – A TimestampData representing the
+work done by the Monitor up to this point.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A TimestampData representing how you want the
 Monitor’s entry in the <cite>timestamps</cite> table to look like
 from this point on.  NOTE: Modifying the incoming
 <cite>progress</cite> and returning it is generally a bad idea,
 because the incoming <cite>progress</cite> is full of old
 data. Instead, return a new TimestampData containing data
-for only the fields you want to set.</td>
-</tr>
-</tbody>
-</table>
+for only the fields you want to set.</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-</div>
-<div class="section" id="module-api.saml.metadata.parser">
-<span id="api-saml-metadata-parser-module"></span><h2>api.saml.metadata.parser module<a class="headerlink" href="#module-api.saml.metadata.parser" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.saml.metadata.parser.SAMLMetadataParser">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.parser.</code><code class="descname">SAMLMetadataParser</code><span class="sig-paren">(</span><em>skip_incorrect_providers=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/parser.html#SAMLMetadataParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.parser.SAMLMetadataParser" title="Permalink to this definition">¶</a></dt>
+</section>
+<section id="module-api.saml.metadata.parser">
+<span id="api-saml-metadata-parser-module"></span><h2>api.saml.metadata.parser module<a class="headerlink" href="#module-api.saml.metadata.parser" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.parser.SAMLMetadataParser">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.parser.</span></span><span class="sig-name descname"><span class="pre">SAMLMetadataParser</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">skip_incorrect_providers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/parser.html#SAMLMetadataParser"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.parser.SAMLMetadataParser" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Parses SAML metadata</p>
-<dl class="method">
-<dt id="api.saml.metadata.parser.SAMLMetadataParser.parse">
-<code class="descname">parse</code><span class="sig-paren">(</span><em>xml_metadata</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/parser.html#SAMLMetadataParser.parse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.parser.SAMLMetadataParser.parse" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.saml.metadata.parser.SAMLMetadataParser.parse">
+<span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xml_metadata</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/parser.html#SAMLMetadataParser.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.parser.SAMLMetadataParser.parse" title="Permalink to this definition">¶</a></dt>
 <dd><p>Parses an XML string containing SAML metadata and translates it into a list of
 IdentityProviderMetadata/ServiceProviderMetadata objects</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>xml_metadata</strong> (<em>string</em>) – XML string containing SAML metadata</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">List of SAMLMetadataParsingResult objects</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">List[<a class="reference internal" href="#api.saml.metadata.parser.SAMLMetadataParsingResult" title="api.saml.metadata.parser.SAMLMetadataParsingResult">SAMLMetadataParsingResult</a>]</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Raise:</th><td class="field-body">MetadataParsingError</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>xml_metadata</strong> (<em>string</em>) – XML string containing SAML metadata</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of SAMLMetadataParsingResult objects</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[<a class="reference internal" href="#api.saml.metadata.parser.SAMLMetadataParsingResult" title="api.saml.metadata.parser.SAMLMetadataParsingResult">SAMLMetadataParsingResult</a>]</p>
+</dd>
+<dt class="field-even">Raise<span class="colon">:</span></dt>
+<dd class="field-even"><p>MetadataParsingError</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="exception">
-<dt id="api.saml.metadata.parser.SAMLMetadataParsingError">
-<em class="property">exception </em><code class="descclassname">api.saml.metadata.parser.</code><code class="descname">SAMLMetadataParsingError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/parser.html#SAMLMetadataParsingError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.parser.SAMLMetadataParsingError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
+<dl class="py exception">
+<dt class="sig sig-object py" id="api.saml.metadata.parser.SAMLMetadataParsingError">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.parser.</span></span><span class="sig-name descname"><span class="pre">SAMLMetadataParsingError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inner_exception</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/parser.html#SAMLMetadataParsingError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.parser.SAMLMetadataParsingError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseError</span></code></a></p>
 <p>Raised in the case of any errors occurred during parsing of SAML metadata</p>
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.parser.SAMLMetadataParsingResult">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.parser.</code><code class="descname">SAMLMetadataParsingResult</code><span class="sig-paren">(</span><em>provider</em>, <em>xml_node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/parser.html#SAMLMetadataParsingResult"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.parser.SAMLMetadataParsingResult" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.parser.SAMLMetadataParsingResult">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.parser.</span></span><span class="sig-name descname"><span class="pre">SAMLMetadataParsingResult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xml_node</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/parser.html#SAMLMetadataParsingResult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.parser.SAMLMetadataParsingResult" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="attribute">
-<dt id="api.saml.metadata.parser.SAMLMetadataParsingResult.provider">
-<code class="descname">provider</code><a class="headerlink" href="#api.saml.metadata.parser.SAMLMetadataParsingResult.provider" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.parser.SAMLMetadataParsingResult.provider">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">provider</span></span><a class="headerlink" href="#api.saml.metadata.parser.SAMLMetadataParsingResult.provider" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return the object containing either SP’s or IdP’s metadata.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Object containing either SP’s or IdP’s metadata</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.saml.metadata.model.SAMLProviderMetadata" title="api.saml.metadata.model.SAMLProviderMetadata">api.saml.metadata.model.SAMLProviderMetadata</a></td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Object containing either SP’s or IdP’s metadata</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#api.saml.metadata.model.SAMLProviderMetadata" title="api.saml.metadata.model.SAMLProviderMetadata">api.saml.metadata.model.SAMLProviderMetadata</a></p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.saml.metadata.parser.SAMLMetadataParsingResult.xml_node">
-<code class="descname">xml_node</code><a class="headerlink" href="#api.saml.metadata.parser.SAMLMetadataParsingResult.xml_node" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.saml.metadata.parser.SAMLMetadataParsingResult.xml_node">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">xml_node</span></span><a class="headerlink" href="#api.saml.metadata.parser.SAMLMetadataParsingResult.xml_node" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return the XML node containing metadata</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">XML node containing metadata</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">defusedxml.lxml.RestrictedElement</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>XML node containing metadata</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>defusedxml.lxml.RestrictedElement</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.saml.metadata.parser.SAMLSubjectParser">
-<em class="property">class </em><code class="descclassname">api.saml.metadata.parser.</code><code class="descname">SAMLSubjectParser</code><a class="reference internal" href="_modules/api/saml/metadata/parser.html#SAMLSubjectParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.parser.SAMLSubjectParser" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.saml.metadata.parser.SAMLSubjectParser">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.saml.metadata.parser.</span></span><span class="sig-name descname"><span class="pre">SAMLSubjectParser</span></span><a class="reference internal" href="_modules/api/saml/metadata/parser.html#SAMLSubjectParser"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.parser.SAMLSubjectParser" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Parses SAML response into Subject object</p>
-<dl class="method">
-<dt id="api.saml.metadata.parser.SAMLSubjectParser.parse">
-<code class="descname">parse</code><span class="sig-paren">(</span><em>auth</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/parser.html#SAMLSubjectParser.parse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.saml.metadata.parser.SAMLSubjectParser.parse" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.saml.metadata.parser.SAMLSubjectParser.parse">
+<span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">auth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/saml/metadata/parser.html#SAMLSubjectParser.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.saml.metadata.parser.SAMLSubjectParser.parse" title="Permalink to this definition">¶</a></dt>
 <dd><p>Parses OneLogin_Saml2_Auth object containing SAML response data into Subject</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>auth</strong> (<em>OneLogin_Saml2_Auth</em>) – OneLogin_Saml2_Auth object containing SAML response</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Subject object containing SAML attributes and NameID</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">api.saml.metadata.Subject</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>auth</strong> (<em>OneLogin_Saml2_Auth</em>) – OneLogin_Saml2_Auth object containing SAML response</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Subject object containing SAML attributes and NameID</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>api.saml.metadata.Subject</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-</div>
-<div class="section" id="module-api.saml.metadata">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-api.saml.metadata" title="Permalink to this headline">¶</a></h2>
-</div>
-</div>
+</section>
+<section id="module-api.saml.metadata">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-api.saml.metadata" title="Permalink to this heading">¶</a></h2>
+</section>
+</section>
 
 
           </div>
@@ -1346,17 +1256,15 @@ IdentityProviderMetadata/ServiceProviderMetadata objects</p>
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -1373,7 +1281,7 @@ IdentityProviderMetadata/ServiceProviderMetadata objects</p>
       &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

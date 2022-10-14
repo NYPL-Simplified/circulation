@@ -1,19 +1,19 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
     <title>api.proquest package &#8212; Library Simplified Circulation Manager  documentation</title>
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="api.saml package" href="api.saml.html" />
@@ -34,769 +34,707 @@
 
           <div class="body" role="main">
             
-  <div class="section" id="api-proquest-package">
-<h1>api.proquest package<a class="headerlink" href="#api-proquest-package" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="submodules">
-<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
-</div>
-<div class="section" id="module-api.proquest.client">
-<span id="api-proquest-client-module"></span><h2>api.proquest.client module<a class="headerlink" href="#module-api.proquest.client" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.proquest.client.ProQuestAPIClient">
-<em class="property">class </em><code class="descclassname">api.proquest.client.</code><code class="descname">ProQuestAPIClient</code><span class="sig-paren">(</span><em>configuration_storage</em>, <em>configuration_factory</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClient"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient" title="Permalink to this definition">¶</a></dt>
+  <section id="api-proquest-package">
+<h1>api.proquest package<a class="headerlink" href="#api-proquest-package" title="Permalink to this heading">¶</a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading">¶</a></h2>
+</section>
+<section id="module-api.proquest.client">
+<span id="api-proquest-client-module"></span><h2>api.proquest.client module<a class="headerlink" href="#module-api.proquest.client" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClient">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.client.</span></span><span class="sig-name descname"><span class="pre">ProQuestAPIClient</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">configuration_storage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">configuration_factory</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClient"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>ProQuest API client.</p>
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClient.DOWNLOAD_LINK_FIELD">
-<code class="descname">DOWNLOAD_LINK_FIELD</code><em class="property"> = 'downloadLink'</em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.DOWNLOAD_LINK_FIELD" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClient.DOWNLOAD_LINK_FIELD">
+<span class="sig-name descname"><span class="pre">DOWNLOAD_LINK_FIELD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'downloadLink'</span></em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.DOWNLOAD_LINK_FIELD" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClient.DRM_FREE_DOWNLOAD_LINK_KEYWORD">
-<code class="descname">DRM_FREE_DOWNLOAD_LINK_KEYWORD</code><em class="property"> = 'getDrmFreeFile'</em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.DRM_FREE_DOWNLOAD_LINK_KEYWORD" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClient.DRM_FREE_DOWNLOAD_LINK_KEYWORD">
+<span class="sig-name descname"><span class="pre">DRM_FREE_DOWNLOAD_LINK_KEYWORD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'getDrmFreeFile'</span></em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.DRM_FREE_DOWNLOAD_LINK_KEYWORD" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClient.MAX_PAGE_INDEX">
-<code class="descname">MAX_PAGE_INDEX</code><em class="property"> = 32766</em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.MAX_PAGE_INDEX" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClient.MAX_PAGE_INDEX">
+<span class="sig-name descname"><span class="pre">MAX_PAGE_INDEX</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32766</span></em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.MAX_PAGE_INDEX" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClient.MAX_PAGE_SIZE">
-<code class="descname">MAX_PAGE_SIZE</code><em class="property"> = 32766</em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.MAX_PAGE_SIZE" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClient.MAX_PAGE_SIZE">
+<span class="sig-name descname"><span class="pre">MAX_PAGE_SIZE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32766</span></em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.MAX_PAGE_SIZE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClient.RESPONSE_OPDS_FEED_FIELD">
-<code class="descname">RESPONSE_OPDS_FEED_FIELD</code><em class="property"> = 'opdsFeed'</em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.RESPONSE_OPDS_FEED_FIELD" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClient.RESPONSE_OPDS_FEED_FIELD">
+<span class="sig-name descname"><span class="pre">RESPONSE_OPDS_FEED_FIELD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'opdsFeed'</span></em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.RESPONSE_OPDS_FEED_FIELD" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClient.RESPONSE_STATUS_CODE_FIELD">
-<code class="descname">RESPONSE_STATUS_CODE_FIELD</code><em class="property"> = 'statusCode'</em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.RESPONSE_STATUS_CODE_FIELD" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClient.RESPONSE_STATUS_CODE_FIELD">
+<span class="sig-name descname"><span class="pre">RESPONSE_STATUS_CODE_FIELD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'statusCode'</span></em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.RESPONSE_STATUS_CODE_FIELD" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClient.SUCCESS_STATUS_CODE">
-<code class="descname">SUCCESS_STATUS_CODE</code><em class="property"> = 200</em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.SUCCESS_STATUS_CODE" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClient.SUCCESS_STATUS_CODE">
+<span class="sig-name descname"><span class="pre">SUCCESS_STATUS_CODE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">200</span></em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.SUCCESS_STATUS_CODE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClient.TOKEN_FIELD">
-<code class="descname">TOKEN_FIELD</code><em class="property"> = 'token'</em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.TOKEN_FIELD" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClient.TOKEN_FIELD">
+<span class="sig-name descname"><span class="pre">TOKEN_FIELD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'token'</span></em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.TOKEN_FIELD" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.client.ProQuestAPIClient.create_token">
-<code class="descname">create_token</code><span class="sig-paren">(</span><em>db</em>, <em>affiliation_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClient.create_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.create_token" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClient.create_token">
+<span class="sig-name descname"><span class="pre">create_token</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affiliation_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClient.create_token"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.create_token" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a new JWT bearer token.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>affiliation_id</strong> (<em>str</em>) – SAML affiliation ID used as a patron’s unique identifier by ProQuest</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</p></li>
+<li><p><strong>affiliation_id</strong> (<em>str</em>) – SAML affiliation ID used as a patron’s unique identifier by ProQuest</p></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">New JWT bearer token</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">str</p>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>New JWT bearer token</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.client.ProQuestAPIClient.download_all_feed_pages">
-<code class="descname">download_all_feed_pages</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClient.download_all_feed_pages"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.download_all_feed_pages" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClient.download_all_feed_pages">
+<span class="sig-name descname"><span class="pre">download_all_feed_pages</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClient.download_all_feed_pages"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.download_all_feed_pages" title="Permalink to this definition">¶</a></dt>
 <dd><p>Download all available feed pages.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Iterable list of feed pages in a form of Python dictionaries</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">Iterable[dict]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Iterable list of feed pages in a form of Python dictionaries</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Iterable[dict]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.client.ProQuestAPIClient.download_feed_page">
-<code class="descname">download_feed_page</code><span class="sig-paren">(</span><em>db</em>, <em>page</em>, <em>hits_per_page</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClient.download_feed_page"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.download_feed_page" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClient.download_feed_page">
+<span class="sig-name descname"><span class="pre">download_feed_page</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">page</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hits_per_page</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClient.download_feed_page"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.download_feed_page" title="Permalink to this definition">¶</a></dt>
 <dd><p>Download a single page of a paginated OPDS 2.0 feed.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>page</strong> (<em>int</em>) – Page index (max = 32,766)</li>
-<li><strong>hits_per_page</strong> (<em>int</em>) – Number of publications on a single page (max = 32,766)</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</p></li>
+<li><p><strong>page</strong> (<em>int</em>) – Page index (max = 32,766)</p></li>
+<li><p><strong>hits_per_page</strong> (<em>int</em>) – Number of publications on a single page (max = 32,766)</p></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Python dictionary object containing the feed’s page</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">dict</p>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Python dictionary object containing the feed’s page</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.client.ProQuestAPIClient.get_book">
-<code class="descname">get_book</code><span class="sig-paren">(</span><em>db</em>, <em>token</em>, <em>document_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClient.get_book"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.get_book" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClient.get_book">
+<span class="sig-name descname"><span class="pre">get_book</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">document_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClient.get_book"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClient.get_book" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get a book by it’s ProQuest Doc ID.</p>
 <p>NOTE: There are two different cases to consider:
 - Open-access books: in this case ProQuest API returns the book content.
 - Adobe DRM copy protected books: in this case ProQuest API returns an ACSM file containing
 information about downloading a digital publication.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>token</strong> (<em>str</em>) – JWT bearer token created using <cite>ProQuestAPIClient.create_token</cite> method</li>
-<li><strong>document_id</strong> (<em>str</em>) – ProQuest Doc ID</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</p></li>
+<li><p><strong>token</strong> (<em>str</em>) – JWT bearer token created using <cite>ProQuestAPIClient.create_token</cite> method</p></li>
+<li><p><strong>document_id</strong> (<em>str</em>) – ProQuest Doc ID</p></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Book instance containing either an ACS link to the book or the book content</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="#api.proquest.client.ProQuestBook" title="api.proquest.client.ProQuestBook">ProQuestBook</a></p>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Book instance containing either an ACS link to the book or the book content</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#api.proquest.client.ProQuestBook" title="api.proquest.client.ProQuestBook">ProQuestBook</a></p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.proquest.client.ProQuestAPIClientConfiguration">
-<em class="property">class </em><code class="descclassname">api.proquest.client.</code><code class="descname">ProQuestAPIClientConfiguration</code><span class="sig-paren">(</span><em>configuration_storage</em>, <em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClientConfiguration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.model.html#core.model.configuration.ConfigurationGrouping" title="core.model.configuration.ConfigurationGrouping"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.configuration.ConfigurationGrouping</span></code></a></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClientConfiguration">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.client.</span></span><span class="sig-name descname"><span class="pre">ProQuestAPIClientConfiguration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">configuration_storage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">db</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClientConfiguration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.model.html#core.model.configuration.ConfigurationGrouping" title="core.model.configuration.ConfigurationGrouping"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConfigurationGrouping</span></code></a></p>
 <p>Contains configuration settings of ProQuest API client.</p>
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClientConfiguration.DEFAULT_PAGE_SIZE">
-<code class="descname">DEFAULT_PAGE_SIZE</code><em class="property"> = 5000</em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.DEFAULT_PAGE_SIZE" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClientConfiguration.DEFAULT_PAGE_SIZE">
+<span class="sig-name descname"><span class="pre">DEFAULT_PAGE_SIZE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5000</span></em><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.DEFAULT_PAGE_SIZE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClientConfiguration.books_catalog_service_url">
-<code class="descname">books_catalog_service_url</code><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.books_catalog_service_url" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClientConfiguration.books_catalog_service_url">
+<span class="sig-name descname"><span class="pre">books_catalog_service_url</span></span><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.books_catalog_service_url" title="Permalink to this definition">¶</a></dt>
 <dd><p>Contains configuration metadata</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClientConfiguration.download_link_service_url">
-<code class="descname">download_link_service_url</code><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.download_link_service_url" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClientConfiguration.download_link_service_url">
+<span class="sig-name descname"><span class="pre">download_link_service_url</span></span><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.download_link_service_url" title="Permalink to this definition">¶</a></dt>
 <dd><p>Contains configuration metadata</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClientConfiguration.http_proxy_url">
-<code class="descname">http_proxy_url</code><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.http_proxy_url" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClientConfiguration.http_proxy_url">
+<span class="sig-name descname"><span class="pre">http_proxy_url</span></span><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.http_proxy_url" title="Permalink to this definition">¶</a></dt>
 <dd><p>Contains configuration metadata</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClientConfiguration.https_proxy_url">
-<code class="descname">https_proxy_url</code><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.https_proxy_url" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClientConfiguration.https_proxy_url">
+<span class="sig-name descname"><span class="pre">https_proxy_url</span></span><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.https_proxy_url" title="Permalink to this definition">¶</a></dt>
 <dd><p>Contains configuration metadata</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClientConfiguration.page_size">
-<code class="descname">page_size</code><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.page_size" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClientConfiguration.page_size">
+<span class="sig-name descname"><span class="pre">page_size</span></span><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.page_size" title="Permalink to this definition">¶</a></dt>
 <dd><p>Contains configuration metadata</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIClientConfiguration.partner_auth_token_service_url">
-<code class="descname">partner_auth_token_service_url</code><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.partner_auth_token_service_url" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClientConfiguration.partner_auth_token_service_url">
+<span class="sig-name descname"><span class="pre">partner_auth_token_service_url</span></span><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientConfiguration.partner_auth_token_service_url" title="Permalink to this definition">¶</a></dt>
 <dd><p>Contains configuration metadata</p>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.proquest.client.ProQuestAPIClientFactory">
-<em class="property">class </em><code class="descclassname">api.proquest.client.</code><code class="descname">ProQuestAPIClientFactory</code><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClientFactory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientFactory" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClientFactory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.client.</span></span><span class="sig-name descname"><span class="pre">ProQuestAPIClientFactory</span></span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClientFactory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientFactory" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Factory used for creating ProQuestAPIClient instances.</p>
-<dl class="method">
-<dt id="api.proquest.client.ProQuestAPIClientFactory.create">
-<code class="descname">create</code><span class="sig-paren">(</span><em>integration_association</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClientFactory.create"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientFactory.create" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIClientFactory.create">
+<span class="sig-name descname"><span class="pre">create</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">integration_association</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIClientFactory.create"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIClientFactory.create" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a new instance of ProQuestAPIClientFactory.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>integration_association</strong> (<a class="reference internal" href="core.model.html#core.model.configuration.HasExternalIntegration" title="core.model.configuration.HasExternalIntegration"><em>core.model.configuration.HasExternalIntegration</em></a>) – Association with an external integration</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">New instance of ProQuestAPIClient</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#api.proquest.client.ProQuestAPIClient" title="api.proquest.client.ProQuestAPIClient">ProQuestAPIClient</a></td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>integration_association</strong> (<a class="reference internal" href="core.model.html#core.model.configuration.HasExternalIntegration" title="core.model.configuration.HasExternalIntegration"><em>core.model.configuration.HasExternalIntegration</em></a>) – Association with an external integration</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>New instance of ProQuestAPIClient</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#api.proquest.client.ProQuestAPIClient" title="api.proquest.client.ProQuestAPIClient">ProQuestAPIClient</a></p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="exception">
-<dt id="api.proquest.client.ProQuestAPIInvalidJSONResponseError">
-<em class="property">exception </em><code class="descclassname">api.proquest.client.</code><code class="descname">ProQuestAPIInvalidJSONResponseError</code><span class="sig-paren">(</span><em>response</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIInvalidJSONResponseError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIInvalidJSONResponseError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
+<dl class="py exception">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIInvalidJSONResponseError">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.client.</span></span><span class="sig-name descname"><span class="pre">ProQuestAPIInvalidJSONResponseError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">response</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIInvalidJSONResponseError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIInvalidJSONResponseError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseError</span></code></a></p>
 <p>Raised when the client receives from ProQuest API a response with incorrect JSON document.</p>
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIInvalidJSONResponseError.response">
-<code class="descname">response</code><a class="headerlink" href="#api.proquest.client.ProQuestAPIInvalidJSONResponseError.response" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIInvalidJSONResponseError.response">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">response</span></span><a class="headerlink" href="#api.proquest.client.ProQuestAPIInvalidJSONResponseError.response" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return the response associated with this error.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Response associated with this error</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">requests.models.Response</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Response associated with this error</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>requests.models.Response</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="exception">
-<dt id="api.proquest.client.ProQuestAPIMissingJSONPropertyError">
-<em class="property">exception </em><code class="descclassname">api.proquest.client.</code><code class="descname">ProQuestAPIMissingJSONPropertyError</code><span class="sig-paren">(</span><em>response</em>, <em>missing_property</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIMissingJSONPropertyError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIMissingJSONPropertyError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.proquest.client.ProQuestAPIInvalidJSONResponseError" title="api.proquest.client.ProQuestAPIInvalidJSONResponseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.proquest.client.ProQuestAPIInvalidJSONResponseError</span></code></a></p>
+<dl class="py exception">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIMissingJSONPropertyError">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.client.</span></span><span class="sig-name descname"><span class="pre">ProQuestAPIMissingJSONPropertyError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">response</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">missing_property</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestAPIMissingJSONPropertyError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.client.ProQuestAPIMissingJSONPropertyError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.proquest.client.ProQuestAPIInvalidJSONResponseError" title="api.proquest.client.ProQuestAPIInvalidJSONResponseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProQuestAPIInvalidJSONResponseError</span></code></a></p>
 <p>Raised when the client receives from ProQuest API a response with incorrect JSON document.</p>
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestAPIMissingJSONPropertyError.missing_property">
-<code class="descname">missing_property</code><a class="headerlink" href="#api.proquest.client.ProQuestAPIMissingJSONPropertyError.missing_property" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestAPIMissingJSONPropertyError.missing_property">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">missing_property</span></span><a class="headerlink" href="#api.proquest.client.ProQuestAPIMissingJSONPropertyError.missing_property" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return the name of the missing property.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Name of the missing property</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">str</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Name of the missing property</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.proquest.client.ProQuestBook">
-<em class="property">class </em><code class="descclassname">api.proquest.client.</code><code class="descname">ProQuestBook</code><span class="sig-paren">(</span><em>link=None</em>, <em>content=None</em>, <em>content_type=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestBook"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.client.ProQuestBook" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestBook">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.client.</span></span><span class="sig-name descname"><span class="pre">ProQuestBook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">link</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">content</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">content_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/client.html#ProQuestBook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.client.ProQuestBook" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>POCO class containing information about a ProQuest book.</p>
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestBook.content">
-<code class="descname">content</code><a class="headerlink" href="#api.proquest.client.ProQuestBook.content" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestBook.content">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">content</span></span><a class="headerlink" href="#api.proquest.client.ProQuestBook.content" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return the book’s content.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Book’s content</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Optional[Union[str, bytes]]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Book’s content</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Optional[Union[str, bytes]]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestBook.content_type">
-<code class="descname">content_type</code><a class="headerlink" href="#api.proquest.client.ProQuestBook.content_type" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestBook.content_type">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">content_type</span></span><a class="headerlink" href="#api.proquest.client.ProQuestBook.content_type" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return the content type.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Content type</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Optional[str]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Content type</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Optional[str]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.client.ProQuestBook.link">
-<code class="descname">link</code><a class="headerlink" href="#api.proquest.client.ProQuestBook.link" title="Permalink to this definition">¶</a></dt>
+<dl class="py property">
+<dt class="sig sig-object py" id="api.proquest.client.ProQuestBook.link">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">link</span></span><a class="headerlink" href="#api.proquest.client.ProQuestBook.link" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return the book’s link.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Book’s link</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">Optional[str]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Book’s link</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Optional[str]</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-</div>
-<div class="section" id="module-api.proquest.credential">
-<span id="api-proquest-credential-module"></span><h2>api.proquest.credential module<a class="headerlink" href="#module-api.proquest.credential" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.proquest.credential.ProQuestCredentialManager">
-<em class="property">class </em><code class="descclassname">api.proquest.credential.</code><code class="descname">ProQuestCredentialManager</code><a class="reference internal" href="_modules/api/proquest/credential.html#ProQuestCredentialManager"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.credential.ProQuestCredentialManager" title="Permalink to this definition">¶</a></dt>
+</section>
+<section id="module-api.proquest.credential">
+<span id="api-proquest-credential-module"></span><h2>api.proquest.credential module<a class="headerlink" href="#module-api.proquest.credential" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.proquest.credential.ProQuestCredentialManager">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.credential.</span></span><span class="sig-name descname"><span class="pre">ProQuestCredentialManager</span></span><a class="reference internal" href="_modules/api/proquest/credential.html#ProQuestCredentialManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.credential.ProQuestCredentialManager" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Manages ProQuest credentials.</p>
-<dl class="method">
-<dt id="api.proquest.credential.ProQuestCredentialManager.lookup_patron_affiliation_id">
-<code class="descname">lookup_patron_affiliation_id</code><span class="sig-paren">(</span><em>db</em>, <em>patron</em>, <em>affiliation_attributes=('eduPersonPrincipalName'</em>, <em>'eduPersonScopedAffiliation')</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/credential.html#ProQuestCredentialManager.lookup_patron_affiliation_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.credential.ProQuestCredentialManager.lookup_patron_affiliation_id" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.credential.ProQuestCredentialManager.lookup_patron_affiliation_id">
+<span class="sig-name descname"><span class="pre">lookup_patron_affiliation_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patron</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affiliation_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">('eduPersonPrincipalName',</span> <span class="pre">'eduPersonScopedAffiliation')</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/credential.html#ProQuestCredentialManager.lookup_patron_affiliation_id"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.credential.ProQuestCredentialManager.lookup_patron_affiliation_id" title="Permalink to this definition">¶</a></dt>
 <dd><p>Look up for patron’s SAML affiliation ID.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</li>
-<li><strong>affiliation_attributes</strong> (<em>Tuple</em>) – SAML attributes containing an affiliation ID</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</p></li>
+<li><p><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</p></li>
+<li><p><strong>affiliation_attributes</strong> (<em>Tuple</em>) – SAML attributes containing an affiliation ID</p></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Patron’s SAML affiliation ID (if any)</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Optional[str]</p>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Patron’s SAML affiliation ID (if any)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[str]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.credential.ProQuestCredentialManager.lookup_proquest_token">
-<code class="descname">lookup_proquest_token</code><span class="sig-paren">(</span><em>db</em>, <em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/credential.html#ProQuestCredentialManager.lookup_proquest_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.credential.ProQuestCredentialManager.lookup_proquest_token" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.credential.ProQuestCredentialManager.lookup_proquest_token">
+<span class="sig-name descname"><span class="pre">lookup_proquest_token</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patron</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/credential.html#ProQuestCredentialManager.lookup_proquest_token"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.credential.ProQuestCredentialManager.lookup_proquest_token" title="Permalink to this definition">¶</a></dt>
 <dd><p>Look up for a JWT bearer token used required to use ProQuest API.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</p></li>
+<li><p><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</p></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Credential object containing the existing ProQuest JWT bearer token (if any)</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Optional[<a class="reference internal" href="core.model.html#core.model.credential.Credential" title="core.model.credential.Credential">core.model.credential.Credential</a>]</p>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Credential object containing the existing ProQuest JWT bearer token (if any)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[<a class="reference internal" href="core.model.html#core.model.credential.Credential" title="core.model.credential.Credential">core.model.credential.Credential</a>]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.credential.ProQuestCredentialManager.save_proquest_token">
-<code class="descname">save_proquest_token</code><span class="sig-paren">(</span><em>db</em>, <em>patron</em>, <em>duration</em>, <em>token</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/credential.html#ProQuestCredentialManager.save_proquest_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.credential.ProQuestCredentialManager.save_proquest_token" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.credential.ProQuestCredentialManager.save_proquest_token">
+<span class="sig-name descname"><span class="pre">save_proquest_token</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patron</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duration</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/credential.html#ProQuestCredentialManager.save_proquest_token"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.credential.ProQuestCredentialManager.save_proquest_token" title="Permalink to this definition">¶</a></dt>
 <dd><p>Save a ProQuest JWT bearer token for later use.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</li>
-<li><strong>duration</strong> (<em>datetime.timedelta</em>) – How long this token can be valid</li>
-<li><strong>token</strong> (<em>str</em>) – ProQuest JWT bearer token</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</p></li>
+<li><p><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</p></li>
+<li><p><strong>duration</strong> (<em>datetime.timedelta</em>) – How long this token can be valid</p></li>
+<li><p><strong>token</strong> (<em>str</em>) – ProQuest JWT bearer token</p></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Credential object containing a new ProQuest JWT bearer token</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">Optional[<a class="reference internal" href="core.model.html#core.model.credential.Credential" title="core.model.credential.Credential">core.model.credential.Credential</a>]</p>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Credential object containing a new ProQuest JWT bearer token</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[<a class="reference internal" href="core.model.html#core.model.credential.Credential" title="core.model.credential.Credential">core.model.credential.Credential</a>]</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.proquest.credential.ProQuestCredentialType">
-<em class="property">class </em><code class="descclassname">api.proquest.credential.</code><code class="descname">ProQuestCredentialType</code><a class="reference internal" href="_modules/api/proquest/credential.html#ProQuestCredentialType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.credential.ProQuestCredentialType" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.proquest.credential.ProQuestCredentialType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.credential.</span></span><span class="sig-name descname"><span class="pre">ProQuestCredentialType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/credential.html#ProQuestCredentialType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.credential.ProQuestCredentialType" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></p>
 <p>Contains an enumeration of different ProQuest credential types</p>
-<dl class="attribute">
-<dt id="api.proquest.credential.ProQuestCredentialType.PROQUEST_JWT_TOKEN">
-<code class="descname">PROQUEST_JWT_TOKEN</code><em class="property"> = 'ProQuest JWT Token'</em><a class="headerlink" href="#api.proquest.credential.ProQuestCredentialType.PROQUEST_JWT_TOKEN" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.credential.ProQuestCredentialType.PROQUEST_JWT_TOKEN">
+<span class="sig-name descname"><span class="pre">PROQUEST_JWT_TOKEN</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ProQuest</span> <span class="pre">JWT</span> <span class="pre">Token'</span></em><a class="headerlink" href="#api.proquest.credential.ProQuestCredentialType.PROQUEST_JWT_TOKEN" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
-</div>
-<div class="section" id="module-api.proquest.identifier">
-<span id="api-proquest-identifier-module"></span><h2>api.proquest.identifier module<a class="headerlink" href="#module-api.proquest.identifier" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.proquest.identifier.ProQuestIdentifierParser">
-<em class="property">class </em><code class="descclassname">api.proquest.identifier.</code><code class="descname">ProQuestIdentifierParser</code><a class="reference internal" href="_modules/api/proquest/identifier.html#ProQuestIdentifierParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.identifier.ProQuestIdentifierParser" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.model.html#core.model.identifier.IdentifierParser" title="core.model.identifier.IdentifierParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.identifier.IdentifierParser</span></code></a></p>
+</section>
+<section id="module-api.proquest.identifier">
+<span id="api-proquest-identifier-module"></span><h2>api.proquest.identifier module<a class="headerlink" href="#module-api.proquest.identifier" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.proquest.identifier.ProQuestIdentifierParser">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.identifier.</span></span><span class="sig-name descname"><span class="pre">ProQuestIdentifierParser</span></span><a class="reference internal" href="_modules/api/proquest/identifier.html#ProQuestIdentifierParser"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.identifier.ProQuestIdentifierParser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.model.html#core.model.identifier.IdentifierParser" title="core.model.identifier.IdentifierParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">IdentifierParser</span></code></a></p>
 <p>Parser for ProQuest Doc IDs.</p>
-<dl class="attribute">
-<dt id="api.proquest.identifier.ProQuestIdentifierParser.PROQUEST_ID_REGEX">
-<code class="descname">PROQUEST_ID_REGEX</code><em class="property"> = re.compile('urn:proquest.com/document-id/(\\d+)')</em><a class="headerlink" href="#api.proquest.identifier.ProQuestIdentifierParser.PROQUEST_ID_REGEX" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.identifier.ProQuestIdentifierParser.PROQUEST_ID_REGEX">
+<span class="sig-name descname"><span class="pre">PROQUEST_ID_REGEX</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">re.compile('urn:proquest.com/document-id/(\\d+)')</span></em><a class="headerlink" href="#api.proquest.identifier.ProQuestIdentifierParser.PROQUEST_ID_REGEX" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.identifier.ProQuestIdentifierParser.parse">
-<code class="descname">parse</code><span class="sig-paren">(</span><em>identifier_string</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/identifier.html#ProQuestIdentifierParser.parse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.identifier.ProQuestIdentifierParser.parse" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.identifier.ProQuestIdentifierParser.parse">
+<span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier_string</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/identifier.html#ProQuestIdentifierParser.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.identifier.ProQuestIdentifierParser.parse" title="Permalink to this definition">¶</a></dt>
 <dd><p>Parse a string containing an identifier, extract it and determine its type.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>identifier_string</strong> (<em>str</em>) – String containing an identifier</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">2-tuple containing the identifier’s type and identifier itself or None
-if the string contains an incorrect identifier</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">Optional[Tuple[str, str]]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>identifier_string</strong> (<em>str</em>) – String containing an identifier</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>2-tuple containing the identifier’s type and identifier itself or None
+if the string contains an incorrect identifier</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[Tuple[str, str]]</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-</div>
-<div class="section" id="module-api.proquest.importer">
-<span id="api-proquest-importer-module"></span><h2>api.proquest.importer module<a class="headerlink" href="#module-api.proquest.importer" title="Permalink to this headline">¶</a></h2>
-<dl class="exception">
-<dt id="api.proquest.importer.CannotCreateProQuestTokenError">
-<em class="property">exception </em><code class="descclassname">api.proquest.importer.</code><code class="descname">CannotCreateProQuestTokenError</code><span class="sig-paren">(</span><em>inner_exception</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#CannotCreateProQuestTokenError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.CannotCreateProQuestTokenError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
+</section>
+<section id="module-api.proquest.importer">
+<span id="api-proquest-importer-module"></span><h2>api.proquest.importer module<a class="headerlink" href="#module-api.proquest.importer" title="Permalink to this heading">¶</a></h2>
+<dl class="py exception">
+<dt class="sig sig-object py" id="api.proquest.importer.CannotCreateProQuestTokenError">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.importer.</span></span><span class="sig-name descname"><span class="pre">CannotCreateProQuestTokenError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inner_exception</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#CannotCreateProQuestTokenError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.CannotCreateProQuestTokenError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseError</span></code></a></p>
 </dd></dl>
 
-<dl class="class">
-<dt id="api.proquest.importer.ProQuestOPDS2ImportMonitor">
-<em class="property">class </em><code class="descclassname">api.proquest.importer.</code><code class="descname">ProQuestOPDS2ImportMonitor</code><span class="sig-paren">(</span><em>client_factory</em>, <em>db</em>, <em>collection</em>, <em>import_class</em>, <em>force_reimport=False</em>, <em>process_removals=False</em>, <em>**import_class_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2ImportMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImportMonitor" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.opds2_import.OPDS2ImportMonitor" title="core.opds2_import.OPDS2ImportMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.opds2_import.OPDS2ImportMonitor</span></code></a>, <a class="reference internal" href="core.model.html#core.model.configuration.HasExternalIntegration" title="core.model.configuration.HasExternalIntegration"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.configuration.HasExternalIntegration</span></code></a></p>
-<dl class="attribute">
-<dt id="api.proquest.importer.ProQuestOPDS2ImportMonitor.PROTOCOL">
-<code class="descname">PROTOCOL</code><em class="property"> = 'ProQuest'</em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImportMonitor.PROTOCOL" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2ImportMonitor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.importer.</span></span><span class="sig-name descname"><span class="pre">ProQuestOPDS2ImportMonitor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client_factory</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">import_class</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_reimport</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">process_removals</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">import_class_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2ImportMonitor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImportMonitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.opds2_import.OPDS2ImportMonitor" title="core.opds2_import.OPDS2ImportMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">OPDS2ImportMonitor</span></code></a>, <a class="reference internal" href="core.model.html#core.model.configuration.HasExternalIntegration" title="core.model.configuration.HasExternalIntegration"><code class="xref py py-class docutils literal notranslate"><span class="pre">HasExternalIntegration</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2ImportMonitor.PROTOCOL">
+<span class="sig-name descname"><span class="pre">PROTOCOL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ProQuest'</span></em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImportMonitor.PROTOCOL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.importer.ProQuestOPDS2ImportMonitor.run_once">
-<code class="descname">run_once</code><span class="sig-paren">(</span><em>progress_ignore</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2ImportMonitor.run_once"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImportMonitor.run_once" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2ImportMonitor.run_once">
+<span class="sig-name descname"><span class="pre">run_once</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">progress_ignore</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2ImportMonitor.run_once"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImportMonitor.run_once" title="Permalink to this definition">¶</a></dt>
 <dd><p>Do the actual work of the Monitor.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>progress</strong> – A TimestampData representing the
-work done by the Monitor up to this point.</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A TimestampData representing how you want the
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>progress</strong> – A TimestampData representing the
+work done by the Monitor up to this point.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A TimestampData representing how you want the
 Monitor’s entry in the <cite>timestamps</cite> table to look like
 from this point on.  NOTE: Modifying the incoming
 <cite>progress</cite> and returning it is generally a bad idea,
 because the incoming <cite>progress</cite> is full of old
 data. Instead, return a new TimestampData containing data
-for only the fields you want to set.</td>
-</tr>
-</tbody>
-</table>
+for only the fields you want to set.</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.proquest.importer.ProQuestOPDS2Importer">
-<em class="property">class </em><code class="descclassname">api.proquest.importer.</code><code class="descname">ProQuestOPDS2Importer</code><span class="sig-paren">(</span><em>db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em>, <em>mirrors=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.opds2_import.OPDS2Importer" title="core.opds2_import.OPDS2Importer"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.opds2_import.OPDS2Importer</span></code></a>, <a class="reference internal" href="api.html#api.circulation.BaseCirculationAPI" title="api.circulation.BaseCirculationAPI"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation.BaseCirculationAPI</span></code></a>, <a class="reference internal" href="core.model.html#core.model.configuration.HasExternalIntegration" title="core.model.configuration.HasExternalIntegration"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.configuration.HasExternalIntegration</span></code></a></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2Importer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.importer.</span></span><span class="sig-name descname"><span class="pre">ProQuestOPDS2Importer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_source_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identifier_mapping</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">http_get</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata_client</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">content_modifier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map_from_collection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mirrors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.opds2_import.OPDS2Importer" title="core.opds2_import.OPDS2Importer"><code class="xref py py-class docutils literal notranslate"><span class="pre">OPDS2Importer</span></code></a>, <a class="reference internal" href="api.html#api.circulation.BaseCirculationAPI" title="api.circulation.BaseCirculationAPI"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseCirculationAPI</span></code></a>, <a class="reference internal" href="core.model.html#core.model.configuration.HasExternalIntegration" title="core.model.configuration.HasExternalIntegration"><code class="xref py py-class docutils literal notranslate"><span class="pre">HasExternalIntegration</span></code></a></p>
 <p>Allows to import ProQuest OPDS 2.0 feeds into Circulation Manager.</p>
-<dl class="attribute">
-<dt id="api.proquest.importer.ProQuestOPDS2Importer.DESCRIPTION">
-<code class="descname">DESCRIPTION</code><em class="property"> = l'Import books from a ProQuest OPDS 2.0 feed.'</em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.DESCRIPTION" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2Importer.DESCRIPTION">
+<span class="sig-name descname"><span class="pre">DESCRIPTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">l'Import</span> <span class="pre">books</span> <span class="pre">from</span> <span class="pre">a</span> <span class="pre">ProQuest</span> <span class="pre">OPDS</span> <span class="pre">2.0</span> <span class="pre">feed.'</span></em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.DESCRIPTION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.importer.ProQuestOPDS2Importer.LIBRARY_SETTINGS">
-<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'key': 'ebook_loan_duration', 'label': l'Default Loan Period (in Days)', 'default': 21, 'type': 'number', 'description': l'Until it hears otherwise from the distributor, this server will assume that any given loan for this library from this collection will last this number of days. This number is usually a negotiated value between the library and the distributor. This only affects estimates&amp;mdash;it cannot affect the actual length of loans.'}]</em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2Importer.LIBRARY_SETTINGS">
+<span class="sig-name descname"><span class="pre">LIBRARY_SETTINGS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[{'key':</span> <span class="pre">'ebook_loan_duration',</span> <span class="pre">'label':</span> <span class="pre">l'Default</span> <span class="pre">Loan</span> <span class="pre">Period</span> <span class="pre">(in</span> <span class="pre">Days)',</span> <span class="pre">'default':</span> <span class="pre">21,</span> <span class="pre">'type':</span> <span class="pre">'number',</span> <span class="pre">'description':</span> <span class="pre">l'Until</span> <span class="pre">it</span> <span class="pre">hears</span> <span class="pre">otherwise</span> <span class="pre">from</span> <span class="pre">the</span> <span class="pre">distributor,</span> <span class="pre">this</span> <span class="pre">server</span> <span class="pre">will</span> <span class="pre">assume</span> <span class="pre">that</span> <span class="pre">any</span> <span class="pre">given</span> <span class="pre">loan</span> <span class="pre">for</span> <span class="pre">this</span> <span class="pre">library</span> <span class="pre">from</span> <span class="pre">this</span> <span class="pre">collection</span> <span class="pre">will</span> <span class="pre">last</span> <span class="pre">this</span> <span class="pre">number</span> <span class="pre">of</span> <span class="pre">days.</span> <span class="pre">This</span> <span class="pre">number</span> <span class="pre">is</span> <span class="pre">usually</span> <span class="pre">a</span> <span class="pre">negotiated</span> <span class="pre">value</span> <span class="pre">between</span> <span class="pre">the</span> <span class="pre">library</span> <span class="pre">and</span> <span class="pre">the</span> <span class="pre">distributor.</span> <span class="pre">This</span> <span class="pre">only</span> <span class="pre">affects</span> <span class="pre">estimates&amp;mdash;it</span> <span class="pre">cannot</span> <span class="pre">affect</span> <span class="pre">the</span> <span class="pre">actual</span> <span class="pre">length</span> <span class="pre">of</span> <span class="pre">loans.'}]</span></em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.importer.ProQuestOPDS2Importer.NAME">
-<code class="descname">NAME</code><em class="property"> = 'ProQuest'</em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.NAME" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2Importer.NAME">
+<span class="sig-name descname"><span class="pre">NAME</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ProQuest'</span></em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.importer.ProQuestOPDS2Importer.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'data_source', 'label': l'Data source name', 'description': l'Name of the data source associated with this collection.', 'type': None, 'required': True, 'default': 'ProQuest', 'options': None, 'category': None}, {'key': 'token_expiration_timeout', 'label': l'ProQuest JWT token's expiration timeout', 'description': l'Determines how long in seconds can a ProQuest JWT token be valid.', 'type': 'number', 'required': False, 'default': 3600, 'options': None, 'category': None}, {'key': 'affiliation_attributes', 'label': l'List of SAML attributes containing an affiliation ID', 'description': l'ProQuest integration assumes that the SAML provider is used for authentication. ProQuest JWT bearer tokens required by the most ProQuest API services are created based on the affiliation ID - SAML attribute uniquely identifying the patron.This setting determines what attributes the ProQuest integration will use to look for affiliation IDs. The ProQuest integration will investigate the specified attributes sequentially and will take the first non-empty value.', 'type': 'menu', 'required': False, 'default': ['eduPersonPrincipalName', 'eduPersonScopedAffiliation'], 'options': [{'key': 'uid', 'label': 'uid'}, {'key': 'givenName', 'label': 'givenName'}, {'key': 'surname', 'label': 'surname'}, {'key': 'mail', 'label': 'mail'}, {'key': 'displayName', 'label': 'displayName'}, {'key': 'eduPerson', 'label': 'eduPerson'}, {'key': 'eduPersonAffiliation', 'label': 'eduPersonAffiliation'}, {'key': 'eduPersonNickname', 'label': 'eduPersonNickname'}, {'key': 'eduPersonOrgDN', 'label': 'eduPersonOrgDN'}, {'key': 'eduPersonOrgUnitDN', 'label': 'eduPersonOrgUnitDN'}, {'key': 'eduPersonPrimaryAffiliation', 'label': 'eduPersonPrimaryAffiliation'}, {'key': 'eduPersonPrincipalName', 'label': 'eduPersonPrincipalName'}, {'key': 'eduPersonEntitlement', 'label': 'eduPersonEntitlement'}, {'key': 'eduPersonPrimaryOrgUnitDN', 'label': 'eduPersonPrimaryOrgUnitDN'}, {'key': 'eduPersonScopedAffiliation', 'label': 'eduPersonScopedAffiliation'}, {'key': 'eduPersonTargetedID', 'label': 'eduPersonTargetedID'}, {'key': 'eduPersonAssurance', 'label': 'eduPersonAssurance'}, {'key': 'eduPersonOrcid', 'label': 'eduPersonOrcid'}, {'key': 'eduPersonUniqueId', 'label': 'eduPersonUniqueId'}, {'key': 'eduPersonPrincipalNamePrior', 'label': 'eduPersonPrincipalNamePrior'}, {'key': 'eduOrg', 'label': 'eduOrg'}, {'key': 'eduOrgHomePageURI', 'label': 'eduOrgHomePageURI'}, {'key': 'eduOrgIdentityAuthNPolicyURI', 'label': 'eduOrgIdentityAuthNPolicyURI'}, {'key': 'eduOrgLegalName', 'label': 'eduOrgLegalName'}, {'key': 'eduOrgSuperiorURI', 'label': 'eduOrgSuperiorURI'}, {'key': 'eduOrgWhitePagesURI', 'label': 'eduOrgWhitePagesURI'}], 'category': None}, {'key': 'test_affiliation_id', 'label': l'Test SAML affiliation ID', 'description': l'Test SAML affiliation ID used for testing ProQuest API. Please contact ProQuest before using it.', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 'default_audience', 'label': l'Default audience', 'description': l'If ProQuest does not specify the target audience for their books, assume the books have this target audience.', 'type': 'select', 'required': False, 'default': '', 'options': [{'key': '', 'label': l'No default audience'}, {'key': 'Adult', 'label': 'Adult'}, {'key': 'Adults Only', 'label': 'Adults Only'}, {'key': 'All Ages', 'label': 'All Ages'}, {'key': 'Children', 'label': 'Children'}, {'key': 'Research', 'label': 'Research'}, {'key': 'Young Adult', 'label': 'Young Adult'}], 'category': None}, {'key': 'books_catalog_service_url', 'label': l'BooksCatalog service's URL', 'description': l'URL of the BooksCatalog service endpoint', 'type': None, 'required': True, 'default': None, 'options': None, 'category': None}, {'key': 'page_size', 'label': l'Feed page's size', 'description': l'This value determines how many publications will be on a single page fetched from the BooksCatalog service.', 'type': 'number', 'required': False, 'default': 5000, 'options': None, 'category': None}, {'key': 'partner_auth_token_service_url', 'label': l'PartnerAuthToken service's URL', 'description': l'URL of the PartnerAuthToken service endpoint.', 'type': None, 'required': True, 'default': None, 'options': None, 'category': None}, {'key': 'download_link_service_url', 'label': l'DownloadLink service's URL', 'description': l'URL of the DownloadLink service endpoint.', 'type': None, 'required': True, 'default': None, 'options': None, 'category': None}, {'key': 'http_proxy_url', 'label': l'HTTP proxy's URL', 'description': l'URL of the proxy handling HTTP traffic.', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}, {'key': 'https_proxy_url', 'label': l'HTTPS proxy's URL', 'description': l'URL of the proxy handling HTTPS traffic.', 'type': None, 'required': False, 'default': None, 'options': None, 'category': None}]</em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2Importer.SETTINGS">
+<span class="sig-name descname"><span class="pre">SETTINGS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[{'key':</span> <span class="pre">'data_source',</span> <span class="pre">'label':</span> <span class="pre">l'Data</span> <span class="pre">source</span> <span class="pre">name',</span> <span class="pre">'description':</span> <span class="pre">l'Name</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">data</span> <span class="pre">source</span> <span class="pre">associated</span> <span class="pre">with</span> <span class="pre">this</span> <span class="pre">collection.',</span> <span class="pre">'type':</span> <span class="pre">None,</span> <span class="pre">'required':</span> <span class="pre">True,</span> <span class="pre">'default':</span> <span class="pre">'ProQuest',</span> <span class="pre">'options':</span> <span class="pre">None,</span> <span class="pre">'category':</span> <span class="pre">None},</span> <span class="pre">{'key':</span> <span class="pre">'token_expiration_timeout',</span> <span class="pre">'label':</span> <span class="pre">l'ProQuest</span> <span class="pre">JWT</span> <span class="pre">token's</span> <span class="pre">expiration</span> <span class="pre">timeout',</span> <span class="pre">'description':</span> <span class="pre">l'Determines</span> <span class="pre">how</span> <span class="pre">long</span> <span class="pre">in</span> <span class="pre">seconds</span> <span class="pre">can</span> <span class="pre">a</span> <span class="pre">ProQuest</span> <span class="pre">JWT</span> <span class="pre">token</span> <span class="pre">be</span> <span class="pre">valid.',</span> <span class="pre">'type':</span> <span class="pre">'number',</span> <span class="pre">'required':</span> <span class="pre">False,</span> <span class="pre">'default':</span> <span class="pre">3600,</span> <span class="pre">'options':</span> <span class="pre">None,</span> <span class="pre">'category':</span> <span class="pre">None},</span> <span class="pre">{'key':</span> <span class="pre">'affiliation_attributes',</span> <span class="pre">'label':</span> <span class="pre">l'List</span> <span class="pre">of</span> <span class="pre">SAML</span> <span class="pre">attributes</span> <span class="pre">containing</span> <span class="pre">an</span> <span class="pre">affiliation</span> <span class="pre">ID',</span> <span class="pre">'description':</span> <span class="pre">l'ProQuest</span> <span class="pre">integration</span> <span class="pre">assumes</span> <span class="pre">that</span> <span class="pre">the</span> <span class="pre">SAML</span> <span class="pre">provider</span> <span class="pre">is</span> <span class="pre">used</span> <span class="pre">for</span> <span class="pre">authentication.</span> <span class="pre">ProQuest</span> <span class="pre">JWT</span> <span class="pre">bearer</span> <span class="pre">tokens</span> <span class="pre">required</span> <span class="pre">by</span> <span class="pre">the</span> <span class="pre">most</span> <span class="pre">ProQuest</span> <span class="pre">API</span> <span class="pre">services</span> <span class="pre">are</span> <span class="pre">created</span> <span class="pre">based</span> <span class="pre">on</span> <span class="pre">the</span> <span class="pre">affiliation</span> <span class="pre">ID</span> <span class="pre">-</span> <span class="pre">SAML</span> <span class="pre">attribute</span> <span class="pre">uniquely</span> <span class="pre">identifying</span> <span class="pre">the</span> <span class="pre">patron.This</span> <span class="pre">setting</span> <span class="pre">determines</span> <span class="pre">what</span> <span class="pre">attributes</span> <span class="pre">the</span> <span class="pre">ProQuest</span> <span class="pre">integration</span> <span class="pre">will</span> <span class="pre">use</span> <span class="pre">to</span> <span class="pre">look</span> <span class="pre">for</span> <span class="pre">affiliation</span> <span class="pre">IDs.</span> <span class="pre">The</span> <span class="pre">ProQuest</span> <span class="pre">integration</span> <span class="pre">will</span> <span class="pre">investigate</span> <span class="pre">the</span> <span class="pre">specified</span> <span class="pre">attributes</span> <span class="pre">sequentially</span> <span class="pre">and</span> <span class="pre">will</span> <span class="pre">take</span> <span class="pre">the</span> <span class="pre">first</span> <span class="pre">non-empty</span> <span class="pre">value.',</span> <span class="pre">'type':</span> <span class="pre">'menu',</span> <span class="pre">'required':</span> <span class="pre">False,</span> <span class="pre">'default':</span> <span class="pre">['eduPersonPrincipalName',</span> <span class="pre">'eduPersonScopedAffiliation'],</span> <span class="pre">'options':</span> <span class="pre">[{'key':</span> <span class="pre">'uid',</span> <span class="pre">'label':</span> <span class="pre">'uid'},</span> <span class="pre">{'key':</span> <span class="pre">'givenName',</span> <span class="pre">'label':</span> <span class="pre">'givenName'},</span> <span class="pre">{'key':</span> <span class="pre">'surname',</span> <span class="pre">'label':</span> <span class="pre">'surname'},</span> <span class="pre">{'key':</span> <span class="pre">'mail',</span> <span class="pre">'label':</span> <span class="pre">'mail'},</span> <span class="pre">{'key':</span> <span class="pre">'displayName',</span> <span class="pre">'label':</span> <span class="pre">'displayName'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPerson',</span> <span class="pre">'label':</span> <span class="pre">'eduPerson'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonAffiliation',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonAffiliation'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonNickname',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonNickname'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonOrgDN',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonOrgDN'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonOrgUnitDN',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonOrgUnitDN'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonPrimaryAffiliation',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonPrimaryAffiliation'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonPrincipalName',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonPrincipalName'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonEntitlement',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonEntitlement'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonPrimaryOrgUnitDN',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonPrimaryOrgUnitDN'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonScopedAffiliation',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonScopedAffiliation'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonTargetedID',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonTargetedID'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonAssurance',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonAssurance'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonOrcid',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonOrcid'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonUniqueId',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonUniqueId'},</span> <span class="pre">{'key':</span> <span class="pre">'eduPersonPrincipalNamePrior',</span> <span class="pre">'label':</span> <span class="pre">'eduPersonPrincipalNamePrior'},</span> <span class="pre">{'key':</span> <span class="pre">'eduOrg',</span> <span class="pre">'label':</span> <span class="pre">'eduOrg'},</span> <span class="pre">{'key':</span> <span class="pre">'eduOrgHomePageURI',</span> <span class="pre">'label':</span> <span class="pre">'eduOrgHomePageURI'},</span> <span class="pre">{'key':</span> <span class="pre">'eduOrgIdentityAuthNPolicyURI',</span> <span class="pre">'label':</span> <span class="pre">'eduOrgIdentityAuthNPolicyURI'},</span> <span class="pre">{'key':</span> <span class="pre">'eduOrgLegalName',</span> <span class="pre">'label':</span> <span class="pre">'eduOrgLegalName'},</span> <span class="pre">{'key':</span> <span class="pre">'eduOrgSuperiorURI',</span> <span class="pre">'label':</span> <span class="pre">'eduOrgSuperiorURI'},</span> <span class="pre">{'key':</span> <span class="pre">'eduOrgWhitePagesURI',</span> <span class="pre">'label':</span> <span class="pre">'eduOrgWhitePagesURI'}],</span> <span class="pre">'category':</span> <span class="pre">None},</span> <span class="pre">{'key':</span> <span class="pre">'test_affiliation_id',</span> <span class="pre">'label':</span> <span class="pre">l'Test</span> <span class="pre">SAML</span> <span class="pre">affiliation</span> <span class="pre">ID',</span> <span class="pre">'description':</span> <span class="pre">l'Test</span> <span class="pre">SAML</span> <span class="pre">affiliation</span> <span class="pre">ID</span> <span class="pre">used</span> <span class="pre">for</span> <span class="pre">testing</span> <span class="pre">ProQuest</span> <span class="pre">API.</span> <span class="pre">Please</span> <span class="pre">contact</span> <span class="pre">ProQuest</span> <span class="pre">before</span> <span class="pre">using</span> <span class="pre">it.',</span> <span class="pre">'type':</span> <span class="pre">None,</span> <span class="pre">'required':</span> <span class="pre">False,</span> <span class="pre">'default':</span> <span class="pre">None,</span> <span class="pre">'options':</span> <span class="pre">None,</span> <span class="pre">'category':</span> <span class="pre">None},</span> <span class="pre">{'key':</span> <span class="pre">'default_audience',</span> <span class="pre">'label':</span> <span class="pre">l'Default</span> <span class="pre">audience',</span> <span class="pre">'description':</span> <span class="pre">l'If</span> <span class="pre">ProQuest</span> <span class="pre">does</span> <span class="pre">not</span> <span class="pre">specify</span> <span class="pre">the</span> <span class="pre">target</span> <span class="pre">audience</span> <span class="pre">for</span> <span class="pre">their</span> <span class="pre">books,</span> <span class="pre">assume</span> <span class="pre">the</span> <span class="pre">books</span> <span class="pre">have</span> <span class="pre">this</span> <span class="pre">target</span> <span class="pre">audience.',</span> <span class="pre">'type':</span> <span class="pre">'select',</span> <span class="pre">'required':</span> <span class="pre">False,</span> <span class="pre">'default':</span> <span class="pre">'',</span> <span class="pre">'options':</span> <span class="pre">[{'key':</span> <span class="pre">'',</span> <span class="pre">'label':</span> <span class="pre">l'No</span> <span class="pre">default</span> <span class="pre">audience'},</span> <span class="pre">{'key':</span> <span class="pre">'Adult',</span> <span class="pre">'label':</span> <span class="pre">'Adult'},</span> <span class="pre">{'key':</span> <span class="pre">'Adults</span> <span class="pre">Only',</span> <span class="pre">'label':</span> <span class="pre">'Adults</span> <span class="pre">Only'},</span> <span class="pre">{'key':</span> <span class="pre">'All</span> <span class="pre">Ages',</span> <span class="pre">'label':</span> <span class="pre">'All</span> <span class="pre">Ages'},</span> <span class="pre">{'key':</span> <span class="pre">'Children',</span> <span class="pre">'label':</span> <span class="pre">'Children'},</span> <span class="pre">{'key':</span> <span class="pre">'Research',</span> <span class="pre">'label':</span> <span class="pre">'Research'},</span> <span class="pre">{'key':</span> <span class="pre">'Young</span> <span class="pre">Adult',</span> <span class="pre">'label':</span> <span class="pre">'Young</span> <span class="pre">Adult'}],</span> <span class="pre">'category':</span> <span class="pre">None},</span> <span class="pre">{'key':</span> <span class="pre">'books_catalog_service_url',</span> <span class="pre">'label':</span> <span class="pre">l'BooksCatalog</span> <span class="pre">service's</span> <span class="pre">URL',</span> <span class="pre">'description':</span> <span class="pre">l'URL</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">BooksCatalog</span> <span class="pre">service</span> <span class="pre">endpoint',</span> <span class="pre">'type':</span> <span class="pre">None,</span> <span class="pre">'required':</span> <span class="pre">True,</span> <span class="pre">'default':</span> <span class="pre">None,</span> <span class="pre">'options':</span> <span class="pre">None,</span> <span class="pre">'category':</span> <span class="pre">None},</span> <span class="pre">{'key':</span> <span class="pre">'page_size',</span> <span class="pre">'label':</span> <span class="pre">l'Feed</span> <span class="pre">page's</span> <span class="pre">size',</span> <span class="pre">'description':</span> <span class="pre">l'This</span> <span class="pre">value</span> <span class="pre">determines</span> <span class="pre">how</span> <span class="pre">many</span> <span class="pre">publications</span> <span class="pre">will</span> <span class="pre">be</span> <span class="pre">on</span> <span class="pre">a</span> <span class="pre">single</span> <span class="pre">page</span> <span class="pre">fetched</span> <span class="pre">from</span> <span class="pre">the</span> <span class="pre">BooksCatalog</span> <span class="pre">service.',</span> <span class="pre">'type':</span> <span class="pre">'number',</span> <span class="pre">'required':</span> <span class="pre">False,</span> <span class="pre">'default':</span> <span class="pre">5000,</span> <span class="pre">'options':</span> <span class="pre">None,</span> <span class="pre">'category':</span> <span class="pre">None},</span> <span class="pre">{'key':</span> <span class="pre">'partner_auth_token_service_url',</span> <span class="pre">'label':</span> <span class="pre">l'PartnerAuthToken</span> <span class="pre">service's</span> <span class="pre">URL',</span> <span class="pre">'description':</span> <span class="pre">l'URL</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">PartnerAuthToken</span> <span class="pre">service</span> <span class="pre">endpoint.',</span> <span class="pre">'type':</span> <span class="pre">None,</span> <span class="pre">'required':</span> <span class="pre">True,</span> <span class="pre">'default':</span> <span class="pre">None,</span> <span class="pre">'options':</span> <span class="pre">None,</span> <span class="pre">'category':</span> <span class="pre">None},</span> <span class="pre">{'key':</span> <span class="pre">'download_link_service_url',</span> <span class="pre">'label':</span> <span class="pre">l'DownloadLink</span> <span class="pre">service's</span> <span class="pre">URL',</span> <span class="pre">'description':</span> <span class="pre">l'URL</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">DownloadLink</span> <span class="pre">service</span> <span class="pre">endpoint.',</span> <span class="pre">'type':</span> <span class="pre">None,</span> <span class="pre">'required':</span> <span class="pre">True,</span> <span class="pre">'default':</span> <span class="pre">None,</span> <span class="pre">'options':</span> <span class="pre">None,</span> <span class="pre">'category':</span> <span class="pre">None},</span> <span class="pre">{'key':</span> <span class="pre">'http_proxy_url',</span> <span class="pre">'label':</span> <span class="pre">l'HTTP</span> <span class="pre">proxy's</span> <span class="pre">URL',</span> <span class="pre">'description':</span> <span class="pre">l'URL</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">proxy</span> <span class="pre">handling</span> <span class="pre">HTTP</span> <span class="pre">traffic.',</span> <span class="pre">'type':</span> <span class="pre">None,</span> <span class="pre">'required':</span> <span class="pre">False,</span> <span class="pre">'default':</span> <span class="pre">None,</span> <span class="pre">'options':</span> <span class="pre">None,</span> <span class="pre">'category':</span> <span class="pre">None},</span> <span class="pre">{'key':</span> <span class="pre">'https_proxy_url',</span> <span class="pre">'label':</span> <span class="pre">l'HTTPS</span> <span class="pre">proxy's</span> <span class="pre">URL',</span> <span class="pre">'description':</span> <span class="pre">l'URL</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">proxy</span> <span class="pre">handling</span> <span class="pre">HTTPS</span> <span class="pre">traffic.',</span> <span class="pre">'type':</span> <span class="pre">None,</span> <span class="pre">'required':</span> <span class="pre">False,</span> <span class="pre">'default':</span> <span class="pre">None,</span> <span class="pre">'options':</span> <span class="pre">None,</span> <span class="pre">'category':</span> <span class="pre">None}]</span></em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.importer.ProQuestOPDS2Importer.checkout">
-<code class="descname">checkout</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>licensepool</em>, <em>internal_format</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.checkout"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.checkout" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2Importer.checkout">
+<span class="sig-name descname"><span class="pre">checkout</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">patron</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">licensepool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">internal_format</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.checkout"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.checkout" title="Permalink to this definition">¶</a></dt>
 <dd><p>Checkout the book.</p>
 <p>NOTE: This method requires the patron to have either:
 - an active ProQuest JWT bearer token
 - or a SAML affiliation ID which will be used to create a new ProQuest JWT bearer token.</p>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.importer.ProQuestOPDS2Importer.external_integration">
-<code class="descname">external_integration</code><span class="sig-paren">(</span><em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.external_integration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.external_integration" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2Importer.external_integration">
+<span class="sig-name descname"><span class="pre">external_integration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.external_integration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.external_integration" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return an external integration associated with this object.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">External integration associated with this object</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="core.model.html#core.model.configuration.ExternalIntegration" title="core.model.configuration.ExternalIntegration">core.model.configuration.ExternalIntegration</a></td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>External integration associated with this object</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="core.model.html#core.model.configuration.ExternalIntegration" title="core.model.configuration.ExternalIntegration">core.model.configuration.ExternalIntegration</a></p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.importer.ProQuestOPDS2Importer.extract_next_links">
-<code class="descname">extract_next_links</code><span class="sig-paren">(</span><em>feed</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.extract_next_links"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.extract_next_links" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2Importer.extract_next_links">
+<span class="sig-name descname"><span class="pre">extract_next_links</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.extract_next_links"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.extract_next_links" title="Permalink to this definition">¶</a></dt>
 <dd><p>Extract “next” links from the feed.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>feed</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>opds2_ast.OPDS2Feed</em><em>]</em>) – OPDS 2.0 feed</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">List of “next” links</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">List[str]</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>feed</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>opds2_ast.OPDS2Feed</em><em>]</em>) – OPDS 2.0 feed</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of “next” links</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[str]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.importer.ProQuestOPDS2Importer.fulfill">
-<code class="descname">fulfill</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>licensepool</em>, <em>internal_format=None</em>, <em>part=None</em>, <em>fulfill_part_url=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.fulfill"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.fulfill" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2Importer.fulfill">
+<span class="sig-name descname"><span class="pre">fulfill</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">patron</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">licensepool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">internal_format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">part</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fulfill_part_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.fulfill"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.fulfill" title="Permalink to this definition">¶</a></dt>
 <dd><p>Fulfill the loan.</p>
 <p>NOTE: This method requires the patron to have either:
 - an active ProQuest JWT bearer token
 - or a SAML affiliation ID which will be used to create a new ProQuest JWT bearer token.</p>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.importer.ProQuestOPDS2Importer.internal_format">
-<code class="descname">internal_format</code><span class="sig-paren">(</span><em>delivery_mechanism</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.internal_format"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.internal_format" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2Importer.internal_format">
+<span class="sig-name descname"><span class="pre">internal_format</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delivery_mechanism</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.internal_format"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.internal_format" title="Permalink to this definition">¶</a></dt>
 <dd><p>Look up the internal format for this delivery mechanism or raise an exception.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>delivery_mechanism</strong> (<a class="reference internal" href="core.model.html#core.model.licensing.LicensePoolDeliveryMechanism" title="core.model.licensing.LicensePoolDeliveryMechanism"><em>LicensePoolDeliveryMechanism</em></a>) – A LicensePoolDeliveryMechanism</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>delivery_mechanism</strong> (<a class="reference internal" href="core.model.html#core.model.licensing.LicensePoolDeliveryMechanism" title="core.model.licensing.LicensePoolDeliveryMechanism"><em>LicensePoolDeliveryMechanism</em></a>) – A LicensePoolDeliveryMechanism</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.importer.ProQuestOPDS2Importer.patron_activity">
-<code class="descname">patron_activity</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.patron_activity"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.patron_activity" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2Importer.patron_activity">
+<span class="sig-name descname"><span class="pre">patron_activity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">patron</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pin</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.patron_activity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.patron_activity" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return patron’s loans.</p>
 <p>TODO This and code from ODLAPI should be refactored into a generic set of rules
 for any situation where the CM, not the remote API, is responsible for managing loans and holds.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>Patron</em></a>) – A Patron object for the patron who wants to check out the book</li>
-<li><strong>pin</strong> (<em>string</em>) – The patron’s alleged password</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>Patron</em></a>) – A Patron object for the patron who wants to check out the book</p></li>
+<li><p><strong>pin</strong> (<em>string</em>) – The patron’s alleged password</p></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">List of patron’s loans</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">List[<a class="reference internal" href="api.html#api.circulation.LoanInfo" title="api.circulation.LoanInfo">LoanInfo</a>]</p>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of patron’s loans</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[<a class="reference internal" href="api.html#api.circulation.LoanInfo" title="api.circulation.LoanInfo">LoanInfo</a>]</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.importer.ProQuestOPDS2Importer.place_hold">
-<code class="descname">place_hold</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>licensepool</em>, <em>notification_email_address</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.place_hold"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.place_hold" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2Importer.place_hold">
+<span class="sig-name descname"><span class="pre">place_hold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">patron</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">licensepool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">notification_email_address</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.place_hold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.place_hold" title="Permalink to this definition">¶</a></dt>
 <dd><p>Place a book on hold.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A HoldInfo object</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A HoldInfo object</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.importer.ProQuestOPDS2Importer.release_hold">
-<code class="descname">release_hold</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>licensepool</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.release_hold"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.release_hold" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2Importer.release_hold">
+<span class="sig-name descname"><span class="pre">release_hold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">patron</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">licensepool</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2Importer.release_hold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2Importer.release_hold" title="Permalink to this definition">¶</a></dt>
 <dd><p>Release a patron’s hold on a book.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body"><a class="reference internal" href="api.html#api.circulation_exceptions.CannotReleaseHold" title="api.circulation_exceptions.CannotReleaseHold"><strong>CannotReleaseHold</strong></a> – If there is an error communicating
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="api.html#api.circulation_exceptions.CannotReleaseHold" title="api.circulation_exceptions.CannotReleaseHold"><strong>CannotReleaseHold</strong></a> – If there is an error communicating
 with the provider, or the provider refuses to release the hold for
-any reason.</td>
-</tr>
-</tbody>
-</table>
+any reason.</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration">
-<em class="property">class </em><code class="descclassname">api.proquest.importer.</code><code class="descname">ProQuestOPDS2ImporterConfiguration</code><span class="sig-paren">(</span><em>configuration_storage</em>, <em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2ImporterConfiguration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.model.html#core.model.configuration.ConfigurationGrouping" title="core.model.configuration.ConfigurationGrouping"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.configuration.ConfigurationGrouping</span></code></a></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.importer.</span></span><span class="sig-name descname"><span class="pre">ProQuestOPDS2ImporterConfiguration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">configuration_storage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">db</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#ProQuestOPDS2ImporterConfiguration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.model.html#core.model.configuration.ConfigurationGrouping" title="core.model.configuration.ConfigurationGrouping"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConfigurationGrouping</span></code></a></p>
 <p>Contains configuration settings of ProQuestOPDS2Importer.</p>
-<dl class="attribute">
-<dt id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.DEFAULT_AFFILIATION_ATTRIBUTES">
-<code class="descname">DEFAULT_AFFILIATION_ATTRIBUTES</code><em class="property"> = ('eduPersonPrincipalName', 'eduPersonScopedAffiliation')</em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.DEFAULT_AFFILIATION_ATTRIBUTES" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.DEFAULT_AFFILIATION_ATTRIBUTES">
+<span class="sig-name descname"><span class="pre">DEFAULT_AFFILIATION_ATTRIBUTES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('eduPersonPrincipalName',</span> <span class="pre">'eduPersonScopedAffiliation')</span></em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.DEFAULT_AFFILIATION_ATTRIBUTES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.DEFAULT_TOKEN_EXPIRATION_TIMEOUT_SECONDS">
-<code class="descname">DEFAULT_TOKEN_EXPIRATION_TIMEOUT_SECONDS</code><em class="property"> = 3600</em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.DEFAULT_TOKEN_EXPIRATION_TIMEOUT_SECONDS" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.DEFAULT_TOKEN_EXPIRATION_TIMEOUT_SECONDS">
+<span class="sig-name descname"><span class="pre">DEFAULT_TOKEN_EXPIRATION_TIMEOUT_SECONDS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3600</span></em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.DEFAULT_TOKEN_EXPIRATION_TIMEOUT_SECONDS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.TEST_AFFILIATION_ID">
-<code class="descname">TEST_AFFILIATION_ID</code><em class="property"> = 1</em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.TEST_AFFILIATION_ID" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.TEST_AFFILIATION_ID">
+<span class="sig-name descname"><span class="pre">TEST_AFFILIATION_ID</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.TEST_AFFILIATION_ID" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.affiliation_attributes">
-<code class="descname">affiliation_attributes</code><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.affiliation_attributes" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.affiliation_attributes">
+<span class="sig-name descname"><span class="pre">affiliation_attributes</span></span><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.affiliation_attributes" title="Permalink to this definition">¶</a></dt>
 <dd><p>Contains configuration metadata</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.data_source_name">
-<code class="descname">data_source_name</code><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.data_source_name" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.data_source_name">
+<span class="sig-name descname"><span class="pre">data_source_name</span></span><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.data_source_name" title="Permalink to this definition">¶</a></dt>
 <dd><p>Contains configuration metadata</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.default_audience">
-<code class="descname">default_audience</code><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.default_audience" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.default_audience">
+<span class="sig-name descname"><span class="pre">default_audience</span></span><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.default_audience" title="Permalink to this definition">¶</a></dt>
 <dd><p>Contains configuration metadata</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.test_affiliation_id">
-<code class="descname">test_affiliation_id</code><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.test_affiliation_id" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.test_affiliation_id">
+<span class="sig-name descname"><span class="pre">test_affiliation_id</span></span><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.test_affiliation_id" title="Permalink to this definition">¶</a></dt>
 <dd><p>Contains configuration metadata</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.token_expiration_timeout">
-<code class="descname">token_expiration_timeout</code><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.token_expiration_timeout" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.proquest.importer.ProQuestOPDS2ImporterConfiguration.token_expiration_timeout">
+<span class="sig-name descname"><span class="pre">token_expiration_timeout</span></span><a class="headerlink" href="#api.proquest.importer.ProQuestOPDS2ImporterConfiguration.token_expiration_timeout" title="Permalink to this definition">¶</a></dt>
 <dd><p>Contains configuration metadata</p>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="function">
-<dt id="api.proquest.importer.parse_identifier">
-<code class="descclassname">api.proquest.importer.</code><code class="descname">parse_identifier</code><span class="sig-paren">(</span><em>db</em>, <em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#parse_identifier"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.importer.parse_identifier" title="Permalink to this definition">¶</a></dt>
+<dl class="py function">
+<dt class="sig sig-object py" id="api.proquest.importer.parse_identifier">
+<span class="sig-prename descclassname"><span class="pre">api.proquest.importer.</span></span><span class="sig-name descname"><span class="pre">parse_identifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/importer.html#parse_identifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.importer.parse_identifier" title="Permalink to this definition">¶</a></dt>
 <dd><p>Parse the identifier and return an Identifier object representing it.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>identifier</strong> (<em>str</em>) – String containing the identifier</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</p></li>
+<li><p><strong>identifier</strong> (<em>str</em>) – String containing the identifier</p></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Identifier object</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference internal" href="core.model.html#core.model.identifier.Identifier" title="core.model.identifier.Identifier">core.model.identifier.Identifier</a></p>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Identifier object</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="core.model.html#core.model.identifier.Identifier" title="core.model.identifier.Identifier">core.model.identifier.Identifier</a></p>
+</dd>
+</dl>
 </dd></dl>
 
-</div>
-<div class="section" id="module-api.proquest.scripts">
-<span id="api-proquest-scripts-module"></span><h2>api.proquest.scripts module<a class="headerlink" href="#module-api.proquest.scripts" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.proquest.scripts.ProQuestOPDS2ImportScript">
-<em class="property">class </em><code class="descclassname">api.proquest.scripts.</code><code class="descname">ProQuestOPDS2ImportScript</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/scripts.html#ProQuestOPDS2ImportScript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.scripts.ProQuestOPDS2ImportScript" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.scripts.OPDSImportScript" title="core.scripts.OPDSImportScript"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.scripts.OPDSImportScript</span></code></a></p>
+</section>
+<section id="module-api.proquest.scripts">
+<span id="api-proquest-scripts-module"></span><h2>api.proquest.scripts module<a class="headerlink" href="#module-api.proquest.scripts" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.proquest.scripts.ProQuestOPDS2ImportScript">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.proquest.scripts.</span></span><span class="sig-name descname"><span class="pre">ProQuestOPDS2ImportScript</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/scripts.html#ProQuestOPDS2ImportScript"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.scripts.ProQuestOPDS2ImportScript" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.scripts.OPDSImportScript" title="core.scripts.OPDSImportScript"><code class="xref py py-class docutils literal notranslate"><span class="pre">OPDSImportScript</span></code></a></p>
 <p>Runs a ProQuestOPDS2ImportMonitor.</p>
-<dl class="classmethod">
-<dt id="api.proquest.scripts.ProQuestOPDS2ImportScript.arg_parser">
-<em class="property">classmethod </em><code class="descname">arg_parser</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/scripts.html#ProQuestOPDS2ImportScript.arg_parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.scripts.ProQuestOPDS2ImportScript.arg_parser" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.scripts.ProQuestOPDS2ImportScript.arg_parser">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">arg_parser</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/scripts.html#ProQuestOPDS2ImportScript.arg_parser"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.scripts.ProQuestOPDS2ImportScript.arg_parser" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="api.proquest.scripts.ProQuestOPDS2ImportScript.run_monitor">
-<code class="descname">run_monitor</code><span class="sig-paren">(</span><em>collection</em>, <em>force=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/scripts.html#ProQuestOPDS2ImportScript.run_monitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.proquest.scripts.ProQuestOPDS2ImportScript.run_monitor" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.proquest.scripts.ProQuestOPDS2ImportScript.run_monitor">
+<span class="sig-name descname"><span class="pre">run_monitor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">collection</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/proquest/scripts.html#ProQuestOPDS2ImportScript.run_monitor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.proquest.scripts.ProQuestOPDS2ImportScript.run_monitor" title="Permalink to this definition">¶</a></dt>
 <dd><p>Run the monitor for the specified collection.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>collection</strong> (<a class="reference internal" href="core.model.html#core.model.collection.Collection" title="core.model.collection.Collection"><em>core.model.collection.Collection</em></a>) – Collection object</li>
-<li><strong>force</strong> (<em>bool</em>) – Boolean value indicating whether the import process should be run from scratch</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>collection</strong> (<a class="reference internal" href="core.model.html#core.model.collection.Collection" title="core.model.collection.Collection"><em>core.model.collection.Collection</em></a>) – Collection object</p></li>
+<li><p><strong>force</strong> (<em>bool</em>) – Boolean value indicating whether the import process should be run from scratch</p></li>
 </ul>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-</div>
-<div class="section" id="module-api.proquest">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-api.proquest" title="Permalink to this headline">¶</a></h2>
-</div>
-</div>
+</section>
+<section id="module-api.proquest">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-api.proquest" title="Permalink to this heading">¶</a></h2>
+</section>
+</section>
 
 
           </div>
@@ -839,17 +777,15 @@ any reason.</td>
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -866,7 +802,7 @@ any reason.</td>
       &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

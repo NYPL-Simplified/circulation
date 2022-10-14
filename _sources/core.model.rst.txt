@@ -8,199 +8,198 @@ core.model.admin module
 -----------------------
 
 .. automodule:: core.model.admin
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.cachedfeed module
 ----------------------------
 
 .. automodule:: core.model.cachedfeed
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.circulationevent module
 ----------------------------------
 
 .. automodule:: core.model.circulationevent
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.classification module
 --------------------------------
 
 .. automodule:: core.model.classification
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.collection module
 ----------------------------
 
 .. automodule:: core.model.collection
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.complaint module
 ---------------------------
 
 .. automodule:: core.model.complaint
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.configuration module
 -------------------------------
 
 .. automodule:: core.model.configuration
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.constants module
 ---------------------------
 
 .. automodule:: core.model.constants
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.contributor module
 -----------------------------
 
 .. automodule:: core.model.contributor
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.coverage module
 --------------------------
 
 .. automodule:: core.model.coverage
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.credential module
 ----------------------------
 
 .. automodule:: core.model.credential
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.customlist module
 ----------------------------
 
 .. automodule:: core.model.customlist
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.datasource module
 ----------------------------
 
 .. automodule:: core.model.datasource
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.edition module
 -------------------------
 
 .. automodule:: core.model.edition
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.hasfulltablecache module
 -----------------------------------
 
 .. automodule:: core.model.hasfulltablecache
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.identifier module
 ----------------------------
 
 .. automodule:: core.model.identifier
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.integrationclient module
 -----------------------------------
 
 .. automodule:: core.model.integrationclient
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.library module
 -------------------------
 
 .. automodule:: core.model.library
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.licensing module
 ---------------------------
 
 .. automodule:: core.model.licensing
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.listeners module
 ---------------------------
 
 .. automodule:: core.model.listeners
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.measurement module
 -----------------------------
 
 .. automodule:: core.model.measurement
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.patron module
 ------------------------
 
 .. automodule:: core.model.patron
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.resource module
 --------------------------
 
 .. automodule:: core.model.resource
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.model.work module
 ----------------------
 
 .. automodule:: core.model.work
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: core.model
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

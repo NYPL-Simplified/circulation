@@ -8,79 +8,78 @@ api.lcp.collection module
 -------------------------
 
 .. automodule:: api.lcp.collection
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.lcp.controller module
 -------------------------
 
 .. automodule:: api.lcp.controller
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.lcp.encrypt module
 ----------------------
 
 .. automodule:: api.lcp.encrypt
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.lcp.factory module
 ----------------------
 
 .. automodule:: api.lcp.factory
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.lcp.hash module
 -------------------
 
 .. automodule:: api.lcp.hash
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.lcp.importer module
 -----------------------
 
 .. automodule:: api.lcp.importer
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.lcp.mirror module
 ---------------------
 
 .. automodule:: api.lcp.mirror
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.lcp.server module
 ---------------------
 
 .. automodule:: api.lcp.server
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.lcp.utils module
 --------------------
 
 .. automodule:: api.lcp.utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: api.lcp
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

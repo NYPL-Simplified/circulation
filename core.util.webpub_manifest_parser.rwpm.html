@@ -1,0 +1,401 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>core.util.webpub_manifest_parser.rwpm package &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="scripts module" href="scripts.html" />
+    <link rel="prev" title="core.util.webpub_manifest_parser.opds2 package" href="core.util.webpub_manifest_parser.opds2.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="core-util-webpub-manifest-parser-rwpm-package">
+<h1>core.util.webpub_manifest_parser.rwpm package<a class="headerlink" href="#core-util-webpub-manifest-parser-rwpm-package" title="Permalink to this heading">¶</a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading">¶</a></h2>
+</section>
+<section id="module-core.util.webpub_manifest_parser.rwpm.ast">
+<span id="core-util-webpub-manifest-parser-rwpm-ast-module"></span><h2>core.util.webpub_manifest_parser.rwpm.ast module<a class="headerlink" href="#module-core.util.webpub_manifest_parser.rwpm.ast" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.ast.RWPMManifest">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.rwpm.ast.</span></span><span class="sig-name descname"><span class="pre">RWPMManifest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">links</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reading_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resources</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">toc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/rwpm/ast.html#RWPMManifest"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.ast.RWPMManifest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Manifestlike" title="core.util.webpub_manifest_parser.core.ast.Manifestlike"><code class="xref py py-class docutils literal notranslate"><span class="pre">Manifestlike</span></code></a></p>
+<p>Readium Web Publication Manifest.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.ast.RWPMManifest.DEFAULT_CONTEXT">
+<span class="sig-name descname"><span class="pre">DEFAULT_CONTEXT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'https://readium.org/webpub-manifest/context.jsonld'</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.ast.RWPMManifest.DEFAULT_CONTEXT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.ast.RWPMManifest.context">
+<span class="sig-name descname"><span class="pre">context</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.ast.RWPMManifest.context" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing either a string or array of strings as its values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.ast.RWPMManifest.reading_order">
+<span class="sig-name descname"><span class="pre">reading_order</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.ast.RWPMManifest.reading_order" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing to contain a compact sub-collection.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.ast.RWPMManifest.resources">
+<span class="sig-name descname"><span class="pre">resources</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.ast.RWPMManifest.resources" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing to contain a compact sub-collection.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.ast.RWPMManifest.toc">
+<span class="sig-name descname"><span class="pre">toc</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.ast.RWPMManifest.toc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing to contain a compact sub-collection.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-core.util.webpub_manifest_parser.rwpm.parser">
+<span id="core-util-webpub-manifest-parser-rwpm-parser-module"></span><h2>core.util.webpub_manifest_parser.rwpm.parser module<a class="headerlink" href="#module-core.util.webpub_manifest_parser.rwpm.parser" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.parser.RWPMDocumentParserFactory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.rwpm.parser.</span></span><span class="sig-name descname"><span class="pre">RWPMDocumentParserFactory</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/rwpm/parser.html#RWPMDocumentParserFactory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.parser.RWPMDocumentParserFactory" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.parsers.DocumentParserFactory" title="core.util.webpub_manifest_parser.core.parsers.DocumentParserFactory"><code class="xref py py-class docutils literal notranslate"><span class="pre">DocumentParserFactory</span></code></a></p>
+<p>Factory creating RWPM parsers.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.parser.RWPMDocumentParserFactory.create">
+<span class="sig-name descname"><span class="pre">create</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/rwpm/parser.html#RWPMDocumentParserFactory.create"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.parser.RWPMDocumentParserFactory.create" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new RWPMParser.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>RWPM parser instance</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Parser</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-core.util.webpub_manifest_parser.rwpm.registry">
+<span id="core-util-webpub-manifest-parser-rwpm-registry-module"></span><h2>core.util.webpub_manifest_parser.rwpm.registry module<a class="headerlink" href="#module-core.util.webpub_manifest_parser.rwpm.registry" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.rwpm.registry.</span></span><span class="sig-name descname"><span class="pre">RWPMCollectionRolesRegistry</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/rwpm/registry.html#RWPMCollectionRolesRegistry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.registry.Registry" title="core.util.webpub_manifest_parser.core.registry.Registry"><code class="xref py py-class docutils literal notranslate"><span class="pre">Registry</span></code></a></p>
+<p>Registry containing collection roles defined in the RWPM spec.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.CORE_ROLES">
+<span class="sig-name descname"><span class="pre">CORE_ROLES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;]</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.CORE_ROLES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.EXTENSIONS">
+<span class="sig-name descname"><span class="pre">EXTENSIONS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;]</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.EXTENSIONS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.GUIDED">
+<span class="sig-name descname"><span class="pre">GUIDED</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.GUIDED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.LANDMARKS">
+<span class="sig-name descname"><span class="pre">LANDMARKS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.LANDMARKS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.LOA">
+<span class="sig-name descname"><span class="pre">LOA</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.LOA" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.LOI">
+<span class="sig-name descname"><span class="pre">LOI</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.LOI" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.LOT">
+<span class="sig-name descname"><span class="pre">LOT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.LOT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.LOV">
+<span class="sig-name descname"><span class="pre">LOV</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.LOV" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.PAGE_LIST">
+<span class="sig-name descname"><span class="pre">PAGE_LIST</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.PAGE_LIST" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.READING_ORDER">
+<span class="sig-name descname"><span class="pre">READING_ORDER</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.READING_ORDER" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.RESOURCES">
+<span class="sig-name descname"><span class="pre">RESOURCES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.RESOURCES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.TOC">
+<span class="sig-name descname"><span class="pre">TOC</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry.TOC" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.rwpm.registry.</span></span><span class="sig-name descname"><span class="pre">RWPMLinkRelationsRegistry</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/rwpm/registry.html#RWPMLinkRelationsRegistry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.registry.Registry" title="core.util.webpub_manifest_parser.core.registry.Registry"><code class="xref py py-class docutils literal notranslate"><span class="pre">Registry</span></code></a></p>
+<p>Registry containing link relations mentioned in the RWPM spec.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.ALTERNATE">
+<span class="sig-name descname"><span class="pre">ALTERNATE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.ALTERNATE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.CONTENTS">
+<span class="sig-name descname"><span class="pre">CONTENTS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.CONTENTS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.CORE_LINK_RELATIONS">
+<span class="sig-name descname"><span class="pre">CORE_LINK_RELATIONS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;]</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.CORE_LINK_RELATIONS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.COVER">
+<span class="sig-name descname"><span class="pre">COVER</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.COVER" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.MANIFEST">
+<span class="sig-name descname"><span class="pre">MANIFEST</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.MANIFEST" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.SEARCH">
+<span class="sig-name descname"><span class="pre">SEARCH</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.SEARCH" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.SELF">
+<span class="sig-name descname"><span class="pre">SELF</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry.SELF" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.rwpm.registry.</span></span><span class="sig-name descname"><span class="pre">RWPMMediaTypesRegistry</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/rwpm/registry.html#RWPMMediaTypesRegistry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.registry.Registry" title="core.util.webpub_manifest_parser.core.registry.Registry"><code class="xref py py-class docutils literal notranslate"><span class="pre">Registry</span></code></a></p>
+<p>Registry containing media types mentioned in the RWPM spec.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.CORE_TYPES">
+<span class="sig-name descname"><span class="pre">CORE_TYPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;]</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.CORE_TYPES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.CSS">
+<span class="sig-name descname"><span class="pre">CSS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.CSS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.EPUB_PUBLICATION_PACKAGE">
+<span class="sig-name descname"><span class="pre">EPUB_PUBLICATION_PACKAGE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.EPUB_PUBLICATION_PACKAGE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.GIF">
+<span class="sig-name descname"><span class="pre">GIF</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.GIF" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.HTML">
+<span class="sig-name descname"><span class="pre">HTML</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.HTML" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.JPEG">
+<span class="sig-name descname"><span class="pre">JPEG</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.JPEG" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.MANIFEST">
+<span class="sig-name descname"><span class="pre">MANIFEST</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.MANIFEST" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.PNG">
+<span class="sig-name descname"><span class="pre">PNG</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.PNG" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.SVG">
+<span class="sig-name descname"><span class="pre">SVG</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.SVG" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.SVG_XML">
+<span class="sig-name descname"><span class="pre">SVG_XML</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.SVG_XML" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.WEBP">
+<span class="sig-name descname"><span class="pre">WEBP</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.WEBP" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.WEB_PUBLICATION_PACKAGE">
+<span class="sig-name descname"><span class="pre">WEB_PUBLICATION_PACKAGE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry.WEB_PUBLICATION_PACKAGE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-core.util.webpub_manifest_parser.rwpm.semantic">
+<span id="core-util-webpub-manifest-parser-rwpm-semantic-module"></span><h2>core.util.webpub_manifest_parser.rwpm.semantic module<a class="headerlink" href="#module-core.util.webpub_manifest_parser.rwpm.semantic" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.semantic.RWPMSemanticAnalyzer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.rwpm.semantic.</span></span><span class="sig-name descname"><span class="pre">RWPMSemanticAnalyzer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">media_types_registry</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">link_relations_registry</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection_roles_registry</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/rwpm/semantic.html#RWPMSemanticAnalyzer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.semantic.RWPMSemanticAnalyzer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.semantic.SemanticAnalyzer" title="core.util.webpub_manifest_parser.core.semantic.SemanticAnalyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">SemanticAnalyzer</span></code></a></p>
+<p>RWPM semantic analyzer.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.semantic.RWPMSemanticAnalyzer.visit">
+<span class="sig-name descname"><span class="pre">visit</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.semantic.RWPMSemanticAnalyzer.visit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Dispatch methods based on type signature</p>
+<dl class="simple">
+<dt>See Also:</dt><dd><p>Dispatcher</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-core.util.webpub_manifest_parser.rwpm.syntax">
+<span id="core-util-webpub-manifest-parser-rwpm-syntax-module"></span><h2>core.util.webpub_manifest_parser.rwpm.syntax module<a class="headerlink" href="#module-core.util.webpub_manifest_parser.rwpm.syntax" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.rwpm.syntax.RWPMSyntaxAnalyzer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.rwpm.syntax.</span></span><span class="sig-name descname"><span class="pre">RWPMSyntaxAnalyzer</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/rwpm/syntax.html#RWPMSyntaxAnalyzer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.rwpm.syntax.RWPMSyntaxAnalyzer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.syntax.SyntaxAnalyzer" title="core.util.webpub_manifest_parser.core.syntax.SyntaxAnalyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">SyntaxAnalyzer</span></code></a></p>
+<p>Syntax analyzer for RWPM grammar.</p>
+</dd></dl>
+
+</section>
+<section id="module-core.util.webpub_manifest_parser.rwpm">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-core.util.webpub_manifest_parser.rwpm" title="Permalink to this heading">¶</a></h2>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">circulation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="api.html">api package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="app.html">app module</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="core.html">core package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scripts.html">scripts module</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">circulation</a><ul>
+  <li><a href="core.html">core package</a><ul>
+  <li><a href="core.util.html">core.util package</a><ul>
+  <li><a href="core.util.webpub_manifest_parser.html">core.util.webpub_manifest_parser package</a><ul>
+      <li>Previous: <a href="core.util.webpub_manifest_parser.opds2.html" title="previous chapter">core.util.webpub_manifest_parser.opds2 package</a></li>
+      <li>Next: <a href="scripts.html" title="next chapter">scripts module</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/core.util.webpub_manifest_parser.rwpm.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

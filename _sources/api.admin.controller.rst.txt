@@ -8,175 +8,174 @@ api.admin.controller.admin\_auth\_services module
 -------------------------------------------------
 
 .. automodule:: api.admin.controller.admin_auth_services
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.analytics\_services module
 -----------------------------------------------
 
 .. automodule:: api.admin.controller.analytics_services
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.catalog\_services module
 ---------------------------------------------
 
 .. automodule:: api.admin.controller.catalog_services
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.cdn\_services module
 -----------------------------------------
 
 .. automodule:: api.admin.controller.cdn_services
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.collection\_library\_registrations module
 --------------------------------------------------------------
 
 .. automodule:: api.admin.controller.collection_library_registrations
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.collection\_self\_tests module
 ---------------------------------------------------
 
 .. automodule:: api.admin.controller.collection_self_tests
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.collection\_settings module
 ------------------------------------------------
 
 .. automodule:: api.admin.controller.collection_settings
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.discovery\_service\_library\_registrations module
 ----------------------------------------------------------------------
 
 .. automodule:: api.admin.controller.discovery_service_library_registrations
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.discovery\_services module
 -----------------------------------------------
 
 .. automodule:: api.admin.controller.discovery_services
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.individual\_admin\_settings module
 -------------------------------------------------------
 
 .. automodule:: api.admin.controller.individual_admin_settings
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.library\_settings module
 ---------------------------------------------
 
 .. automodule:: api.admin.controller.library_settings
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.metadata\_service\_self\_tests module
 ----------------------------------------------------------
 
 .. automodule:: api.admin.controller.metadata_service_self_tests
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.metadata\_services module
 ----------------------------------------------
 
 .. automodule:: api.admin.controller.metadata_services
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.patron\_auth\_service\_self\_tests module
 --------------------------------------------------------------
 
 .. automodule:: api.admin.controller.patron_auth_service_self_tests
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.patron\_auth\_services module
 --------------------------------------------------
 
 .. automodule:: api.admin.controller.patron_auth_services
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.search\_service\_self\_tests module
 --------------------------------------------------------
 
 .. automodule:: api.admin.controller.search_service_self_tests
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.self\_tests module
 ---------------------------------------
 
 .. automodule:: api.admin.controller.self_tests
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.sitewide\_services module
 ----------------------------------------------
 
 .. automodule:: api.admin.controller.sitewide_services
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.sitewide\_settings module
 ----------------------------------------------
 
 .. automodule:: api.admin.controller.sitewide_settings
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.storage\_services module
 ---------------------------------------------
 
 .. automodule:: api.admin.controller.storage_services
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.admin.controller.work\_editor module
 ----------------------------------------
 
 .. automodule:: api.admin.controller.work_editor
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: api.admin.controller
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

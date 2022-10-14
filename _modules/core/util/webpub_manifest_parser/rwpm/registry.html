@@ -1,0 +1,193 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>core.util.webpub_manifest_parser.rwpm.registry &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.util.webpub_manifest_parser.rwpm.registry</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">core.util.webpub_manifest_parser.core.registry</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CollectionRole</span><span class="p">,</span>
+    <span class="n">LinkRelation</span><span class="p">,</span>
+    <span class="n">MediaType</span><span class="p">,</span>
+    <span class="n">Registry</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="RWPMCollectionRolesRegistry"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.rwpm.html#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry">[docs]</a><span class="k">class</span> <span class="nc">RWPMCollectionRolesRegistry</span><span class="p">(</span><span class="n">Registry</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Registry containing collection roles defined in the RWPM spec.&quot;&quot;&quot;</span>
+
+    <span class="n">READING_ORDER</span> <span class="o">=</span> <span class="n">CollectionRole</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;readingOrder&quot;</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">RESOURCES</span> <span class="o">=</span> <span class="n">CollectionRole</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;resources&quot;</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">TOC</span> <span class="o">=</span> <span class="n">CollectionRole</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;toc&quot;</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">GUIDED</span> <span class="o">=</span> <span class="n">CollectionRole</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;guided&quot;</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">LANDMARKS</span> <span class="o">=</span> <span class="n">CollectionRole</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;landmarks&quot;</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">LOA</span> <span class="o">=</span> <span class="n">CollectionRole</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;loa&quot;</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">LOI</span> <span class="o">=</span> <span class="n">CollectionRole</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;loi&quot;</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">LOT</span> <span class="o">=</span> <span class="n">CollectionRole</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;lot&quot;</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">LOV</span> <span class="o">=</span> <span class="n">CollectionRole</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;lov&quot;</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">PAGE_LIST</span> <span class="o">=</span> <span class="n">CollectionRole</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;pageList&quot;</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">CORE_ROLES</span> <span class="o">=</span> <span class="p">[</span><span class="n">READING_ORDER</span><span class="p">,</span> <span class="n">RESOURCES</span><span class="p">,</span> <span class="n">TOC</span><span class="p">]</span>
+
+    <span class="n">EXTENSIONS</span> <span class="o">=</span> <span class="p">[</span><span class="n">GUIDED</span><span class="p">,</span> <span class="n">LANDMARKS</span><span class="p">,</span> <span class="n">LOA</span><span class="p">,</span> <span class="n">LOI</span><span class="p">,</span> <span class="n">LOT</span><span class="p">,</span> <span class="n">LOV</span><span class="p">,</span> <span class="n">PAGE_LIST</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of RWPMCollectionRolesRegistry class.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">RWPMCollectionRolesRegistry</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">CORE_ROLES</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">EXTENSIONS</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RWPMLinkRelationsRegistry"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.rwpm.html#core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry">[docs]</a><span class="k">class</span> <span class="nc">RWPMLinkRelationsRegistry</span><span class="p">(</span><span class="n">Registry</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Registry containing link relations mentioned in the RWPM spec.&quot;&quot;&quot;</span>
+
+    <span class="n">ALTERNATE</span> <span class="o">=</span> <span class="n">LinkRelation</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;alternate&quot;</span><span class="p">)</span>
+    <span class="n">CONTENTS</span> <span class="o">=</span> <span class="n">LinkRelation</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;contents&quot;</span><span class="p">)</span>
+    <span class="n">COVER</span> <span class="o">=</span> <span class="n">LinkRelation</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;cover&quot;</span><span class="p">)</span>
+    <span class="n">MANIFEST</span> <span class="o">=</span> <span class="n">LinkRelation</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;manifest&quot;</span><span class="p">)</span>
+    <span class="n">SEARCH</span> <span class="o">=</span> <span class="n">LinkRelation</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;search&quot;</span><span class="p">)</span>
+    <span class="n">SELF</span> <span class="o">=</span> <span class="n">LinkRelation</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;self&quot;</span><span class="p">)</span>
+
+    <span class="n">CORE_LINK_RELATIONS</span> <span class="o">=</span> <span class="p">[</span><span class="n">ALTERNATE</span><span class="p">,</span> <span class="n">CONTENTS</span><span class="p">,</span> <span class="n">COVER</span><span class="p">,</span> <span class="n">MANIFEST</span><span class="p">,</span> <span class="n">SEARCH</span><span class="p">,</span> <span class="n">SELF</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of RWPMLinkRelationsRegistry class.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">RWPMLinkRelationsRegistry</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">CORE_LINK_RELATIONS</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RWPMMediaTypesRegistry"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.rwpm.html#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry">[docs]</a><span class="k">class</span> <span class="nc">RWPMMediaTypesRegistry</span><span class="p">(</span><span class="n">Registry</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Registry containing media types mentioned in the RWPM spec.&quot;&quot;&quot;</span>
+
+    <span class="c1"># https://github.com/readium/webpub-manifest#4-media-type</span>
+    <span class="n">MANIFEST</span> <span class="o">=</span> <span class="n">MediaType</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;application/webpub+json&quot;</span><span class="p">)</span>
+
+    <span class="c1"># https://github.com/readium/webpub-manifest#6-table-of-contents</span>
+    <span class="n">HTML</span> <span class="o">=</span> <span class="n">MediaType</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;text/html&quot;</span><span class="p">)</span>
+    <span class="n">CSS</span> <span class="o">=</span> <span class="n">MediaType</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;text/css&quot;</span><span class="p">)</span>
+
+    <span class="c1"># https://github.com/readium/webpub-manifest#7-cover</span>
+    <span class="n">JPEG</span> <span class="o">=</span> <span class="n">MediaType</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;image/jpeg&quot;</span><span class="p">)</span>
+    <span class="n">PNG</span> <span class="o">=</span> <span class="n">MediaType</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;image/png&quot;</span><span class="p">)</span>
+    <span class="n">GIF</span> <span class="o">=</span> <span class="n">MediaType</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;image/gif&quot;</span><span class="p">)</span>
+    <span class="n">WEBP</span> <span class="o">=</span> <span class="n">MediaType</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;image/webp&quot;</span><span class="p">)</span>
+    <span class="n">SVG</span> <span class="o">=</span> <span class="n">MediaType</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;image/svg&quot;</span><span class="p">)</span>
+    <span class="n">SVG_XML</span> <span class="o">=</span> <span class="n">MediaType</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;image/svg+xml&quot;</span><span class="p">)</span>
+
+    <span class="c1"># https://github.com/readium/webpub-manifest#9-package</span>
+    <span class="n">WEB_PUBLICATION_PACKAGE</span> <span class="o">=</span> <span class="n">MediaType</span><span class="p">(</span><span class="s2">&quot;application/webpub+zip&quot;</span><span class="p">)</span>
+    <span class="n">EPUB_PUBLICATION_PACKAGE</span> <span class="o">=</span> <span class="n">MediaType</span><span class="p">(</span><span class="s2">&quot;application/epub+zip&quot;</span><span class="p">)</span>
+
+    <span class="n">CORE_TYPES</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">MANIFEST</span><span class="p">,</span>
+        <span class="n">HTML</span><span class="p">,</span>
+        <span class="n">CSS</span><span class="p">,</span>
+        <span class="n">JPEG</span><span class="p">,</span>
+        <span class="n">PNG</span><span class="p">,</span>
+        <span class="n">GIF</span><span class="p">,</span>
+        <span class="n">WEBP</span><span class="p">,</span>
+        <span class="n">SVG</span><span class="p">,</span>
+        <span class="n">SVG_XML</span><span class="p">,</span>
+        <span class="n">WEB_PUBLICATION_PACKAGE</span><span class="p">,</span>
+        <span class="n">EPUB_PUBLICATION_PACKAGE</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of RWPMMediaTypesRegistry class.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">RWPMMediaTypesRegistry</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">CORE_TYPES</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  <li><a href="../../../util.html">core.util</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

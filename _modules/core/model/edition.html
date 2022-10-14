@@ -1,19 +1,18 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>core.model.edition &#8212; Library Simplified Circulation Manager  documentation</title>
-    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../../../_static/jquery.js"></script>
-    <script type="text/javascript" src="../../../_static/underscore.js"></script>
-    <script type="text/javascript" src="../../../_static/doctools.js"></script>
-    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
    
@@ -83,7 +82,7 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">..util.permanent_work_id</span> <span class="kn">import</span> <span class="n">WorkIDCalculator</span>
 
-<div class="viewcode-block" id="Edition"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition">[docs]</a><span class="k">class</span> <span class="nc">Edition</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="p">):</span>
+<div class="viewcode-block" id="Edition"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition">[docs]</a><span class="k">class</span> <span class="nc">Edition</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="p">):</span>
 
     <span class="sd">&quot;&quot;&quot;A lightly schematized collection of metadata for a work, or an</span>
 <span class="sd">    edition of a work, or a book, or whatever. If someone thinks of it</span>
@@ -262,7 +261,7 @@
             <span class="k">return</span> <span class="p">[]</span>
 
 
-<div class="viewcode-block" id="Edition.medium_from_media_type"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.medium_from_media_type">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Edition.medium_from_media_type"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.medium_from_media_type">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">medium_from_media_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">media_type</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Derive a value for Edition.medium from a media type.</span>
 
@@ -288,7 +287,7 @@
             <span class="k">return</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span>
         <span class="k">return</span> <span class="kc">None</span></div>
 
-<div class="viewcode-block" id="Edition.for_foreign_id"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.for_foreign_id">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Edition.for_foreign_id"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.for_foreign_id">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">for_foreign_id</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span>
                        <span class="n">foreign_id_type</span><span class="p">,</span> <span class="n">foreign_id</span><span class="p">,</span>
                        <span class="n">create_if_not_exists</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
@@ -333,7 +332,7 @@
             <span class="n">LicensePool</span><span class="o">.</span><span class="n">data_source</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
             <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
 
-<div class="viewcode-block" id="Edition.equivalent_identifiers"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.equivalent_identifiers">[docs]</a>    <span class="k">def</span> <span class="nf">equivalent_identifiers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Edition.equivalent_identifiers"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.equivalent_identifiers">[docs]</a>    <span class="k">def</span> <span class="nf">equivalent_identifiers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;All Identifiers equivalent to this</span>
 <span class="sd">        Edition&#39;s primary identifier, according to the given</span>
 <span class="sd">        PresentationCalculationPolicy</span>
@@ -351,7 +350,7 @@
                 <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="nb">type</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">q</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Edition.equivalent_editions"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.equivalent_editions">[docs]</a>    <span class="k">def</span> <span class="nf">equivalent_editions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Edition.equivalent_editions"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.equivalent_editions">[docs]</a>    <span class="k">def</span> <span class="nf">equivalent_editions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;All Editions whose primary ID is equivalent to this Edition&#39;s</span>
 <span class="sd">        primary ID, according to the given PresentationCalculationPolicy.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -362,7 +361,7 @@
         <span class="k">return</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Edition</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">Edition</span><span class="o">.</span><span class="n">primary_identifier_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_id_subquery</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="Edition.missing_coverage_from"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.missing_coverage_from">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Edition.missing_coverage_from"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.missing_coverage_from">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">missing_coverage_from</span><span class="p">(</span>
             <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">edition_data_sources</span><span class="p">,</span> <span class="n">coverage_data_source</span><span class="p">,</span>
             <span class="n">operation</span><span class="o">=</span><span class="kc">None</span>
@@ -395,7 +394,7 @@
         <span class="n">q2</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="kc">None</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">q2</span></div>
 
-<div class="viewcode-block" id="Edition.sort_by_priority"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.sort_by_priority">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Edition.sort_by_priority"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.sort_by_priority">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">sort_by_priority</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">editions</span><span class="p">,</span> <span class="n">license_source</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return all Editions that describe the Identifier associated with</span>
 <span class="sd">        this LicensePool, in the order they should be used to create a</span>
@@ -443,7 +442,7 @@
             <span class="nb">type</span> <span class="o">=</span> <span class="s2">&quot;text&quot;</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">type</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">content</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Edition.set_cover"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.set_cover">[docs]</a>    <span class="k">def</span> <span class="nf">set_cover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
+<div class="viewcode-block" id="Edition.set_cover"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.set_cover">[docs]</a>    <span class="k">def</span> <span class="nf">set_cover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
         <span class="n">old_cover</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover</span>
         <span class="n">old_cover_full_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_full_url</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cover</span> <span class="o">=</span> <span class="n">resource</span>
@@ -475,7 +474,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">cover_full_url</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span>
             <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Edition.add_contributor"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.add_contributor">[docs]</a>    <span class="k">def</span> <span class="nf">add_contributor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">roles</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lc</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">viaf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<div class="viewcode-block" id="Edition.add_contributor"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.add_contributor">[docs]</a>    <span class="k">def</span> <span class="nf">add_contributor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">roles</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lc</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">viaf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                         <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Assign a contributor to this Edition.&quot;&quot;&quot;</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
@@ -500,7 +499,7 @@
                 <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">contributor</span></div>
 
-<div class="viewcode-block" id="Edition.similarity_to"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.similarity_to">[docs]</a>    <span class="k">def</span> <span class="nf">similarity_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other_record</span><span class="p">):</span>
+<div class="viewcode-block" id="Edition.similarity_to"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.similarity_to">[docs]</a>    <span class="k">def</span> <span class="nf">similarity_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other_record</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;How likely is it that this record describes the same book as the</span>
 <span class="sd">        given record?</span>
 <span class="sd">        1 indicates very strong similarity, 0 indicates no similarity</span>
@@ -562,7 +561,7 @@
         <span class="k">return</span> <span class="n">language_factor</span> <span class="o">*</span> <span class="p">(</span>
             <span class="p">(</span><span class="n">title_quotient</span> <span class="o">*</span> <span class="mf">0.80</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">author_quotient</span> <span class="o">*</span> <span class="mf">0.20</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="Edition.apply_similarity_threshold"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.apply_similarity_threshold">[docs]</a>    <span class="k">def</span> <span class="nf">apply_similarity_threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+<div class="viewcode-block" id="Edition.apply_similarity_threshold"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.apply_similarity_threshold">[docs]</a>    <span class="k">def</span> <span class="nf">apply_similarity_threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Yield the Editions from the given list that are similar</span>
 <span class="sd">        enough to this one.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -574,7 +573,7 @@
                 <span class="k">if</span> <span class="n">similarity</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="p">:</span>
                     <span class="k">yield</span> <span class="n">candidate</span></div>
 
-<div class="viewcode-block" id="Edition.best_cover_within_distance"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.best_cover_within_distance">[docs]</a>    <span class="k">def</span> <span class="nf">best_cover_within_distance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">distance</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Edition.best_cover_within_distance"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.best_cover_within_distance">[docs]</a>    <span class="k">def</span> <span class="nf">best_cover_within_distance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">distance</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">identifier_ids</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
         
@@ -615,7 +614,7 @@
             <span class="n">author</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_author</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">author</span>
         <span class="k">return</span> <span class="n">author</span>
 
-<div class="viewcode-block" id="Edition.calculate_permanent_work_id"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.calculate_permanent_work_id">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_permanent_work_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="Edition.calculate_permanent_work_id"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.calculate_permanent_work_id">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_permanent_work_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="n">title</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">title_for_permanent_work_id</span>
         <span class="n">medium</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">medium_for_permanent_work_id</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">medium</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">title</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">medium</span><span class="p">:</span>
@@ -642,7 +641,7 @@
         <span class="k">elif</span> <span class="n">old_id</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">permanent_work_id</span><span class="p">:</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Edition.calculate_permanent_work_id_for_title_and_author"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.calculate_permanent_work_id_for_title_and_author">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Edition.calculate_permanent_work_id_for_title_and_author"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.calculate_permanent_work_id_for_title_and_author">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">calculate_permanent_work_id_for_title_and_author</span><span class="p">(</span>
             <span class="bp">cls</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">author</span><span class="p">,</span> <span class="n">medium</span><span class="p">):</span>
         <span class="n">w</span> <span class="o">=</span> <span class="n">WorkIDCalculator</span>
@@ -656,7 +655,7 @@
 
 
 
-<div class="viewcode-block" id="Edition.calculate_presentation"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.calculate_presentation">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_presentation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Edition.calculate_presentation"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.calculate_presentation">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_presentation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Make sure the presentation of this Edition is up-to-date.&quot;&quot;&quot;</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">changed</span> <span class="o">=</span> <span class="kc">False</span>
@@ -716,7 +715,7 @@
             <span class="n">level</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">changed</span></div>
 
-<div class="viewcode-block" id="Edition.calculate_author"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.calculate_author">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_author</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Edition.calculate_author"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.calculate_author">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_author</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Turn the list of Contributors into string values for .author</span>
 <span class="sd">        and .sort_author.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -740,7 +739,7 @@
             <span class="n">sort_author</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">UNKNOWN_AUTHOR</span>
         <span class="k">return</span> <span class="n">author</span><span class="p">,</span> <span class="n">sort_author</span></div>
 
-<div class="viewcode-block" id="Edition.choose_cover"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.choose_cover">[docs]</a>    <span class="k">def</span> <span class="nf">choose_cover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Edition.choose_cover"><a class="viewcode-back" href="../../../core.model.html#core.model.edition.Edition.choose_cover">[docs]</a>    <span class="k">def</span> <span class="nf">choose_cover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Try to find a cover that can be used for this Edition.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cover_full_url</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span> <span class="o">=</span> <span class="kc">None</span>
@@ -754,14 +753,14 @@
 
             <span class="k">if</span> <span class="n">best_cover</span><span class="p">:</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">best_cover</span><span class="o">.</span><span class="n">representation</span><span class="p">:</span>
-                    <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                         <span class="s2">&quot;Best cover for </span><span class="si">%r</span><span class="s2"> has no representation!&quot;</span><span class="p">,</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">rep</span> <span class="o">=</span> <span class="n">best_cover</span><span class="o">.</span><span class="n">representation</span>
                     <span class="k">if</span> <span class="ow">not</span> <span class="n">rep</span><span class="o">.</span><span class="n">thumbnails</span><span class="p">:</span>
-                        <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                             <span class="s2">&quot;Best cover for </span><span class="si">%r</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">) was never thumbnailed!&quot;</span><span class="p">,</span>
                             <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">,</span>
                             <span class="n">rep</span><span class="o">.</span><span class="n">public_url</span>
@@ -793,7 +792,7 @@
                 <span class="p">)</span>
                 <span class="k">if</span> <span class="n">best_thumbnail</span><span class="p">:</span>
                     <span class="k">if</span> <span class="ow">not</span> <span class="n">best_thumbnail</span><span class="o">.</span><span class="n">representation</span><span class="p">:</span>
-                        <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                             <span class="s2">&quot;Best thumbnail for </span><span class="si">%r</span><span class="s2"> has no representation!&quot;</span><span class="p">,</span>
                             <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">,</span>
                         <span class="p">)</span>
@@ -850,17 +849,15 @@
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -877,7 +874,7 @@
       &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

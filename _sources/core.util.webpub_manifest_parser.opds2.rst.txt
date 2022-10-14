@@ -1,0 +1,53 @@
+core.util.webpub\_manifest\_parser.opds2 package
+================================================
+
+Submodules
+----------
+
+core.util.webpub\_manifest\_parser.opds2.ast module
+---------------------------------------------------
+
+.. automodule:: core.util.webpub_manifest_parser.opds2.ast
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+core.util.webpub\_manifest\_parser.opds2.parsers module
+-------------------------------------------------------
+
+.. automodule:: core.util.webpub_manifest_parser.opds2.parsers
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+core.util.webpub\_manifest\_parser.opds2.registry module
+--------------------------------------------------------
+
+.. automodule:: core.util.webpub_manifest_parser.opds2.registry
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+core.util.webpub\_manifest\_parser.opds2.semantic module
+--------------------------------------------------------
+
+.. automodule:: core.util.webpub_manifest_parser.opds2.semantic
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+core.util.webpub\_manifest\_parser.opds2.syntax module
+------------------------------------------------------
+
+.. automodule:: core.util.webpub_manifest_parser.opds2.syntax
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: core.util.webpub_manifest_parser.opds2
+   :members:
+   :undoc-members:
+   :show-inheritance:

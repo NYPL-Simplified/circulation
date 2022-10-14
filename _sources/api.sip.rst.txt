@@ -8,23 +8,22 @@ api.sip.client module
 ---------------------
 
 .. automodule:: api.sip.client
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.sip.dialect module
 ----------------------
 
 .. automodule:: api.sip.dialect
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: api.sip
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

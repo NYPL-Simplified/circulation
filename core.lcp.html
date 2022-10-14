@@ -1,19 +1,19 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
     <title>core.lcp package &#8212; Library Simplified Circulation Manager  documentation</title>
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="core.model package" href="core.model.html" />
@@ -34,148 +34,132 @@
 
           <div class="body" role="main">
             
-  <div class="section" id="core-lcp-package">
-<h1>core.lcp package<a class="headerlink" href="#core-lcp-package" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="submodules">
-<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
-</div>
-<div class="section" id="module-core.lcp.credential">
-<span id="core-lcp-credential-module"></span><h2>core.lcp.credential module<a class="headerlink" href="#module-core.lcp.credential" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="core.lcp.credential.LCPCredentialFactory">
-<em class="property">class </em><code class="descclassname">core.lcp.credential.</code><code class="descname">LCPCredentialFactory</code><a class="reference internal" href="_modules/core/lcp/credential.html#LCPCredentialFactory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lcp.credential.LCPCredentialFactory" title="Permalink to this definition">¶</a></dt>
+  <section id="core-lcp-package">
+<h1>core.lcp package<a class="headerlink" href="#core-lcp-package" title="Permalink to this heading">¶</a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading">¶</a></h2>
+</section>
+<section id="module-core.lcp.credential">
+<span id="core-lcp-credential-module"></span><h2>core.lcp.credential module<a class="headerlink" href="#module-core.lcp.credential" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="core.lcp.credential.LCPCredentialFactory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.lcp.credential.</span></span><span class="sig-name descname"><span class="pre">LCPCredentialFactory</span></span><a class="reference internal" href="_modules/core/lcp/credential.html#LCPCredentialFactory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.lcp.credential.LCPCredentialFactory" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Generates patron’s credentials used by the LCP License Server</p>
-<dl class="method">
-<dt id="core.lcp.credential.LCPCredentialFactory.get_hashed_passphrase">
-<code class="descname">get_hashed_passphrase</code><span class="sig-paren">(</span><em>db</em>, <em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lcp/credential.html#LCPCredentialFactory.get_hashed_passphrase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lcp.credential.LCPCredentialFactory.get_hashed_passphrase" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="core.lcp.credential.LCPCredentialFactory.get_hashed_passphrase">
+<span class="sig-name descname"><span class="pre">get_hashed_passphrase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patron</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lcp/credential.html#LCPCredentialFactory.get_hashed_passphrase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.lcp.credential.LCPCredentialFactory.get_hashed_passphrase" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns an existing hashed passphrase</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</p></li>
+<li><p><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</p></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Existing hashed passphrase</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">string</p>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Existing hashed passphrase</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="core.lcp.credential.LCPCredentialFactory.get_patron_id">
-<code class="descname">get_patron_id</code><span class="sig-paren">(</span><em>db</em>, <em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lcp/credential.html#LCPCredentialFactory.get_patron_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lcp.credential.LCPCredentialFactory.get_patron_id" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="core.lcp.credential.LCPCredentialFactory.get_patron_id">
+<span class="sig-name descname"><span class="pre">get_patron_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patron</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lcp/credential.html#LCPCredentialFactory.get_patron_id"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.lcp.credential.LCPCredentialFactory.get_patron_id" title="Permalink to this definition">¶</a></dt>
 <dd><p>Generates a new or returns an existing patron’s ID associated with an LCP license</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</p></li>
+<li><p><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</p></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Newly generated or existing patron’s ID associated with an LCP license</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">string</p>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Newly generated or existing patron’s ID associated with an LCP license</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="core.lcp.credential.LCPCredentialFactory.get_patron_passphrase">
-<code class="descname">get_patron_passphrase</code><span class="sig-paren">(</span><em>db</em>, <em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lcp/credential.html#LCPCredentialFactory.get_patron_passphrase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lcp.credential.LCPCredentialFactory.get_patron_passphrase" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="core.lcp.credential.LCPCredentialFactory.get_patron_passphrase">
+<span class="sig-name descname"><span class="pre">get_patron_passphrase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patron</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lcp/credential.html#LCPCredentialFactory.get_patron_passphrase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.lcp.credential.LCPCredentialFactory.get_patron_passphrase" title="Permalink to this definition">¶</a></dt>
 <dd><p>Generates a new or returns an existing patron’s passphrase associated with an LCP license</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</p></li>
+<li><p><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</p></li>
 </ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Newly generated or existing patron’s passphrase associated with an LCP license</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">string</p>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Newly generated or existing patron’s passphrase associated with an LCP license</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>string</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="core.lcp.credential.LCPCredentialFactory.set_hashed_passphrase">
-<code class="descname">set_hashed_passphrase</code><span class="sig-paren">(</span><em>db</em>, <em>patron</em>, <em>hashed_passphrase</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lcp/credential.html#LCPCredentialFactory.set_hashed_passphrase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lcp.credential.LCPCredentialFactory.set_hashed_passphrase" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="core.lcp.credential.LCPCredentialFactory.set_hashed_passphrase">
+<span class="sig-name descname"><span class="pre">set_hashed_passphrase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patron</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hashed_passphrase</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lcp/credential.html#LCPCredentialFactory.set_hashed_passphrase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.lcp.credential.LCPCredentialFactory.set_hashed_passphrase" title="Permalink to this definition">¶</a></dt>
 <dd><p>Stores the hashed passphrase as a persistent token</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</li>
-<li><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</li>
-<li><strong>hashed_passphrase</strong> (<em>string</em>) – Existing hashed passphrase</li>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db</strong> (<em>sqlalchemy.orm.session.Session</em>) – Database session</p></li>
+<li><p><strong>patron</strong> (<a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><em>core.model.patron.Patron</em></a>) – Patron object</p></li>
+<li><p><strong>hashed_passphrase</strong> (<em>string</em>) – Existing hashed passphrase</p></li>
 </ul>
-</td>
-</tr>
-</tbody>
-</table>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="core.lcp.credential.LCPCredentialType">
-<em class="property">class </em><code class="descclassname">core.lcp.credential.</code><code class="descname">LCPCredentialType</code><a class="reference internal" href="_modules/core/lcp/credential.html#LCPCredentialType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lcp.credential.LCPCredentialType" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="core.lcp.credential.LCPCredentialType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.lcp.credential.</span></span><span class="sig-name descname"><span class="pre">LCPCredentialType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lcp/credential.html#LCPCredentialType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.lcp.credential.LCPCredentialType" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></p>
 <p>Contains an enumeration of different LCP credential types</p>
-<dl class="attribute">
-<dt id="core.lcp.credential.LCPCredentialType.LCP_HASHED_PASSPHRASE">
-<code class="descname">LCP_HASHED_PASSPHRASE</code><em class="property"> = 'Hashed LCP Passphrase passed to the LCP License Server'</em><a class="headerlink" href="#core.lcp.credential.LCPCredentialType.LCP_HASHED_PASSPHRASE" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.lcp.credential.LCPCredentialType.LCP_HASHED_PASSPHRASE">
+<span class="sig-name descname"><span class="pre">LCP_HASHED_PASSPHRASE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Hashed</span> <span class="pre">LCP</span> <span class="pre">Passphrase</span> <span class="pre">passed</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">LCP</span> <span class="pre">License</span> <span class="pre">Server'</span></em><a class="headerlink" href="#core.lcp.credential.LCPCredentialType.LCP_HASHED_PASSPHRASE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="core.lcp.credential.LCPCredentialType.LCP_PASSPHRASE">
-<code class="descname">LCP_PASSPHRASE</code><em class="property"> = 'LCP Passphrase passed to the LCP License Server'</em><a class="headerlink" href="#core.lcp.credential.LCPCredentialType.LCP_PASSPHRASE" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.lcp.credential.LCPCredentialType.LCP_PASSPHRASE">
+<span class="sig-name descname"><span class="pre">LCP_PASSPHRASE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'LCP</span> <span class="pre">Passphrase</span> <span class="pre">passed</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">LCP</span> <span class="pre">License</span> <span class="pre">Server'</span></em><a class="headerlink" href="#core.lcp.credential.LCPCredentialType.LCP_PASSPHRASE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="core.lcp.credential.LCPCredentialType.PATRON_ID">
-<code class="descname">PATRON_ID</code><em class="property"> = 'Patron ID passed to the LCP License Server'</em><a class="headerlink" href="#core.lcp.credential.LCPCredentialType.PATRON_ID" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.lcp.credential.LCPCredentialType.PATRON_ID">
+<span class="sig-name descname"><span class="pre">PATRON_ID</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Patron</span> <span class="pre">ID</span> <span class="pre">passed</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">LCP</span> <span class="pre">License</span> <span class="pre">Server'</span></em><a class="headerlink" href="#core.lcp.credential.LCPCredentialType.PATRON_ID" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
-</div>
-<div class="section" id="module-core.lcp.exceptions">
-<span id="core-lcp-exceptions-module"></span><h2>core.lcp.exceptions module<a class="headerlink" href="#module-core.lcp.exceptions" title="Permalink to this headline">¶</a></h2>
-<dl class="exception">
-<dt id="core.lcp.exceptions.LCPError">
-<em class="property">exception </em><code class="descclassname">core.lcp.exceptions.</code><code class="descname">LCPError</code><span class="sig-paren">(</span><em>message=None</em>, <em>inner_exception=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lcp/exceptions.html#LCPError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lcp.exceptions.LCPError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.exceptions.BaseError</span></code></a></p>
+</section>
+<section id="module-core.lcp.exceptions">
+<span id="core-lcp-exceptions-module"></span><h2>core.lcp.exceptions module<a class="headerlink" href="#module-core.lcp.exceptions" title="Permalink to this heading">¶</a></h2>
+<dl class="py exception">
+<dt class="sig sig-object py" id="core.lcp.exceptions.LCPError">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.lcp.exceptions.</span></span><span class="sig-name descname"><span class="pre">LCPError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inner_exception</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lcp/exceptions.html#LCPError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.lcp.exceptions.LCPError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.exceptions.BaseError" title="core.exceptions.BaseError"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseError</span></code></a></p>
 <p>Base class for all LCP related exceptions</p>
 </dd></dl>
 
-</div>
-<div class="section" id="module-core.lcp">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-core.lcp" title="Permalink to this headline">¶</a></h2>
-</div>
-</div>
+</section>
+<section id="module-core.lcp">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-core.lcp" title="Permalink to this heading">¶</a></h2>
+</section>
+</section>
 
 
           </div>
@@ -218,17 +202,15 @@
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -245,7 +227,7 @@
       &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

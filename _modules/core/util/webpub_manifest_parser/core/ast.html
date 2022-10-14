@@ -1,0 +1,1047 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>core.util.webpub_manifest_parser.core.ast &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.util.webpub_manifest_parser.core.ast</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span><span class="p">,</span> <span class="n">abstractmethod</span>
+
+<span class="kn">import</span> <span class="nn">six</span>
+
+<span class="kn">from</span> <span class="nn">core.util.webpub_manifest_parser.core.parsers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AnyOfParser</span><span class="p">,</span>
+    <span class="n">ArrayParser</span><span class="p">,</span>
+    <span class="n">StringParser</span><span class="p">,</span>
+    <span class="n">TypeParser</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.webpub_manifest_parser.core.properties</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ArrayOfStringsProperty</span><span class="p">,</span>
+    <span class="n">ArrayProperty</span><span class="p">,</span>
+    <span class="n">BaseArrayProperty</span><span class="p">,</span>
+    <span class="n">BooleanProperty</span><span class="p">,</span>
+    <span class="n">DateOrTimeProperty</span><span class="p">,</span>
+    <span class="n">DateTimeProperty</span><span class="p">,</span>
+    <span class="n">EnumProperty</span><span class="p">,</span>
+    <span class="n">IntegerProperty</span><span class="p">,</span>
+    <span class="n">ListOfLanguagesProperty</span><span class="p">,</span>
+    <span class="n">LocalizableStringProperty</span><span class="p">,</span>
+    <span class="n">NumberProperty</span><span class="p">,</span>
+    <span class="n">PropertiesGrouping</span><span class="p">,</span>
+    <span class="n">Property</span><span class="p">,</span>
+    <span class="n">StringProperty</span><span class="p">,</span>
+    <span class="n">TypeProperty</span><span class="p">,</span>
+    <span class="n">URIProperty</span><span class="p">,</span>
+    <span class="n">URITemplateProperty</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.webpub_manifest_parser.core.registry</span> <span class="kn">import</span> <span class="n">CollectionRole</span>
+<span class="kn">from</span> <span class="nn">core.util.webpub_manifest_parser.utils</span> <span class="kn">import</span> <span class="n">encode</span>
+
+
+<div class="viewcode-block" id="Visitor"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Visitor">[docs]</a><span class="nd">@six</span><span class="o">.</span><span class="n">add_metaclass</span><span class="p">(</span><span class="n">ABCMeta</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Visitor</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interface for visitors walking through abstract syntax trees (AST).&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Visitor.visit"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Visitor.visit">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">visit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Process the specified node.</span>
+
+<span class="sd">        :param node: AST node</span>
+<span class="sd">        :type node: Node</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="Visitable"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Visitable">[docs]</a><span class="nd">@six</span><span class="o">.</span><span class="n">add_metaclass</span><span class="p">(</span><span class="n">ABCMeta</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Visitable</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interface for objects walkable by AST visitors.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Visitable.accept"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Visitable.accept">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">accept</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">visitor</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Accept  the specified visitor.</span>
+
+<span class="sd">        :param visitor: Visitor object</span>
+<span class="sd">        :type visitor: Visitor</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="Extendable"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Extendable">[docs]</a><span class="nd">@six</span><span class="o">.</span><span class="n">add_metaclass</span><span class="p">(</span><span class="n">ABCMeta</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Extendable</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Abstract class adding ability to extend classes.</span>
+
+<span class="sd">    For example, RWPM link properties can be extended by EPUB link properties and OPDS 2.0 link properties.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">extensions</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Extendable.get_extension"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Extendable.get_extension">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_extension</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a new class having all extensions as mixins.</span>
+
+<span class="sd">        :return: New class containing extensions as mixins.</span>
+<span class="sd">        :rtype: Type</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">extensions</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">extensions</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">extensions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">class_names</span> <span class="o">=</span> <span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span>
+            <span class="n">extension</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">extension</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">extensions</span>
+        <span class="p">]</span>
+        <span class="n">extended_class_name</span> <span class="o">=</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">class_names</span><span class="p">)</span>
+        <span class="n">extended_class</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">extended_class_name</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">extensions</span><span class="p">),</span> <span class="p">{})</span>
+
+        <span class="k">return</span> <span class="n">extended_class</span></div></div>
+
+
+<div class="viewcode-block" id="Node"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Node">[docs]</a><span class="k">class</span> <span class="nc">Node</span><span class="p">(</span><span class="n">PropertiesGrouping</span><span class="p">,</span> <span class="n">Visitable</span><span class="p">,</span> <span class="n">Extendable</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base class for all AST nodes.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Node.accept"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Node.accept">[docs]</a>    <span class="k">def</span> <span class="nf">accept</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">visitor</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Accept the specified visitor.</span>
+
+<span class="sd">        :param visitor: Visitor object</span>
+<span class="sd">        :type visitor: Visitor</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">visitor</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="LinkProperties"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.LinkProperties">[docs]</a><span class="k">class</span> <span class="nc">LinkProperties</span><span class="p">(</span><span class="n">Node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Link properties.&quot;&quot;&quot;</span>
+
+    <span class="n">clipped</span> <span class="o">=</span> <span class="n">BooleanProperty</span><span class="p">(</span><span class="s2">&quot;clipped&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">fit</span> <span class="o">=</span> <span class="n">EnumProperty</span><span class="p">(</span>
+        <span class="s2">&quot;fit&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">items</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;contain&quot;</span><span class="p">,</span> <span class="s2">&quot;cover&quot;</span><span class="p">,</span> <span class="s2">&quot;width&quot;</span><span class="p">,</span> <span class="s2">&quot;height&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">orientation</span> <span class="o">=</span> <span class="n">EnumProperty</span><span class="p">(</span>
+        <span class="s2">&quot;orientation&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">items</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;landscape&quot;</span><span class="p">,</span> <span class="s2">&quot;portrait&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">page</span> <span class="o">=</span> <span class="n">EnumProperty</span><span class="p">(</span><span class="s2">&quot;page&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">items</span><span class="o">=</span><span class="p">[</span>
+                        <span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="s2">&quot;right&quot;</span><span class="p">,</span> <span class="s2">&quot;center&quot;</span><span class="p">])</span>
+    <span class="n">spread</span> <span class="o">=</span> <span class="n">EnumProperty</span><span class="p">(</span>
+        <span class="s2">&quot;spread&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">items</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">,</span> <span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="s2">&quot;landscape&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the hash.</span>
+
+<span class="sd">        :return: Hash</span>
+<span class="sd">        :rtype: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">clipped</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">orientation</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spread</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a string representation of the object.</span>
+
+<span class="sd">        :return: String representation</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;&lt;LinkProperties(clipped=</span><span class="si">{0}</span><span class="s2">, fit=</span><span class="si">{1}</span><span class="s2">, orientation=</span><span class="si">{2}</span><span class="s2">, page=</span><span class="si">{3}</span><span class="s2">, spread=</span><span class="si">{4}</span><span class="s2">)&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">clipped</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">orientation</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spread</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Link"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Link">[docs]</a><span class="k">class</span> <span class="nc">Link</span><span class="p">(</span><span class="n">Node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Link to another resource.&quot;&quot;&quot;</span>
+
+    <span class="n">href</span> <span class="o">=</span> <span class="n">URITemplateProperty</span><span class="p">(</span><span class="s2">&quot;href&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">templated</span> <span class="o">=</span> <span class="n">BooleanProperty</span><span class="p">(</span><span class="s2">&quot;templated&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="nb">type</span> <span class="o">=</span> <span class="n">StringProperty</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">title</span> <span class="o">=</span> <span class="n">StringProperty</span><span class="p">(</span><span class="s2">&quot;title&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">rels</span> <span class="o">=</span> <span class="n">ArrayOfStringsProperty</span><span class="p">(</span><span class="s2">&quot;rel&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">properties</span> <span class="o">=</span> <span class="n">TypeProperty</span><span class="p">(</span>
+        <span class="s2">&quot;properties&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">nested_type</span><span class="o">=</span><span class="n">LinkProperties</span><span class="p">)</span>
+    <span class="n">height</span> <span class="o">=</span> <span class="n">IntegerProperty</span><span class="p">(</span><span class="s2">&quot;height&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">exclusive_minimum</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">width</span> <span class="o">=</span> <span class="n">IntegerProperty</span><span class="p">(</span><span class="s2">&quot;width&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">exclusive_minimum</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">bitrate</span> <span class="o">=</span> <span class="n">NumberProperty</span><span class="p">(</span><span class="s2">&quot;bitrate&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">exclusive_minimum</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">duration</span> <span class="o">=</span> <span class="n">NumberProperty</span><span class="p">(</span><span class="s2">&quot;duration&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">exclusive_minimum</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">languages</span> <span class="o">=</span> <span class="n">ListOfLanguagesProperty</span><span class="p">(</span><span class="s2">&quot;language&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">alternates</span> <span class="o">=</span> <span class="n">ArrayProperty</span><span class="p">(</span>
+        <span class="s2">&quot;alternate&quot;</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">item_parser</span><span class="o">=</span><span class="n">TypeParser</span><span class="p">(</span>
+            <span class="s2">&quot;core.util.webpub_manifest_parser.core.ast.Link&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">children</span> <span class="o">=</span> <span class="n">ArrayProperty</span><span class="p">(</span>
+        <span class="s2">&quot;children&quot;</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">item_parser</span><span class="o">=</span><span class="n">TypeParser</span><span class="p">(</span>
+            <span class="s2">&quot;core.util.webpub_manifest_parser.core.ast.Link&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>  <span class="c1"># pylint: disable=R0913</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">href</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">templated</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">rels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">properties</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">height</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">duration</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">bitrate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">languages</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">alternates</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">children</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of Link class.</span>
+
+<span class="sd">        :param href: Link&#39;s URL</span>
+<span class="sd">        :type href: str</span>
+
+<span class="sd">        :param templated: Boolean value indicating whether href is a URI template</span>
+<span class="sd">        :type templated: bool</span>
+
+<span class="sd">        :param _type: Media type of the linked resource</span>
+<span class="sd">        :type _type: Union[str, MediaType]</span>
+
+<span class="sd">        :param title: Title of the linked resource</span>
+<span class="sd">        :type title: str</span>
+
+<span class="sd">        :param rels: Relation between the resource and its containing collection</span>
+<span class="sd">        :type rels: List[registry.LinkRelation]</span>
+
+<span class="sd">        :param properties: Relation between the resource and its containing collection</span>
+<span class="sd">        :type properties: object</span>
+
+<span class="sd">        :param height: Height of the linked resource in pixels</span>
+<span class="sd">        :type height: int</span>
+
+<span class="sd">        :param width: Width of the linked resource in pixels</span>
+<span class="sd">        :type width: int</span>
+
+<span class="sd">        :param duration: Duration of the linked resource in seconds</span>
+<span class="sd">        :type duration: float</span>
+
+<span class="sd">        :param bitrate: Bit rate of the linked resource in kilobits per second</span>
+<span class="sd">        :type bitrate: float</span>
+
+<span class="sd">        :param languages: Expected languages of the linked resource</span>
+<span class="sd">        :type languages: List[str]</span>
+
+<span class="sd">        :param alternates: Alternate resources for the linked resource</span>
+<span class="sd">        :type alternates: List[Link]</span>
+
+<span class="sd">        :param children: Resources that are children of the linked resource, in the context of a given collection role</span>
+<span class="sd">        :type children: List[Link]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">Link</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">href</span> <span class="o">=</span> <span class="n">href</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">templated</span> <span class="o">=</span> <span class="n">templated</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rels</span> <span class="o">=</span> <span class="n">rels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">properties</span> <span class="o">=</span> <span class="n">properties</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">height</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">width</span> <span class="o">=</span> <span class="n">width</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">duration</span> <span class="o">=</span> <span class="n">duration</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bitrate</span> <span class="o">=</span> <span class="n">bitrate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">languages</span> <span class="o">=</span> <span class="n">languages</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alternates</span> <span class="o">=</span> <span class="n">alternates</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="o">=</span> <span class="n">children</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the hash.</span>
+
+<span class="sd">        :return: Hash</span>
+<span class="sd">        :rtype: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">href</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">templated</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
+                <span class="nb">frozenset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rels</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">height</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">width</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">duration</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bitrate</span><span class="p">,</span>
+                <span class="nb">frozenset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">languages</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">languages</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
+                <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">languages</span><span class="p">,</span>
+                <span class="nb">frozenset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alternates</span><span class="p">),</span>
+                <span class="nb">frozenset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a string representation of the object.</span>
+
+<span class="sd">        :return: String representation</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;&lt;Link(&quot;</span>
+            <span class="sa">u</span><span class="s2">&quot;href=</span><span class="si">{0}</span><span class="s2">, &quot;</span>
+            <span class="sa">u</span><span class="s2">&quot;templated=</span><span class="si">{1}</span><span class="s2">, &quot;</span>
+            <span class="sa">u</span><span class="s2">&quot;type=</span><span class="si">{2}</span><span class="s2">, &quot;</span>
+            <span class="sa">u</span><span class="s2">&quot;title=</span><span class="si">{3}</span><span class="s2">, &quot;</span>
+            <span class="sa">u</span><span class="s2">&quot;rels=</span><span class="si">{4}</span><span class="s2">, &quot;</span>
+            <span class="sa">u</span><span class="s2">&quot;properties=</span><span class="si">{5}</span><span class="s2">, &quot;</span>
+            <span class="sa">u</span><span class="s2">&quot;height=</span><span class="si">{6}</span><span class="s2">, &quot;</span>
+            <span class="sa">u</span><span class="s2">&quot;width=</span><span class="si">{7}</span><span class="s2">, &quot;</span>
+            <span class="sa">u</span><span class="s2">&quot;duration=</span><span class="si">{8}</span><span class="s2">, &quot;</span>
+            <span class="sa">u</span><span class="s2">&quot;bitrate=</span><span class="si">{9}</span><span class="s2">, &quot;</span>
+            <span class="sa">u</span><span class="s2">&quot;languages=</span><span class="si">{10}</span><span class="s2">, &quot;</span>
+            <span class="sa">u</span><span class="s2">&quot;alternates=</span><span class="si">{11}</span><span class="s2">, &quot;</span>
+            <span class="sa">u</span><span class="s2">&quot;children=</span><span class="si">{12}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">href</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">templated</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">rels</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">height</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">width</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">duration</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bitrate</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">languages</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">alternates</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LinkList"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.LinkList">[docs]</a><span class="k">class</span> <span class="nc">LinkList</span><span class="p">(</span><span class="n">Node</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;List of links.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">items</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of LinksList class.</span>
+
+<span class="sd">        :param items: (Optional) Items to be added to the list</span>
+<span class="sd">        :type items: Optional[List]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">LinkList</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">items</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">items</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Items argument must be a list&quot;</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
+
+<div class="viewcode-block" id="LinkList.get_by_rel"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.LinkList.get_by_rel">[docs]</a>    <span class="k">def</span> <span class="nf">get_by_rel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rel</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return links with the specific relation.</span>
+
+<span class="sd">        :param rel: Link&#39;s relation</span>
+<span class="sd">        :type rel: str</span>
+
+<span class="sd">        :return: Links with the specified relation</span>
+<span class="sd">        :rtype: List[Link]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">link</span> <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">rel</span> <span class="ow">in</span> <span class="n">link</span><span class="o">.</span><span class="n">rels</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="LinkList.get_by_href"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.LinkList.get_by_href">[docs]</a>    <span class="k">def</span> <span class="nf">get_by_href</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">href</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return links with the specific URL.</span>
+
+<span class="sd">        :param href: Link&#39;s URL</span>
+<span class="sd">        :type href: str</span>
+
+<span class="sd">        :return: Links with the specified relation</span>
+<span class="sd">        :rtype: List[Link]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">link</span> <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">href</span> <span class="o">==</span> <span class="n">link</span><span class="o">.</span><span class="n">href</span><span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="ArrayOfLinksProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.ArrayOfLinksProperty">[docs]</a><span class="k">class</span> <span class="nc">ArrayOfLinksProperty</span><span class="p">(</span><span class="n">BaseArrayProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing to contain only unique links.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of ArrayOfLinksProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ArrayOfLinksProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">ArrayParser</span><span class="p">(</span><span class="n">TypeParser</span><span class="p">(</span><span class="n">Link</span><span class="p">),</span> <span class="kc">True</span><span class="p">),</span> <span class="n">LinkList</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Contributor"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Contributor">[docs]</a><span class="k">class</span> <span class="nc">Contributor</span><span class="p">(</span><span class="n">Node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Contributor object.&quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="n">LocalizableStringProperty</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">identifier</span> <span class="o">=</span> <span class="n">URIProperty</span><span class="p">(</span><span class="s2">&quot;identifier&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">sort_as</span> <span class="o">=</span> <span class="n">StringProperty</span><span class="p">(</span><span class="s2">&quot;sortAs&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">roles</span> <span class="o">=</span> <span class="n">ArrayOfStringsProperty</span><span class="p">(</span><span class="s2">&quot;role&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">position</span> <span class="o">=</span> <span class="n">NumberProperty</span><span class="p">(</span><span class="s2">&quot;position&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">links</span> <span class="o">=</span> <span class="n">ArrayOfLinksProperty</span><span class="p">(</span><span class="s2">&quot;links&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>  <span class="c1"># pylint: disable=R0913</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">sort_as</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">roles</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">position</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">links</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of Contributor class.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">Contributor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span> <span class="o">=</span> <span class="n">identifier</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sort_as</span> <span class="o">=</span> <span class="n">sort_as</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">roles</span> <span class="o">=</span> <span class="n">roles</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">position</span> <span class="o">=</span> <span class="n">position</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">links</span> <span class="o">=</span> <span class="n">links</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compare two Contributor objects.</span>
+
+<span class="sd">        :param other: Contributor object</span>
+<span class="sd">        :type other: Contributor</span>
+
+<span class="sd">        :return: Boolean value indicating whether two items are equal</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Contributor</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">name</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">identifier</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_as</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">sort_as</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">roles</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">roles</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">position</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">links</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">links</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the hash.</span>
+
+<span class="sd">        :return: Hash</span>
+<span class="sd">        :rtype: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sort_as</span><span class="p">,</span>
+                <span class="nb">frozenset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">roles</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">roles</span> <span class="k">else</span> <span class="nb">frozenset</span><span class="p">(),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">,</span>
+                <span class="nb">frozenset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">links</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">links</span> <span class="k">else</span> <span class="nb">frozenset</span><span class="p">(),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a string representation of the object.</span>
+
+<span class="sd">        :return: String representation</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;&lt;Contributor(name=</span><span class="si">{0}</span><span class="s2">, identifier=</span><span class="si">{1}</span><span class="s2">, sort_as=</span><span class="si">{2}</span><span class="s2">, roles=</span><span class="si">{3}</span><span class="s2">, position=</span><span class="si">{4}</span><span class="s2">, links=</span><span class="si">{5}</span><span class="s2">)&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">encode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sort_as</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">roles</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">links</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ArrayOfContributorsProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.ArrayOfContributorsProperty">[docs]</a><span class="k">class</span> <span class="nc">ArrayOfContributorsProperty</span><span class="p">(</span><span class="n">BaseArrayProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property containing information about contributors.</span>
+
+<span class="sd">    For example::</span>
+
+<span class="sd">        - &quot;Herman Melville&quot;</span>
+<span class="sd">        - {</span>
+<span class="sd">            name: &quot;Herman Melville&quot;</span>
+<span class="sd">          }</span>
+<span class="sd">        - [</span>
+<span class="sd">            &quot;Herman Melville&quot;,</span>
+<span class="sd">            &quot;Mark Twain&quot;</span>
+<span class="sd">          ]</span>
+<span class="sd">        - [</span>
+<span class="sd">            {</span>
+<span class="sd">                name: &quot;Herman Melville&quot;</span>
+<span class="sd">            },</span>
+<span class="sd">            {</span>
+<span class="sd">                name: &quot;Mark Twain&quot;</span>
+<span class="sd">            }</span>
+<span class="sd">          ]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">PARSER</span> <span class="o">=</span> <span class="n">AnyOfParser</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">StringParser</span><span class="p">(),</span>
+            <span class="n">ArrayParser</span><span class="p">(</span><span class="n">AnyOfParser</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">StringParser</span><span class="p">(),</span> <span class="n">TypeParser</span><span class="p">(</span><span class="n">Contributor</span><span class="p">)])),</span>
+            <span class="n">TypeParser</span><span class="p">(</span><span class="n">Contributor</span><span class="p">),</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of ArrayOfContributorsProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ArrayOfContributorsProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PARSER</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="p">[]</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Subject"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Subject">[docs]</a><span class="k">class</span> <span class="nc">Subject</span><span class="p">(</span><span class="n">Node</span><span class="p">,</span> <span class="n">PropertiesGrouping</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Subject object.&quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="n">LocalizableStringProperty</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">sort_as</span> <span class="o">=</span> <span class="n">StringProperty</span><span class="p">(</span><span class="s2">&quot;sortAs&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">code</span> <span class="o">=</span> <span class="n">StringProperty</span><span class="p">(</span><span class="s2">&quot;code&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">scheme</span> <span class="o">=</span> <span class="n">URIProperty</span><span class="p">(</span><span class="s2">&quot;scheme&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">links</span> <span class="o">=</span> <span class="n">ArrayOfLinksProperty</span><span class="p">(</span><span class="s2">&quot;links&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the hash.</span>
+
+<span class="sd">        :return: Hash</span>
+<span class="sd">        :rtype: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_as</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="p">,</span>
+             <span class="bp">self</span><span class="o">.</span><span class="n">scheme</span><span class="p">,</span> <span class="nb">frozenset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">links</span><span class="p">))</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a string representation of the object.</span>
+
+<span class="sd">        :return: String representation</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;&lt;Subject(name=</span><span class="si">{0}</span><span class="s2">, sort_as=</span><span class="si">{1}</span><span class="s2">, code=</span><span class="si">{2}</span><span class="s2">, scheme=</span><span class="si">{3}</span><span class="s2">, links=</span><span class="si">{4}</span><span class="s2">)&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_as</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scheme</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">links</span>
+            <span class="p">)</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ArrayOfSubjectsProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.ArrayOfSubjectsProperty">[docs]</a><span class="k">class</span> <span class="nc">ArrayOfSubjectsProperty</span><span class="p">(</span><span class="n">BaseArrayProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property containing information about subjects.</span>
+
+<span class="sd">    For example::</span>
+
+<span class="sd">        - &quot;Juvenile Fiction&quot;</span>
+<span class="sd">        - {</span>
+<span class="sd">            name: &quot;Juvenile Fiction&quot;</span>
+<span class="sd">          }</span>
+<span class="sd">        - [</span>
+<span class="sd">            &quot;Juvenile Fiction&quot;,</span>
+<span class="sd">            &quot;Biography&quot;</span>
+<span class="sd">          ]</span>
+<span class="sd">        - [</span>
+<span class="sd">            {</span>
+<span class="sd">                name: &quot;Juvenile Fiction&quot;</span>
+<span class="sd">            },</span>
+<span class="sd">            {</span>
+<span class="sd">                name: &quot;Biography&quot;</span>
+<span class="sd">            }</span>
+<span class="sd">          ]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">PARSER</span> <span class="o">=</span> <span class="n">AnyOfParser</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">StringParser</span><span class="p">(),</span>
+            <span class="n">ArrayParser</span><span class="p">(</span><span class="n">AnyOfParser</span><span class="p">([</span><span class="n">StringParser</span><span class="p">(),</span> <span class="n">TypeParser</span><span class="p">(</span><span class="n">Subject</span><span class="p">)])),</span>
+            <span class="n">TypeParser</span><span class="p">(</span><span class="n">Subject</span><span class="p">),</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of ArrayOfSubjectsProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ArrayOfSubjectsProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PARSER</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="p">[]</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Owner"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Owner">[docs]</a><span class="k">class</span> <span class="nc">Owner</span><span class="p">(</span><span class="n">Node</span><span class="p">,</span> <span class="n">PropertiesGrouping</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Object containing information about the collection&#39;s owners.&quot;&quot;&quot;</span>
+
+    <span class="n">collection</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;collection&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">series</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;series&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the hash.</span>
+
+<span class="sd">        :return: Hash</span>
+<span class="sd">        :rtype: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">series</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a string representation of the object.</span>
+
+<span class="sd">        :return: String representation</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;&lt;Owner(collection=</span><span class="si">{0}</span><span class="s2">, series=</span><span class="si">{1}</span><span class="s2">)&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">encode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">),</span> <span class="n">encode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">series</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Metadata"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Metadata">[docs]</a><span class="k">class</span> <span class="nc">Metadata</span><span class="p">(</span><span class="n">Node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Dictionary containing manifest&#39;s metadata.&quot;&quot;&quot;</span>
+
+    <span class="n">identifier</span> <span class="o">=</span> <span class="n">URIProperty</span><span class="p">(</span><span class="s2">&quot;identifier&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="nb">type</span> <span class="o">=</span> <span class="n">URIProperty</span><span class="p">(</span><span class="s2">&quot;@type&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">title</span> <span class="o">=</span> <span class="n">LocalizableStringProperty</span><span class="p">(</span><span class="s2">&quot;title&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">subtitle</span> <span class="o">=</span> <span class="n">LocalizableStringProperty</span><span class="p">(</span><span class="s2">&quot;subtitle&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">modified</span> <span class="o">=</span> <span class="n">DateTimeProperty</span><span class="p">(</span><span class="s2">&quot;modified&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">published</span> <span class="o">=</span> <span class="n">DateOrTimeProperty</span><span class="p">(</span><span class="s2">&quot;published&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">languages</span> <span class="o">=</span> <span class="n">ListOfLanguagesProperty</span><span class="p">(</span><span class="s2">&quot;language&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">sort_as</span> <span class="o">=</span> <span class="n">StringProperty</span><span class="p">(</span><span class="s2">&quot;sortAs&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">authors</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;author&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">translators</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;translator&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">editors</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;editor&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">artists</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;artist&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">illustrators</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;illustrator&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">letterers</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;letterer&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">pencilers</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;penciler&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">colorists</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;colorist&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">inkers</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;inker&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">narrators</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;narrator&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">contributors</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;contributor&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">publishers</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;publisher&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">imprints</span> <span class="o">=</span> <span class="n">ArrayOfContributorsProperty</span><span class="p">(</span><span class="s2">&quot;imprint&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">subjects</span> <span class="o">=</span> <span class="n">ArrayOfSubjectsProperty</span><span class="p">(</span><span class="s2">&quot;subject&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">reading_progression</span> <span class="o">=</span> <span class="n">EnumProperty</span><span class="p">(</span>
+        <span class="s2">&quot;readingProgression&quot;</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">items</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;rtl&quot;</span><span class="p">,</span> <span class="s2">&quot;ltr&quot;</span><span class="p">,</span> <span class="s2">&quot;ttb&quot;</span><span class="p">,</span> <span class="s2">&quot;btt&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">],</span>
+        <span class="n">default_value</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">description</span> <span class="o">=</span> <span class="n">StringProperty</span><span class="p">(</span><span class="s2">&quot;description&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">duration</span> <span class="o">=</span> <span class="n">NumberProperty</span><span class="p">(</span><span class="s2">&quot;duration&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">exclusive_minimum</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">number_of_pages</span> <span class="o">=</span> <span class="n">NumberProperty</span><span class="p">(</span>
+        <span class="s2">&quot;numberOfPages&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">exclusive_minimum</span><span class="o">=</span><span class="mi">0</span>
+    <span class="p">)</span>
+    <span class="n">belongs_to</span> <span class="o">=</span> <span class="n">TypeProperty</span><span class="p">(</span><span class="s2">&quot;belongsTo&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">nested_type</span><span class="o">=</span><span class="n">Owner</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>  <span class="c1"># pylint: disable=R0913, R0914</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">subtitle</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">modified</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">published</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">language</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">sort_as</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">author</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">translator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">editor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">artist</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">illustrator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">letterer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">penciler</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">colorist</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">inker</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">narrator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">contributor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">publisher</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">imprint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">subject</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">duration</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">number_of_pages</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">belongs_to</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of Metadata class.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">Metadata</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span> <span class="o">=</span> <span class="n">identifier</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subtitle</span> <span class="o">=</span> <span class="n">subtitle</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">modified</span> <span class="o">=</span> <span class="n">modified</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">published</span> <span class="o">=</span> <span class="n">published</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">languages</span> <span class="o">=</span> <span class="n">language</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sort_as</span> <span class="o">=</span> <span class="n">sort_as</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">authors</span> <span class="o">=</span> <span class="n">author</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">translators</span> <span class="o">=</span> <span class="n">translator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">editors</span> <span class="o">=</span> <span class="n">editor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">artists</span> <span class="o">=</span> <span class="n">artist</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">illustrators</span> <span class="o">=</span> <span class="n">illustrator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">letterers</span> <span class="o">=</span> <span class="n">letterer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pencilers</span> <span class="o">=</span> <span class="n">penciler</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">colorists</span> <span class="o">=</span> <span class="n">colorist</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inkers</span> <span class="o">=</span> <span class="n">inker</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">narrators</span> <span class="o">=</span> <span class="n">narrator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">contributors</span> <span class="o">=</span> <span class="n">contributor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">publishers</span> <span class="o">=</span> <span class="n">publisher</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">imprints</span> <span class="o">=</span> <span class="n">imprint</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span> <span class="o">=</span> <span class="n">subject</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">description</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">duration</span> <span class="o">=</span> <span class="n">duration</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">number_of_pages</span> <span class="o">=</span> <span class="n">number_of_pages</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">belongs_to</span> <span class="o">=</span> <span class="n">belongs_to</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the hash.</span>
+
+<span class="sd">        :return: Hash</span>
+<span class="sd">        :rtype: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">subtitle</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">modified</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">published</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">languages</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sort_as</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">authors</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">translators</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">editors</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">artists</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">illustrators</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">letterers</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">pencilers</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">colorists</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">inkers</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">narrators</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">contributors</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">publishers</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">imprints</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">duration</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">number_of_pages</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">belongs_to</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PresentationMetadata"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.PresentationMetadata">[docs]</a><span class="k">class</span> <span class="nc">PresentationMetadata</span><span class="p">(</span><span class="n">Metadata</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;RWPM extension containing presentation metadata.&quot;&quot;&quot;</span>
+
+    <span class="n">clipped</span> <span class="o">=</span> <span class="n">BooleanProperty</span><span class="p">(</span><span class="s2">&quot;clipped&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">continuous</span> <span class="o">=</span> <span class="n">BooleanProperty</span><span class="p">(</span><span class="s2">&quot;continuous&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">fit</span> <span class="o">=</span> <span class="n">EnumProperty</span><span class="p">(</span><span class="s2">&quot;fit&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;width&quot;</span><span class="p">,</span> <span class="s2">&quot;height&quot;</span><span class="p">,</span> <span class="s2">&quot;contain&quot;</span><span class="p">,</span> <span class="s2">&quot;cover&quot;</span><span class="p">])</span>
+    <span class="n">orientation</span> <span class="o">=</span> <span class="n">EnumProperty</span><span class="p">(</span><span class="s2">&quot;orientation&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="p">[</span>
+                               <span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;landscape&quot;</span><span class="p">,</span> <span class="s2">&quot;portrait&quot;</span><span class="p">])</span>
+    <span class="n">overflow</span> <span class="o">=</span> <span class="n">EnumProperty</span><span class="p">(</span>
+        <span class="s2">&quot;overflow&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;paginated&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;scrolled&quot;</span><span class="p">,</span> <span class="s2">&quot;scrolled-continuous&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">spread</span> <span class="o">=</span> <span class="n">EnumProperty</span><span class="p">(</span>
+        <span class="s2">&quot;spread&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">,</span> <span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="s2">&quot;landscape&quot;</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="CompactCollection"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.CompactCollection">[docs]</a><span class="k">class</span> <span class="nc">CompactCollection</span><span class="p">(</span><span class="n">Node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A compact collection is defined as a grouping of links.&quot;&quot;&quot;</span>
+
+    <span class="n">links</span> <span class="o">=</span> <span class="n">ArrayOfLinksProperty</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;links&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">links</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of Collection class.</span>
+
+<span class="sd">        :param role: Collection&#39;s roles (can be empty when self is a manifest)</span>
+<span class="sd">        :type role: Optional[CollectionRole]</span>
+
+<span class="sd">        :param links: Collection&#39;s links</span>
+<span class="sd">        :type links: Optional[LinksList]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">CompactCollection</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_role</span> <span class="o">=</span> <span class="n">role</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">links</span> <span class="o">=</span> <span class="n">links</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">role</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the collection&#39;s role.</span>
+
+<span class="sd">        :return: Collection&#39;s role.</span>
+<span class="sd">        :rtype: Optional[CollectionRole]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role</span></div>
+
+
+<div class="viewcode-block" id="Collection"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Collection">[docs]</a><span class="k">class</span> <span class="nc">Collection</span><span class="p">(</span><span class="n">CompactCollection</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A collection is defined as a grouping of metadata, links and sub-collections.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">links</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of Collection class.</span>
+
+<span class="sd">        :param role: Collection&#39;s role (can be empty when self is a manifest)</span>
+<span class="sd">        :type role: Optional[CollectionRole]</span>
+
+<span class="sd">        :param links: Collection&#39;s links</span>
+<span class="sd">        :type links: Optional[LinksList]</span>
+
+<span class="sd">        :param metadata: Collection&#39;s metadata</span>
+<span class="sd">        :type metadata: Optional[Metadata]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">Collection</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="n">links</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_role</span> <span class="o">=</span> <span class="n">role</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sub_collections</span> <span class="o">=</span> <span class="n">CollectionList</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+
+    <span class="n">metadata</span> <span class="o">=</span> <span class="n">TypeProperty</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nested_type</span><span class="o">=</span><span class="n">PresentationMetadata</span>
+    <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">sub_collections</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a list of sub-collections.</span>
+
+<span class="sd">        :return: List of sub-collections.</span>
+<span class="sd">        :rtype: CollectionList</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_collections</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">compact</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a boolean value indicating if this collection is compact.</span>
+
+<span class="sd">        :return: Boolean value indicating if this collection is compact</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sub_collections</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">full</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a boolean value indicating if this collection is full.</span>
+
+<span class="sd">        :return: Boolean value indicating if this collection is full</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sub_collections</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="CollectionList"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.CollectionList">[docs]</a><span class="k">class</span> <span class="nc">CollectionList</span><span class="p">(</span><span class="n">Node</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;List of sub-collections.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">items</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of CollectionList class.</span>
+
+<span class="sd">        :param items: (Optional) Items to be added to the list</span>
+<span class="sd">        :type items: Optional[List]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">CollectionList</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">items</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">items</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Items argument must be a list&quot;</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CollectionList.get_by_role"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.CollectionList.get_by_role">[docs]</a>    <span class="k">def</span> <span class="nf">get_by_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return collections with the specific role.</span>
+
+<span class="sd">        :param role: Collection&#39;s role</span>
+<span class="sd">        :type role: str</span>
+
+<span class="sd">        :return: Collections with the specific role</span>
+<span class="sd">        :rtype: List[Collection]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">collection</span> <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">role</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="n">role</span><span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="CompactCollectionProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.CompactCollectionProperty">[docs]</a><span class="k">class</span> <span class="nc">CompactCollectionProperty</span><span class="p">(</span><span class="n">Property</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing to contain a compact sub-collection.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">collection_class</span><span class="o">=</span><span class="n">CompactCollection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of CompactCollectionProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :param role: Collection role</span>
+<span class="sd">        :type role: CollectionRole</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="n">CollectionRole</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Role argument must be an instance of CollectionRole class&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">collection_class</span><span class="p">,</span> <span class="n">CompactCollection</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Collection class argument must be a subclass of CompactCollection class&quot;</span>
+            <span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">CompactCollectionProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">TypeParser</span><span class="p">(</span><span class="n">collection_class</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_role</span> <span class="o">=</span> <span class="n">role</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">role</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the sub-collection&#39;s role.</span>
+
+<span class="sd">        :return: Sub-collection&#39;s role</span>
+<span class="sd">        :rtype: CollectionRole</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role</span></div>
+
+
+<div class="viewcode-block" id="ArrayOfCollectionsProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.ArrayOfCollectionsProperty">[docs]</a><span class="k">class</span> <span class="nc">ArrayOfCollectionsProperty</span><span class="p">(</span><span class="n">BaseArrayProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing to contain a compact sub-collection.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">collection_type</span><span class="o">=</span><span class="n">Collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of ArrayOfCollectionsProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :param role: Collection role</span>
+<span class="sd">        :type role: CollectionRole</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="n">CollectionRole</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Role argument must be an instance of CollectionRole class&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">collection_type</span><span class="p">,</span> <span class="n">Collection</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Collection type argument must be a subclass of Collection class&quot;</span>
+            <span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">ArrayOfCollectionsProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">required</span><span class="p">,</span>
+            <span class="n">ArrayParser</span><span class="p">(</span><span class="n">TypeParser</span><span class="p">(</span><span class="n">collection_type</span><span class="p">),</span> <span class="kc">True</span><span class="p">),</span>
+            <span class="n">CollectionList</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_role</span> <span class="o">=</span> <span class="n">role</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">role</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the sub-collection&#39;s role.</span>
+
+<span class="sd">        :return: Sub-collection&#39;s role</span>
+<span class="sd">        :rtype: CollectionRole</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role</span></div>
+
+
+<div class="viewcode-block" id="Manifestlike"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Manifestlike">[docs]</a><span class="k">class</span> <span class="nc">Manifestlike</span><span class="p">(</span><span class="n">Collection</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base class for Manifest (Readium Web Publication Manifest) and Feed (OPDS 2).</span>
+
+<span class="sd">    An OPDS 2 feed is defined as a RWPM with enumerated exceptions.</span>
+
+<span class="sd">    This class implements the behavior common to both specs.  The</span>
+<span class="sd">    alternative is to have the Feed class subclass Manifest and then</span>
+<span class="sd">    implement a lot of exceptions.</span>
+<span class="sd">    &quot;&quot;&quot;</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  <li><a href="../../../util.html">core.util</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

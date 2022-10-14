@@ -1,19 +1,18 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>core.config &#8212; Library Simplified Circulation Manager  documentation</title>
-    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../../_static/jquery.js"></script>
-    <script type="text/javascript" src="../../_static/underscore.js"></script>
-    <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
    
@@ -493,12 +492,11 @@
             <span class="c1"># Improve the error message by giving a guide as to what&#39;s</span>
             <span class="c1"># likely to work.</span>
             <span class="k">raise</span> <span class="n">ArgumentError</span><span class="p">(</span>
-                <span class="s2">&quot;Bad format for database URL (</span><span class="si">%s</span><span class="s2">). Expected something like postgres://[username]:[password]@[hostname]:[port]/[database name]&quot;</span> <span class="o">%</span>
+                <span class="s2">&quot;Bad format for database URL (</span><span class="si">%s</span><span class="s2">). Expected something like postgresql://[username]:[password]@[hostname]:[port]/[database name]&quot;</span> <span class="o">%</span>
                 <span class="n">url</span>
             <span class="p">)</span>
 
-        <span class="c1"># Calling __to_string__ will hide the password.</span>
-        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Connecting to database: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">url_obj</span><span class="o">.</span><span class="n">__to_string__</span><span class="p">())</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Connecting to database: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">url_obj</span><span class="o">.</span><span class="n">render_as_string</span><span class="p">(</span><span class="n">hide_password</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">url</span></div>
 
 <div class="viewcode-block" id="Configuration.static_resources_dir"><a class="viewcode-back" href="../../core.html#core.config.Configuration.static_resources_dir">[docs]</a>    <span class="nd">@classmethod</span>
@@ -749,17 +747,15 @@
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -776,7 +772,7 @@
       &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

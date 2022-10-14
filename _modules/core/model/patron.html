@@ -1,19 +1,18 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>core.model.patron &#8212; Library Simplified Circulation Manager  documentation</title>
-    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../../../_static/jquery.js"></script>
-    <script type="text/javascript" src="../../../_static/underscore.js"></script>
-    <script type="text/javascript" src="../../../_static/doctools.js"></script>
-    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
    
@@ -67,7 +66,7 @@
 <span class="kn">from</span> <span class="nn">..user_profile</span> <span class="kn">import</span> <span class="n">ProfileStorage</span>
 <span class="kn">from</span> <span class="nn">..util.datetime_helpers</span> <span class="kn">import</span> <span class="n">utc_now</span>
 
-<div class="viewcode-block" id="LoanAndHoldMixin"><a class="viewcode-back" href="../../../core.model.html#api.monitor.LoanAndHoldMixin">[docs]</a><span class="k">class</span> <span class="nc">LoanAndHoldMixin</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<div class="viewcode-block" id="LoanAndHoldMixin"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.LoanAndHoldMixin">[docs]</a><span class="k">class</span> <span class="nc">LoanAndHoldMixin</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">work</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -89,7 +88,7 @@
         <span class="c1"># If this Loan/Hold belongs to a external patron, there may be no library.</span>
         <span class="k">return</span> <span class="kc">None</span></div>
 
-<div class="viewcode-block" id="Patron"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron">[docs]</a><span class="k">class</span> <span class="nc">Patron</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+<div class="viewcode-block" id="Patron"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Patron">[docs]</a><span class="k">class</span> <span class="nc">Patron</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
 
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;patrons&#39;</span>
     <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -223,7 +222,7 @@
             <span class="n">date</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">last_external_sync</span><span class="p">)</span>
         <span class="p">)</span>
 
-<div class="viewcode-block" id="Patron.identifier_to_remote_service"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron.identifier_to_remote_service">[docs]</a>    <span class="k">def</span> <span class="nf">identifier_to_remote_service</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_data_source</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Patron.identifier_to_remote_service"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Patron.identifier_to_remote_service">[docs]</a>    <span class="k">def</span> <span class="nf">identifier_to_remote_service</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_data_source</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find or randomly create an identifier to use when identifying</span>
 <span class="sd">        this patron to a remote service.</span>
 <span class="sd">        :param remote_data_source: A DataSource object (or name of a</span>
@@ -242,12 +241,12 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">credential</span><span class="o">.</span><span class="n">credential</span></div>
 
-<div class="viewcode-block" id="Patron.works_on_loan"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron.works_on_loan">[docs]</a>    <span class="k">def</span> <span class="nf">works_on_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Patron.works_on_loan"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Patron.works_on_loan">[docs]</a>    <span class="k">def</span> <span class="nf">works_on_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">loans</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Loan</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Loan</span><span class="o">.</span><span class="n">patron</span><span class="o">==</span><span class="bp">self</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">loan</span><span class="o">.</span><span class="n">work</span> <span class="k">for</span> <span class="n">loan</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">loans</span> <span class="k">if</span> <span class="n">loan</span><span class="o">.</span><span class="n">work</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Patron.works_on_loan_or_on_hold"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron.works_on_loan_or_on_hold">[docs]</a>    <span class="k">def</span> <span class="nf">works_on_loan_or_on_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Patron.works_on_loan_or_on_hold"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Patron.works_on_loan_or_on_hold">[docs]</a>    <span class="k">def</span> <span class="nf">works_on_loan_or_on_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">results</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="n">holds</span> <span class="o">=</span> <span class="p">[</span><span class="n">hold</span><span class="o">.</span><span class="n">work</span> <span class="k">for</span> <span class="n">hold</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">holds</span> <span class="k">if</span> <span class="n">hold</span><span class="o">.</span><span class="n">work</span><span class="p">]</span>
@@ -358,7 +357,7 @@
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">lanes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
-<div class="viewcode-block" id="Patron.work_is_age_appropriate"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron.work_is_age_appropriate">[docs]</a>    <span class="k">def</span> <span class="nf">work_is_age_appropriate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work_audience</span><span class="p">,</span> <span class="n">work_target_age</span><span class="p">):</span>
+<div class="viewcode-block" id="Patron.work_is_age_appropriate"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Patron.work_is_age_appropriate">[docs]</a>    <span class="k">def</span> <span class="nf">work_is_age_appropriate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work_audience</span><span class="p">,</span> <span class="n">work_target_age</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Is the given audience and target age an age-appropriate match for this Patron?</span>
 
 <span class="sd">        NOTE: What &quot;age-appropriate&quot; means depends on some policy questions</span>
@@ -397,7 +396,7 @@
             <span class="k">for</span> <span class="n">audience</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">audiences</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Patron.age_appropriate_match"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron.age_appropriate_match">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Patron.age_appropriate_match"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Patron.age_appropriate_match">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">age_appropriate_match</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span> <span class="n">work_audience</span><span class="p">,</span> <span class="n">work_target_age</span><span class="p">,</span>
         <span class="n">reader_audience</span><span class="p">,</span> <span class="n">reader_age</span>
@@ -528,7 +527,7 @@
 <span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_patron_library_id_authorization_identifier&quot;</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">library_id</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">)</span>
 <span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_patron_library_id_username&quot;</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">library_id</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">username</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Loan"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Loan">[docs]</a><span class="k">class</span> <span class="nc">Loan</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">LoanAndHoldMixin</span><span class="p">):</span>
+<div class="viewcode-block" id="Loan"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Loan">[docs]</a><span class="k">class</span> <span class="nc">Loan</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">LoanAndHoldMixin</span><span class="p">):</span>
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;loans&#39;</span>
     <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">patron_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;patrons.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -557,7 +556,7 @@
     <span class="k">def</span> <span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">&lt;</span> <span class="n">other</span><span class="o">.</span><span class="n">id</span>
 
-<div class="viewcode-block" id="Loan.until"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Loan.until">[docs]</a>    <span class="k">def</span> <span class="nf">until</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_loan_period</span><span class="p">):</span>
+<div class="viewcode-block" id="Loan.until"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Loan.until">[docs]</a>    <span class="k">def</span> <span class="nf">until</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_loan_period</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Give or estimate the time at which the loan will end.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span>
@@ -567,7 +566,7 @@
         <span class="n">start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="ow">or</span> <span class="n">utc_now</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">start</span> <span class="o">+</span> <span class="n">default_loan_period</span></div></div>
 
-<div class="viewcode-block" id="Hold"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Hold">[docs]</a><span class="k">class</span> <span class="nc">Hold</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">LoanAndHoldMixin</span><span class="p">):</span>
+<div class="viewcode-block" id="Hold"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Hold">[docs]</a><span class="k">class</span> <span class="nc">Hold</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">LoanAndHoldMixin</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A patron is in line to check out a book.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;holds&#39;</span>
@@ -633,7 +632,7 @@
         <span class="k">return</span> <span class="n">start</span> <span class="o">+</span> <span class="p">(</span><span class="n">cycle_period</span> <span class="o">*</span> <span class="n">cycles</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="Hold.until"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Hold.until">[docs]</a>    <span class="k">def</span> <span class="nf">until</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_loan_period</span><span class="p">,</span> <span class="n">default_reservation_period</span><span class="p">):</span>
+<div class="viewcode-block" id="Hold.until"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Hold.until">[docs]</a>    <span class="k">def</span> <span class="nf">until</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_loan_period</span><span class="p">,</span> <span class="n">default_reservation_period</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Give or estimate the time at which the book will be available</span>
 <span class="sd">        to this patron.</span>
 <span class="sd">        This is a *very* rough estimate that should be treated more or</span>
@@ -663,7 +662,7 @@
             <span class="n">start</span><span class="p">,</span> <span class="n">position</span><span class="p">,</span> <span class="n">licenses_available</span><span class="p">,</span>
             <span class="n">default_loan_period</span><span class="p">,</span> <span class="n">default_reservation_period</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Hold.update"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Hold.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">position</span><span class="p">):</span>
+<div class="viewcode-block" id="Hold.update"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Hold.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">position</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;When the book becomes available, position will be 0 and end will be</span>
 <span class="sd">        set to the time at which point the patron will lose their place in</span>
 <span class="sd">        line.</span>
@@ -680,7 +679,7 @@
         <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;patron_id&#39;</span><span class="p">,</span> <span class="s1">&#39;license_pool_id&#39;</span><span class="p">),</span>
     <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Annotation"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Annotation">[docs]</a><span class="k">class</span> <span class="nc">Annotation</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+<div class="viewcode-block" id="Annotation"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Annotation">[docs]</a><span class="k">class</span> <span class="nc">Annotation</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="c1"># The Web Annotation Data Model defines a basic set of motivations.</span>
     <span class="c1"># https://www.w3.org/TR/annotation-model/#motivation-and-purpose</span>
     <span class="n">OA_NAMESPACE</span> <span class="o">=</span> <span class="s2">&quot;http://www.w3.org/ns/oa#&quot;</span>
@@ -706,7 +705,7 @@
     <span class="n">content</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
     <span class="n">target</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Annotation.get_one_or_create"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Annotation.get_one_or_create">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Annotation.get_one_or_create"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Annotation.get_one_or_create">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">get_one_or_create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find or create an Annotation, but only if the patron has</span>
 <span class="sd">        annotation sync turned on.</span>
@@ -720,12 +719,12 @@
             <span class="n">_db</span><span class="p">,</span> <span class="n">Annotation</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Annotation.set_inactive"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Annotation.set_inactive">[docs]</a>    <span class="k">def</span> <span class="nf">set_inactive</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Annotation.set_inactive"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.Annotation.set_inactive">[docs]</a>    <span class="k">def</span> <span class="nf">set_inactive</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">utc_now</span><span class="p">()</span></div></div>
 
-<div class="viewcode-block" id="PatronProfileStorage"><a class="viewcode-back" href="../../../core.model.html#api.monitor.PatronProfileStorage">[docs]</a><span class="k">class</span> <span class="nc">PatronProfileStorage</span><span class="p">(</span><span class="n">ProfileStorage</span><span class="p">):</span>
+<div class="viewcode-block" id="PatronProfileStorage"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.PatronProfileStorage">[docs]</a><span class="k">class</span> <span class="nc">PatronProfileStorage</span><span class="p">(</span><span class="n">ProfileStorage</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Interface between a Patron object and the User Profile Management</span>
 <span class="sd">    Protocol.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -761,7 +760,7 @@
         <span class="n">doc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">SETTINGS_KEY</span><span class="p">]</span> <span class="o">=</span> <span class="n">settings</span>
         <span class="k">return</span> <span class="n">doc</span>
 
-<div class="viewcode-block" id="PatronProfileStorage.update"><a class="viewcode-back" href="../../../core.model.html#api.monitor.PatronProfileStorage.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settable</span><span class="p">,</span> <span class="n">full</span><span class="p">):</span>
+<div class="viewcode-block" id="PatronProfileStorage.update"><a class="viewcode-back" href="../../../core.model.html#core.model.patron.PatronProfileStorage.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settable</span><span class="p">,</span> <span class="n">full</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Bring the Patron&#39;s status up-to-date with the given document.</span>
 <span class="sd">        Right now this means making sure Patron.synchronize_annotations</span>
 <span class="sd">        is up to date.</span>
@@ -803,17 +802,15 @@
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -830,7 +827,7 @@
       &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

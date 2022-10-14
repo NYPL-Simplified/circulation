@@ -1,0 +1,40 @@
+core.util.webpub\_manifest\_parser package
+==========================================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   core.util.webpub_manifest_parser.core
+   core.util.webpub_manifest_parser.epub
+   core.util.webpub_manifest_parser.opds2
+   core.util.webpub_manifest_parser.rwpm
+
+Submodules
+----------
+
+core.util.webpub\_manifest\_parser.errors module
+------------------------------------------------
+
+.. automodule:: core.util.webpub_manifest_parser.errors
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+core.util.webpub\_manifest\_parser.utils module
+-----------------------------------------------
+
+.. automodule:: core.util.webpub_manifest_parser.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: core.util.webpub_manifest_parser
+   :members:
+   :undoc-members:
+   :show-inheritance:

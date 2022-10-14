@@ -1,0 +1,261 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>core.util.webpub_manifest_parser.core.registry &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.util.webpub_manifest_parser.core.registry</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">collections</span>
+
+
+<div class="viewcode-block" id="RegistryItem"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.registry.RegistryItem">[docs]</a><span class="k">class</span> <span class="nc">RegistryItem</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Single metadata registry item (collection role, media type, etc.).&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of RegistryItem class.</span>
+
+<span class="sd">        :param key: Unique identifier of this registry item</span>
+<span class="sd">        :type key: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_key</span> <span class="o">=</span> <span class="n">key</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a unique identifier of this registry item.</span>
+
+<span class="sd">        :return: Unique identifier of this registry item</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_key</span></div>
+
+
+<div class="viewcode-block" id="Registry"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.registry.Registry">[docs]</a><span class="k">class</span> <span class="nc">Registry</span><span class="p">(</span><span class="n">collections</span><span class="o">.</span><span class="n">abc</span><span class="o">.</span><span class="n">MutableMapping</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Collection of registry items with a particular type (collection roles, media types, etc.).&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">items</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of Registry class.</span>
+
+<span class="sd">        :param items: (Optional) collection of registry items. Note that all items have to be RegistryItem descendants</span>
+<span class="sd">        :type items: List[RegistryItems]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_items</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="n">items</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_add_items</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add a new item to the registry.</span>
+
+<span class="sd">        :param key: Unique identifier of the item</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param value: Registry item</span>
+<span class="sd">        :type value: RegistryItem</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">RegistryItem</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Registry item must have RegistryItem type&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="k">def</span> <span class="fm">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove the item from the registry.</span>
+
+<span class="sd">        :param key: Unique identifier of the item</span>
+<span class="sd">        :type key: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return an item from the registry by its key or raises a KeyError if it doesn&#39;t exist.</span>
+
+<span class="sd">        :param key: Unique identifier of the item</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :return: Registry item</span>
+<span class="sd">        :rtype: RegistryItem</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return an iterator of all the registry items.</span>
+
+<span class="sd">        :return: Iterator of the registry items</span>
+<span class="sd">        :rtype: Iterator[RegistryItem]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a number of items in the registry.</span>
+
+<span class="sd">        :return: Number of items in the registry</span>
+<span class="sd">        :rtype: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_add_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">items</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add new items to the registry. Note that all the items must be RegistryItem descendants.</span>
+
+<span class="sd">        :param items: New registry items</span>
+<span class="sd">        :type items: List[RegistryItem]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">RegistryItem</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Registry item must have RegistryItem type&quot;</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span></div>
+
+
+<div class="viewcode-block" id="MediaType"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.registry.MediaType">[docs]</a><span class="k">class</span> <span class="nc">MediaType</span><span class="p">(</span><span class="n">RegistryItem</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Registry item representing a specific media type.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="LinkRelation"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.registry.LinkRelation">[docs]</a><span class="k">class</span> <span class="nc">LinkRelation</span><span class="p">(</span><span class="n">RegistryItem</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Registry item representing a link relation.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="CollectionRole"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.registry.CollectionRole">[docs]</a><span class="k">class</span> <span class="nc">CollectionRole</span><span class="p">(</span><span class="n">RegistryItem</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Registry item representing a collection role.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">compact</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">multi</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of CollectionRole class.</span>
+
+<span class="sd">        :param key: Name of the collection</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param compact: Boolean value indicating whether the collection shall be compact</span>
+<span class="sd">        :type compact: bool</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the collection is required</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :param multi: Boolean value indicating whether there can be multiple collections with this role</span>
+<span class="sd">        :type multi: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">CollectionRole</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_compact</span> <span class="o">=</span> <span class="n">compact</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_required</span> <span class="o">=</span> <span class="n">required</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_multi</span> <span class="o">=</span> <span class="n">multi</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">compact</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the boolean value indicating whether the collection shall be compact.</span>
+
+<span class="sd">        :return: Boolean value indicating whether the collection shall be compact</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compact</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">required</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the boolean value indicating whether the collection is required.</span>
+
+<span class="sd">        :return: Boolean value indicating whether the collection is required</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_required</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">multi</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the boolean value indicating whether there can be multiple collections with this role.</span>
+
+<span class="sd">        :return: Boolean value indicating whether there can be multiple collections with this role</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_multi</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  <li><a href="../../../util.html">core.util</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

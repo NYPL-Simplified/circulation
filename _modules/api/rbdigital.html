@@ -1,19 +1,18 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>api.rbdigital &#8212; Library Simplified Circulation Manager  documentation</title>
-    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../../_static/jquery.js"></script>
-    <script type="text/javascript" src="../../_static/underscore.js"></script>
-    <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
    
@@ -1845,10 +1844,10 @@
                 <span class="k">for</span> <span class="n">pool</span> <span class="ow">in</span> <span class="n">identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">pool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="k">if</span> <span class="n">pool</span><span class="o">.</span><span class="n">presentation_edition</span><span class="p">:</span>
-                            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Removing </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">) from circulation&quot;</span><span class="p">,</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Removing </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">) from circulation&quot;</span><span class="p">,</span>
                                           <span class="n">pool</span><span class="o">.</span><span class="n">presentation_edition</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">pool</span><span class="o">.</span><span class="n">presentation_edition</span><span class="o">.</span><span class="n">author</span><span class="p">)</span>
                         <span class="k">else</span><span class="p">:</span>
-                            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                                 <span class="s2">&quot;Removing unknown work </span><span class="si">%s</span><span class="s2"> from circulation.&quot;</span><span class="p">,</span>
                                 <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
                             <span class="p">)</span>
@@ -2325,7 +2324,7 @@
                 <span class="n">drm_scheme</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span>
                 <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FormatData</span><span class="p">(</span><span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span><span class="p">))</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="bp">cls</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Unfamiliar format: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="o">.</span><span class="n">medium</span><span class="p">)</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Unfamiliar format: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="o">.</span><span class="n">medium</span><span class="p">)</span>
 
             <span class="c1"># Make a CirculationData so we can write the formats,</span>
             <span class="n">circulationdata</span> <span class="o">=</span> <span class="n">CirculationData</span><span class="p">(</span>
@@ -2863,17 +2862,15 @@
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -2890,7 +2887,7 @@
       &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

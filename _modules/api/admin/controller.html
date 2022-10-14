@@ -1,19 +1,18 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>api.admin.controller &#8212; Library Simplified Circulation Manager  documentation</title>
-    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../../../_static/jquery.js"></script>
-    <script type="text/javascript" src="../../../_static/underscore.js"></script>
-    <script type="text/javascript" src="../../../_static/doctools.js"></script>
-    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
    
@@ -47,7 +46,8 @@
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span><span class="p">,</span> <span class="n">redirect</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">lgt</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="kn">import</span> <span class="n">func</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="p">(</span><span class="n">and_</span><span class="p">,</span> <span class="n">desc</span><span class="p">,</span> <span class="n">distinct</span><span class="p">,</span> <span class="n">join</span><span class="p">,</span> <span class="n">nullslast</span><span class="p">,</span> <span class="n">select</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">and_</span><span class="p">,</span> <span class="n">desc</span><span class="p">,</span> <span class="n">distinct</span><span class="p">,</span> <span class="n">join</span><span class="p">,</span> <span class="n">nullslast</span><span class="p">,</span> <span class="n">select</span><span class="p">)</span>
 
 <span class="kn">from</span> <span class="nn">api.admin.exceptions</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ADMIN_AUTH_MECHANISM_NOT_CONFIGURED</span><span class="p">,</span> <span class="n">ADMIN_AUTH_NOT_CONFIGURED</span><span class="p">,</span>
@@ -66,11 +66,13 @@
 <span class="kn">from</span> <span class="nn">api.admin.google_oauth_admin_authentication_provider</span> <span class="kn">import</span> <span class="n">GoogleOAuthAdminAuthenticationProvider</span>
 <span class="kn">from</span> <span class="nn">api.admin.opds</span> <span class="kn">import</span> <span class="n">AdminAnnotator</span><span class="p">,</span> <span class="n">AdminFeed</span>
 <span class="kn">from</span> <span class="nn">api.admin.password_admin_authentication_provider</span> <span class="kn">import</span> <span class="n">PasswordAdminAuthenticationProvider</span>
-<span class="kn">from</span> <span class="nn">api.admin.template_styles</span> <span class="kn">import</span> <span class="p">(</span><span class="n">body_style</span><span class="p">,</span> <span class="n">error_style</span><span class="p">,</span> <span class="n">hr_style</span><span class="p">,</span> <span class="n">section_style</span><span class="p">,</span> <span class="n">small_link_style</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.admin.template_styles</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">body_style</span><span class="p">,</span> <span class="n">error_style</span><span class="p">,</span> <span class="n">hr_style</span><span class="p">,</span> <span class="n">section_style</span><span class="p">,</span> <span class="n">small_link_style</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">api.admin.templates</span> <span class="kn">import</span> <span class="n">admin</span> <span class="k">as</span> <span class="n">admin_template</span>
 <span class="kn">from</span> <span class="nn">api.admin.validator</span> <span class="kn">import</span> <span class="n">Validator</span>
 <span class="kn">from</span> <span class="nn">api.util.short_client_token</span> <span class="kn">import</span> <span class="n">ShortClientTokenUtility</span>
-<span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="p">(</span><span class="n">CannotCreateLocalPatron</span><span class="p">,</span> <span class="n">LibraryAuthenticator</span><span class="p">,</span> <span class="n">PatronData</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CannotCreateLocalPatron</span><span class="p">,</span> <span class="n">LibraryAuthenticator</span><span class="p">,</span> <span class="n">PatronData</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">api.axis</span> <span class="kn">import</span> <span class="n">Axis360API</span>
 <span class="kn">from</span> <span class="nn">api.bibliotheca</span> <span class="kn">import</span> <span class="n">BibliothecaAPI</span>
 <span class="kn">from</span> <span class="nn">api.config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">Configuration</span>
@@ -133,47 +135,66 @@
     <span class="kn">from</span> <span class="nn">api.admin.controller.self_tests</span> <span class="kn">import</span> <span class="n">SelfTestsController</span>
     <span class="n">manager</span><span class="o">.</span><span class="n">admin_self_tests_controller</span> <span class="o">=</span> <span class="n">SelfTestsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.discovery_services</span> <span class="kn">import</span> <span class="n">DiscoveryServicesController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_discovery_services_controller</span> <span class="o">=</span> <span class="n">DiscoveryServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_discovery_services_controller</span> <span class="o">=</span> <span class="n">DiscoveryServicesController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.discovery_service_library_registrations</span> <span class="kn">import</span> <span class="n">DiscoveryServiceLibraryRegistrationsController</span>  <span class="c1"># noqa: E501</span>
     <span class="n">manager</span><span class="o">.</span><span class="n">admin_discovery_service_library_registrations_controller</span> <span class="o">=</span> <span class="n">DiscoveryServiceLibraryRegistrationsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>  <span class="c1"># noqa: E501</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.cdn_services</span> <span class="kn">import</span> <span class="n">CDNServicesController</span>
     <span class="n">manager</span><span class="o">.</span><span class="n">admin_cdn_services_controller</span> <span class="o">=</span> <span class="n">CDNServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.analytics_services</span> <span class="kn">import</span> <span class="n">AnalyticsServicesController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_analytics_services_controller</span> <span class="o">=</span> <span class="n">AnalyticsServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_analytics_services_controller</span> <span class="o">=</span> <span class="n">AnalyticsServicesController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.metadata_services</span> <span class="kn">import</span> <span class="n">MetadataServicesController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_metadata_services_controller</span> <span class="o">=</span> <span class="n">MetadataServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_metadata_services_controller</span> <span class="o">=</span> <span class="n">MetadataServicesController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.metadata_service_self_tests</span> <span class="kn">import</span> <span class="n">MetadataServiceSelfTestsController</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.patron_auth_services</span> <span class="kn">import</span> <span class="n">PatronAuthServicesController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_metadata_service_self_tests_controller</span> <span class="o">=</span> <span class="n">MetadataServiceSelfTestsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_patron_auth_services_controller</span> <span class="o">=</span> <span class="n">PatronAuthServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_metadata_service_self_tests_controller</span> <span class="o">=</span> <span class="n">MetadataServiceSelfTestsController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_patron_auth_services_controller</span> <span class="o">=</span> <span class="n">PatronAuthServicesController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.patron_auth_service_self_tests</span> <span class="kn">import</span> <span class="n">PatronAuthServiceSelfTestsController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_patron_auth_service_self_tests_controller</span> <span class="o">=</span> <span class="n">PatronAuthServiceSelfTestsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_patron_auth_service_self_tests_controller</span> <span class="o">=</span> <span class="n">PatronAuthServiceSelfTestsController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.admin_auth_services</span> <span class="kn">import</span> <span class="n">AdminAuthServicesController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_auth_services_controller</span> <span class="o">=</span> <span class="n">AdminAuthServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_auth_services_controller</span> <span class="o">=</span> <span class="n">AdminAuthServicesController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.collection_settings</span> <span class="kn">import</span> <span class="n">CollectionSettingsController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_collection_settings_controller</span> <span class="o">=</span> <span class="n">CollectionSettingsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_collection_settings_controller</span> <span class="o">=</span> <span class="n">CollectionSettingsController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.collection_self_tests</span> <span class="kn">import</span> <span class="n">CollectionSelfTestsController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_collection_self_tests_controller</span> <span class="o">=</span> <span class="n">CollectionSelfTestsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_collection_self_tests_controller</span> <span class="o">=</span> <span class="n">CollectionSelfTestsController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.collection_library_registrations</span> <span class="kn">import</span> <span class="n">CollectionLibraryRegistrationsController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_collection_library_registrations_controller</span> <span class="o">=</span> <span class="n">CollectionLibraryRegistrationsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_collection_library_registrations_controller</span> <span class="o">=</span> <span class="n">CollectionLibraryRegistrationsController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.sitewide_settings</span> <span class="kn">import</span> <span class="n">SitewideConfigurationSettingsController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_sitewide_configuration_settings_controller</span> <span class="o">=</span> <span class="n">SitewideConfigurationSettingsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_sitewide_configuration_settings_controller</span> <span class="o">=</span> <span class="n">SitewideConfigurationSettingsController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.library_settings</span> <span class="kn">import</span> <span class="n">LibrarySettingsController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_library_settings_controller</span> <span class="o">=</span> <span class="n">LibrarySettingsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_library_settings_controller</span> <span class="o">=</span> <span class="n">LibrarySettingsController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.individual_admin_settings</span> <span class="kn">import</span> <span class="n">IndividualAdminSettingsController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_individual_admin_settings_controller</span> <span class="o">=</span> <span class="n">IndividualAdminSettingsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_individual_admin_settings_controller</span> <span class="o">=</span> <span class="n">IndividualAdminSettingsController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.sitewide_services</span> <span class="kn">import</span> <span class="p">(</span>
         <span class="n">LoggingServicesController</span><span class="p">,</span> <span class="n">SearchServicesController</span><span class="p">,</span> <span class="n">SitewideServicesController</span>
     <span class="p">)</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_sitewide_services_controller</span> <span class="o">=</span> <span class="n">SitewideServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_logging_services_controller</span> <span class="o">=</span> <span class="n">LoggingServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_sitewide_services_controller</span> <span class="o">=</span> <span class="n">SitewideServicesController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_logging_services_controller</span> <span class="o">=</span> <span class="n">LoggingServicesController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.search_service_self_tests</span> <span class="kn">import</span> <span class="n">SearchServiceSelfTestsController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_search_service_self_tests_controller</span> <span class="o">=</span> <span class="n">SearchServiceSelfTestsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_search_services_controller</span> <span class="o">=</span> <span class="n">SearchServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_search_service_self_tests_controller</span> <span class="o">=</span> <span class="n">SearchServiceSelfTestsController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_search_services_controller</span> <span class="o">=</span> <span class="n">SearchServicesController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.storage_services</span> <span class="kn">import</span> <span class="n">StorageServicesController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_storage_services_controller</span> <span class="o">=</span> <span class="n">StorageServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_storage_services_controller</span> <span class="o">=</span> <span class="n">StorageServicesController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.catalog_services</span> <span class="kn">import</span> <span class="n">CatalogServicesController</span>
-    <span class="n">manager</span><span class="o">.</span><span class="n">admin_catalog_services_controller</span> <span class="o">=</span> <span class="n">CatalogServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span></div>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_catalog_services_controller</span> <span class="o">=</span> <span class="n">CatalogServicesController</span><span class="p">(</span>
+        <span class="n">manager</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="AdminController"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.AdminController">[docs]</a><span class="k">class</span> <span class="nc">AdminController</span><span class="p">:</span>
@@ -221,8 +242,10 @@
 
 <div class="viewcode-block" id="AdminController.authenticated_admin"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.AdminController.authenticated_admin">[docs]</a>    <span class="k">def</span> <span class="nf">authenticated_admin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">admin_details</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Creates or updates an admin with the given details&quot;&quot;&quot;</span>
-        <span class="p">(</span><span class="n">admin</span><span class="p">,</span> <span class="n">is_new</span><span class="p">)</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Admin</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="n">admin_details</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">])</span>
-        <span class="n">admin</span><span class="o">.</span><span class="n">update_credentials</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">credential</span><span class="o">=</span><span class="n">admin_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;credentials&#39;</span><span class="p">))</span>
+        <span class="p">(</span><span class="n">admin</span><span class="p">,</span> <span class="n">is_new</span><span class="p">)</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Admin</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="n">admin_details</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">])</span>
+        <span class="n">admin</span><span class="o">.</span><span class="n">update_credentials</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">credential</span><span class="o">=</span><span class="n">admin_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;credentials&#39;</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">is_new</span> <span class="ow">and</span> <span class="n">admin_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;roles&quot;</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">admin_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;roles&quot;</span><span class="p">):</span>
@@ -231,13 +254,15 @@
 
                     <span class="k">if</span> <span class="n">role</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;library&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">library</span><span class="p">:</span>
                         <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> authentication provider specifiec an unknown library for a new admin: </span><span class="si">%s</span><span class="s2">&quot;</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span> <span class="o">%</span> <span class="p">(</span><span class="n">admin_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">),</span> <span class="n">role</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;library&quot;</span><span class="p">)))</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="n">msg</span> <span class="o">%</span> <span class="p">(</span><span class="n">admin_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">),</span> <span class="n">role</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;library&quot;</span><span class="p">)))</span>
                     <span class="k">else</span><span class="p">:</span>
                         <span class="n">admin</span><span class="o">.</span><span class="n">add_role</span><span class="p">(</span><span class="n">role</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;role&quot;</span><span class="p">),</span> <span class="n">library</span><span class="p">)</span>
 
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> authentication provider specified an unknown role for a new admin: </span><span class="si">%s</span><span class="s2">&quot;</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span> <span class="o">%</span> <span class="p">(</span><span class="n">admin_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">),</span> <span class="n">role</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;role&quot;</span><span class="p">)))</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="n">msg</span> <span class="o">%</span> <span class="p">(</span><span class="n">admin_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">),</span> <span class="n">role</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;role&quot;</span><span class="p">)))</span>
 
         <span class="c1"># Set up the admin&#39;s flask session.</span>
         <span class="n">flask</span><span class="o">.</span><span class="n">session</span><span class="p">[</span><span class="s2">&quot;admin_email&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">admin_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;email&quot;</span><span class="p">)</span>
@@ -250,7 +275,8 @@
         <span class="c1"># the sitewide BASE_URL_KEY setting. If it&#39;s not set, set it to the hostname of the current</span>
         <span class="c1"># request. This assumes the first authenticated admin is accessing the admin interface through</span>
         <span class="c1"># the hostname they want to be used for the site itself.</span>
-        <span class="n">base_url</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">BASE_URL_KEY</span><span class="p">)</span>
+        <span class="n">base_url</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">BASE_URL_KEY</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">base_url</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
             <span class="n">base_url</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="s1">&#39;/&#39;</span><span class="p">)</span>
@@ -291,7 +317,8 @@
             <span class="p">))</span>
 
         <span class="k">if</span> <span class="n">Admin</span><span class="o">.</span><span class="n">with_password</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">auth_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PasswordAdminAuthenticationProvider</span><span class="p">(</span><span class="n">auth_service</span><span class="p">))</span>
+            <span class="n">auth_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">PasswordAdminAuthenticationProvider</span><span class="p">(</span><span class="n">auth_service</span><span class="p">))</span>
 
         <span class="k">return</span> <span class="n">auth_providers</span></div>
 
@@ -387,7 +414,7 @@
                             <span class="s2">&quot;Your admin account doesn&#39;t have access to any libraries. &quot;</span>
                             <span class="s2">&quot;Contact your library manager for assistance.&quot;</span>
                         <span class="p">)</span>
-                        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">lgt</span><span class="p">(</span><span class="n">msg</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">lgt</span><span class="p">(</span><span class="n">msg</span><span class="p">),</span> <span class="mi">401</span><span class="p">)</span>
 
                     <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;admin_view&#39;</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">library_name</span><span class="p">))</span>
 
@@ -399,7 +426,8 @@
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">roles</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="n">role</span><span class="o">.</span><span class="n">role</span><span class="p">})</span>
 
-        <span class="n">csrf_token</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">cookies</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;csrf_token&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_csrf_token</span><span class="p">()</span>
+        <span class="n">csrf_token</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">cookies</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s2">&quot;csrf_token&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_csrf_token</span><span class="p">()</span>
 
         <span class="c1"># Find the URL and text to use when rendering the Terms of Service link in the footer.</span>
         <span class="n">sitewide_tos_href</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
@@ -500,7 +528,8 @@
         <span class="n">result</span> <span class="o">=</span> <span class="p">{}</span>
 
         <span class="k">for</span> <span class="n">timestamp</span> <span class="ow">in</span> <span class="n">timestamps</span><span class="p">:</span>
-            <span class="n">result</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">timestamp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;collection_name&quot;</span><span class="p">),</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">timestamp</span><span class="p">)</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">timestamp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="s2">&quot;collection_name&quot;</span><span class="p">),</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">timestamp</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">result</span>
 
@@ -567,7 +596,8 @@
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">admin</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="n">redirect_url</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;redirect&quot;</span><span class="p">)</span>
-            <span class="n">auth_provider_html</span> <span class="o">=</span> <span class="p">[</span><span class="n">auth</span><span class="o">.</span><span class="n">sign_in_template</span><span class="p">(</span><span class="n">redirect_url</span><span class="p">)</span> <span class="k">for</span> <span class="n">auth</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">admin_auth_providers</span><span class="p">]</span>
+            <span class="n">auth_provider_html</span> <span class="o">=</span> <span class="p">[</span><span class="n">auth</span><span class="o">.</span><span class="n">sign_in_template</span><span class="p">(</span>
+                <span class="n">redirect_url</span><span class="p">)</span> <span class="k">for</span> <span class="n">auth</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">admin_auth_providers</span><span class="p">]</span>
             <span class="n">auth_provider_html</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
 <span class="s2">                &lt;section style=&quot;</span><span class="si">{section}</span><span class="s2">&quot;&gt;</span>
 <span class="s2">                &lt;hr style=&quot;</span><span class="si">{hr}</span><span class="s2">&quot;&gt;or&lt;hr style=&quot;</span><span class="si">{hr}</span><span class="s2">&quot;&gt;</span>
@@ -589,11 +619,13 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">admin_auth_providers</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">ADMIN_AUTH_NOT_CONFIGURED</span>
 
-        <span class="n">auth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">admin_auth_provider</span><span class="p">(</span><span class="n">GoogleOAuthAdminAuthenticationProvider</span><span class="o">.</span><span class="n">NAME</span><span class="p">)</span>
+        <span class="n">auth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">admin_auth_provider</span><span class="p">(</span>
+            <span class="n">GoogleOAuthAdminAuthenticationProvider</span><span class="o">.</span><span class="n">NAME</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">auth</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">ADMIN_AUTH_MECHANISM_NOT_CONFIGURED</span>
 
-        <span class="n">admin_details</span><span class="p">,</span> <span class="n">redirect_url</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="p">)</span>
+        <span class="n">admin_details</span><span class="p">,</span> <span class="n">redirect_url</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">callback</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">admin_details</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_response</span><span class="p">(</span><span class="n">admin_details</span><span class="p">)</span>
 
@@ -604,11 +636,13 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">admin_auth_providers</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">ADMIN_AUTH_NOT_CONFIGURED</span>
 
-        <span class="n">auth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">admin_auth_provider</span><span class="p">(</span><span class="n">PasswordAdminAuthenticationProvider</span><span class="o">.</span><span class="n">NAME</span><span class="p">)</span>
+        <span class="n">auth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">admin_auth_provider</span><span class="p">(</span>
+            <span class="n">PasswordAdminAuthenticationProvider</span><span class="o">.</span><span class="n">NAME</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">auth</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">ADMIN_AUTH_MECHANISM_NOT_CONFIGURED</span>
 
-        <span class="n">admin_details</span><span class="p">,</span> <span class="n">redirect_url</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">sign_in</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">)</span>
+        <span class="n">admin_details</span><span class="p">,</span> <span class="n">redirect_url</span> <span class="o">=</span> <span class="n">auth</span><span class="o">.</span><span class="n">sign_in</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">admin_details</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_response</span><span class="p">(</span><span class="n">INVALID_ADMIN_CREDENTIALS</span><span class="p">)</span>
 
@@ -627,7 +661,8 @@
         <span class="n">flask</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;admin_email&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">flask</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;auth_type&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
-        <span class="n">redirect_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;admin_sign_in&quot;</span><span class="p">,</span> <span class="n">redirect</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;admin_view&quot;</span><span class="p">),</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">redirect_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span>
+            <span class="s2">&quot;admin_sign_in&quot;</span><span class="p">,</span> <span class="n">redirect</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;admin_view&quot;</span><span class="p">),</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">redirect_url</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SignInController.error_response"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.SignInController.error_response">[docs]</a>    <span class="k">def</span> <span class="nf">error_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem_detail</span><span class="p">):</span>
@@ -669,8 +704,7 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Delete all Credentials for a patron that are relevant to the patron&#39;s Adobe Account ID.</span>
 
-<span class="sd">        :param authenticator: A LibraryAuthenticator. This is for mocking during tests;</span>
-<span class="sd">            it&#39;s not necessary to provide it normal</span>
+<span class="sd">        :param authenticator: A LibraryAuthenticator. This is for mocking during tests; it&#39;s not necessary to provide it normal</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">patrondata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_patrondata</span><span class="p">(</span><span class="n">authenticator</span><span class="p">)</span>
 
@@ -700,7 +734,8 @@
             <span class="n">identifier</span> <span class="o">=</span> <span class="s2">&quot;with identifier &quot;</span> <span class="o">+</span> <span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span>
 
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span>
-            <span class="nb">str</span><span class="p">(</span><span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;Adobe ID for patron </span><span class="si">%(name_or_auth_id)s</span><span class="s2"> has been reset.&quot;</span><span class="p">,</span> <span class="n">name_or_auth_id</span><span class="o">=</span><span class="n">identifier</span><span class="p">)),</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;Adobe ID for patron </span><span class="si">%(name_or_auth_id)s</span><span class="s2"> has been reset.&quot;</span><span class="p">,</span>
+                <span class="n">name_or_auth_id</span><span class="o">=</span><span class="n">identifier</span><span class="p">)),</span>
             <span class="mi">200</span>
         <span class="p">)</span></div>
 
@@ -720,7 +755,8 @@
             <span class="k">return</span> <span class="n">NO_SUCH_PATRON</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;Please enter a patron identifier&quot;</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">authenticator</span><span class="p">:</span>
-            <span class="n">authenticator</span> <span class="o">=</span> <span class="n">LibraryAuthenticator</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+            <span class="n">authenticator</span> <span class="o">=</span> <span class="n">LibraryAuthenticator</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
 
         <span class="n">patron_data</span> <span class="o">=</span> <span class="n">PatronData</span><span class="p">(</span><span class="n">authorization_identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">)</span>
         <span class="n">complete_patron_data</span> <span class="o">=</span> <span class="kc">None</span>
@@ -828,17 +864,21 @@
             <span class="k">for</span> <span class="nb">list</span> <span class="ow">in</span> <span class="n">library</span><span class="o">.</span><span class="n">custom_lists</span><span class="p">:</span>
                 <span class="n">collections</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="nb">list</span><span class="o">.</span><span class="n">collections</span><span class="p">:</span>
-                    <span class="n">collections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="p">))</span>
+                    <span class="n">collections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="nb">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="p">))</span>
 
-                <span class="n">custom_lists</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="nb">list</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="nb">list</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">collections</span><span class="o">=</span><span class="n">collections</span><span class="p">,</span> <span class="n">entry_count</span><span class="o">=</span><span class="nb">list</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
+                <span class="n">custom_lists</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="nb">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="nb">list</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="nb">list</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">collections</span><span class="o">=</span><span class="n">collections</span><span class="p">,</span> <span class="n">entry_count</span><span class="o">=</span><span class="nb">list</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
 
             <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">custom_lists</span><span class="o">=</span><span class="n">custom_lists</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;POST&quot;</span><span class="p">:</span>
             <span class="nb">id</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
             <span class="n">name</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span>
-            <span class="n">entries</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getJSONFromRequest</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;entries&quot;</span><span class="p">))</span>
-            <span class="n">collections</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getJSONFromRequest</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;collections&quot;</span><span class="p">))</span>
+            <span class="n">entries</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getJSONFromRequest</span><span class="p">(</span>
+                <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;entries&quot;</span><span class="p">))</span>
+            <span class="n">collections</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getJSONFromRequest</span><span class="p">(</span>
+                <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;collections&quot;</span><span class="p">))</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_or_update_list</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">entries</span><span class="p">,</span> <span class="n">collections</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="nb">id</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="CustomListsController.url_for_custom_list"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.CustomListsController.url_for_custom_list">[docs]</a>    <span class="k">def</span> <span class="nf">url_for_custom_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
@@ -852,7 +892,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">require_librarian</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
         <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">LIBRARY_STAFF</span><span class="p">)</span>
 
-        <span class="nb">list</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">CustomList</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">list_id</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">)</span>
+        <span class="nb">list</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">CustomList</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">list_id</span><span class="p">,</span>
+                       <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">list</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">MISSING_CUSTOM_LIST</span>
@@ -879,21 +920,26 @@
 
             <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">worklist</span><span class="p">)</span>
             <span class="n">url_fn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">url_for_custom_list</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
-            <span class="n">feed</span> <span class="o">=</span> <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">from_query</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="nb">list</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span> <span class="n">url_fn</span><span class="p">,</span> <span class="n">annotator</span><span class="p">)</span>
+            <span class="n">feed</span> <span class="o">=</span> <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">from_query</span><span class="p">(</span>
+                <span class="n">query</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="nb">list</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span> <span class="n">url_fn</span><span class="p">,</span> <span class="n">annotator</span><span class="p">)</span>
             <span class="n">annotator</span><span class="o">.</span><span class="n">annotate_feed</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">worklist</span><span class="p">)</span>
 
             <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">feed</span><span class="p">),</span> <span class="n">max_age</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
         <span class="k">elif</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;POST&quot;</span><span class="p">:</span>
             <span class="n">name</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span>
-            <span class="n">entries</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getJSONFromRequest</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;entries&quot;</span><span class="p">))</span>
-            <span class="n">collections</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getJSONFromRequest</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;collections&quot;</span><span class="p">))</span>
-            <span class="n">deletedEntries</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getJSONFromRequest</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;deletedEntries&quot;</span><span class="p">))</span>
+            <span class="n">entries</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getJSONFromRequest</span><span class="p">(</span>
+                <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;entries&quot;</span><span class="p">))</span>
+            <span class="n">collections</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getJSONFromRequest</span><span class="p">(</span>
+                <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;collections&quot;</span><span class="p">))</span>
+            <span class="n">deletedEntries</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getJSONFromRequest</span><span class="p">(</span>
+                <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;deletedEntries&quot;</span><span class="p">))</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_or_update_list</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">entries</span><span class="p">,</span> <span class="n">collections</span><span class="p">,</span>
                                                <span class="n">deletedEntries</span><span class="o">=</span><span class="n">deletedEntries</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">list_id</span><span class="p">)</span>
 
         <span class="k">elif</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;DELETE&quot;</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">require_library_manager</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>     <span class="c1"># Deleting requires a library manager.</span>
+            <span class="c1"># Deleting requires a library manager.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">require_library_manager</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
 
             <span class="c1"># Build the list of affected lanes before modifying the CustomList.</span>
             <span class="n">affected_lanes</span> <span class="o">=</span> <span class="n">Lane</span><span class="o">.</span><span class="n">affected_by_customlist</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
@@ -950,7 +996,8 @@
 
         <span class="k">if</span> <span class="nb">id</span><span class="p">:</span>
             <span class="n">is_new</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="nb">list</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">CustomList</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="nb">id</span><span class="p">),</span> <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">)</span>
+            <span class="nb">list</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">CustomList</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="nb">id</span><span class="p">),</span>
+                           <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">list</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">MISSING_CUSTOM_LIST</span>
@@ -964,7 +1011,8 @@
         <span class="k">elif</span> <span class="n">old_list_with_name</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">CUSTOM_LIST_NAME_ALREADY_IN_USE</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="nb">list</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">CustomList</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">)</span>
+            <span class="nb">list</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">CustomList</span><span class="p">,</span>
+                                  <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">)</span>
             <span class="nb">list</span><span class="o">.</span><span class="n">created</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
             <span class="nb">list</span><span class="o">.</span><span class="n">library</span> <span class="o">=</span> <span class="n">library</span>
 
@@ -1068,8 +1116,10 @@
             <span class="nb">id</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
             <span class="n">parent_id</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;parent_id&quot;</span><span class="p">)</span>
             <span class="n">display_name</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;display_name&quot;</span><span class="p">)</span>
-            <span class="n">custom_list_ids</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;custom_list_ids&quot;</span><span class="p">,</span> <span class="s2">&quot;[]&quot;</span><span class="p">))</span>
-            <span class="n">inherit_parent_restrictions</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;inherit_parent_restrictions&quot;</span><span class="p">)</span>
+            <span class="n">custom_list_ids</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span>
+                <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;custom_list_ids&quot;</span><span class="p">,</span> <span class="s2">&quot;[]&quot;</span><span class="p">))</span>
+            <span class="n">inherit_parent_restrictions</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="s2">&quot;inherit_parent_restrictions&quot;</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">inherit_parent_restrictions</span> <span class="o">==</span> <span class="s2">&quot;true&quot;</span><span class="p">:</span>
                 <span class="n">inherit_parent_restrictions</span> <span class="o">=</span> <span class="kc">True</span>
@@ -1093,7 +1143,8 @@
                     <span class="k">return</span> <span class="n">CANNOT_EDIT_DEFAULT_LANE</span>
 
                 <span class="k">if</span> <span class="n">display_name</span> <span class="o">!=</span> <span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">:</span>
-                    <span class="n">old_lane</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
+                    <span class="n">old_lane</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">old_lane</span><span class="p">:</span>
                         <span class="k">return</span> <span class="n">LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS</span>
 
@@ -1102,17 +1153,20 @@
                 <span class="n">parent</span> <span class="o">=</span> <span class="kc">None</span>
 
                 <span class="k">if</span> <span class="n">parent_id</span><span class="p">:</span>
-                    <span class="n">parent</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">parent_id</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">)</span>
+                    <span class="n">parent</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">parent_id</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">)</span>
                     <span class="k">if</span> <span class="ow">not</span> <span class="n">parent</span><span class="p">:</span>
                         <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;The specified parent lane does not exist, or is associated with a different library.&quot;</span>
                         <span class="k">return</span> <span class="n">MISSING_LANE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">lgt</span><span class="p">(</span><span class="n">msg</span><span class="p">))</span>
 
-                <span class="n">old_lane</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
+                <span class="n">old_lane</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="n">old_lane</span><span class="p">:</span>
                     <span class="k">return</span> <span class="n">LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS</span>
 
-                <span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">is_new</span><span class="p">)</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">)</span>
+                <span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">is_new</span><span class="p">)</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span>
+                                        <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">)</span>
 
                 <span class="c1"># Make a new lane the first child of its parent and bump all the siblings down in priority.</span>
                 <span class="n">siblings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Lane</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
@@ -1131,7 +1185,8 @@
             <span class="n">lane</span><span class="o">.</span><span class="n">inherit_parent_restrictions</span> <span class="o">=</span> <span class="n">inherit_parent_restrictions</span>
 
             <span class="k">for</span> <span class="n">list_id</span> <span class="ow">in</span> <span class="n">custom_list_ids</span><span class="p">:</span>
-                <span class="nb">list</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">CustomList</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">list_id</span><span class="p">)</span>
+                <span class="nb">list</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">CustomList</span><span class="p">,</span>
+                               <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">list_id</span><span class="p">)</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="nb">list</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
                     <span class="k">return</span> <span class="n">MISSING_CUSTOM_LIST</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
@@ -1241,6 +1296,11 @@
     <span class="c1">##### Public Interface / Magic Methods ###################################  # noqa: E266</span>
 
 <div class="viewcode-block" id="DashboardController.stats"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.DashboardController.stats">[docs]</a>    <span class="k">def</span> <span class="nf">stats</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return an accounting of library statistics</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Stats total licenses, available licenses, and patrons for each library.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">library_stats</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">total_title_count</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">total_license_count</span> <span class="o">=</span> <span class="mi">0</span>
@@ -1304,7 +1364,8 @@
             <span class="k">if</span> <span class="ow">not</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">admin</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">admin</span><span class="o">.</span><span class="n">is_librarian</span><span class="p">(</span><span class="n">library</span><span class="p">):</span>
                 <span class="k">continue</span>
 
-            <span class="n">patron_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Patron</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Patron</span><span class="o">.</span><span class="n">library_id</span> <span class="o">==</span> <span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+            <span class="n">patron_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Patron</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Patron</span><span class="o">.</span><span class="n">library_id</span> <span class="o">==</span> <span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
 
             <span class="n">active_loans_patron_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
                 <span class="n">distinct</span><span class="p">(</span><span class="n">Patron</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
@@ -1380,7 +1441,8 @@
             <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">library</span><span class="o">.</span><span class="n">all_collections</span><span class="p">:</span>
                 <span class="n">counts</span> <span class="o">=</span> <span class="n">collection_counts</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
                 <span class="n">library_collection_counts</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">counts</span>
-                <span class="n">title_count</span> <span class="o">+=</span> <span class="n">counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;licensed_titles&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;open_access_titles&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="n">title_count</span> <span class="o">+=</span> <span class="n">counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;licensed_titles&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> \
+                    <span class="n">counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;open_access_titles&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
                 <span class="n">license_count</span> <span class="o">+=</span> <span class="n">counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;licenses&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
                 <span class="n">available_license_count</span> <span class="o">+=</span> <span class="n">counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;available_licenses&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
@@ -1432,6 +1494,13 @@
         <span class="k">return</span> <span class="n">library_stats</span></div>
 
 <div class="viewcode-block" id="DashboardController.circulation_events"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.DashboardController.circulation_events">[docs]</a>    <span class="k">def</span> <span class="nf">circulation_events</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return dict of circulation events for a given work.</span>
+
+<span class="sd">        Optional &quot;num&quot; parameter in request to change number of results.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: A dictionary of events</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">annotator</span> <span class="o">=</span> <span class="n">AdminAnnotator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
         <span class="n">num</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num&quot;</span><span class="p">,</span> <span class="s2">&quot;100&quot;</span><span class="p">)),</span> <span class="mi">500</span><span class="p">)</span>
 
@@ -1620,7 +1689,8 @@
             <span class="n">protocols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocols</span>
 
         <span class="p">[</span><span class="n">protocol</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">protocols</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">protocol</span><span class="p">]</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_integration_settings_and_libraries</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_integration_settings_and_libraries</span><span class="p">(</span>
+            <span class="n">service</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">result</span></div>
@@ -1670,7 +1740,8 @@
     <span class="k">def</span> <span class="nf">_get_integration_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">goal</span><span class="p">,</span> <span class="n">protocols</span><span class="p">):</span>
         <span class="n">services</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">service</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">goal</span> <span class="o">==</span> <span class="n">goal</span><span class="p">):</span>
-            <span class="n">candidates</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">protocols</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">service</span><span class="o">.</span><span class="n">protocol</span><span class="p">]</span>
+            <span class="n">candidates</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">protocols</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="s2">&quot;name&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">service</span><span class="o">.</span><span class="n">protocol</span><span class="p">]</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="n">candidates</span><span class="p">:</span>
                 <span class="k">continue</span>
@@ -1680,7 +1751,8 @@
 
             <span class="k">if</span> <span class="ow">not</span> <span class="n">protocol</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sitewide&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">protocol</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;library_settings&quot;</span><span class="p">):</span>
                 <span class="k">for</span> <span class="n">library</span> <span class="ow">in</span> <span class="n">service</span><span class="o">.</span><span class="n">libraries</span><span class="p">:</span>
-                    <span class="n">libraries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_library_info</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">protocol</span><span class="p">))</span>
+                    <span class="n">libraries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_library_info</span><span class="p">(</span>
+                        <span class="n">service</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">protocol</span><span class="p">))</span>
 
             <span class="n">settings</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
             <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">protocol</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">,</span> <span class="p">[]):</span>
@@ -1712,7 +1784,8 @@
                                 <span class="n">settings</span><span class="o">=</span><span class="n">settings</span><span class="p">,</span> <span class="n">libraries</span><span class="o">=</span><span class="n">libraries</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="s2">&quot;test_search_term&quot;</span> <span class="ow">in</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">protocol</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">)]:</span>
-                <span class="n">service_info</span><span class="p">[</span><span class="s2">&quot;self_test_results&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_prior_test_results</span><span class="p">(</span><span class="n">service</span><span class="p">)</span>
+                <span class="n">service_info</span><span class="p">[</span><span class="s2">&quot;self_test_results&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_prior_test_results</span><span class="p">(</span>
+                    <span class="n">service</span><span class="p">)</span>
 
             <span class="n">services</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">service_info</span><span class="p">)</span>
 
@@ -1723,7 +1796,8 @@
         <span class="n">setting_type</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">setting_type</span> <span class="o">==</span> <span class="s2">&quot;list&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;options&quot;</span><span class="p">):</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="p">[</span><span class="n">item</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">getlist</span><span class="p">(</span><span class="n">setting_key</span><span class="p">)</span> <span class="k">if</span> <span class="n">item</span><span class="p">]</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="p">[</span><span class="n">item</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">getlist</span><span class="p">(</span>
+                <span class="n">setting_key</span><span class="p">)</span> <span class="k">if</span> <span class="n">item</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">value</span><span class="p">:</span>
                 <span class="n">value</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">setting_type</span> <span class="o">==</span> <span class="s1">&#39;menu&#39;</span><span class="p">:</span>
@@ -1733,7 +1807,8 @@
 
         <span class="k">if</span> <span class="n">value</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;options&quot;</span><span class="p">):</span>
             <span class="c1"># This setting can only take on values that are in its list of options.</span>
-            <span class="n">allowed_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">option</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">option</span> <span class="ow">in</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;options&quot;</span><span class="p">)]</span>
+            <span class="n">allowed_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">option</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span>
+                              <span class="k">for</span> <span class="n">option</span> <span class="ow">in</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;options&quot;</span><span class="p">)]</span>
             <span class="n">submitted_values</span> <span class="o">=</span> <span class="n">value</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">submitted_values</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
@@ -1757,7 +1832,8 @@
         <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">setting_key</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
 
     <span class="k">def</span> <span class="nf">_set_integration_library</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">library_info</span><span class="p">,</span> <span class="n">protocol</span><span class="p">):</span>
-        <span class="n">library</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Library</span><span class="p">,</span> <span class="n">short_name</span><span class="o">=</span><span class="n">library_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;short_name&quot;</span><span class="p">))</span>
+        <span class="n">library</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Library</span><span class="p">,</span>
+                          <span class="n">short_name</span><span class="o">=</span><span class="n">library_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;short_name&quot;</span><span class="p">))</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">library</span><span class="p">:</span>
             <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;You attempted to add the integration to </span><span class="si">%(library_short_name)s</span><span class="s2">, but it does not exist.&quot;</span>
             <span class="k">return</span> <span class="n">NO_SUCH_LIBRARY</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">lgt</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">library_short_name</span><span class="o">=</span><span class="n">library_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;short_name&quot;</span><span class="p">)))</span>
@@ -1782,7 +1858,8 @@
                         <span class="n">setting</span><span class="o">=</span><span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">),</span>
                         <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,))</span>
 
-            <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
 
     <span class="k">def</span> <span class="nf">_set_integration_settings_and_libraries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">protocol</span><span class="p">):</span>
         <span class="n">settings</span> <span class="o">=</span> <span class="n">protocol</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">)</span>
@@ -1800,7 +1877,8 @@
                 <span class="n">libraries</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;libraries&quot;</span><span class="p">))</span>
 
             <span class="k">for</span> <span class="n">library_info</span> <span class="ow">in</span> <span class="n">libraries</span><span class="p">:</span>
-                <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_integration_library</span><span class="p">(</span><span class="n">integration</span><span class="p">,</span> <span class="n">library_info</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_integration_library</span><span class="p">(</span>
+                    <span class="n">integration</span><span class="p">,</span> <span class="n">library_info</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
                     <span class="k">return</span> <span class="n">result</span>
 
@@ -1811,7 +1889,8 @@
             <span class="k">return</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">require_system_admin</span><span class="p">()</span>
-        <span class="n">integration</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">integration_id</span><span class="p">,</span> <span class="n">goal</span><span class="o">=</span><span class="n">goal</span><span class="p">)</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span>
+                              <span class="nb">id</span><span class="o">=</span><span class="n">integration_id</span><span class="p">,</span> <span class="n">goal</span><span class="o">=</span><span class="n">goal</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">integration</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">MISSING_SERVICE</span>
@@ -1821,7 +1900,8 @@
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;Deleted&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_get_collection_protocols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_apis</span><span class="p">):</span>
-        <span class="n">protocols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_protocols</span><span class="p">(</span><span class="n">provider_apis</span><span class="p">,</span> <span class="n">protocol_name_attr</span><span class="o">=</span><span class="s2">&quot;NAME&quot;</span><span class="p">)</span>
+        <span class="n">protocols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_protocols</span><span class="p">(</span>
+            <span class="n">provider_apis</span><span class="p">,</span> <span class="n">protocol_name_attr</span><span class="o">=</span><span class="s2">&quot;NAME&quot;</span><span class="p">)</span>
         <span class="n">protocols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="p">{</span>
                 <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">MANUAL</span><span class="p">,</span>
@@ -1895,7 +1975,7 @@
             <span class="n">message</span> <span class="o">=</span> <span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;Exception getting self-test results for </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="n">error_message</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
             <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">error_message</span><span class="p">)</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">error_message</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">error_message</span><span class="p">)</span>
             <span class="n">self_test_results</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">exception</span><span class="o">=</span><span class="n">message</span> <span class="o">%</span> <span class="n">args</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">self_test_results</span>
@@ -1914,22 +1994,29 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">integrations</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
             <span class="k">return</span>
 
-        <span class="n">mirror_integration_settings</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COLLECTION_MIRROR_SETTINGS</span><span class="p">)</span>
+        <span class="n">mirror_integration_settings</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span>
+            <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COLLECTION_MIRROR_SETTINGS</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="n">integrations</span><span class="p">:</span>
-            <span class="n">book_covers_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-            <span class="n">open_access_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">OA_CONTENT_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-            <span class="n">protected_access_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">PROTECTED_CONTENT_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">book_covers_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
+                <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">open_access_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
+                <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">OA_CONTENT_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">protected_access_bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
+                <span class="n">S3UploaderConfiguration</span><span class="o">.</span><span class="n">PROTECTED_CONTENT_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
 
             <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">mirror_integration_settings</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;key&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS_KEY</span> <span class="ow">and</span> <span class="n">book_covers_bucket</span><span class="p">:</span>
-                    <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">})</span>
+                    <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="p">{</span><span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">})</span>
                 <span class="k">elif</span> <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;key&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">OPEN_ACCESS_BOOKS_KEY</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">open_access_bucket</span><span class="p">:</span>
-                        <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">})</span>
+                        <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="p">{</span><span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">})</span>
                 <span class="k">elif</span> <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;key&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">PROTECTED_ACCESS_BOOKS_KEY</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">protected_access_bucket</span><span class="p">:</span>
-                        <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">})</span>
+                        <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="p">{</span><span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">})</span>
 
         <span class="k">return</span> <span class="n">mirror_integration_settings</span>
 
@@ -1944,7 +2031,8 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">protocol</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">NO_PROTOCOL_FOR_NEW_SERVICE</span><span class="p">,</span> <span class="kc">False</span>
 
-        <span class="n">matches</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">protocol_definitions</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="n">protocol</span><span class="p">]</span>
+        <span class="n">matches</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">protocol_definitions</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s1">&#39;name&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="n">protocol</span><span class="p">]</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">matches</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">UNKNOWN_PROTOCOL</span><span class="p">,</span> <span class="kc">False</span>
@@ -1979,7 +2067,8 @@
 
     <span class="k">def</span> <span class="nf">_get_settings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;protocols&#39;</span><span class="p">):</span>
-            <span class="p">[</span><span class="n">protocol</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocols</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;protocol&quot;</span><span class="p">)]</span>
+            <span class="p">[</span><span class="n">protocol</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocols</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="s2">&quot;name&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;protocol&quot;</span><span class="p">)]</span>
             <span class="k">return</span> <span class="n">protocol</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="p">[]</span>
@@ -1999,9 +2088,11 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">Validator</span><span class="p">()</span><span class="o">.</span><span class="n">_is_url</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="p">[]):</span>    <span class="c1"># An invalid URL has no variants.</span>
             <span class="k">return</span>
 
-        <span class="k">yield</span> <span class="n">url</span>                               <span class="c1"># A URL is a &#39;variant&#39; of itself.</span>
+        <span class="c1"># A URL is a &#39;variant&#39; of itself.</span>
+        <span class="k">yield</span> <span class="n">url</span>
 
-        <span class="k">if</span> <span class="n">url</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">):</span>                   <span class="c1"># Adding or removing a slash creates a variant.</span>
+        <span class="c1"># Adding or removing a slash creates a variant.</span>
+        <span class="k">if</span> <span class="n">url</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">):</span>
             <span class="k">yield</span> <span class="n">url</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">yield</span> <span class="n">url</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span>
@@ -2232,7 +2323,8 @@
 <span class="sd">        service, or return an error message if there is no shared secret.&quot;&quot;&quot;</span>
 
         <span class="n">registration_info</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-        <span class="n">shared_secret</span> <span class="o">=</span> <span class="n">registration_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;metadata&#39;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;shared_secret&#39;</span><span class="p">)</span>
+        <span class="n">shared_secret</span> <span class="o">=</span> <span class="n">registration_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s1">&#39;metadata&#39;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;shared_secret&#39;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">shared_secret</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">REMOTE_INTEGRATION_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">lgt</span><span class="p">(</span><span class="s1">&#39;The service did not provide registration information.&#39;</span><span class="p">)</span>
@@ -2297,17 +2389,15 @@
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -2324,7 +2414,7 @@
       &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

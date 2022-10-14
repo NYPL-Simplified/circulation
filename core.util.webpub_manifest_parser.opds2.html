@@ -1,0 +1,634 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>core.util.webpub_manifest_parser.opds2 package &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="core.util.webpub_manifest_parser.rwpm package" href="core.util.webpub_manifest_parser.rwpm.html" />
+    <link rel="prev" title="core.util.webpub_manifest_parser.epub package" href="core.util.webpub_manifest_parser.epub.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="core-util-webpub-manifest-parser-opds2-package">
+<h1>core.util.webpub_manifest_parser.opds2 package<a class="headerlink" href="#core-util-webpub-manifest-parser-opds2-package" title="Permalink to this heading">¶</a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading">¶</a></h2>
+</section>
+<section id="module-core.util.webpub_manifest_parser.opds2.ast">
+<span id="core-util-webpub-manifest-parser-opds2-ast-module"></span><h2>core.util.webpub_manifest_parser.opds2.ast module<a class="headerlink" href="#module-core.util.webpub_manifest_parser.opds2.ast" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2AcquisitionObject">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">OPDS2AcquisitionObject</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#OPDS2AcquisitionObject"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2AcquisitionObject" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Node" title="core.util.webpub_manifest_parser.core.ast.Node"><code class="xref py py-class docutils literal notranslate"><span class="pre">Node</span></code></a></p>
+<p>OPDS 2.0 acquisition information.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2AcquisitionObject.child">
+<span class="sig-name descname"><span class="pre">child</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2AcquisitionObject.child" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property containing an array of items.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2AcquisitionObject.type">
+<span class="sig-name descname"><span class="pre">type</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2AcquisitionObject.type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only string values.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityInformation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">OPDS2AvailabilityInformation</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#OPDS2AvailabilityInformation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityInformation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Node" title="core.util.webpub_manifest_parser.core.ast.Node"><code class="xref py py-class docutils literal notranslate"><span class="pre">Node</span></code></a></p>
+<p>OPDS 2.0 availability information.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityInformation.since">
+<span class="sig-name descname"><span class="pre">since</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityInformation.since" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing date or date &amp; time values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityInformation.state">
+<span class="sig-name descname"><span class="pre">state</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityInformation.state" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only specific string values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityInformation.until">
+<span class="sig-name descname"><span class="pre">until</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityInformation.until" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing date or date &amp; time values.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">OPDS2AvailabilityType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#OPDS2AvailabilityType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityType" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></p>
+<p>Enumeration of different availability types.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityType.AVAILABLE">
+<span class="sig-name descname"><span class="pre">AVAILABLE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'available'</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityType.AVAILABLE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityType.READY">
+<span class="sig-name descname"><span class="pre">READY</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ready'</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityType.READY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityType.RESERVED">
+<span class="sig-name descname"><span class="pre">RESERVED</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'reserved'</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityType.RESERVED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityType.UNAVAILABLE">
+<span class="sig-name descname"><span class="pre">UNAVAILABLE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'unavailable'</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2AvailabilityType.UNAVAILABLE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2CopiesInformation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">OPDS2CopiesInformation</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#OPDS2CopiesInformation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2CopiesInformation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Node" title="core.util.webpub_manifest_parser.core.ast.Node"><code class="xref py py-class docutils literal notranslate"><span class="pre">Node</span></code></a></p>
+<p>OPDS 2.0 information about available copies.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2CopiesInformation.available">
+<span class="sig-name descname"><span class="pre">available</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2CopiesInformation.available" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only integer values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2CopiesInformation.total">
+<span class="sig-name descname"><span class="pre">total</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2CopiesInformation.total" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only integer values.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Facet">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">OPDS2Facet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">role</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">links</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#OPDS2Facet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Facet" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Collection" title="core.util.webpub_manifest_parser.core.ast.Collection"><code class="xref py py-class docutils literal notranslate"><span class="pre">Collection</span></code></a></p>
+<p>OPDS 2.0 facet.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Facet.metadata">
+<span class="sig-name descname"><span class="pre">metadata</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Facet.metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only specific values of a specific Type.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">OPDS2Feed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">links</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">publications</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">navigation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#OPDS2Feed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Manifestlike" title="core.util.webpub_manifest_parser.core.ast.Manifestlike"><code class="xref py py-class docutils literal notranslate"><span class="pre">Manifestlike</span></code></a></p>
+<p>OPDS 2.0 feed.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed.facets">
+<span class="sig-name descname"><span class="pre">facets</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed.facets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing to contain a compact sub-collection.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed.groups">
+<span class="sig-name descname"><span class="pre">groups</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed.groups" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing to contain a compact sub-collection.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed.metadata">
+<span class="sig-name descname"><span class="pre">metadata</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed.metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only specific values of a specific Type.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed.navigation">
+<span class="sig-name descname"><span class="pre">navigation</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed.navigation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing to contain a compact sub-collection.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed.publications">
+<span class="sig-name descname"><span class="pre">publications</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Feed.publications" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing to contain a compact sub-collection.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">OPDS2FeedMetadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subtitle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">modified</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">items_per_page</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">current_page</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#OPDS2FeedMetadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Node" title="core.util.webpub_manifest_parser.core.ast.Node"><code class="xref py py-class docutils literal notranslate"><span class="pre">Node</span></code></a></p>
+<p>OPDS 2.0 feed metadata.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.current_page">
+<span class="sig-name descname"><span class="pre">current_page</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.current_page" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only integer values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.description">
+<span class="sig-name descname"><span class="pre">description</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.description" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only string values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.identifier">
+<span class="sig-name descname"><span class="pre">identifier</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.identifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only URI values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.items_per_page">
+<span class="sig-name descname"><span class="pre">items_per_page</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.items_per_page" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only integer values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.modified">
+<span class="sig-name descname"><span class="pre">modified</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.modified" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only date &amp; time values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.number_of_items">
+<span class="sig-name descname"><span class="pre">number_of_items</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.number_of_items" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only integer values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.subtitle">
+<span class="sig-name descname"><span class="pre">subtitle</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.subtitle" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property containing arbitrary values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.title">
+<span class="sig-name descname"><span class="pre">title</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.title" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property containing arbitrary values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.type">
+<span class="sig-name descname"><span class="pre">type</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2FeedMetadata.type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only URI values.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Group">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">OPDS2Group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">publications</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">navigation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#OPDS2Group"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Group" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Collection" title="core.util.webpub_manifest_parser.core.ast.Collection"><code class="xref py py-class docutils literal notranslate"><span class="pre">Collection</span></code></a></p>
+<p>OPDS 2.0 group.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Group.metadata">
+<span class="sig-name descname"><span class="pre">metadata</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Group.metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only specific values of a specific Type.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Group.navigation">
+<span class="sig-name descname"><span class="pre">navigation</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Group.navigation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing to contain a compact sub-collection.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Group.publications">
+<span class="sig-name descname"><span class="pre">publications</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Group.publications" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing to contain a compact sub-collection.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2HoldsInformation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">OPDS2HoldsInformation</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#OPDS2HoldsInformation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2HoldsInformation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Node" title="core.util.webpub_manifest_parser.core.ast.Node"><code class="xref py py-class docutils literal notranslate"><span class="pre">Node</span></code></a></p>
+<p>OPDS 2.0 holds information.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2HoldsInformation.position">
+<span class="sig-name descname"><span class="pre">position</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2HoldsInformation.position" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only integer values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2HoldsInformation.total">
+<span class="sig-name descname"><span class="pre">total</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2HoldsInformation.total" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only integer values.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">OPDS2LinkProperties</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#OPDS2LinkProperties"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.LinkProperties" title="core.util.webpub_manifest_parser.core.ast.LinkProperties"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinkProperties</span></code></a></p>
+<p>OPDS 2.0 link properties.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties.availability">
+<span class="sig-name descname"><span class="pre">availability</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties.availability" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only specific values of a specific Type.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties.copies">
+<span class="sig-name descname"><span class="pre">copies</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties.copies" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only specific values of a specific Type.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties.holds">
+<span class="sig-name descname"><span class="pre">holds</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties.holds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only specific values of a specific Type.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties.indirect_acquisition">
+<span class="sig-name descname"><span class="pre">indirect_acquisition</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties.indirect_acquisition" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property containing an array of items.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties.number_of_items">
+<span class="sig-name descname"><span class="pre">number_of_items</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties.number_of_items" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only integer values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties.price">
+<span class="sig-name descname"><span class="pre">price</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2LinkProperties.price" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only specific values of a specific Type.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Navigation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">OPDS2Navigation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">role</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">links</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#OPDS2Navigation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Navigation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.CompactCollection" title="core.util.webpub_manifest_parser.core.ast.CompactCollection"><code class="xref py py-class docutils literal notranslate"><span class="pre">CompactCollection</span></code></a></p>
+<p>OPDS 2 navigation for the catalog using links.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Price">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">OPDS2Price</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#OPDS2Price"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Price" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Node" title="core.util.webpub_manifest_parser.core.ast.Node"><code class="xref py py-class docutils literal notranslate"><span class="pre">Node</span></code></a></p>
+<p>OPDS 2.0 price information.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Price.currency">
+<span class="sig-name descname"><span class="pre">currency</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Price.currency" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only specific string values.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Price.value">
+<span class="sig-name descname"><span class="pre">value</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Price.value" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing only float values.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Publication">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">OPDS2Publication</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">links</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">images</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#OPDS2Publication"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Publication" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Collection" title="core.util.webpub_manifest_parser.core.ast.Collection"><code class="xref py py-class docutils literal notranslate"><span class="pre">Collection</span></code></a></p>
+<p>OPDS 2.0 publication.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.OPDS2Publication.images">
+<span class="sig-name descname"><span class="pre">images</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.OPDS2Publication.images" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property allowing to contain a compact sub-collection.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.TitleProperty">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.ast.</span></span><span class="sig-name descname"><span class="pre">TitleProperty</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">required</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/ast.html#TitleProperty"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.TitleProperty" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.properties.ParsableProperty" title="core.util.webpub_manifest_parser.core.properties.ParsableProperty"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParsableProperty</span></code></a></p>
+<p>Property containing arbitrary values.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.ast.TitleProperty.PARSER">
+<span class="sig-name descname"><span class="pre">PARSER</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.parsers.AnyOfParser</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.ast.TitleProperty.PARSER" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-core.util.webpub_manifest_parser.opds2.parsers">
+<span id="core-util-webpub-manifest-parser-opds2-parsers-module"></span><h2>core.util.webpub_manifest_parser.opds2.parsers module<a class="headerlink" href="#module-core.util.webpub_manifest_parser.opds2.parsers" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.parsers.OPDS2DocumentParserFactory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.parsers.</span></span><span class="sig-name descname"><span class="pre">OPDS2DocumentParserFactory</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/parsers.html#OPDS2DocumentParserFactory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.parsers.OPDS2DocumentParserFactory" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.parsers.DocumentParserFactory" title="core.util.webpub_manifest_parser.core.parsers.DocumentParserFactory"><code class="xref py py-class docutils literal notranslate"><span class="pre">DocumentParserFactory</span></code></a></p>
+<p>Factory creating OPDS 2.0 parser.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.parsers.OPDS2DocumentParserFactory.create">
+<span class="sig-name descname"><span class="pre">create</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/parsers.html#OPDS2DocumentParserFactory.create"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.parsers.OPDS2DocumentParserFactory.create" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new OPDS 2.0 parser.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>OPDS 2.0 parser</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Parser</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-core.util.webpub_manifest_parser.opds2.registry">
+<span id="core-util-webpub-manifest-parser-opds2-registry-module"></span><h2>core.util.webpub_manifest_parser.opds2.registry module<a class="headerlink" href="#module-core.util.webpub_manifest_parser.opds2.registry" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.registry.</span></span><span class="sig-name descname"><span class="pre">OPDS2CollectionRolesRegistry</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/registry.html#OPDS2CollectionRolesRegistry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.rwpm.html#core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry" title="core.util.webpub_manifest_parser.rwpm.registry.RWPMCollectionRolesRegistry"><code class="xref py py-class docutils literal notranslate"><span class="pre">RWPMCollectionRolesRegistry</span></code></a></p>
+<p>Registry containing ODPS 2.0 collection roles.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry.FACETS">
+<span class="sig-name descname"><span class="pre">FACETS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry.FACETS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry.GROUPS">
+<span class="sig-name descname"><span class="pre">GROUPS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry.GROUPS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry.IMAGES">
+<span class="sig-name descname"><span class="pre">IMAGES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry.IMAGES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry.NAVIGATION">
+<span class="sig-name descname"><span class="pre">NAVIGATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry.NAVIGATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry.OPDS_2_0_ROLES">
+<span class="sig-name descname"><span class="pre">OPDS_2_0_ROLES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;]</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry.OPDS_2_0_ROLES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry.PUBLICATIONS">
+<span class="sig-name descname"><span class="pre">PUBLICATIONS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.CollectionRole</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2CollectionRolesRegistry.PUBLICATIONS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.registry.</span></span><span class="sig-name descname"><span class="pre">OPDS2LinkRelationsRegistry</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/registry.html#OPDS2LinkRelationsRegistry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.rwpm.html#core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry" title="core.util.webpub_manifest_parser.rwpm.registry.RWPMLinkRelationsRegistry"><code class="xref py py-class docutils literal notranslate"><span class="pre">RWPMLinkRelationsRegistry</span></code></a></p>
+<p>Registry containing OPDS 2.0 link relations.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.ACQUISITION">
+<span class="sig-name descname"><span class="pre">ACQUISITION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.ACQUISITION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.BORROW">
+<span class="sig-name descname"><span class="pre">BORROW</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.BORROW" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.BUY">
+<span class="sig-name descname"><span class="pre">BUY</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.BUY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.CORE_LINK_RELATIONS">
+<span class="sig-name descname"><span class="pre">CORE_LINK_RELATIONS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;]</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.CORE_LINK_RELATIONS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.OPEN_ACCESS">
+<span class="sig-name descname"><span class="pre">OPEN_ACCESS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.OPEN_ACCESS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.PREVIEW">
+<span class="sig-name descname"><span class="pre">PREVIEW</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.PREVIEW" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.SAMPLE">
+<span class="sig-name descname"><span class="pre">SAMPLE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.SAMPLE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.SUBSCRIBE">
+<span class="sig-name descname"><span class="pre">SUBSCRIBE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.LinkRelation</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2LinkRelationsRegistry.SUBSCRIBE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2MediaTypesRegistry">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.registry.</span></span><span class="sig-name descname"><span class="pre">OPDS2MediaTypesRegistry</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/registry.html#OPDS2MediaTypesRegistry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2MediaTypesRegistry" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.rwpm.html#core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry" title="core.util.webpub_manifest_parser.rwpm.registry.RWPMMediaTypesRegistry"><code class="xref py py-class docutils literal notranslate"><span class="pre">RWPMMediaTypesRegistry</span></code></a></p>
+<p>Registry containing OPDS 2.0 media types.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2MediaTypesRegistry.OPDS_FEED">
+<span class="sig-name descname"><span class="pre">OPDS_FEED</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2MediaTypesRegistry.OPDS_FEED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2MediaTypesRegistry.OPDS_MEDIA_TYPES">
+<span class="sig-name descname"><span class="pre">OPDS_MEDIA_TYPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;,</span> <span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;]</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2MediaTypesRegistry.OPDS_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.registry.OPDS2MediaTypesRegistry.OPDS_PUBLICATION">
+<span class="sig-name descname"><span class="pre">OPDS_PUBLICATION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;core.util.webpub_manifest_parser.core.registry.MediaType</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.registry.OPDS2MediaTypesRegistry.OPDS_PUBLICATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-core.util.webpub_manifest_parser.opds2.semantic">
+<span id="core-util-webpub-manifest-parser-opds2-semantic-module"></span><h2>core.util.webpub_manifest_parser.opds2.semantic module<a class="headerlink" href="#module-core.util.webpub_manifest_parser.opds2.semantic" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.semantic.OPDS2SemanticAnalyzer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.semantic.</span></span><span class="sig-name descname"><span class="pre">OPDS2SemanticAnalyzer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">media_types_registry</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">link_relations_registry</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection_roles_registry</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/semantic.html#OPDS2SemanticAnalyzer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.semantic.OPDS2SemanticAnalyzer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.semantic.SemanticAnalyzer" title="core.util.webpub_manifest_parser.core.semantic.SemanticAnalyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">SemanticAnalyzer</span></code></a></p>
+<p>OPDS 2.0 semantic analyzer.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.semantic.OPDS2SemanticAnalyzer.visit">
+<span class="sig-name descname"><span class="pre">visit</span></span><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.semantic.OPDS2SemanticAnalyzer.visit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Dispatch methods based on type signature</p>
+<dl class="simple">
+<dt>See Also:</dt><dd><p>Dispatcher</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-core.util.webpub_manifest_parser.opds2.syntax">
+<span id="core-util-webpub-manifest-parser-opds2-syntax-module"></span><h2>core.util.webpub_manifest_parser.opds2.syntax module<a class="headerlink" href="#module-core.util.webpub_manifest_parser.opds2.syntax" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="core.util.webpub_manifest_parser.opds2.syntax.OPDS2SyntaxAnalyzer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.util.webpub_manifest_parser.opds2.syntax.</span></span><span class="sig-name descname"><span class="pre">OPDS2SyntaxAnalyzer</span></span><a class="reference internal" href="_modules/core/util/webpub_manifest_parser/opds2/syntax.html#OPDS2SyntaxAnalyzer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.util.webpub_manifest_parser.opds2.syntax.OPDS2SyntaxAnalyzer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.syntax.SyntaxAnalyzer" title="core.util.webpub_manifest_parser.core.syntax.SyntaxAnalyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">SyntaxAnalyzer</span></code></a></p>
+<p>OPDS 2.0 syntax analyzer.</p>
+</dd></dl>
+
+</section>
+<section id="module-core.util.webpub_manifest_parser.opds2">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-core.util.webpub_manifest_parser.opds2" title="Permalink to this heading">¶</a></h2>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">circulation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="api.html">api package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="app.html">app module</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="core.html">core package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scripts.html">scripts module</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">circulation</a><ul>
+  <li><a href="core.html">core package</a><ul>
+  <li><a href="core.util.html">core.util package</a><ul>
+  <li><a href="core.util.webpub_manifest_parser.html">core.util.webpub_manifest_parser package</a><ul>
+      <li>Previous: <a href="core.util.webpub_manifest_parser.epub.html" title="previous chapter">core.util.webpub_manifest_parser.epub package</a></li>
+      <li>Next: <a href="core.util.webpub_manifest_parser.rwpm.html" title="next chapter">core.util.webpub_manifest_parser.rwpm package</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/core.util.webpub_manifest_parser.opds2.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

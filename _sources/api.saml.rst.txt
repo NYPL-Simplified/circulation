@@ -5,9 +5,10 @@ Subpackages
 -----------
 
 .. toctree::
+   :maxdepth: 4
 
-    api.saml.configuration
-    api.saml.metadata
+   api.saml.configuration
+   api.saml.metadata
 
 Submodules
 ----------
@@ -16,31 +17,30 @@ api.saml.auth module
 --------------------
 
 .. automodule:: api.saml.auth
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.saml.controller module
 --------------------------
 
 .. automodule:: api.saml.controller
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.saml.provider module
 ------------------------
 
 .. automodule:: api.saml.provider
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: api.saml
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

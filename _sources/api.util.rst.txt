@@ -8,31 +8,30 @@ api.util.patron module
 ----------------------
 
 .. automodule:: api.util.patron
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.util.short\_client\_token module
 ------------------------------------
 
 .. automodule:: api.util.short_client_token
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.util.url module
 -------------------
 
 .. automodule:: api.util.url
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: api.util
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

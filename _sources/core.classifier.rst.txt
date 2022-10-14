@@ -8,87 +8,86 @@ core.classifier.age module
 --------------------------
 
 .. automodule:: core.classifier.age
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.classifier.bic module
 --------------------------
 
 .. automodule:: core.classifier.bic
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.classifier.bisac module
 ----------------------------
 
 .. automodule:: core.classifier.bisac
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.classifier.ddc module
 --------------------------
 
 .. automodule:: core.classifier.ddc
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.classifier.gutenberg module
 --------------------------------
 
 .. automodule:: core.classifier.gutenberg
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.classifier.keyword module
 ------------------------------
 
 .. automodule:: core.classifier.keyword
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.classifier.lcc module
 --------------------------
 
 .. automodule:: core.classifier.lcc
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.classifier.overdrive module
 --------------------------------
 
 .. automodule:: core.classifier.overdrive
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.classifier.rbdigital module
 --------------------------------
 
 .. automodule:: core.classifier.rbdigital
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 core.classifier.simplified module
 ---------------------------------
 
 .. automodule:: core.classifier.simplified
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: core.classifier
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

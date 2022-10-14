@@ -1,19 +1,18 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>core.model.work &#8212; Library Simplified Circulation Manager  documentation</title>
-    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../../../_static/jquery.js"></script>
-    <script type="text/javascript" src="../../../_static/underscore.js"></script>
-    <script type="text/javascript" src="../../../_static/doctools.js"></script>
-    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
    
@@ -100,7 +99,7 @@
 <span class="kn">from</span> <span class="nn">..util.datetime_helpers</span> <span class="kn">import</span> <span class="n">utc_now</span>
 
 
-<div class="viewcode-block" id="WorkGenre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.WorkGenre">[docs]</a><span class="k">class</span> <span class="nc">WorkGenre</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+<div class="viewcode-block" id="WorkGenre"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.WorkGenre">[docs]</a><span class="k">class</span> <span class="nc">WorkGenre</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;An assignment of a genre to a work.&quot;&quot;&quot;</span>
 
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;workgenres&#39;</span>
@@ -109,7 +108,7 @@
     <span class="n">work_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;works.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">affinity</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Float</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
-<div class="viewcode-block" id="WorkGenre.from_genre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.WorkGenre.from_genre">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="WorkGenre.from_genre"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.WorkGenre.from_genre">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_genre</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">genre</span><span class="p">):</span>
         <span class="n">wg</span> <span class="o">=</span> <span class="n">WorkGenre</span><span class="p">()</span>
         <span class="n">wg</span><span class="o">.</span><span class="n">genre</span> <span class="o">=</span> <span class="n">genre</span>
@@ -119,7 +118,7 @@
         <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> (</span><span class="si">%d%%</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">genre</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">affinity</span><span class="o">*</span><span class="mi">100</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="Work"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work">[docs]</a><span class="k">class</span> <span class="nc">Work</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+<div class="viewcode-block" id="Work"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work">[docs]</a><span class="k">class</span> <span class="nc">Work</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="n">APPEALS_URI</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/appeals/&quot;</span>
 
     <span class="n">CHARACTER_APPEAL</span> <span class="o">=</span> <span class="s2">&quot;Character&quot;</span>
@@ -361,7 +360,7 @@
             <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">license_pools</span><span class="p">)</span>
         <span class="p">)</span>
 
-<div class="viewcode-block" id="Work.missing_coverage_from"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.missing_coverage_from">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Work.missing_coverage_from"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.missing_coverage_from">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">missing_coverage_from</span><span class="p">(</span>
             <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">count_as_covered</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">count_as_missing_before</span><span class="o">=</span><span class="kc">None</span>
@@ -380,7 +379,7 @@
         <span class="n">q2</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">q2</span></div>
 
-<div class="viewcode-block" id="Work.for_unchecked_subjects"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.for_unchecked_subjects">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Work.for_unchecked_subjects"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.for_unchecked_subjects">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">for_unchecked_subjects</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
         <span class="kn">from</span> <span class="nn">.classification</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Classification</span><span class="p">,</span>
@@ -448,7 +447,7 @@
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">pools</span><span class="p">,</span> <span class="n">affected_licensepools_for_work</span>
 
-<div class="viewcode-block" id="Work.open_access_for_permanent_work_id"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.open_access_for_permanent_work_id">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Work.open_access_for_permanent_work_id"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.open_access_for_permanent_work_id">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">open_access_for_permanent_work_id</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">pwid</span><span class="p">,</span> <span class="n">medium</span><span class="p">,</span> <span class="n">language</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find or create the Work encompassing all open-access LicensePools</span>
 <span class="sd">        whose presentation Editions have the given permanent work ID,</span>
@@ -510,7 +509,7 @@
             <span class="n">lp</span><span class="o">.</span><span class="n">work</span> <span class="o">=</span> <span class="n">work</span>
         <span class="k">return</span> <span class="n">work</span><span class="p">,</span> <span class="n">is_new</span></div>
 
-<div class="viewcode-block" id="Work.make_exclusive_open_access_for_permanent_work_id"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.make_exclusive_open_access_for_permanent_work_id">[docs]</a>    <span class="k">def</span> <span class="nf">make_exclusive_open_access_for_permanent_work_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pwid</span><span class="p">,</span> <span class="n">medium</span><span class="p">,</span> <span class="n">language</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.make_exclusive_open_access_for_permanent_work_id"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.make_exclusive_open_access_for_permanent_work_id">[docs]</a>    <span class="k">def</span> <span class="nf">make_exclusive_open_access_for_permanent_work_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pwid</span><span class="p">,</span> <span class="n">medium</span><span class="p">,</span> <span class="n">language</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Ensure that every open-access LicensePool associated with this Work</span>
 <span class="sd">        has the given PWID and medium. Any non-open-access</span>
 <span class="sd">        LicensePool, and any LicensePool with a different PWID or a</span>
@@ -578,7 +577,7 @@
                 <span class="n">pwids</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">presentation_edition</span><span class="o">.</span><span class="n">permanent_work_id</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">pwids</span>
 
-<div class="viewcode-block" id="Work.merge_into"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.merge_into">[docs]</a>    <span class="k">def</span> <span class="nf">merge_into</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other_work</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.merge_into"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.merge_into">[docs]</a>    <span class="k">def</span> <span class="nf">merge_into</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other_work</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Merge this Work into another Work and delete it.&quot;&quot;&quot;</span>
 
         <span class="c1"># Neither the source nor the destination work may have any</span>
@@ -616,7 +615,7 @@
 
         <span class="n">other_work</span><span class="o">.</span><span class="n">calculate_presentation</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Work.set_summary"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.set_summary">[docs]</a>    <span class="k">def</span> <span class="nf">set_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.set_summary"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.set_summary">[docs]</a>    <span class="k">def</span> <span class="nf">set_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">summary</span> <span class="o">=</span> <span class="n">resource</span>
         <span class="c1"># TODO: clean up the content</span>
         <span class="k">if</span> <span class="n">resource</span> <span class="ow">and</span> <span class="n">resource</span><span class="o">.</span><span class="n">representation</span><span class="p">:</span>
@@ -627,7 +626,7 @@
             <span class="bp">self</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">SUMMARY_OPERATION</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Work.with_genre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.with_genre">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Work.with_genre"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.with_genre">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">with_genre</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">genre</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find all Works classified under the given genre.&quot;&quot;&quot;</span>
         <span class="kn">from</span> <span class="nn">.classification</span> <span class="kn">import</span> <span class="n">Genre</span>
@@ -635,7 +634,7 @@
             <span class="n">genre</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Genre</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">genre</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Work</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">WorkGenre</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">WorkGenre</span><span class="o">.</span><span class="n">genre</span><span class="o">==</span><span class="n">genre</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Work.with_no_genres"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.with_no_genres">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Work.with_no_genres"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.with_no_genres">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">with_no_genres</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">q</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Modify a query so it finds only Works that are not classified under</span>
 <span class="sd">        any genre.&quot;&quot;&quot;</span>
@@ -644,7 +643,7 @@
         <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">WorkGenre</span><span class="o">.</span><span class="n">genre</span><span class="o">==</span><span class="kc">None</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">q</span></div>
 
-<div class="viewcode-block" id="Work.from_identifiers"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.from_identifiers">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Work.from_identifiers"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.from_identifiers">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_identifiers</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">,</span> <span class="n">base_query</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns all of the works that have one or more license_pools</span>
 <span class="sd">        associated with either an identifier in the given list or an</span>
@@ -679,7 +678,7 @@
         <span class="n">query</span> <span class="o">=</span> <span class="n">base_query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_ids_subquery</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">query</span></div>
 
-<div class="viewcode-block" id="Work.reject_covers"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.reject_covers">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Work.reject_covers"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.reject_covers">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">reject_covers</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">works_or_identifiers</span><span class="p">,</span>
                         <span class="n">search_index_client</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Suppresses the currently visible covers of a number of Works&quot;&quot;&quot;</span>
@@ -748,14 +747,14 @@
             <span class="n">edition</span><span class="o">.</span><span class="n">calculate_presentation</span><span class="p">(</span><span class="n">policy</span><span class="o">=</span><span class="n">policy</span><span class="p">)</span>
         <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Work.reject_cover"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.reject_cover">[docs]</a>    <span class="k">def</span> <span class="nf">reject_cover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_index_client</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.reject_cover"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.reject_cover">[docs]</a>    <span class="k">def</span> <span class="nf">reject_cover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_index_client</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Suppresses the current cover of the Work&quot;&quot;&quot;</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">suppress_covers</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="p">],</span> <span class="n">search_index_client</span><span class="o">=</span><span class="n">search_index_client</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Work.all_editions"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.all_editions">[docs]</a>    <span class="k">def</span> <span class="nf">all_editions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.all_editions"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.all_editions">[docs]</a>    <span class="k">def</span> <span class="nf">all_editions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;All Editions identified by an Identifier equivalent to</span>
 <span class="sd">        the identifiers of this Work&#39;s license pools.</span>
 
@@ -785,7 +784,7 @@
             <span class="k">if</span> <span class="n">lp</span><span class="o">.</span><span class="n">identifier</span>
         <span class="p">]</span>
 
-<div class="viewcode-block" id="Work.all_identifier_ids"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.all_identifier_ids">[docs]</a>    <span class="k">def</span> <span class="nf">all_identifier_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.all_identifier_ids"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.all_identifier_ids">[docs]</a>    <span class="k">def</span> <span class="nf">all_identifier_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return all Identifier IDs associated with this Work.</span>
 
 <span class="sd">        :param policy: A `PresentationCalculationPolicy`.</span>
@@ -813,7 +812,7 @@
             <span class="n">language</span> <span class="o">=</span> <span class="n">LanguageCodes</span><span class="o">.</span><span class="n">three_to_two</span><span class="p">[</span><span class="n">language</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">language</span>
 
-<div class="viewcode-block" id="Work.age_appropriate_for_patron"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.age_appropriate_for_patron">[docs]</a>    <span class="k">def</span> <span class="nf">age_appropriate_for_patron</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.age_appropriate_for_patron"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.age_appropriate_for_patron">[docs]</a>    <span class="k">def</span> <span class="nf">age_appropriate_for_patron</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Is this Work age-appropriate for the given Patron?</span>
 
 <span class="sd">        :param patron: A Patron.</span>
@@ -823,7 +822,7 @@
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="n">patron</span><span class="o">.</span><span class="n">work_is_age_appropriate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">audience</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_age</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Work.set_presentation_edition"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.set_presentation_edition">[docs]</a>    <span class="k">def</span> <span class="nf">set_presentation_edition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_presentation_edition</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.set_presentation_edition"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.set_presentation_edition">[docs]</a>    <span class="k">def</span> <span class="nf">set_presentation_edition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_presentation_edition</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot; Sets presentation edition and lets owned pools and editions know.</span>
 <span class="sd">            Raises exception if edition to set to is None.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -840,7 +839,7 @@
         <span class="k">for</span> <span class="n">pool</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">presentation_edition</span><span class="o">.</span><span class="n">is_presentation_for</span><span class="p">:</span>
             <span class="n">pool</span><span class="o">.</span><span class="n">work</span> <span class="o">=</span> <span class="bp">self</span></div>
 
-<div class="viewcode-block" id="Work.calculate_presentation_edition"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.calculate_presentation_edition">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_presentation_edition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.calculate_presentation_edition"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.calculate_presentation_edition">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_presentation_edition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot; Which of this Work&#39;s Editions should be used as the default?</span>
 <span class="sd">        First, every LicensePool associated with this work must have</span>
 <span class="sd">        its presentation edition set.</span>
@@ -918,7 +917,7 @@
 
         <span class="k">return</span> <span class="kc">None</span>
 
-<div class="viewcode-block" id="Work.calculate_presentation"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.calculate_presentation">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_presentation</span><span class="p">(</span>
+<div class="viewcode-block" id="Work.calculate_presentation"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.calculate_presentation">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_presentation</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_index_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exclude_search</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">default_fiction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">default_audience</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">):</span>
@@ -1176,7 +1175,7 @@
         <span class="n">l</span> <span class="o">=</span> <span class="p">[</span><span class="n">_ensure</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">l</span><span class="p">]</span>
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Work.calculate_opds_entries"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.calculate_opds_entries">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_opds_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.calculate_opds_entries"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.calculate_opds_entries">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_opds_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="kn">from</span> <span class="nn">..opds</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">AcquisitionFeed</span><span class="p">,</span>
             <span class="n">Annotator</span><span class="p">,</span>
@@ -1194,7 +1193,7 @@
             <span class="bp">self</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">GENERATE_OPDS_OPERATION</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Work.calculate_marc_record"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.calculate_marc_record">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_marc_record</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.calculate_marc_record"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.calculate_marc_record">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_marc_record</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="kn">from</span> <span class="nn">..marc</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Annotator</span><span class="p">,</span>
             <span class="n">MARCExporter</span>
@@ -1206,7 +1205,7 @@
             <span class="bp">self</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">GENERATE_MARC_OPERATION</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Work.active_license_pool"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.active_license_pool">[docs]</a>    <span class="k">def</span> <span class="nf">active_license_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.active_license_pool"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.active_license_pool">[docs]</a>    <span class="k">def</span> <span class="nf">active_license_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># The active license pool is the one that *would* be</span>
         <span class="c1"># associated with a loan, were a loan to be issued right</span>
         <span class="c1"># now.</span>
@@ -1243,7 +1242,7 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">record</span>
 
-<div class="viewcode-block" id="Work.external_index_needs_updating"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.external_index_needs_updating">[docs]</a>    <span class="k">def</span> <span class="nf">external_index_needs_updating</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.external_index_needs_updating"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.external_index_needs_updating">[docs]</a>    <span class="k">def</span> <span class="nf">external_index_needs_updating</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Mark this work as needing to have its search document reindexed.</span>
 <span class="sd">        This is a more efficient alternative to reindexing immediately,</span>
 <span class="sd">        since these WorkCoverageRecords are handled in large batches.</span>
@@ -1252,7 +1251,7 @@
             <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">UPDATE_SEARCH_INDEX_OPERATION</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Work.update_external_index"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.update_external_index">[docs]</a>    <span class="k">def</span> <span class="nf">update_external_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">add_coverage_record</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.update_external_index"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.update_external_index">[docs]</a>    <span class="k">def</span> <span class="nf">update_external_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">add_coverage_record</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a WorkCoverageRecord so that this work&#39;s</span>
 <span class="sd">        entry in the search index can be modified or deleted.</span>
 <span class="sd">        This method is deprecated -- call</span>
@@ -1260,7 +1259,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Work.needs_full_presentation_recalculation"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.needs_full_presentation_recalculation">[docs]</a>    <span class="k">def</span> <span class="nf">needs_full_presentation_recalculation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.needs_full_presentation_recalculation"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.needs_full_presentation_recalculation">[docs]</a>    <span class="k">def</span> <span class="nf">needs_full_presentation_recalculation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Mark this work as needing to have its presentation completely</span>
 <span class="sd">        recalculated.</span>
 
@@ -1272,7 +1271,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reset_coverage</span><span class="p">(</span><span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">CLASSIFY_OPERATION</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Work.needs_new_presentation_edition"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.needs_new_presentation_edition">[docs]</a>    <span class="k">def</span> <span class="nf">needs_new_presentation_edition</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.needs_new_presentation_edition"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.needs_new_presentation_edition">[docs]</a>    <span class="k">def</span> <span class="nf">needs_new_presentation_edition</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Mark this work as needing to have its presentation edition</span>
 <span class="sd">        regenerated. This is significantly less work than</span>
 <span class="sd">        calling needs_full_presentation_recalculation, but it will</span>
@@ -1280,7 +1279,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reset_coverage</span><span class="p">(</span><span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">CHOOSE_EDITION_OPERATION</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Work.set_presentation_ready"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.set_presentation_ready">[docs]</a>    <span class="k">def</span> <span class="nf">set_presentation_ready</span><span class="p">(</span>
+<div class="viewcode-block" id="Work.set_presentation_ready"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.set_presentation_ready">[docs]</a>    <span class="k">def</span> <span class="nf">set_presentation_ready</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">as_of</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_index_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exclude_search</span><span class="o">=</span><span class="kc">False</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Set this work as presentation-ready, no matter what.</span>
@@ -1299,7 +1298,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">exclude_search</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Work.set_presentation_ready_based_on_content"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.set_presentation_ready_based_on_content">[docs]</a>    <span class="k">def</span> <span class="nf">set_presentation_ready_based_on_content</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_index_client</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.set_presentation_ready_based_on_content"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.set_presentation_ready_based_on_content">[docs]</a>    <span class="k">def</span> <span class="nf">set_presentation_ready_based_on_content</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_index_client</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Set this work as presentation ready, if it appears to</span>
 <span class="sd">        be ready based on its data.</span>
 
@@ -1328,7 +1327,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">set_presentation_ready</span><span class="p">(</span><span class="n">search_index_client</span><span class="o">=</span><span class="n">search_index_client</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Work.calculate_quality"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.calculate_quality">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_quality</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">default_quality</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.calculate_quality"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.calculate_quality">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_quality</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">default_quality</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="c1"># Relevant Measurements are direct measurements of popularity</span>
         <span class="c1"># and quality, plus any quantity that might be mapppable to the 0..1</span>
@@ -1349,7 +1348,7 @@
             <span class="bp">self</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">QUALITY_OPERATION</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Work.assign_genres"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.assign_genres">[docs]</a>    <span class="k">def</span> <span class="nf">assign_genres</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">default_fiction</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default_audience</span><span class="o">=</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.assign_genres"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.assign_genres">[docs]</a>    <span class="k">def</span> <span class="nf">assign_genres</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">default_fiction</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default_audience</span><span class="o">=</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Set classification information for this work based on the</span>
 <span class="sd">        subquery to get equivalent identifiers.</span>
 <span class="sd">        :return: A boolean explaining whether or not any data actually</span>
@@ -1386,7 +1385,7 @@
 
         <span class="k">return</span> <span class="n">classification_changed</span></div>
 
-<div class="viewcode-block" id="Work.assign_genres_from_weights"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.assign_genres_from_weights">[docs]</a>    <span class="k">def</span> <span class="nf">assign_genres_from_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">genre_weights</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.assign_genres_from_weights"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.assign_genres_from_weights">[docs]</a>    <span class="k">def</span> <span class="nf">assign_genres_from_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">genre_weights</span><span class="p">):</span>
         <span class="c1"># Assign WorkGenre objects to the remainder.</span>
         <span class="kn">from</span> <span class="nn">.classification</span> <span class="kn">import</span> <span class="n">Genre</span>
         <span class="n">changed</span> <span class="o">=</span> <span class="kc">False</span>
@@ -1425,7 +1424,7 @@
         <span class="k">return</span> <span class="n">workgenres</span><span class="p">,</span> <span class="n">changed</span></div>
 
 
-<div class="viewcode-block" id="Work.assign_appeals"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.assign_appeals">[docs]</a>    <span class="k">def</span> <span class="nf">assign_appeals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">character</span><span class="p">,</span> <span class="n">language</span><span class="p">,</span> <span class="n">setting</span><span class="p">,</span> <span class="n">story</span><span class="p">,</span>
+<div class="viewcode-block" id="Work.assign_appeals"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.assign_appeals">[docs]</a>    <span class="k">def</span> <span class="nf">assign_appeals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">character</span><span class="p">,</span> <span class="n">language</span><span class="p">,</span> <span class="n">setting</span><span class="p">,</span> <span class="n">story</span><span class="p">,</span>
                        <span class="n">cutoff</span><span class="o">=</span><span class="mf">0.20</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Assign the given appeals to the corresponding database fields,</span>
 <span class="sd">        as well as calculating the primary and secondary appeal.</span>
@@ -1455,7 +1454,7 @@
     <span class="c1"># that Elasticsearch can parse as a date.</span>
     <span class="n">ELASTICSEARCH_TIME_FORMAT</span> <span class="o">=</span> <span class="s1">&#39;YYYY-MM-DD&quot;T&quot;HH24:MI:SS&quot;.&quot;MS&#39;</span>
 
-<div class="viewcode-block" id="Work.to_search_documents"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.to_search_documents">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Work.to_search_documents"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.to_search_documents">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">to_search_documents</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">works</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Generate search documents for these Works.</span>
 <span class="sd">        This is done by constructing an extremely complicated</span>
@@ -1802,7 +1801,7 @@
         <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">result</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Work.target_age_query"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.target_age_query">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Work.target_age_query"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.target_age_query">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">target_age_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">foreign_work_id_field</span><span class="p">):</span>
         <span class="c1"># If the upper limit of the target age is inclusive, we leave</span>
         <span class="c1"># it alone. Otherwise, we subtract one to make it inclusive.</span>
@@ -1829,11 +1828,11 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">target_age</span></div>
 
-<div class="viewcode-block" id="Work.to_search_document"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.to_search_document">[docs]</a>    <span class="k">def</span> <span class="nf">to_search_document</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.to_search_document"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.to_search_document">[docs]</a>    <span class="k">def</span> <span class="nf">to_search_document</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Generate a search document for this Work.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Work</span><span class="o">.</span><span class="n">to_search_documents</span><span class="p">([</span><span class="bp">self</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Work.mark_licensepools_as_superceded"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.mark_licensepools_as_superceded">[docs]</a>    <span class="k">def</span> <span class="nf">mark_licensepools_as_superceded</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.mark_licensepools_as_superceded"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.mark_licensepools_as_superceded">[docs]</a>    <span class="k">def</span> <span class="nf">mark_licensepools_as_superceded</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Make sure that all but the single best open-access LicensePool for</span>
 <span class="sd">        this Work are superceded. A non-open-access LicensePool should</span>
 <span class="sd">        never be superceded, and this method will mark them as</span>
@@ -1852,7 +1851,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">pool</span><span class="o">.</span><span class="n">superceded</span> <span class="o">=</span> <span class="kc">True</span></div>
 
-<div class="viewcode-block" id="Work.restrict_to_custom_lists_from_data_source"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.restrict_to_custom_lists_from_data_source">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Work.restrict_to_custom_lists_from_data_source"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.restrict_to_custom_lists_from_data_source">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">restrict_to_custom_lists_from_data_source</span><span class="p">(</span>
             <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">base_query</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">on_list_as_of</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Annotate a query that joins Work against Edition to match only</span>
@@ -1862,7 +1861,7 @@
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_restrict_to_customlist_subquery_condition</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">base_query</span><span class="p">,</span> <span class="n">condition</span><span class="p">,</span> <span class="n">on_list_as_of</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Work.restrict_to_custom_lists"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.restrict_to_custom_lists">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Work.restrict_to_custom_lists"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.restrict_to_custom_lists">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">restrict_to_custom_lists</span><span class="p">(</span>
             <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">base_query</span><span class="p">,</span> <span class="n">custom_lists</span><span class="p">,</span> <span class="n">on_list_as_of</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Annotate a query that joins Work against Edition to match only</span>
@@ -1885,7 +1884,7 @@
         <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">qu</span>
 
-<div class="viewcode-block" id="Work.classifications_with_genre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.classifications_with_genre">[docs]</a>    <span class="k">def</span> <span class="nf">classifications_with_genre</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.classifications_with_genre"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.classifications_with_genre">[docs]</a>    <span class="k">def</span> <span class="nf">classifications_with_genre</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="kn">from</span> <span class="nn">.classification</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Classification</span><span class="p">,</span>
             <span class="n">Subject</span><span class="p">,</span>
@@ -1898,7 +1897,7 @@
             <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">genre_id</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">)</span> \
             <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Classification</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">desc</span><span class="p">())</span></div>
 
-<div class="viewcode-block" id="Work.top_genre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.top_genre">[docs]</a>    <span class="k">def</span> <span class="nf">top_genre</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.top_genre"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.top_genre">[docs]</a>    <span class="k">def</span> <span class="nf">top_genre</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="kn">from</span> <span class="nn">.classification</span> <span class="kn">import</span> <span class="n">Genre</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">genre</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Genre</span><span class="p">)</span> \
@@ -1908,7 +1907,7 @@
             <span class="o">.</span><span class="n">first</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">genre</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="n">genre</span> <span class="k">else</span> <span class="kc">None</span></div>
 
-<div class="viewcode-block" id="Work.delete"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.delete">[docs]</a>    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_index</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Work.delete"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Work.delete">[docs]</a>    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_index</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Delete the work from both the DB and search index.&quot;&quot;&quot;</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">search_index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1955,17 +1954,15 @@
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -1982,7 +1979,7 @@
       &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

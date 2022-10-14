@@ -1,19 +1,19 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
     <title>api.clever package &#8212; Library Simplified Circulation Manager  documentation</title>
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="api.lcp package" href="api.lcp.html" />
@@ -34,147 +34,142 @@
 
           <div class="body" role="main">
             
-  <div class="section" id="api-clever-package">
-<h1>api.clever package<a class="headerlink" href="#api-clever-package" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="module-api.clever">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-api.clever" title="Permalink to this headline">¶</a></h2>
-<dl class="attribute">
-<dt id="api.clever.AuthenticationProvider">
-<code class="descclassname">api.clever.</code><code class="descname">AuthenticationProvider</code><a class="headerlink" href="#api.clever.AuthenticationProvider" title="Permalink to this definition">¶</a></dt>
-<dd><p>alias of <a class="reference internal" href="#api.clever.CleverAuthenticationAPI" title="api.clever.CleverAuthenticationAPI"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.clever.CleverAuthenticationAPI</span></code></a></p>
+  <section id="api-clever-package">
+<h1>api.clever package<a class="headerlink" href="#api-clever-package" title="Permalink to this heading">¶</a></h1>
+<section id="module-api.clever">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-api.clever" title="Permalink to this heading">¶</a></h2>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.AuthenticationProvider">
+<span class="sig-prename descclassname"><span class="pre">api.clever.</span></span><span class="sig-name descname"><span class="pre">AuthenticationProvider</span></span><a class="headerlink" href="#api.clever.AuthenticationProvider" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference internal" href="#api.clever.CleverAuthenticationAPI" title="api.clever.CleverAuthenticationAPI"><code class="xref py py-class docutils literal notranslate"><span class="pre">CleverAuthenticationAPI</span></code></a></p>
 </dd></dl>
 
-<dl class="class">
-<dt id="api.clever.CleverAuthenticationAPI">
-<em class="property">class </em><code class="descclassname">api.clever.</code><code class="descname">CleverAuthenticationAPI</code><span class="sig-paren">(</span><em>library</em>, <em>integration</em>, <em>analytics=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/clever.html#CleverAuthenticationAPI"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.clever.CleverAuthenticationAPI" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="api.html#api.authenticator.OAuthAuthenticationProvider" title="api.authenticator.OAuthAuthenticationProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.authenticator.OAuthAuthenticationProvider</span></code></a></p>
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.CLEVER_API_BASE_URL">
-<code class="descname">CLEVER_API_BASE_URL</code><em class="property"> = 'https://api.clever.com'</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.CLEVER_API_BASE_URL" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">api.clever.</span></span><span class="sig-name descname"><span class="pre">CleverAuthenticationAPI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">library</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">integration</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">analytics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/clever.html#CleverAuthenticationAPI"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.clever.CleverAuthenticationAPI" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="api.html#api.authenticator.OAuthAuthenticationProvider" title="api.authenticator.OAuthAuthenticationProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">OAuthAuthenticationProvider</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.CLEVER_API_BASE_URL">
+<span class="sig-name descname"><span class="pre">CLEVER_API_BASE_URL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'https://api.clever.com'</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.CLEVER_API_BASE_URL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.CLEVER_API_VERSION">
-<code class="descname">CLEVER_API_VERSION</code><em class="property"> = '3.0'</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.CLEVER_API_VERSION" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.CLEVER_API_VERSION">
+<span class="sig-name descname"><span class="pre">CLEVER_API_VERSION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'3.0'</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.CLEVER_API_VERSION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.CLEVER_API_VERSIONED_URL">
-<code class="descname">CLEVER_API_VERSIONED_URL</code><em class="property"> = 'https://api.clever.com/v3.0'</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.CLEVER_API_VERSIONED_URL" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.CLEVER_API_VERSIONED_URL">
+<span class="sig-name descname"><span class="pre">CLEVER_API_VERSIONED_URL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'https://api.clever.com/v3.0'</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.CLEVER_API_VERSIONED_URL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.CLEVER_TOKEN_URL">
-<code class="descname">CLEVER_TOKEN_URL</code><em class="property"> = 'https://clever.com/oauth/tokens'</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.CLEVER_TOKEN_URL" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.CLEVER_TOKEN_URL">
+<span class="sig-name descname"><span class="pre">CLEVER_TOKEN_URL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'https://clever.com/oauth/tokens'</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.CLEVER_TOKEN_URL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.DESCRIPTION">
-<code class="descname">DESCRIPTION</code><em class="property"> = l'         An authentication service for Open eBooks that uses Clever as an         OAuth provider.'</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.DESCRIPTION" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.DESCRIPTION">
+<span class="sig-name descname"><span class="pre">DESCRIPTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">l'</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">An</span> <span class="pre">authentication</span> <span class="pre">service</span> <span class="pre">for</span> <span class="pre">Open</span> <span class="pre">eBooks</span> <span class="pre">that</span> <span class="pre">uses</span> <span class="pre">Clever</span> <span class="pre">as</span> <span class="pre">an</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">OAuth</span> <span class="pre">provider.'</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.DESCRIPTION" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.EXTERNAL_AUTHENTICATE_URL">
-<code class="descname">EXTERNAL_AUTHENTICATE_URL</code><em class="property"> = 'https://clever.com/oauth/authorize?response_type=code&amp;client_id=%(client_id)s&amp;redirect_uri=%(oauth_callback_url)s&amp;state=%(state)s'</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.EXTERNAL_AUTHENTICATE_URL" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.EXTERNAL_AUTHENTICATE_URL">
+<span class="sig-name descname"><span class="pre">EXTERNAL_AUTHENTICATE_URL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'https://clever.com/oauth/authorize?response_type=code&amp;client_id=%(client_id)s&amp;redirect_uri=%(oauth_callback_url)s&amp;state=%(state)s'</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.EXTERNAL_AUTHENTICATE_URL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.LIBRARY_SETTINGS">
-<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = []</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.LIBRARY_SETTINGS">
+<span class="sig-name descname"><span class="pre">LIBRARY_SETTINGS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[]</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.LOGIN_BUTTON_IMAGE">
-<code class="descname">LOGIN_BUTTON_IMAGE</code><em class="property"> = 'CleverLoginButton280.png'</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.LOGIN_BUTTON_IMAGE" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.LOGIN_BUTTON_IMAGE">
+<span class="sig-name descname"><span class="pre">LOGIN_BUTTON_IMAGE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'CleverLoginButton280.png'</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.LOGIN_BUTTON_IMAGE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.NAME">
-<code class="descname">NAME</code><em class="property"> = 'Clever'</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.NAME" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.NAME">
+<span class="sig-name descname"><span class="pre">NAME</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Clever'</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'key': 'username', 'label': l'Client ID', 'required': True}, {'key': 'password', 'label': l'Client Secret', 'required': True}, {'key': 'token_expiration_days', 'type': 'number', 'label': l'Days until OAuth token expires'}]</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.SETTINGS">
+<span class="sig-name descname"><span class="pre">SETTINGS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[{'key':</span> <span class="pre">'username',</span> <span class="pre">'label':</span> <span class="pre">l'Client</span> <span class="pre">ID',</span> <span class="pre">'required':</span> <span class="pre">True},</span> <span class="pre">{'key':</span> <span class="pre">'password',</span> <span class="pre">'label':</span> <span class="pre">l'Client</span> <span class="pre">Secret',</span> <span class="pre">'required':</span> <span class="pre">True},</span> <span class="pre">{'key':</span> <span class="pre">'token_expiration_days',</span> <span class="pre">'type':</span> <span class="pre">'number',</span> <span class="pre">'label':</span> <span class="pre">l'Days</span> <span class="pre">until</span> <span class="pre">OAuth</span> <span class="pre">token</span> <span class="pre">expires'}]</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.SUPPORTED_USER_TYPES">
-<code class="descname">SUPPORTED_USER_TYPES</code><em class="property"> = ['student', 'teacher']</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.SUPPORTED_USER_TYPES" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.SUPPORTED_USER_TYPES">
+<span class="sig-name descname"><span class="pre">SUPPORTED_USER_TYPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['student',</span> <span class="pre">'teacher']</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.SUPPORTED_USER_TYPES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.TOKEN_DATA_SOURCE_NAME">
-<code class="descname">TOKEN_DATA_SOURCE_NAME</code><em class="property"> = 'Clever'</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.TOKEN_DATA_SOURCE_NAME" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.TOKEN_DATA_SOURCE_NAME">
+<span class="sig-name descname"><span class="pre">TOKEN_DATA_SOURCE_NAME</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Clever'</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.TOKEN_DATA_SOURCE_NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.TOKEN_TYPE">
-<code class="descname">TOKEN_TYPE</code><em class="property"> = 'Clever token'</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.TOKEN_TYPE" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.TOKEN_TYPE">
+<span class="sig-name descname"><span class="pre">TOKEN_TYPE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Clever</span> <span class="pre">token'</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.TOKEN_TYPE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="api.clever.CleverAuthenticationAPI.URI">
-<code class="descname">URI</code><em class="property"> = 'http://librarysimplified.org/terms/auth/clever'</em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.URI" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.URI">
+<span class="sig-name descname"><span class="pre">URI</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://librarysimplified.org/terms/auth/clever'</span></em><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.URI" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="api.clever.CleverAuthenticationAPI.oauth_callback">
-<code class="descname">oauth_callback</code><span class="sig-paren">(</span><em>_db</em>, <em>code</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/clever.html#CleverAuthenticationAPI.oauth_callback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.oauth_callback" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.oauth_callback">
+<span class="sig-name descname"><span class="pre">oauth_callback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">code</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/clever.html#CleverAuthenticationAPI.oauth_callback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.oauth_callback" title="Permalink to this definition">¶</a></dt>
 <dd><p>Verify the incoming parameters with the OAuth provider. Exchange
 the authorization code for an access token. Create or look up
 appropriate database records.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>code</strong> – The authorization code generated by the
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>code</strong> – The authorization code generated by the
 authorization server, as per section 4.1.2 of RFC 6749. This
 method will exchange the authorization code for an access
-token.</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A ProblemDetail if there’s a problem. Otherwise, a
+token.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A ProblemDetail if there’s a problem. Otherwise, a
 3-tuple (Credential, Patron, PatronData). The Credential
 contains the access token provided by the OAuth provider. The
 Patron object represents the authenticated Patron, and the
 PatronData object includes information about the patron
 obtained from the OAuth provider which cannot be stored in the
 circulation manager’s database, but which should be passed on
-to the client.</td>
-</tr>
-</tbody>
-</table>
+to the client.</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.clever.CleverAuthenticationAPI.remote_exchange_code_for_bearer_token">
-<code class="descname">remote_exchange_code_for_bearer_token</code><span class="sig-paren">(</span><em>_db</em>, <em>code</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/clever.html#CleverAuthenticationAPI.remote_exchange_code_for_bearer_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.remote_exchange_code_for_bearer_token" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.remote_exchange_code_for_bearer_token">
+<span class="sig-name descname"><span class="pre">remote_exchange_code_for_bearer_token</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">code</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/clever.html#CleverAuthenticationAPI.remote_exchange_code_for_bearer_token"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.remote_exchange_code_for_bearer_token" title="Permalink to this definition">¶</a></dt>
 <dd><p>Ask the OAuth provider to convert a code (passed in to the OAuth
 callback) into a bearer token.</p>
 <p>We can use the bearer token to act on behalf of a specific
 patron. It also gives us confidence that the patron
 authenticated correctly with Clever.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A ProblemDetail if there’s a problem; otherwise, the
-bearer token.</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A ProblemDetail if there’s a problem; otherwise, the
+bearer token.</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="method">
-<dt id="api.clever.CleverAuthenticationAPI.remote_patron_lookup">
-<code class="descname">remote_patron_lookup</code><span class="sig-paren">(</span><em>token</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/clever.html#CleverAuthenticationAPI.remote_patron_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.remote_patron_lookup" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="api.clever.CleverAuthenticationAPI.remote_patron_lookup">
+<span class="sig-name descname"><span class="pre">remote_patron_lookup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">token</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/clever.html#CleverAuthenticationAPI.remote_patron_lookup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.clever.CleverAuthenticationAPI.remote_patron_lookup" title="Permalink to this definition">¶</a></dt>
 <dd><p>Use a bearer token for a patron to look up that patron’s Clever
 record through the Clever API.</p>
 <p>This is the only method that has access to a patron’s personal
 information as provided by Clever. Here’s an inventory of the
 information we process and what happens to it:</p>
 <ul>
-<li><p class="first">The Clever ‘id’ associated with this patron is passed out of
+<li><p>The Clever ‘id’ associated with this patron is passed out of
 this method through the PatronData object, and persisted to
 two database fields: ‘patrons.external_identifier’ and
 ‘patrons.authorization_identifier’.</p>
@@ -182,7 +177,7 @@ two database fields: ‘patrons.external_identifier’ and
 which uniquely identifies a given patron but contains no
 personal information about them.</p>
 </li>
-<li><p class="first">If the patron is a student, their grade level
+<li><p>If the patron is a student, their grade level
 (“Kindergarten” through “12”) is converted into an Open
 eBooks patron type (“E” for “Early Grades”, “M” for “Middle
 Grades”, or “H” for “High School”). This is stored in the
@@ -195,41 +190,37 @@ it in the database. Only the coarser-grained Open eBooks
 patron type is tracked. This is used to show age-appropriate
 books to the patron.</p>
 </li>
-<li><p class="first">The internal Clever ID of the patron’s school is used to
+<li><p>The internal Clever ID of the patron’s school is used to
 make a _second_ Clever API request to get information about
 the school. From that, we get the school’s NCES ID, which we
 cross-check against data we’ve gathered separately to
 validate the school’s Title I status. The school ID and NCES
 ID are not stored in the PatronData object or persisted to
 the database. Any patron who ends up in the database is
-presumed to have passed this check.</p>
-</li>
+presumed to have passed this check.</p></li>
 </ul>
 <p>To summarize, an opaque ID associated with the patron is
 persisted to the database, as is a coarse-grained indicator of
 the patron’s age. No other information about the patron makes
 it out of this method.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A ProblemDetail if there’s a problem. Otherwise, a PatronData
-with the data listed above.</td>
-</tr>
-</tbody>
-</table>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A ProblemDetail if there’s a problem. Otherwise, a PatronData
+with the data listed above.</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
-<dl class="function">
-<dt id="api.clever.external_type_from_clever_grade">
-<code class="descclassname">api.clever.</code><code class="descname">external_type_from_clever_grade</code><span class="sig-paren">(</span><em>grade</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/clever.html#external_type_from_clever_grade"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.clever.external_type_from_clever_grade" title="Permalink to this definition">¶</a></dt>
+<dl class="py function">
+<dt class="sig sig-object py" id="api.clever.external_type_from_clever_grade">
+<span class="sig-prename descclassname"><span class="pre">api.clever.</span></span><span class="sig-name descname"><span class="pre">external_type_from_clever_grade</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grade</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/clever.html#external_type_from_clever_grade"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#api.clever.external_type_from_clever_grade" title="Permalink to this definition">¶</a></dt>
 <dd><p>Maps a ‘grade’ value returned by the Clever API for student users to an external_type</p>
 </dd></dl>
 
-</div>
-</div>
+</section>
+</section>
 
 
           </div>
@@ -272,17 +263,15 @@ with the data listed above.</td>
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -299,7 +288,7 @@ with the data listed above.</td>
       &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

@@ -1,19 +1,18 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>core.scripts &#8212; Library Simplified Circulation Manager  documentation</title>
-    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../../_static/jquery.js"></script>
-    <script type="text/javascript" src="../../_static/underscore.js"></script>
-    <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
    
@@ -274,7 +273,7 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">monitor</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">monitor</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection_monitor</span><span class="p">:</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="s2">&quot;Running a CollectionMonitor by delegating to RunCollectionMonitorScript. &quot;</span>
                 <span class="s2">&quot;It would be better if you used RunCollectionMonitorScript directly.&quot;</span>
             <span class="p">)</span>
@@ -446,7 +445,10 @@
                         <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">provider_kwargs</span>
                     <span class="p">)</span>
                     <span class="n">job_queue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">job</span><span class="p">)</span>
-                    <span class="n">offset</span> <span class="o">+=</span> <span class="n">batch_size</span></div>
+                    <span class="n">offset</span> <span class="o">+=</span> <span class="n">batch_size</span>
+
+        <span class="c1"># Close existing database session and associated connection objects</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="RunThreadedCollectionCoverageProviderScript.get_query_and_batch_sizes"><a class="viewcode-back" href="../../core.html#core.scripts.RunThreadedCollectionCoverageProviderScript.get_query_and_batch_sizes">[docs]</a>    <span class="k">def</span> <span class="nf">get_query_and_batch_sizes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">):</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">items_that_need_coverage</span><span class="p">(</span>
@@ -581,7 +583,7 @@
                     <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">arg</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="n">autocreate</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                     <span class="s2">&quot;Could not load identifier </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">arg</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="n">identifier</span><span class="p">:</span>
@@ -657,7 +659,7 @@
                     <span class="n">libraries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
                     <span class="k">break</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                     <span class="s2">&quot;Could not find library </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">arg</span>
                 <span class="p">)</span>
         <span class="k">return</span> <span class="n">libraries</span></div>
@@ -747,7 +749,7 @@
                     <span class="n">patrons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
                     <span class="k">break</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                     <span class="s2">&quot;Could not find patron </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">arg</span>
                 <span class="p">)</span>
         <span class="k">return</span> <span class="n">patrons</span></div>
@@ -1556,7 +1558,7 @@
                 <span class="k">if</span> <span class="n">work</span><span class="p">:</span>
                     <span class="n">work</span><span class="o">.</span><span class="n">calculate_presentation</span><span class="p">(</span><span class="n">policy</span><span class="o">=</span><span class="n">policy</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Could not locate subject, doing nothing.&quot;</span><span class="p">)</span></div></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not locate subject, doing nothing.&quot;</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="WorkProcessingScript"><a class="viewcode-back" href="../../core.html#core.scripts.WorkProcessingScript">[docs]</a><span class="k">class</span> <span class="nc">WorkProcessingScript</span><span class="p">(</span><span class="n">IdentifierInputScript</span><span class="p">):</span>
@@ -1777,7 +1779,10 @@
 
 <div class="viewcode-block" id="CustomListManagementScript.run"><a class="viewcode-back" href="../../core.html#core.scripts.CustomListManagementScript.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">membership_manager</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="c1"># Close existing database session and associated connection objects</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div></div>
 
 
 <div class="viewcode-block" id="CollectionType"><a class="viewcode-back" href="../../core.html#core.scripts.CollectionType">[docs]</a><span class="k">class</span> <span class="nc">CollectionType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
@@ -2034,7 +2039,7 @@
         <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">license_pool</span><span class="p">:</span>
             <span class="c1"># This shouldn&#39;t happen.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="s2">&quot;Could not find LicensePool for </span><span class="si">%r</span><span class="s2">, skipping it rather than mirroring something we shouldn&#39;t.&quot;</span>
             <span class="p">)</span>
             <span class="k">return</span>
@@ -2043,7 +2048,7 @@
         <span class="k">if</span> <span class="n">link_obj</span><span class="o">.</span><span class="n">rel</span> <span class="o">==</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">OPEN_ACCESS_DOWNLOAD</span><span class="p">:</span>
             <span class="n">rights_status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">derive_rights_status</span><span class="p">(</span><span class="n">license_pool</span><span class="p">,</span> <span class="n">resource</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">rights_status</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                     <span class="s2">&quot;Could not unambiguously determine rights status for </span><span class="si">%r</span><span class="s2">, skipping.&quot;</span><span class="p">,</span> <span class="n">link_obj</span>
                 <span class="p">)</span>
                 <span class="k">return</span>
@@ -2372,7 +2377,10 @@
             <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No new migrations found. Your database is up-to-date.&quot;</span><span class="p">)</span></div>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No new migrations found. Your database is up-to-date.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Close existing database session and associated connection objects</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="DatabaseMigrationScript.fetch_migration_files"><a class="viewcode-back" href="../../core.html#core.scripts.DatabaseMigrationScript.fetch_migration_files">[docs]</a>    <span class="k">def</span> <span class="nf">fetch_migration_files</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Pulls migration files from the expected locations</span>
@@ -2664,7 +2672,7 @@
             <span class="c1"># A Timestamp exists and it has a .finish, so it wasn&#39;t created</span>
             <span class="c1"># by TimestampInfo.find.</span>
             <span class="k">if</span> <span class="n">parsed</span><span class="o">.</span><span class="n">force</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                     <span class="s2">&quot;Overwriting existing </span><span class="si">%s</span><span class="s2"> timestamp: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">existing_timestamp</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
@@ -2700,7 +2708,10 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">update_timestamps</span><span class="p">(</span><span class="n">most_recent_sql_migration</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update_timestamps</span><span class="p">(</span><span class="n">most_recent_python_migration</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="c1"># Close existing database session and associated connection objects</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div></div>
 
 
 <div class="viewcode-block" id="CheckContributorNamesInDB"><a class="viewcode-back" href="../../core.html#core.scripts.CheckContributorNamesInDB">[docs]</a><span class="k">class</span> <span class="nc">CheckContributorNamesInDB</span><span class="p">(</span><span class="n">IdentifierInputScript</span><span class="p">):</span>
@@ -3223,7 +3234,10 @@
 
 <div class="viewcode-block" id="ListCollectionMetadataIdentifiersScript.run"><a class="viewcode-back" href="../../core.html#core.scripts.ListCollectionMetadataIdentifiersScript.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">parsed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="n">cmd_args</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">do_run</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">collections</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_run</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">collections</span><span class="p">)</span>
+
+        <span class="c1"># Close existing database session and associated connection objects</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="ListCollectionMetadataIdentifiersScript.do_run"><a class="viewcode-back" href="../../core.html#core.scripts.ListCollectionMetadataIdentifiersScript.do_run">[docs]</a>    <span class="k">def</span> <span class="nf">do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collections</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">collection_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
@@ -3376,17 +3390,15 @@
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -3403,7 +3415,7 @@
       &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

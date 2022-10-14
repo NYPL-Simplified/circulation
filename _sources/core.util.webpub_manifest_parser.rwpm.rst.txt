@@ -1,0 +1,53 @@
+core.util.webpub\_manifest\_parser.rwpm package
+===============================================
+
+Submodules
+----------
+
+core.util.webpub\_manifest\_parser.rwpm.ast module
+--------------------------------------------------
+
+.. automodule:: core.util.webpub_manifest_parser.rwpm.ast
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+core.util.webpub\_manifest\_parser.rwpm.parser module
+-----------------------------------------------------
+
+.. automodule:: core.util.webpub_manifest_parser.rwpm.parser
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+core.util.webpub\_manifest\_parser.rwpm.registry module
+-------------------------------------------------------
+
+.. automodule:: core.util.webpub_manifest_parser.rwpm.registry
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+core.util.webpub\_manifest\_parser.rwpm.semantic module
+-------------------------------------------------------
+
+.. automodule:: core.util.webpub_manifest_parser.rwpm.semantic
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+core.util.webpub\_manifest\_parser.rwpm.syntax module
+-----------------------------------------------------
+
+.. automodule:: core.util.webpub_manifest_parser.rwpm.syntax
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: core.util.webpub_manifest_parser.rwpm
+   :members:
+   :undoc-members:
+   :show-inheritance:

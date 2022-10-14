@@ -1,19 +1,18 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>scripts &#8212; Library Simplified Circulation Manager  documentation</title>
-    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../_static/jquery.js"></script>
-    <script type="text/javascript" src="../_static/underscore.js"></script>
-    <script type="text/javascript" src="../_static/doctools.js"></script>
-    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
    
@@ -201,7 +200,9 @@
                 <span class="n">batch</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">BATCH_SIZE</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">process_batch</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
-                    <span class="n">batch</span> <span class="o">=</span> <span class="p">[]</span></div>
+                    <span class="n">batch</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="CreateWorksForIdentifiersScript.process_batch"><a class="viewcode-back" href="../scripts.html#scripts.CreateWorksForIdentifiersScript.process_batch">[docs]</a>    <span class="k">def</span> <span class="nf">process_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">):</span>
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
@@ -270,7 +271,10 @@
             <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">1000</span><span class="p">:</span>
                 <span class="n">checkpoint</span><span class="p">()</span>
-        <span class="n">checkpoint</span><span class="p">()</span></div></div>
+        <span class="n">checkpoint</span><span class="p">()</span>
+
+        <span class="c1"># Close existing database session and associated connection objects</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div></div>
 
 <div class="viewcode-block" id="FillInAuthorScript"><a class="viewcode-back" href="../scripts.html#scripts.FillInAuthorScript">[docs]</a><span class="k">class</span> <span class="nc">FillInAuthorScript</span><span class="p">(</span><span class="n">MetadataCalculationScript</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Fill in Edition.sort_author for Editions that have a list of</span>
@@ -306,7 +310,10 @@
         <span class="p">)</span>
         <span class="n">reader</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">DictReader</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="s1">&#39;excel-tab&#39;</span><span class="p">)</span>
         <span class="n">importer</span><span class="o">.</span><span class="n">to_customlist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">reader</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="c1"># Close existing database session and associated connection objects</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="UpdateStaffPicksScript.open"><a class="viewcode-back" href="../scripts.html#scripts.UpdateStaffPicksScript.open">[docs]</a>    <span class="k">def</span> <span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
@@ -391,7 +398,7 @@
                 <span class="k">if</span> <span class="n">alpha</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">languages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Ignored unrecognized language code </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Ignored unrecognized language code </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">max_depth</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">min_depth</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">min_depth</span>
 
@@ -612,22 +619,22 @@
         <span class="k">for</span> <span class="n">entrypoint_name</span> <span class="ow">in</span> <span class="n">chosen_entrypoints</span><span class="p">:</span>
             <span class="n">entrypoint</span> <span class="o">=</span> <span class="n">EntryPoint</span><span class="o">.</span><span class="n">BY_INTERNAL_NAME</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">entrypoint_name</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">entrypoint</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Ignoring unknown entry point </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">entrypoint_name</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Ignoring unknown entry point </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">entrypoint_name</span><span class="p">)</span>
                 <span class="k">continue</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">entrypoint_name</span> <span class="ow">in</span> <span class="n">allowed_entrypoint_names</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Ignoring disabled entry point </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">entrypoint_name</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Ignoring disabled entry point </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">entrypoint_name</span><span class="p">)</span>
                 <span class="k">continue</span>
             <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">chosen_orders</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">order</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed_orders</span><span class="p">:</span>
-                    <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Ignoring unsupported ordering </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">order</span><span class="p">)</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Ignoring unsupported ordering </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">order</span><span class="p">)</span>
                     <span class="k">continue</span>
                 <span class="k">for</span> <span class="n">availability</span> <span class="ow">in</span> <span class="n">chosen_availabilities</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">availability</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed_availabilities</span><span class="p">:</span>
-                        <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Ignoring unsupported availability </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">availability</span><span class="p">)</span>
+                        <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Ignoring unsupported availability </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">availability</span><span class="p">)</span>
                         <span class="k">continue</span>
                     <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">chosen_collections</span><span class="p">:</span>
                         <span class="k">if</span> <span class="n">collection</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed_collections</span><span class="p">:</span>
-                            <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Ignoring unsupported collection </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">collection</span><span class="p">)</span>
+                            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Ignoring unsupported collection </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">collection</span><span class="p">)</span>
                             <span class="k">continue</span>
                         <span class="n">facets</span> <span class="o">=</span> <span class="n">Facets</span><span class="p">(</span>
                             <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span>
@@ -861,7 +868,7 @@
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">patrons</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">delete</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="sd">&quot;&quot;&quot;This is not a drill.</span>
 <span class="sd">Running this script will permanently disconnect %d patron(s) from their Adobe account IDs.</span>
 <span class="sd">They will be unable to fulfill any existing loans that involve Adobe-encrypted files.</span>
@@ -872,7 +879,7 @@
             <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">process_patrons</span><span class="p">(</span><span class="n">patrons</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">delete</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;All done. Sleeping for five seconds before committing.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;All done. Sleeping for five seconds before committing.&quot;</span><span class="p">)</span>
             <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
 
@@ -929,7 +936,7 @@
             <span class="n">provider</span> <span class="o">=</span> <span class="n">Axis360BibliographicCoverageProvider</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
             <span class="n">provider</span><span class="o">.</span><span class="n">process_batch</span><span class="p">(</span><span class="n">identifiers</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Cannot update coverage for </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">)</span></div></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Cannot update coverage for </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="LanguageListScript"><a class="viewcode-back" href="../scripts.html#scripts.LanguageListScript">[docs]</a><span class="k">class</span> <span class="nc">LanguageListScript</span><span class="p">(</span><span class="n">LibraryInputScript</span><span class="p">):</span>
@@ -963,7 +970,7 @@
         <span class="k">for</span> <span class="n">language</span> <span class="ow">in</span> <span class="n">languages</span><span class="p">:</span>
             <span class="n">base_path</span> <span class="o">=</span> <span class="s2">&quot;translations/</span><span class="si">%s</span><span class="s2">/LC_MESSAGES&quot;</span> <span class="o">%</span> <span class="n">language</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">base_path</span><span class="p">):</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;No translations for configured language </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">language</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No translations for configured language </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">language</span><span class="p">)</span>
                 <span class="k">continue</span>
 
             <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;rm </span><span class="si">%(path)s</span><span class="s2">/messages.po&quot;</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">base_path</span><span class="p">))</span>
@@ -1394,7 +1401,7 @@
             <span class="n">default_medium_type</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">):</span>
         <span class="k">if</span> <span class="n">dry_run</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="s2">&quot;This is a dry run. No files will be uploaded and nothing will change in the database.&quot;</span>
             <span class="p">)</span>
 
@@ -1447,7 +1454,7 @@
 <span class="sd">        :type data_source_name: string</span>
 
 <span class="sd">        :return: A 2-tuple (Collection, list of MirrorUploader instances)</span>
-<span class="sd">        :rtype: Tuple[Collection, List[MirrorUploader]]</span>
+<span class="sd">        :rtype: Tuple[core.model.collection.Collection, List[MirrorUploader]]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">collection</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_name_and_protocol</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">LCP</span> <span class="k">if</span> <span class="n">collection_type</span> <span class="o">==</span> <span class="n">CollectionType</span><span class="o">.</span><span class="n">LCP</span> <span class="k">else</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">MANUAL</span>
@@ -1503,13 +1510,13 @@
         <span class="sd">&quot;&quot;&quot;Creates a Work instance from metadata</span>
 
 <span class="sd">        :param collection: Target collection</span>
-<span class="sd">        :type collection: Collection</span>
+<span class="sd">        :type collection: core.model.collection.Collection</span>
 
 <span class="sd">        :param collection_type: Collection&#39;s type: open access/protected access</span>
 <span class="sd">        :type collection_type: CollectionType</span>
 
 <span class="sd">        :param metadata: Book&#39;s metadata</span>
-<span class="sd">        :type metadata: Metadata</span>
+<span class="sd">        :type metadata: core.metadata_layer.Metadata</span>
 
 <span class="sd">        :param policy: Replacement policy</span>
 <span class="sd">        :type policy: ReplacementPolicy</span>
@@ -1555,7 +1562,7 @@
 <span class="sd">        :type collection_type: CollectionType</span>
 
 <span class="sd">        :param metadata: Book&#39;s metadata</span>
-<span class="sd">        :type metadata: Metadata</span>
+<span class="sd">        :type metadata: core.metadata_layer.Metadata</span>
 
 <span class="sd">        :param policy: Replacement policy</span>
 <span class="sd">        :type policy: ReplacementPolicy</span>
@@ -1786,7 +1793,7 @@
 
         <span class="c1"># If we went through that whole loop without returning,</span>
         <span class="c1"># we have failed.</span>
-        <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
             <span class="s2">&quot;Could not find </span><span class="si">%s</span><span class="s2"> for </span><span class="si">%s</span><span class="s2">. Looked in: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
             <span class="n">file_type</span><span class="p">,</span> <span class="n">base_filename</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">attempts</span><span class="p">)</span>
         <span class="p">)</span>
@@ -1820,7 +1827,7 @@
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">libraries</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">reset</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="sd">&quot;&quot;&quot;This is not a drill.</span>
 <span class="sd">Running this script will permanently reset the lanes for %d libraries. Any lanes created from</span>
 <span class="sd">custom lists will be deleted (though the lists themselves will be preserved).</span>
@@ -1848,7 +1855,7 @@
         <span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">new_lane_output</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reset</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;All done. Sleeping for five seconds before committing.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;All done. Sleeping for five seconds before committing.&quot;</span><span class="p">)</span>
             <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
 
@@ -1945,17 +1952,15 @@
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -1972,7 +1977,7 @@
       &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

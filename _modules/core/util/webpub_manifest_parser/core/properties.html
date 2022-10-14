@@ -1,0 +1,738 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>core.util.webpub_manifest_parser.core.properties &#8212; Library Simplified Circulation Manager  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.util.webpub_manifest_parser.core.properties</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span><span class="p">,</span> <span class="n">abstractmethod</span>
+
+<span class="kn">import</span> <span class="nn">six</span>
+
+<span class="kn">from</span> <span class="nn">core.util.webpub_manifest_parser.core.parsers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AnyOfParser</span><span class="p">,</span>
+    <span class="n">ArrayParser</span><span class="p">,</span>
+    <span class="n">BooleanParser</span><span class="p">,</span>
+    <span class="n">DateParser</span><span class="p">,</span>
+    <span class="n">DateTimeParser</span><span class="p">,</span>
+    <span class="n">EnumParser</span><span class="p">,</span>
+    <span class="n">IntegerParser</span><span class="p">,</span>
+    <span class="n">LocalizableStringParser</span><span class="p">,</span>
+    <span class="n">StringParser</span><span class="p">,</span>
+    <span class="n">StringPatternParser</span><span class="p">,</span>
+    <span class="n">TypeParser</span><span class="p">,</span>
+    <span class="n">URIParser</span><span class="p">,</span>
+    <span class="n">URIReferenceParser</span><span class="p">,</span>
+    <span class="n">URITemplateParser</span><span class="p">,</span>
+    <span class="n">ValueParser</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.webpub_manifest_parser.utils</span> <span class="kn">import</span> <span class="n">is_string</span>
+
+
+<div class="viewcode-block" id="HasProperties"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.HasProperties">[docs]</a><span class="nd">@six</span><span class="o">.</span><span class="n">add_metaclass</span><span class="p">(</span><span class="n">ABCMeta</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">HasProperties</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interface representing class containing ObjectProperty meta-properties.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="HasProperties.get_setting_value"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.HasProperties.get_setting_value">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">get_setting_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the setting&#39;s value.</span>
+
+<span class="sd">        :param setting_name: Name of the setting</span>
+<span class="sd">        :type setting_name: string</span>
+
+<span class="sd">        :param default_value: Default value</span>
+<span class="sd">        :type default_value: Any</span>
+
+<span class="sd">        :return: Setting&#39;s value</span>
+<span class="sd">        :rtype: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="HasProperties.set_setting_value"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.HasProperties.set_setting_value">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">set_setting_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">,</span> <span class="n">setting_value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the setting&#39;s value.</span>
+
+<span class="sd">        :param setting_name: Name of the setting</span>
+<span class="sd">        :type setting_name: string</span>
+
+<span class="sd">        :param setting_value: New value of the setting</span>
+<span class="sd">        :type setting_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="Property"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.Property">[docs]</a><span class="k">class</span> <span class="nc">Property</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Class representing object property, storing property&#39;s metadata and its value.&quot;&quot;&quot;</span>
+
+    <span class="n">_counter</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">parser</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of Property class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :param parser: Parse used to validate and parse property&#39;s value</span>
+<span class="sd">        :type parser: parsers.ValueParser</span>
+
+<span class="sd">        :param default_value: Property&#39;s default value</span>
+<span class="sd">        :type default_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_string</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Key argument must be a string&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">required</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Required argument must be boolean&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parser</span><span class="p">,</span> <span class="n">ValueParser</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Parser argument must be a ValueParser instance&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_key</span> <span class="o">=</span> <span class="n">key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_required</span> <span class="o">=</span> <span class="n">required</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parser</span> <span class="o">=</span> <span class="n">parser</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default_value</span> <span class="o">=</span> <span class="n">default_value</span>
+
+    <span class="k">def</span> <span class="fm">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">owner_instance</span><span class="p">,</span> <span class="n">owner_type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the property&#39;s value.</span>
+
+<span class="sd">        :param owner_instance: Instance of the owner, class having instance of ObjectProperty as an attribute</span>
+<span class="sd">        :type owner_instance: Optional[HasProperties]</span>
+
+<span class="sd">        :param owner_type: Owner&#39;s class</span>
+<span class="sd">        :type owner_type: Optional[Type]</span>
+
+<span class="sd">        :return: ObjectProperty instance (when called via a static method) or</span>
+<span class="sd">            the setting&#39;s value (when called via an instance method)</span>
+<span class="sd">        :rtype: Union[ObjectProperty, Any]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># If owner_instance is empty, it means that this method was called via a static method</span>
+        <span class="c1"># In this case we need to return the metadata instance itself</span>
+        <span class="k">if</span> <span class="n">owner_instance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">owner_instance</span><span class="p">,</span> <span class="n">HasProperties</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;owner must be an instance of HasProperties type&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">owner_instance</span><span class="o">.</span><span class="n">get_setting_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_value</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__set__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">owner_instance</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the property&#39;s value.</span>
+
+<span class="sd">        :param owner_instance: Instance of the owner, class having instance of ObjectProperty as an attribute</span>
+<span class="sd">        :type owner_instance: Optional[HasProperties]</span>
+
+<span class="sd">        :param value: New setting&#39;s value</span>
+<span class="sd">        :type value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">owner_instance</span><span class="p">,</span> <span class="n">HasProperties</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;owner must be an instance of HasProperties class&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">owner_instance</span><span class="o">.</span><span class="n">set_setting_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a string representation of the object.</span>
+
+<span class="sd">        :return: String representation</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;&lt;Property(key=</span><span class="si">{0}</span><span class="s2">, required=</span><span class="si">{1}</span><span class="s2">, parser=</span><span class="si">{2}</span><span class="s2">, default_value=</span><span class="si">{3}</span><span class="s2">)&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">required</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_value</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the property&#39;s key.</span>
+
+<span class="sd">        :return: Property&#39;s key</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_key</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">required</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a boolean value indicating whether this property is required or not.</span>
+
+<span class="sd">        :return: Boolean value indicating whether this property is required or not.</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_required</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parser</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the parser used to validate and parse this property&#39;s value.</span>
+
+<span class="sd">        :return: Parser used to validate and parse this property&#39;s value.</span>
+<span class="sd">        :rtype: parsers.Parser</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parser</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">default_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the property&#39;s default value.</span>
+
+<span class="sd">        :return: Property&#39;s default value.</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_value</span></div>
+
+
+<div class="viewcode-block" id="PropertiesGrouping"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.PropertiesGrouping">[docs]</a><span class="k">class</span> <span class="nc">PropertiesGrouping</span><span class="p">(</span><span class="n">HasProperties</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Group of properties.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of PropertiesGrouping class.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_values</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="PropertiesGrouping.get_setting_value"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.PropertiesGrouping.get_setting_value">[docs]</a>    <span class="k">def</span> <span class="nf">get_setting_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the setting&#39;s value.</span>
+
+<span class="sd">        :param setting_name: Setting&#39;s name</span>
+<span class="sd">        :type setting_name: str</span>
+
+<span class="sd">        :param default_value: Setting&#39;s default value</span>
+<span class="sd">        :type default_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">setting_name</span><span class="p">,</span> <span class="n">default_value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PropertiesGrouping.set_setting_value"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.PropertiesGrouping.set_setting_value">[docs]</a>    <span class="k">def</span> <span class="nf">set_setting_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setting_name</span><span class="p">,</span> <span class="n">setting_value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the setting&#39;s value.</span>
+
+<span class="sd">        :param setting_name: Setting&#39;s name</span>
+<span class="sd">        :type setting_name: str</span>
+
+<span class="sd">        :param setting_value: New setting&#39;s value</span>
+<span class="sd">        :type setting_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[</span><span class="n">setting_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">setting_value</span></div>
+
+<div class="viewcode-block" id="PropertiesGrouping.get_class_properties"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.PropertiesGrouping.get_class_properties">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_class_properties</span><span class="p">(</span><span class="n">klass</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a list of 2-tuples containing information ConfigurationMetadata properties in the specified class.</span>
+
+<span class="sd">        :param klass: Class</span>
+<span class="sd">        :type klass: type</span>
+
+<span class="sd">        :return: List of 2-tuples containing information ConfigurationMetadata properties in the specified class</span>
+<span class="sd">        :rtype: List[Tuple[string, ConfigurationMetadata]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">members</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="n">klass</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">member</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">Property</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">members</span></div>
+
+<div class="viewcode-block" id="PropertiesGrouping.get_required_class_properties"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.PropertiesGrouping.get_required_class_properties">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_required_class_properties</span><span class="p">(</span><span class="n">klass</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a list of 2-tuples containing information about required ConfigurationMetadata properties.</span>
+
+<span class="sd">        :param klass: Class</span>
+<span class="sd">        :type klass: type</span>
+
+<span class="sd">        :return: List of 2-tuples containing information ConfigurationMetadata properties in the specified class</span>
+<span class="sd">        :rtype: List[Tuple[string, ConfigurationMetadata]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">class_properties</span> <span class="o">=</span> <span class="n">PropertiesGrouping</span><span class="o">.</span><span class="n">get_class_properties</span><span class="p">(</span><span class="n">klass</span><span class="p">)</span>
+        <span class="n">required_class_properties</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">class_property_name</span><span class="p">,</span> <span class="n">class_property</span><span class="p">)</span>
+            <span class="k">for</span> <span class="p">(</span><span class="n">class_property_name</span><span class="p">,</span> <span class="n">class_property</span><span class="p">)</span> <span class="ow">in</span> <span class="n">class_properties</span>
+            <span class="k">if</span> <span class="n">class_property</span><span class="o">.</span><span class="n">required</span>
+        <span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">required_class_properties</span></div></div>
+
+
+<div class="viewcode-block" id="ParsableProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.ParsableProperty">[docs]</a><span class="nd">@six</span><span class="o">.</span><span class="n">add_metaclass</span><span class="p">(</span><span class="n">ABCMeta</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">ParsableProperty</span><span class="p">(</span><span class="n">Property</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Base class for all property classes having predefined parsers.&quot;&quot;&quot;</span>
+
+    <span class="n">PARSER</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of ParsableProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :param default_value: Property&#39;s default value</span>
+<span class="sd">        :type default_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ParsableProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PARSER</span><span class="p">,</span> <span class="n">default_value</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="IntegerProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.IntegerProperty">[docs]</a><span class="k">class</span> <span class="nc">IntegerProperty</span><span class="p">(</span><span class="n">Property</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing only integer values.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>  <span class="c1"># pylint: disable=R0913</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">key</span><span class="p">,</span>
+        <span class="n">required</span><span class="p">,</span>
+        <span class="n">minimum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">exclusive_minimum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">maximum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">exclusive_maximum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of IntegerProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :param minimum: Minimum value</span>
+<span class="sd">        :type minimum: Numeric</span>
+
+<span class="sd">        :param exclusive_minimum: Exclusive minimum value</span>
+<span class="sd">        :type exclusive_minimum: Numeric</span>
+
+<span class="sd">        :param maximum: Maximum value</span>
+<span class="sd">        :type maximum: Numeric</span>
+
+<span class="sd">        :param exclusive_maximum: Exclusive maximum value</span>
+<span class="sd">        :type exclusive_maximum: Numeric</span>
+
+<span class="sd">        :param default_value: Property&#39;s default value</span>
+<span class="sd">        :type default_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">IntegerProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">required</span><span class="p">,</span>
+            <span class="n">IntegerParser</span><span class="p">(</span><span class="n">minimum</span><span class="p">,</span> <span class="n">exclusive_minimum</span><span class="p">,</span> <span class="n">maximum</span><span class="p">,</span> <span class="n">exclusive_maximum</span><span class="p">),</span>
+            <span class="n">default_value</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NumberProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.NumberProperty">[docs]</a><span class="k">class</span> <span class="nc">NumberProperty</span><span class="p">(</span><span class="n">Property</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing only float values.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>  <span class="c1"># pylint: disable=R0913</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">key</span><span class="p">,</span>
+        <span class="n">required</span><span class="p">,</span>
+        <span class="n">minimum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">exclusive_minimum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">maximum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">exclusive_maximum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of NumberProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :param minimum: Minimum value</span>
+<span class="sd">        :type minimum: Numeric</span>
+
+<span class="sd">        :param exclusive_minimum: Exclusive minimum value</span>
+<span class="sd">        :type exclusive_minimum: Numeric</span>
+
+<span class="sd">        :param maximum: Maximum value</span>
+<span class="sd">        :type maximum: Numeric</span>
+
+<span class="sd">        :param exclusive_maximum: Exclusive maximum value</span>
+<span class="sd">        :type exclusive_maximum: Numeric</span>
+
+<span class="sd">        :param default_value: Property&#39;s default value</span>
+<span class="sd">        :type default_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NumberProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">required</span><span class="p">,</span>
+            <span class="n">IntegerParser</span><span class="p">(</span><span class="n">minimum</span><span class="p">,</span> <span class="n">exclusive_minimum</span><span class="p">,</span> <span class="n">maximum</span><span class="p">,</span> <span class="n">exclusive_maximum</span><span class="p">),</span>
+            <span class="n">default_value</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BooleanProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.BooleanProperty">[docs]</a><span class="k">class</span> <span class="nc">BooleanProperty</span><span class="p">(</span><span class="n">ParsableProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing only boolean values.&quot;&quot;&quot;</span>
+
+    <span class="n">PARSER</span> <span class="o">=</span> <span class="n">BooleanParser</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="StringProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.StringProperty">[docs]</a><span class="k">class</span> <span class="nc">StringProperty</span><span class="p">(</span><span class="n">ParsableProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing only string values.&quot;&quot;&quot;</span>
+
+    <span class="n">PARSER</span> <span class="o">=</span> <span class="n">StringParser</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="EnumProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.EnumProperty">[docs]</a><span class="k">class</span> <span class="nc">EnumProperty</span><span class="p">(</span><span class="n">Property</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing only specific string values.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">items</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of EnumProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :param items: Enumeration values</span>
+<span class="sd">        :type items: List[str]</span>
+
+<span class="sd">        :param default_value: Property&#39;s default value</span>
+<span class="sd">        :type default_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">items</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Items argument must be a list&quot;</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">EnumProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">EnumParser</span><span class="p">(</span><span class="n">items</span><span class="p">),</span> <span class="n">default_value</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="URIProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.URIProperty">[docs]</a><span class="k">class</span> <span class="nc">URIProperty</span><span class="p">(</span><span class="n">ParsableProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing only URI values.&quot;&quot;&quot;</span>
+
+    <span class="n">PARSER</span> <span class="o">=</span> <span class="n">URIParser</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="URITemplateProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.URITemplateProperty">[docs]</a><span class="k">class</span> <span class="nc">URITemplateProperty</span><span class="p">(</span><span class="n">ParsableProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing only URI templates.&quot;&quot;&quot;</span>
+
+    <span class="n">PARSER</span> <span class="o">=</span> <span class="n">URITemplateParser</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="URIReferenceProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.URIReferenceProperty">[docs]</a><span class="k">class</span> <span class="nc">URIReferenceProperty</span><span class="p">(</span><span class="n">ParsableProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing only URI-reference values.&quot;&quot;&quot;</span>
+
+    <span class="n">PARSER</span> <span class="o">=</span> <span class="n">URIReferenceParser</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="DateProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.DateProperty">[docs]</a><span class="k">class</span> <span class="nc">DateProperty</span><span class="p">(</span><span class="n">ParsableProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing only date values.&quot;&quot;&quot;</span>
+
+    <span class="n">PARSER</span> <span class="o">=</span> <span class="n">DateParser</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="DateTimeProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.DateTimeProperty">[docs]</a><span class="k">class</span> <span class="nc">DateTimeProperty</span><span class="p">(</span><span class="n">ParsableProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing only date &amp; time values.&quot;&quot;&quot;</span>
+
+    <span class="n">PARSER</span> <span class="o">=</span> <span class="n">DateTimeParser</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="DateOrTimeProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.DateOrTimeProperty">[docs]</a><span class="k">class</span> <span class="nc">DateOrTimeProperty</span><span class="p">(</span><span class="n">ParsableProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing date or date &amp; time values.&quot;&quot;&quot;</span>
+
+    <span class="n">PARSER</span> <span class="o">=</span> <span class="n">AnyOfParser</span><span class="p">([</span><span class="n">DateParser</span><span class="p">(),</span> <span class="n">DateTimeParser</span><span class="p">()])</span></div>
+
+
+<div class="viewcode-block" id="BaseArrayProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.BaseArrayProperty">[docs]</a><span class="k">class</span> <span class="nc">BaseArrayProperty</span><span class="p">(</span><span class="n">Property</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property containing a list of items.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">parser</span><span class="p">,</span> <span class="n">list_type</span><span class="o">=</span><span class="nb">list</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>  <span class="c1"># pylint: disable=R0913</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of ListProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :param parser: Parse used to validate and parse property&#39;s value</span>
+<span class="sd">        :type parser: parsers.ValueParser</span>
+
+<span class="sd">        :param list_type: Class of a collection used to hold the items</span>
+<span class="sd">        :type list_type: Type</span>
+
+<span class="sd">        :param default_value: Property&#39;s default value</span>
+<span class="sd">        :type default_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">list_type</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;List type argument must be a subclass of list class&quot;</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">BaseArrayProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">parser</span><span class="p">,</span> <span class="n">default_value</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_list_type</span> <span class="o">=</span> <span class="n">list_type</span>
+
+    <span class="k">def</span> <span class="fm">__set__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">owner_instance</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the property&#39;s value.</span>
+
+<span class="sd">        :param owner_instance: Instance of the owner, class having instance of ObjectProperty as an attribute</span>
+<span class="sd">        :type owner_instance: Optional[HasProperties]</span>
+
+<span class="sd">        :param value: New setting&#39;s value</span>
+<span class="sd">        :type value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_list_type</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Value must be a subclass of </span><span class="si">{0}</span><span class="s2"> class&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_list_type</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">BaseArrayProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__set__</span><span class="p">(</span><span class="n">owner_instance</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">list_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the class of a collection used to hold the items.</span>
+
+<span class="sd">        :return: Class of a collection used to hold the items</span>
+<span class="sd">        :rtype: Type</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_list_type</span></div>
+
+
+<div class="viewcode-block" id="ArrayProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.ArrayProperty">[docs]</a><span class="k">class</span> <span class="nc">ArrayProperty</span><span class="p">(</span><span class="n">BaseArrayProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property containing an array of items.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>  <span class="c1"># pylint: disable=R0913</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">key</span><span class="p">,</span>
+        <span class="n">required</span><span class="p">,</span>
+        <span class="n">item_parser</span><span class="p">,</span>
+        <span class="n">unique_items</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">list_type</span><span class="o">=</span><span class="nb">list</span><span class="p">,</span>
+        <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of ArrayProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :param item_parser: Parser for array items</span>
+<span class="sd">        :type item_parser: ValueParser</span>
+
+<span class="sd">        :param unique_items: Boolean value indicating whether the array should contain unique items</span>
+<span class="sd">        :type unique_items: bool</span>
+
+<span class="sd">        :param list_type: Class of a collection used to hold the items</span>
+<span class="sd">        :type list_type: Type</span>
+
+<span class="sd">        :param default_value: Property&#39;s default value</span>
+<span class="sd">        :type default_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item_parser</span><span class="p">,</span> <span class="n">ValueParser</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Item parser argument must be an instance of ValueParser class&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">unique_items</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unique items argument must be boolean&quot;</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">ArrayProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">required</span><span class="p">,</span>
+            <span class="n">ArrayParser</span><span class="p">(</span><span class="n">item_parser</span><span class="p">,</span> <span class="n">unique_items</span><span class="p">),</span>
+            <span class="n">list_type</span><span class="p">,</span>
+            <span class="n">default_value</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ArrayOfStringsProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.ArrayOfStringsProperty">[docs]</a><span class="k">class</span> <span class="nc">ArrayOfStringsProperty</span><span class="p">(</span><span class="n">BaseArrayProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing either a string or array of strings as its values.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>  <span class="c1"># pylint: disable=R0913</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">unique_items</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">list_type</span><span class="o">=</span><span class="nb">list</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of ArrayOfStringsProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :param unique_items: Boolean value indicating whether the array should contain unique items</span>
+<span class="sd">        :type unique_items: bool</span>
+
+<span class="sd">        :param list_type: Class of a collection used to hold the items</span>
+<span class="sd">        :type list_type: Type</span>
+
+<span class="sd">        :param default_value: Property&#39;s default value</span>
+<span class="sd">        :type default_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">unique_items</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unique items argument must be boolean&quot;</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">ArrayOfStringsProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">required</span><span class="p">,</span>
+            <span class="n">AnyOfParser</span><span class="p">([</span><span class="n">ArrayParser</span><span class="p">(</span><span class="n">StringParser</span><span class="p">(),</span> <span class="n">unique_items</span><span class="p">),</span> <span class="n">StringParser</span><span class="p">()]),</span>
+            <span class="n">list_type</span><span class="p">,</span>
+            <span class="n">default_value</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ListOfLanguagesProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.ListOfLanguagesProperty">[docs]</a><span class="k">class</span> <span class="nc">ListOfLanguagesProperty</span><span class="p">(</span><span class="n">BaseArrayProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing localizable strings.</span>
+
+<span class="sd">    For example::</span>
+
+<span class="sd">        - &quot;en&quot;</span>
+<span class="sd">        - [</span>
+<span class="sd">            &quot;eng&quot;,</span>
+<span class="sd">            &quot;fre&quot;</span>
+<span class="sd">          ]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">):</span>  <span class="c1"># pylint: disable=R0913</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of ListOfLanguagesProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ListOfLanguagesProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">required</span><span class="p">,</span>
+            <span class="n">AnyOfParser</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">StringPatternParser</span><span class="p">(</span><span class="n">LocalizableStringParser</span><span class="o">.</span><span class="n">LANGUAGE_PATTERN</span><span class="p">),</span>
+                    <span class="n">ArrayParser</span><span class="p">(</span>
+                        <span class="n">StringPatternParser</span><span class="p">(</span><span class="n">LocalizableStringParser</span><span class="o">.</span><span class="n">LANGUAGE_PATTERN</span><span class="p">)</span>
+                    <span class="p">),</span>
+                <span class="p">]</span>
+            <span class="p">),</span>
+            <span class="nb">list</span><span class="p">,</span>
+            <span class="p">[],</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LocalizableStringProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.LocalizableStringProperty">[docs]</a><span class="k">class</span> <span class="nc">LocalizableStringProperty</span><span class="p">(</span><span class="n">ParsableProperty</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing either only string/localizable string values.</span>
+
+<span class="sd">    For example::</span>
+
+<span class="sd">        - &quot;plain string&quot;</span>
+<span class="sd">        - {</span>
+<span class="sd">            &quot;eng&quot;: &quot;Hello&quot;,</span>
+<span class="sd">            &quot;esp&quot;: &quot;Hola&quot;</span>
+<span class="sd">        }</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">PARSER</span> <span class="o">=</span> <span class="n">AnyOfParser</span><span class="p">([</span><span class="n">LocalizableStringParser</span><span class="p">(),</span> <span class="n">StringParser</span><span class="p">()])</span></div>
+
+
+<div class="viewcode-block" id="TypeProperty"><a class="viewcode-back" href="../../../../../core.util.webpub_manifest_parser.core.html#core.util.webpub_manifest_parser.core.ast.TypeProperty">[docs]</a><span class="k">class</span> <span class="nc">TypeProperty</span><span class="p">(</span><span class="n">Property</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Property allowing only specific values of a specific Type.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">nested_type</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a new instance of TypeProperty class.</span>
+
+<span class="sd">        :param key: Property&#39;s key</span>
+<span class="sd">        :type key: str</span>
+
+<span class="sd">        :param required: Boolean value indicating whether the property is required or not</span>
+<span class="sd">        :type required: bool</span>
+
+<span class="sd">        :param nested_type: Value&#39;s type</span>
+<span class="sd">        :type nested_type: Type</span>
+
+<span class="sd">        :param default_value: Property&#39;s default value</span>
+<span class="sd">        :type default_value: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">TypeProperty</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">TypeParser</span><span class="p">(</span><span class="n">nested_type</span><span class="p">),</span> <span class="n">default_value</span>
+        <span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../../index.html">Library Simplified Circulation Manager</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../modules.html">circulation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  <li><a href="../../../util.html">core.util</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

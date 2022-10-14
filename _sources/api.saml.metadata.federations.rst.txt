@@ -8,39 +8,38 @@ api.saml.metadata.federations.incommon module
 ---------------------------------------------
 
 .. automodule:: api.saml.metadata.federations.incommon
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.saml.metadata.federations.loader module
 -------------------------------------------
 
 .. automodule:: api.saml.metadata.federations.loader
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.saml.metadata.federations.model module
 ------------------------------------------
 
 .. automodule:: api.saml.metadata.federations.model
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.saml.metadata.federations.validator module
 ----------------------------------------------
 
 .. automodule:: api.saml.metadata.federations.validator
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: api.saml.metadata.federations
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

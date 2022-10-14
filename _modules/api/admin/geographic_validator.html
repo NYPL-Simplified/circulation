@@ -1,19 +1,18 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>api.admin.geographic_validator &#8212; Library Simplified Circulation Manager  documentation</title>
-    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../../../_static/jquery.js"></script>
-    <script type="text/javascript" src="../../../_static/underscore.js"></script>
-    <script type="text/javascript" src="../../../_static/doctools.js"></script>
-    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
    
@@ -59,8 +58,8 @@
         <span class="c1"># library would otherwise download. This is done because the host for this file can</span>
         <span class="c1"># be flaky. There is an issue for this in the underlying library here:</span>
         <span class="c1"># https://github.com/MacHu-GWU/uszipcode-project/issues/40</span>
-        <span class="n">db_file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s2">&quot;..&quot;</span><span class="p">,</span> <span class="s2">&quot;..&quot;</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;uszipcode&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">uszipcode</span><span class="o">.</span><span class="n">SearchEngine</span><span class="p">(</span><span class="n">simple_zipcode</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">db_file_dir</span><span class="o">=</span><span class="n">db_file_path</span><span class="p">)</span></div>
+        <span class="n">db_file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s2">&quot;..&quot;</span><span class="p">,</span> <span class="s2">&quot;..&quot;</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;uszipcode&quot;</span><span class="p">,</span> <span class="s2">&quot;simple_db.sqlite&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">uszipcode</span><span class="o">.</span><span class="n">SearchEngine</span><span class="p">(</span><span class="n">db_file_path</span><span class="o">=</span><span class="n">db_file_path</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="GeographicValidator.validate_geographic_areas"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator.validate_geographic_areas">[docs]</a>    <span class="k">def</span> <span class="nf">validate_geographic_areas</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
         <span class="c1"># Note: the validator does not recognize data from US territories other than Puerto Rico.</span>
@@ -109,7 +108,7 @@
                         <span class="c1"># the registry won&#39;t recognize the name of the place to which it corresponds.</span>
                         <span class="n">registry_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_location_through_registry</span><span class="p">(</span><span class="n">formatted</span><span class="p">,</span> <span class="n">db</span><span class="p">)</span>
                         <span class="k">if</span> <span class="n">registry_response</span><span class="p">:</span>
-                            <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;CA&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">formatted</span><span class="p">);</span>
+                            <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;CA&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">formatted</span><span class="p">)</span>
                         <span class="k">else</span><span class="p">:</span>
                             <span class="k">return</span> <span class="n">UNKNOWN_LOCATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Unable to locate &quot;</span><span class="si">%(value)s</span><span class="s1">&quot; (</span><span class="si">%(formatted)s</span><span class="s1">).  Try entering the name of a larger area.&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span> <span class="n">formatted</span><span class="o">=</span><span class="n">formatted</span><span class="p">))</span>
                     <span class="k">except</span><span class="p">:</span>
@@ -117,19 +116,33 @@
                 <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="p">))</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                     <span class="c1"># Is it in the format &quot;[city], [state abbreviation]&quot; or &quot;[county], [state abbreviation]&quot;?</span>
                     <span class="n">city_or_county</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="n">us_search</span><span class="o">.</span><span class="n">by_city_and_state</span><span class="p">(</span><span class="n">city_or_county</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
-                        <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">);</span>
-                    <span class="k">elif</span> <span class="nb">len</span><span class="p">([</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">us_search</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">returns</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">county</span> <span class="o">==</span> <span class="n">city_or_county</span><span class="p">]):</span>
-                        <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">);</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="c1"># Flag this as needing to be checked with the registry</span>
-                        <span class="n">flagged</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="c1"># Flag for needing to be checked with the registry</span>
+                    <span class="n">flagged</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="c1"># Check the entire state for the county, but only</span>
+                    <span class="c1"># if there is no match from by_city_and_state.</span>
+                    <span class="n">query_state_for_county</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">us_search</span><span class="o">.</span><span class="n">by_city_and_state</span><span class="p">(</span><span class="n">city_or_county</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+                            <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                            <span class="n">flagged</span> <span class="o">=</span> <span class="kc">False</span>
+                            <span class="n">query_state_for_county</span> <span class="o">=</span> <span class="kc">False</span>
+                    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                        <span class="c1"># uszipcode does fuzzy searching and raises a ValueError</span>
+                        <span class="k">pass</span>
+                    <span class="k">finally</span><span class="p">:</span>
+                        <span class="c1"># If a match hasn&#39;t been found yet then search for the county</span>
+                        <span class="k">if</span> <span class="p">(</span>
+                            <span class="n">query_state_for_county</span> <span class="ow">and</span>
+                            <span class="nb">len</span><span class="p">([</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">us_search</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">returns</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">county</span> <span class="o">==</span> <span class="n">city_or_county</span><span class="p">])</span>
+                        <span class="p">):</span>
+                            <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                            <span class="n">flagged</span> <span class="o">=</span> <span class="kc">False</span>
                 <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_zip</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">&quot;US&quot;</span><span class="p">):</span>
                     <span class="c1"># Is it a US zipcode?</span>
                     <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">look_up_zip</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">&quot;US&quot;</span><span class="p">)</span>
                     <span class="k">if</span> <span class="ow">not</span> <span class="n">info</span><span class="p">:</span>
                         <span class="k">return</span> <span class="n">UNKNOWN_LOCATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;&quot;</span><span class="si">%(value)s</span><span class="s1">&quot; is not a valid U.S. zipcode.&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
-                    <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">);</span>
+                    <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">flagged</span> <span class="o">=</span> <span class="kc">True</span>
 
@@ -229,17 +242,15 @@
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -256,7 +267,7 @@
       &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

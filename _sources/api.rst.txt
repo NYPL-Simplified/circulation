@@ -5,14 +5,15 @@ Subpackages
 -----------
 
 .. toctree::
+   :maxdepth: 4
 
-    api.admin
-    api.clever
-    api.lcp
-    api.proquest
-    api.saml
-    api.sip
-    api.util
+   api.admin
+   api.clever
+   api.lcp
+   api.proquest
+   api.saml
+   api.sip
+   api.util
 
 Submodules
 ----------
@@ -21,343 +22,342 @@ api.annotations module
 ----------------------
 
 .. automodule:: api.annotations
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.announcements module
 ------------------------
 
 .. automodule:: api.announcements
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.app module
 --------------
 
 .. automodule:: api.app
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.authenticator module
 ------------------------
 
 .. automodule:: api.authenticator
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.axis module
 ---------------
 
 .. automodule:: api.axis
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.base\_controller module
 ---------------------------
 
 .. automodule:: api.base_controller
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.bibliotheca module
 ----------------------
 
 .. automodule:: api.bibliotheca
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.circulation module
 ----------------------
 
 .. automodule:: api.circulation
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.circulation\_exceptions module
 ----------------------------------
 
 .. automodule:: api.circulation_exceptions
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.config module
 -----------------
 
 .. automodule:: api.config
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.controller module
 ---------------------
 
 .. automodule:: api.controller
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.coverage module
 -------------------
 
 .. automodule:: api.coverage
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.custom\_index module
 ------------------------
 
 .. automodule:: api.custom_index
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.custom\_patron\_catalog module
 ----------------------------------
 
 .. automodule:: api.custom_patron_catalog
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.enki module
 ---------------
 
 .. automodule:: api.enki
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.feedbooks module
 --------------------
 
 .. automodule:: api.feedbooks
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.firstbook module
 --------------------
 
 .. automodule:: api.firstbook
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.firstbook2 module
 ---------------------
 
 .. automodule:: api.firstbook2
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.google\_analytics\_provider module
 --------------------------------------
 
 .. automodule:: api.google_analytics_provider
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.kansas\_patron module
 -------------------------
 
 .. automodule:: api.kansas_patron
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.lanes module
 ----------------
 
 .. automodule:: api.lanes
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.local\_analytics\_exporter module
 -------------------------------------
 
 .. automodule:: api.local_analytics_exporter
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.marc module
 ---------------
 
 .. automodule:: api.marc
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.metadata\_wrangler module
 -----------------------------
 
 .. automodule:: api.metadata_wrangler
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.millenium\_patron module
 ----------------------------
 
 .. automodule:: api.millenium_patron
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.monitor module
 ------------------
 
 .. automodule:: api.monitor
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.novelist module
 -------------------
 
 .. automodule:: api.novelist
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.nyt module
 --------------
 
 .. automodule:: api.nyt
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.odilo module
 ----------------
 
 .. automodule:: api.odilo
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.odl module
 --------------
 
 .. automodule:: api.odl
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.onix module
 ---------------
 
 .. automodule:: api.onix
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.opds module
 ---------------
 
 .. automodule:: api.opds
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.opds\_for\_distributors module
 ----------------------------------
 
 .. automodule:: api.opds_for_distributors
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.overdrive module
 --------------------
 
 .. automodule:: api.overdrive
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.problem\_details module
 ---------------------------
 
 .. automodule:: api.problem_details
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.rbdigital module
 --------------------
 
 .. automodule:: api.rbdigital
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.registry module
 -------------------
 
 .. automodule:: api.registry
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.selftest module
 -------------------
 
 .. automodule:: api.selftest
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.shared\_collection module
 -----------------------------
 
 .. automodule:: api.shared_collection
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.simple\_authentication module
 ---------------------------------
 
 .. automodule:: api.simple_authentication
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.testing module
 ------------------
 
 .. automodule:: api.testing
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 api.web\_publication\_manifest module
 -------------------------------------
 
 .. automodule:: api.web_publication_manifest
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: api
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
