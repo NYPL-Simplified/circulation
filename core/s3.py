@@ -615,7 +615,7 @@ class S3Uploader(MirrorUploader):
         :type mirror_to: string
 
         :param collection: Collection
-        :type collection: Optional[Collection]
+        :type collection: Optional[core.model.collection.Collection]
         """
         # Turn the original URL into an s3.amazonaws.com URL.
         media_type = representation.external_media_type
