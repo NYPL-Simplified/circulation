@@ -2595,7 +2595,7 @@ class Lane(Base, DatabaseBackedWorkList, HierarchyWorkList):
 
     # Only a visible lane will show up in the user interface.  The
     # admin interface can see all the lanes, visible or not.
-    _visible = Column(Boolean, default=True, nullable=False, name="visible")
+    _visible = Column(Boolean, default=False, nullable=False, name="visible")
 
     # A Lane may have many CachedFeeds.
     cachedfeeds = relationship(
