@@ -961,6 +961,35 @@ class OpenAPIController:
             }
         )
 
+        self.addComponent(
+            'schema', 'AdminViewPageSchema', 'object',
+            {
+                'admin_template': {
+                    'type': 'object',
+                            'description': 'HTML template for Admin View'
+                },
+                'csrf_token': {
+                    'type': 'object',
+                            'description': 'CSRF Token'
+                },
+                'sitewide_tos_href': {
+                    'type': 'string',
+                            'format': 'url'
+                },
+                'sitewide_tos_text': {'type': 'string'},
+                'show_circ_events_download': {'type': 'boolean'},
+                'setting_up': {'type': 'boolean'},
+                'email': {
+                    'type': 'string',
+                            'format': 'email'
+                },
+                'roles': {
+                    'type': 'object',
+                            'description': 'All roles admin holds'
+                }
+            }
+        )
+
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
         self.spec.components.parameter(

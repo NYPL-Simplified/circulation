@@ -563,7 +563,8 @@ class ArrayOfStringsProperty(BaseArrayProperty):
 class ListOfLanguagesProperty(BaseArrayProperty):
     """Property allowing localizable strings.
 
-    For example:
+    For example::
+
         - "en"
         - [
             "eng",
@@ -599,12 +600,13 @@ class ListOfLanguagesProperty(BaseArrayProperty):
 class LocalizableStringProperty(ParsableProperty):
     """Property allowing either only string/localizable string values.
 
-    For example:
-    - "plain string"
-    - {
-        "eng": "Hello",
-        "esp": "Hola"
-      }
+    For example::
+
+        - "plain string"
+        - {
+            "eng": "Hello",
+            "esp": "Hola"
+        }
     """
 
     PARSER = AnyOfParser([LocalizableStringParser(), StringParser()])
