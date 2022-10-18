@@ -1565,6 +1565,7 @@ class TestLanesController(AdminControllerTest):
             assert list == lane.customlists[0]
             assert lane.inherit_parent_restrictions is False
             assert 0 == lane.priority
+            assert False == lane.visible
 
             # The sibling's priority has been shifted down to put the new lane at the top.
             assert 1 == sibling.priority
