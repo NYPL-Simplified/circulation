@@ -2737,6 +2737,7 @@ class DatabaseVacuum(Script):
         """
         today = datetime.now().strftime("%m/%d/%Y")
         start = time.time()
+        self.log.warn('Database vacuum starting %s' % today)
         # Go back up to engine-level.
         connection = self._db.get_bind()
         # Get table names
@@ -2748,7 +2749,7 @@ class DatabaseVacuum(Script):
                 session.execute('VACUUM %s %s' % (subcommand, table))
         end = time.time()
         duration = end - start
-        self.log.info('Database vacuum completed on %s and took %d' %
+        self.log.warn('Database vacuum completed on %s and took %d' %
                       (today, duration))
 
 

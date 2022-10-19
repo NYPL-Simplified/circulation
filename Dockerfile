@@ -100,6 +100,7 @@ RUN apt-get update \
     libxmlsec1-dev \
     libxmlsec1-openssl \
     libxml2-dev \
+    # Network Time Protocol (ntp) to sync container to local server time
     ntp \
  && locale-gen en_US \
  && update-locale LANG=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 \

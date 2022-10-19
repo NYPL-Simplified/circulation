@@ -63,7 +63,6 @@ from ..scripts import (
     ConfigureSiteScript,
     DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
-    DatabaseVacuum,
     Explain,
     IdentifierInputScript,
     LaneSweeperScript,
@@ -1490,13 +1489,6 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
         assert expected_stamp == script.python_timestamp.finish
         assert 2 == script.overall_timestamp.counter
         assert 2 == script.python_timestamp.counter
-
-
-class TestDatabaseVacuumScript(DatabaseTest):
-    def test_full_vacuum(self):
-        script = DatabaseVacuum()
-        script.run()
-        assert None == script.timestamp_data
 
 
 class TestAddClassificationScript(DatabaseTest):
