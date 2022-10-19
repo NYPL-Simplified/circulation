@@ -2749,7 +2749,7 @@ class DatabaseVacuum(Script):
                 session.execute('VACUUM %s %s' % (subcommand, table))
         end = time.time()
         duration = end - start
-        self.log.warn('Database vacuum completed on %s and took %d' %
+        self.log.warn('Database vacuum completed on %s and took %d seconds' %
                       (today, duration))
 
 
