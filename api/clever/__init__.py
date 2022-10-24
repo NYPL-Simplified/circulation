@@ -264,7 +264,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         if not identifier:
             return INVALID_CREDENTIALS.detailed(lgt("A valid Clever login is required."))
 
-        if result.get('user_type') not in self.SUPPORTED_USER_TYPES:
+        if result.get('type') not in self.SUPPORTED_USER_TYPES:
             return UNSUPPORTED_CLEVER_USER_TYPE
 
         links = result['links']
@@ -293,7 +293,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         external_type = None
 
-        if result['user_type'] == 'student':
+        if result['type'] == 'student':
             # We need to be able to assign an external_type to students, so that they
             # get the correct content level. To do so we rely on the grade field in the
             # user data we get back from Clever. Their API doesn't guarantee that the
