@@ -3,11 +3,22 @@
 
 import os
 import sys
+from turtle import update
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from core.scripts import UpdateLaneSizeScript       # noqa: E402
+def update_lane_size():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-UpdateLaneSizeScript().run()
+    from core.scripts import UpdateLaneSizeScript       # noqa: E402
+
+    UpdateLaneSizeScript().run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='update_lane_size', group='Scripts'):
+        update_lane_size()

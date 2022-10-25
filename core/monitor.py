@@ -374,7 +374,7 @@ class CollectionMonitor(Monitor):
         :param _db: Database session object.
         :param collections: An optional list of collections. If None,
             we'll process all collections.
-        :type collections: List[Collection]
+        :type collections: List[core.model.collection.Collection]
         :param constructor_kwargs: These keyword arguments will be passed
             into the CollectionMonitor constructor.
 

@@ -380,7 +380,7 @@ class ViewController(AdminController):
                             "Your admin account doesn't have access to any libraries. "
                             "Contact your library manager for assistance."
                         )
-                        return Response(lgt(msg), 200)
+                        return Response(lgt(msg), 401)
 
                     return redirect(self.url_for('admin_view', collection=library_name))
 
@@ -1133,6 +1133,9 @@ class LanesController(AdminCirculationManagerController):
 
                 (lane, is_new) = create(self._db, Lane,
                                         display_name=display_name, parent=parent, library=library)
+
+                if is_new:
+                    lane.visible = False
 
                 # Make a new lane the first child of its parent and bump all the siblings down in priority.
                 siblings = self._db.query(Lane).filter(

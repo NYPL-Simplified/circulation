@@ -128,7 +128,7 @@ class LCPMirror(MinIOUploader, HasExternalIntegrationPerCollection):
         :type mirror_to: string
 
         :param collection: Collection
-        :type collection: Optional[Collection]
+        :type collection: Optional[core.model.collection.Collection]
         """
         db = Session.object_session(representation)
         bucket = self.get_bucket(S3UploaderConfiguration.PROTECTED_CONTENT_BUCKET_KEY)

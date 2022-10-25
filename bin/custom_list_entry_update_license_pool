@@ -8,12 +8,21 @@ newly acquired licenses for books that were already on a custom list.
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
+def custom_list_entry_update_license_pool():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-from core.monitor import CustomListEntryLicensePoolUpdateMonitor        # noqa: E402
-from core.scripts import RunMonitorScript                               # noqa: E402
+    from core.monitor import CustomListEntryLicensePoolUpdateMonitor        # noqa: E402
+    from core.scripts import RunMonitorScript                               # noqa: E402
 
-RunMonitorScript(CustomListEntryLicensePoolUpdateMonitor).run()
+    RunMonitorScript(CustomListEntryLicensePoolUpdateMonitor).run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='custom_list_entry_update_license_pool', group='Scripts'):
+        custom_list_entry_update_license_pool()

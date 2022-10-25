@@ -3,12 +3,22 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from core.scripts import RunCollectionMonitorScript     # noqa: E402
-from api.odl import ODLHoldReaper                       # noqa: E402
+def odl_hold_reaper():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-RunCollectionMonitorScript(ODLHoldReaper).run()
+    from core.scripts import RunCollectionMonitorScript     # noqa: E402
+    from api.odl import ODLHoldReaper                       # noqa: E402
+
+    RunCollectionMonitorScript(ODLHoldReaper).run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='odl_hold_reaper', group='Scripts'):
+        odl_hold_reaper()
