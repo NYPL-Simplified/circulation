@@ -584,7 +584,7 @@ class OpenAPIController:
         )
 
         self.addComponent(
-            'schema', 'AuthServicesDictSchema', 'array',
+            'schema', 'ServicesDictSchema', 'array',
             {
                 'items': {
                     'type': 'object',
@@ -653,15 +653,15 @@ class OpenAPIController:
         )
 
         self.addComponent(
-            'schema', 'AdminAuthServicesSchema', 'object',
+            'schema', 'AdminServicesSchema', 'object',
             {
-                'admin_auth_services': {'$ref': '#/components/schemas/AuthServicesDictSchema'},
+                '*_services': {'$ref': '#/components/schemas/ServicesDictSchema'},
                 'protocols': {'$ref': '#/components/schemas/ProtocolDictSchema'}
             }
         )
 
         self.addComponent(
-            'schema', 'AdminAuthPost', 'object',
+            'schema', 'AdminProtocolPost', 'object',
             {
                 'protocol': {
                     'type': 'string',
@@ -669,6 +669,22 @@ class OpenAPIController:
                 },
                 'id': {'type': 'string'},
                 'name': {'type': 'string'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'AdminDiscoveryPost', 'object',
+            {
+                'protocol': {
+                    'type': 'string',
+                    'description': 'The name of a protocol to lookup'
+                },
+                'id': {'type': 'string'},
+                'name': {'type': 'string'},
+                'url': {
+                    'type': 'string',
+                    'format': 'url',
+                }
             }
         )
 
@@ -876,6 +892,56 @@ class OpenAPIController:
         )
 
         self.addComponent(
+            'schema', 'DiscoverServiceRegPost', 'object',
+            {
+                'integration_id': {'type': 'string'},
+                'library_short_name': {'type': 'string'},
+                'registration_stage': {'type': 'string'}
+            }
+        )
+
+        self.addComponent(
+            'schema', 'DiscoveryServiceGet', 'object',
+            {
+                'library_registrations': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'id': {
+                                'type': 'string',
+                                'description': 'Redistration integration id.'
+                            },
+                            'access_problem': {
+                                'type': 'object',
+                                'nullable': 'True'
+                            },
+                            'tems_of_service_link': {
+                                'type': 'string',
+                                'format': 'url'
+                            },
+                            'term_of_service_html': {
+                                'type': 'string',
+                                'format': 'html'
+                            },
+                            'libraries': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'library_short_name': {'type': 'string'},
+                                        'status': {'type': 'string'},
+                                        'stage': {'type': 'string'}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
+        self.addComponent(
             'schema', 'WorkComplaintsSchema', 'object',
             {
                 'book': {
@@ -891,6 +957,35 @@ class OpenAPIController:
                     'properties': {
                         'complaint_type': {'type': 'integer'}
                     }
+                }
+            }
+        )
+
+        self.addComponent(
+            'schema', 'AdminViewPageSchema', 'object',
+            {
+                'admin_template': {
+                    'type': 'object',
+                            'description': 'HTML template for Admin View'
+                },
+                'csrf_token': {
+                    'type': 'object',
+                            'description': 'CSRF Token'
+                },
+                'sitewide_tos_href': {
+                    'type': 'string',
+                            'format': 'url'
+                },
+                'sitewide_tos_text': {'type': 'string'},
+                'show_circ_events_download': {'type': 'boolean'},
+                'setting_up': {'type': 'boolean'},
+                'email': {
+                    'type': 'string',
+                            'format': 'email'
+                },
+                'roles': {
+                    'type': 'object',
+                            'description': 'All roles admin holds'
                 }
             }
         )

@@ -3,11 +3,21 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from core.scripts import ReclassifyWorksForUncheckedSubjectsScript      # noqa: E402
+def work_classify_unchecked_subjects():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-ReclassifyWorksForUncheckedSubjectsScript().run()
+    from core.scripts import ReclassifyWorksForUncheckedSubjectsScript      # noqa: E402
+
+    ReclassifyWorksForUncheckedSubjectsScript().run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='work_classify_unchecked_subjects', group='Scripts'):
+           work_classify_unchecked_subjects() 
