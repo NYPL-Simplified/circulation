@@ -2774,7 +2774,7 @@ class TestOAuthController(AuthenticatorTest):
     def setup_method(self):
         super(TestOAuthController, self).setup_method()
         class MockOAuthWithExternalAuthenticateURL(MockOAuth):
-            def __init__(self, library, _db, external_authenticate_url, patron):
+            def __init__(self, library, _db, external_authenticate_url, patron, root_lane=None):
                 super(MockOAuthWithExternalAuthenticateURL, self).__init__(
                     library,
                 )
@@ -2784,6 +2784,7 @@ class TestOAuthController(AuthenticatorTest):
                     _db, self.patron, "a token"
                 )
                 self.patrondata = PatronData(personal_name="Abcd")
+                self.root_lane = root_lane
 
             def external_authenticate_url(self, state, _db):
                 return self.url + "?state=" + state
@@ -2792,9 +2793,12 @@ class TestOAuthController(AuthenticatorTest):
                 return self.token, self.patron, self.patrondata
 
         patron = self._patron()
+        lane = self._lane(library=self._default_library)
+        lane.root_for_patron_type = '{E}'
+        patron.external_type = 'E'
         self.basic = self.mock_basic()
         self.oauth1 = MockOAuthWithExternalAuthenticateURL(
-            self._default_library, self._db, "http://oauth1.com/", patron
+            self._default_library, self._db, "http://oauth1.com/", patron, lane.id
         )
         self.oauth1.NAME = "Mock OAuth 1"
         self.oauth2 = MockOAuthWithExternalAuthenticateURL(
@@ -2855,17 +2859,20 @@ class TestOAuthController(AuthenticatorTest):
         """
 
         # Successful callback through OAuth provider 1.
-        params = dict(code="foo", state=json.dumps(dict(provider=self.oauth1.NAME)))
-        response = self.controller.oauth_authentication_callback(self._db, params)
-        assert 302 == response.status_code
-        fragments = urllib.parse.parse_qs(urllib.parse.urlparse(response.location).fragment)
-        token = fragments.get("access_token")[0]
-        provider_name, provider_token = self.auth.decode_bearer_token(token)
-        assert self.oauth1.NAME == provider_name
-        assert self.oauth1.token.credential == provider_token
+        with app.app_context(), app.test_request_context():
+            params = dict(code="foo", state=json.dumps(dict(provider=self.oauth1.NAME)))
+            response = self.controller.oauth_authentication_callback(self._db, params)
+            assert 302 == response.status_code
+            fragments = urllib.parse.parse_qs(urllib.parse.urlparse(response.location).fragment)
+            token = fragments.get("access_token")[0]
+            provider_name, provider_token = self.auth.decode_bearer_token(token)
+            assert self.oauth1.NAME == provider_name
+            assert self.oauth1.token.credential == provider_token
+            assert str(self.oauth1.root_lane) in fragments.get('root_lane')[0]
 
         # Successful callback through OAuth provider 2.
         params = dict(code="foo", state=json.dumps(dict(provider=self.oauth2.NAME)))
+        self._default__library.lanes.clear()
         response = self.controller.oauth_authentication_callback(self._db, params)
         assert 302 == response.status_code
         fragments = urllib.parse.parse_qs(urllib.parse.urlparse(response.location).fragment)
@@ -2873,6 +2880,7 @@ class TestOAuthController(AuthenticatorTest):
         provider_name, provider_token = self.auth.decode_bearer_token(token)
         assert self.oauth2.NAME == provider_name
         assert self.oauth2.token.credential == provider_token
+        assert str(self.oauth2.root_lane) == fragments.get('root_lane')[0]
 
         # State is missing so we never get to check the code.
         params = dict(code="foo")
@@ -2951,6 +2959,31 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
             headers_bearer = f"Bearer {token}"
             patron = self.controller.authenticator.authenticated_patron(self._db, headers_bearer)
             assert 'unittestuser' == patron.username
+
+    def test_basic_auth_temp_token_patron_root_lane(self):
+        """
+        GIVEN: A valid Authorization header for a Patron that has a root lane
+        WHEN:  Requesting a token
+        THEN:  A root_lane is included in the response
+        """
+        lane = self._lane(library=self.controller.authenticator.library)
+        lane.root_for_patron_type = '{E}'
+        self.controller.authenticator.basic_auth_provider.patron.external_type = 'E'
+
+        valid_credentials = base64.b64encode(b"unittestuser:unittestpassword").decode("utf-8")
+        headers_basic = dict(Authorization=f"Basic {valid_credentials}")
+
+        with app.test_request_context("/http_basic_auth_token", headers=headers_basic):
+            response = self.controller.basic_auth_temp_token({}, self._db)
+            assert 200 == response.status_code
+
+            token = response.json.get('access_token')
+            assert token
+
+            assert (
+                str(self.controller.authenticator.basic_auth_provider.patron.root_lane.id)
+                in response.json.get('root_lane')
+            )
 
     @pytest.mark.parametrize(
         'delta',

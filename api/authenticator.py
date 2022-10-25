@@ -29,6 +29,7 @@ from .config import (
     CannotLoadConfiguration,
     IntegrationException,
 )
+from core.app_server import cdn_url_for
 from core.model import (
     get_one,
     get_one_or_create,
@@ -2637,9 +2638,23 @@ class OAuthController(object):
         )
 
         patron_info = json.dumps(patrondata.to_response_parameters)
+        try:
+            library = self.authenticator.library_authenticators.get(
+                self.authenticator.current_library_name
+            ).library
+            root_lane = cdn_url_for(
+                'acquisition_groups',
+                _external=True,
+                library_short_name=library.short_name,
+                lane_identifier=patron.root_lane.id,
+            )
+        except AttributeError:
+            root_lane = patron.root_lane
+
         params = dict(
             access_token=simplified_token,
-            patron_info=patron_info
+            patron_info=patron_info,
+            root_lane=root_lane,
         )
         return redirect(client_redirect_uri + "#" + urllib.parse.urlencode(params))
 
@@ -2741,10 +2756,21 @@ class BasicAuthTempTokenController(object):
                 inner_token.credential
             )
 
+            try:
+                root_lane = cdn_url_for(
+                    'acquisition_groups',
+                    _external=True,
+                    library_short_name=self.authenticator.library.short_name,
+                    lane_identifier=patron.root_lane.id,
+                )
+            except AttributeError:
+                root_lane = patron.root_lane
+
             data = dict(
                 access_token=outer_token,
                 token_type="bearer",
-                expires_in=BasicAuthTempTokenController.TOKEN_DURATION.seconds
+                expires_in=BasicAuthTempTokenController.TOKEN_DURATION.seconds,
+                root_lane=root_lane,
             )
 
             return flask.jsonify(data)
