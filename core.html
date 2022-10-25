@@ -2422,7 +2422,7 @@ by a specific field (e.g. author) as described by a Facets object.</p>
 presenting the search results.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="core.external_search.Filter.AUTHOR_MATCH_ROLES">
-<span class="sig-name descname"><span class="pre">AUTHOR_MATCH_ROLES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['Primary</span> <span class="pre">Author',</span> <span class="pre">'Author',</span> <span class="pre">'Narrator',</span> <span class="pre">'Editor',</span> <span class="pre">'Director',</span> <span class="pre">'Actor']</span></em><a class="headerlink" href="#core.external_search.Filter.AUTHOR_MATCH_ROLES" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">AUTHOR_MATCH_ROLES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['Author',</span> <span class="pre">'Primary</span> <span class="pre">Author',</span> <span class="pre">'Narrator',</span> <span class="pre">'Editor',</span> <span class="pre">'Director',</span> <span class="pre">'Actor']</span></em><a class="headerlink" href="#core.external_search.Filter.AUTHOR_MATCH_ROLES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -5047,12 +5047,12 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="core.log.JSONFormatter.fqdn">
-<span class="sig-name descname"><span class="pre">fqdn</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fv-az364-156.1pkyza3ch1rutb35pi5oc1atsf.bx.internal.cloudapp.net'</span></em><a class="headerlink" href="#core.log.JSONFormatter.fqdn" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">fqdn</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fv-az422-142.ti0pr2qflbnu5cmd2n1i5gaume.gx.internal.cloudapp.net'</span></em><a class="headerlink" href="#core.log.JSONFormatter.fqdn" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="core.log.JSONFormatter.hostname">
-<span class="sig-name descname"><span class="pre">hostname</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fv-az364-156.1pkyza3ch1rutb35pi5oc1atsf.bx.internal.cloudapp.net'</span></em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">hostname</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'fv-az422-142.ti0pr2qflbnu5cmd2n1i5gaume.gx.internal.cloudapp.net'</span></em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -10434,6 +10434,39 @@ one.</p>
 <dt class="sig sig-object py" id="core.scripts.DatabaseMigrationScript.update_timestamps">
 <span class="sig-name descname"><span class="pre">update_timestamps</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">migration_file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#DatabaseMigrationScript.update_timestamps"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.scripts.DatabaseMigrationScript.update_timestamps" title="Permalink to this definition">¶</a></dt>
 <dd><p>Updates this service’s timestamp to match a given migration</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core.scripts.DatabaseVacuum">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.scripts.</span></span><span class="sig-name descname"><span class="pre">DatabaseVacuum</span></span><a class="reference internal" href="_modules/core/scripts.html#DatabaseVacuum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.scripts.DatabaseVacuum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.scripts.Script" title="core.scripts.Script"><code class="xref py py-class docutils literal notranslate"><span class="pre">Script</span></code></a></p>
+<p>Script to vacuum all database tables</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>Script (_type_): _description_</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="core.scripts.DatabaseVacuum.do_run">
+<span class="sig-name descname"><span class="pre">do_run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subcommand</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'FULL'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#DatabaseVacuum.do_run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#core.scripts.DatabaseVacuum.do_run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run the database vacuum</p>
+<dl class="simple">
+<dt>Args:</dt><dd><dl class="simple">
+<dt>subcommand (str, optional): </dt><dd><p>Can be any of these
+FULL [ boolean ]
+FREEZE [ boolean ]
+VERBOSE [ boolean ]
+ANALYZE [ boolean ]
+DISABLE_PAGE_SKIPPING [ boolean ]
+SKIP_LOCKED [ boolean ]
+INDEX_CLEANUP { AUTO | ON | OFF }
+PROCESS_TOAST [ boolean ]
+TRUNCATE [ boolean ]</p>
+</dd>
+</dl>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>

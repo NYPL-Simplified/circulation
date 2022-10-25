@@ -42,6 +42,8 @@
 <span class="kn">import</span> <span class="nn">traceback</span>
 <span class="kn">import</span> <span class="nn">unicodedata</span>
 <span class="kn">import</span> <span class="nn">uuid</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
 <span class="kn">from</span> <span class="nn">pdb</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
@@ -253,6 +255,7 @@
         <span class="p">)</span>
         <span class="n">timestamp_data</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span></div></div>
 
+
 <div class="viewcode-block" id="RunMonitorScript"><a class="viewcode-back" href="../../core.html#core.scripts.RunMonitorScript">[docs]</a><span class="k">class</span> <span class="nc">RunMonitorScript</span><span class="p">(</span><span class="n">Script</span><span class="p">):</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">monitor</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
@@ -337,6 +340,7 @@
 
 <div class="viewcode-block" id="RunCoverageProvidersScript"><a class="viewcode-back" href="../../core.html#core.scripts.RunCoverageProvidersScript">[docs]</a><span class="k">class</span> <span class="nc">RunCoverageProvidersScript</span><span class="p">(</span><span class="n">Script</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Alternate between multiple coverage providers.&quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">providers</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">RunCoverageProvidersScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">providers</span> <span class="o">=</span> <span class="p">[]</span>
@@ -374,12 +378,14 @@
     <span class="sd">&quot;&quot;&quot;Run the same CoverageProvider code for all Collections that</span>
 <span class="sd">    get their licenses from the appropriate place.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_class</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">providers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span>
         <span class="n">providers</span> <span class="o">=</span> <span class="n">providers</span> <span class="ow">or</span> <span class="nb">list</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">provider_class</span><span class="p">:</span>
             <span class="n">providers</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_providers</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">provider_class</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">RunCollectionCoverageProviderScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">providers</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">RunCollectionCoverageProviderScript</span><span class="p">,</span>
+              <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">providers</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">)</span>
 
 <div class="viewcode-block" id="RunCollectionCoverageProviderScript.get_providers"><a class="viewcode-back" href="../../core.html#core.scripts.RunCollectionCoverageProviderScript.get_providers">[docs]</a>    <span class="k">def</span> <span class="nf">get_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">provider_class</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">provider_class</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span></div></div>
@@ -391,8 +397,8 @@
     <span class="n">DEFAULT_WORKER_SIZE</span> <span class="o">=</span> <span class="mi">5</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_class</span><span class="p">,</span> <span class="n">worker_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="o">**</span><span class="n">provider_kwargs</span>
-    <span class="p">):</span>
+                 <span class="o">**</span><span class="n">provider_kwargs</span>
+                 <span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">RunThreadedCollectionCoverageProviderScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">worker_size</span> <span class="o">=</span> <span class="n">worker_size</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_WORKER_SIZE</span>
@@ -557,16 +563,17 @@
         <span class="n">identifiers</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier_type</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No identifier type specified! Use &#39;--identifier-type=</span><span class="se">\&quot;</span><span class="s2">Database ID</span><span class="se">\&quot;</span><span class="s2">&#39; to name identifiers by database ID.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;No identifier type specified! Use &#39;--identifier-type=</span><span class="se">\&quot;</span><span class="s2">Database ID</span><span class="se">\&quot;</span><span class="s2">&#39; to name identifiers by database ID.&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">data_source</span><span class="p">:</span>
                 <span class="n">identifiers</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span><span class="o">.</span>\
                     <span class="n">join</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">)</span><span class="o">.</span>\
                     <span class="nb">filter</span><span class="p">(</span>
-                        <span class="n">Identifier</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="n">identifier_type</span><span class="p">,</span>
-                        <span class="n">LicensePool</span><span class="o">.</span><span class="n">data_source</span><span class="o">==</span><span class="n">data_source</span>
-                    <span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+                        <span class="n">Identifier</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">identifier_type</span><span class="p">,</span>
+                        <span class="n">LicensePool</span><span class="o">.</span><span class="n">data_source</span> <span class="o">==</span> <span class="n">data_source</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">identifiers</span>
 
         <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">:</span>
@@ -601,7 +608,7 @@
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">look_up_libraries</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">parsed</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LibraryInputScript.arg_parser"><a class="viewcode-back" href="../../core.html#core.scripts.LibraryInputScript.arg_parser">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">arg_parser</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">multiple_libraries</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">arg_parser</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">multiple_libraries</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
         <span class="n">library_names</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">l</span><span class="o">.</span><span class="n">short_name</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Library</span><span class="p">))</span>
         <span class="n">library_names</span> <span class="o">=</span> <span class="s1">&#39;&quot;&#39;</span> <span class="o">+</span> <span class="s1">&#39;&quot;, &quot;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">library_names</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;&quot;&#39;</span>
@@ -650,7 +657,7 @@
                 <span class="k">continue</span>
             <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span> <span class="n">Library</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="n">library</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Library</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">field</span><span class="o">==</span><span class="n">arg</span><span class="p">)</span><span class="o">.</span><span class="n">one</span><span class="p">()</span>
+                    <span class="n">library</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Library</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">field</span> <span class="o">==</span> <span class="n">arg</span><span class="p">)</span><span class="o">.</span><span class="n">one</span><span class="p">()</span>
                 <span class="k">except</span> <span class="n">NoResultFound</span><span class="p">:</span>
                     <span class="k">continue</span>
                 <span class="k">except</span> <span class="n">MultipleResultsFound</span><span class="p">:</span>
@@ -686,12 +693,14 @@
         <span class="n">parsed</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">cmd_args</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">stdin</span><span class="p">:</span>
             <span class="n">stdin</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">read_stdin_lines</span><span class="p">(</span><span class="n">stdin</span><span class="p">)</span>
-        <span class="n">parsed</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">PatronInputScript</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">look_up_libraries</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">parsed</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">parsed</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">PatronInputScript</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">look_up_libraries</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">parsed</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">look_up_patrons</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">parsed</span><span class="p">,</span> <span class="n">stdin</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="PatronInputScript.arg_parser"><a class="viewcode-back" href="../../core.html#core.scripts.PatronInputScript.arg_parser">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">arg_parser</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
-        <span class="n">parser</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">PatronInputScript</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">arg_parser</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">multiple_libraries</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">parser</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">PatronInputScript</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">arg_parser</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">multiple_libraries</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
             <span class="s1">&#39;identifiers&#39;</span><span class="p">,</span>
             <span class="n">help</span><span class="o">=</span><span class="s1">&#39;A specific patron identifier to process.&#39;</span><span class="p">,</span>
@@ -738,8 +747,8 @@
                           <span class="n">Patron</span><span class="o">.</span><span class="n">external_identifier</span><span class="p">):</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">patron</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Patron</span><span class="p">)</span>\
-                        <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">field</span><span class="o">==</span><span class="n">arg</span><span class="p">)</span>\
-                        <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Patron</span><span class="o">.</span><span class="n">library_id</span><span class="o">==</span><span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>\
+                        <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">field</span> <span class="o">==</span> <span class="n">arg</span><span class="p">)</span>\
+                        <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Patron</span><span class="o">.</span><span class="n">library_id</span> <span class="o">==</span> <span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>\
                         <span class="o">.</span><span class="n">one</span><span class="p">()</span>
                 <span class="k">except</span> <span class="n">NoResultFound</span><span class="p">:</span>
                     <span class="k">continue</span>
@@ -791,11 +800,13 @@
 <div class="viewcode-block" id="LaneSweeperScript.process_lane"><a class="viewcode-back" href="../../core.html#core.scripts.LaneSweeperScript.process_lane">[docs]</a>    <span class="k">def</span> <span class="nf">process_lane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane</span><span class="p">):</span>
         <span class="k">pass</span></div></div>
 
+
 <div class="viewcode-block" id="CustomListSweeperScript"><a class="viewcode-back" href="../../core.html#core.scripts.CustomListSweeperScript">[docs]</a><span class="k">class</span> <span class="nc">CustomListSweeperScript</span><span class="p">(</span><span class="n">LibraryInputScript</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Do something to each custom list in a library.&quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="CustomListSweeperScript.process_library"><a class="viewcode-back" href="../../core.html#core.scripts.CustomListSweeperScript.process_library">[docs]</a>    <span class="k">def</span> <span class="nf">process_library</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
-        <span class="n">lists</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">CustomList</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">CustomList</span><span class="o">.</span><span class="n">library_id</span><span class="o">==</span><span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="n">lists</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">CustomList</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">CustomList</span><span class="o">.</span><span class="n">library_id</span> <span class="o">==</span> <span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">lists</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">process_custom_list</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
@@ -877,7 +888,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">provider</span> <span class="o">=</span> <span class="n">provider</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">service_name</span>
 
-
 <div class="viewcode-block" id="RunCoverageProviderScript.extract_additional_command_line_arguments"><a class="viewcode-back" href="../../core.html#core.scripts.RunCoverageProviderScript.extract_additional_command_line_arguments">[docs]</a>    <span class="k">def</span> <span class="nf">extract_additional_command_line_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;A hook method for subclasses.</span>
 
@@ -888,9 +898,8 @@
 <span class="sd">        (as opposed to WorkCoverageProvider).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;input_identifiers&quot;</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifiers</span><span class="p">,</span>
+            <span class="s2">&quot;input_identifiers&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifiers</span><span class="p">,</span>
         <span class="p">}</span></div>
-
 
 <div class="viewcode-block" id="RunCoverageProviderScript.do_run"><a class="viewcode-back" href="../../core.html#core.scripts.RunCoverageProviderScript.do_run">[docs]</a>    <span class="k">def</span> <span class="nf">do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifiers</span><span class="p">:</span>
@@ -898,10 +907,12 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">run</span><span class="p">()</span></div></div>
 
+
 <div class="viewcode-block" id="ShowLibrariesScript"><a class="viewcode-back" href="../../core.html#core.scripts.ShowLibrariesScript">[docs]</a><span class="k">class</span> <span class="nc">ShowLibrariesScript</span><span class="p">(</span><span class="n">Script</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Show information about the libraries on a server.&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;List the libraries on this server.&quot;</span>
+
 <div class="viewcode-block" id="ShowLibrariesScript.arg_parser"><a class="viewcode-back" href="../../core.html#core.scripts.ShowLibrariesScript.arg_parser">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">arg_parser</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
         <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
@@ -976,7 +987,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">ConfigureSiteScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">)</span>
 
-
 <div class="viewcode-block" id="ConfigureSiteScript.arg_parser"><a class="viewcode-back" href="../../core.html#core.scripts.ConfigureSiteScript.arg_parser">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">arg_parser</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
         <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
@@ -1022,6 +1032,7 @@
         <span class="n">site_configuration_has_changed</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div></div>
 
+
 <div class="viewcode-block" id="ConfigureLibraryScript"><a class="viewcode-back" href="../../core.html#core.scripts.ConfigureLibraryScript">[docs]</a><span class="k">class</span> <span class="nc">ConfigureLibraryScript</span><span class="p">(</span><span class="n">ConfigurationSettingScript</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Create a library or change its settings.&quot;&quot;&quot;</span>
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Change a library&#39;s settings&quot;</span>
@@ -1058,7 +1069,8 @@
             <span class="c1"># Currently there can only be one library, and one already exists.</span>
             <span class="p">[</span><span class="n">library</span><span class="p">]</span> <span class="o">=</span> <span class="n">libraries</span>
             <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">short_name</span> <span class="ow">and</span> <span class="n">library</span><span class="o">.</span><span class="n">short_name</span> <span class="o">!=</span> <span class="n">args</span><span class="o">.</span><span class="n">short_name</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Could not locate library &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">args</span><span class="o">.</span><span class="n">short_name</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Could not locate library &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span>
+                                 <span class="n">args</span><span class="o">.</span><span class="n">short_name</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># No existing library. Make one.</span>
             <span class="n">library</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
@@ -1084,6 +1096,7 @@
     <span class="sd">&quot;&quot;&quot;Show information about the collections on a server.&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;List the collections on this server.&quot;</span>
+
 <div class="viewcode-block" id="ShowCollectionsScript.arg_parser"><a class="viewcode-back" href="../../core.html#core.scripts.ShowCollectionsScript.arg_parser">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">arg_parser</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
         <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
@@ -1128,6 +1141,7 @@
     <span class="sd">&quot;&quot;&quot;Show information about the external integrations on a server.&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;List the external integrations on this server.&quot;</span>
+
 <div class="viewcode-block" id="ShowIntegrationsScript.arg_parser"><a class="viewcode-back" href="../../core.html#core.scripts.ShowIntegrationsScript.arg_parser">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">arg_parser</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
         <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
@@ -1242,7 +1256,7 @@
         <span class="n">protocol</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">name</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">name</span>
         <span class="n">protocol</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">protocol</span>
-        <span class="n">collection</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">Collection</span><span class="o">.</span><span class="n">name</span><span class="o">==</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">collection</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">Collection</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">collection</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">protocol</span><span class="p">:</span>
                 <span class="n">collection</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_name_and_protocol</span><span class="p">(</span>
@@ -1328,7 +1342,7 @@
         <span class="n">integration</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="nb">id</span><span class="p">:</span>
             <span class="n">integration</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
-                <span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="nb">id</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="nb">id</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">integration</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No integration with ID </span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="nb">id</span><span class="p">)</span>
@@ -1369,6 +1383,7 @@
     <span class="sd">&quot;&quot;&quot;Show information about the lanes on a server.&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;List the lanes on this server.&quot;</span>
+
 <div class="viewcode-block" id="ShowLanesScript.arg_parser"><a class="viewcode-back" href="../../core.html#core.scripts.ShowLanesScript.arg_parser">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">arg_parser</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
         <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
@@ -1403,6 +1418,7 @@
             <span class="p">)</span>
             <span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span></div></div>
 
+
 <div class="viewcode-block" id="ConfigureLaneScript"><a class="viewcode-back" href="../../core.html#core.scripts.ConfigureLaneScript">[docs]</a><span class="k">class</span> <span class="nc">ConfigureLaneScript</span><span class="p">(</span><span class="n">ConfigurationSettingScript</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Create a lane or change its settings.&quot;&quot;&quot;</span>
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Change a lane&#39;s settings&quot;</span>
@@ -1421,7 +1437,8 @@
         <span class="p">)</span>
         <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
             <span class="s1">&#39;--library-short-name&#39;</span><span class="p">,</span>
-            <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Short name of the library for this lane. Possible values: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_library_names</span><span class="p">(</span><span class="n">_db</span><span class="p">),</span>
+            <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Short name of the library for this lane. Possible values: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_library_names</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">),</span>
         <span class="p">)</span>
         <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
             <span class="s1">&#39;--parent-id&#39;</span><span class="p">,</span>
@@ -1456,12 +1473,15 @@
         <span class="n">lane</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="nb">id</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">lane</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">library_short_name</span><span class="p">:</span>
-                <span class="n">library</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Library</span><span class="p">,</span> <span class="n">short_name</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">library_short_name</span><span class="p">)</span>
+                <span class="n">library</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+                    <span class="n">_db</span><span class="p">,</span> <span class="n">Library</span><span class="p">,</span> <span class="n">short_name</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">library_short_name</span><span class="p">)</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">library</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No such library: </span><span class="se">\&quot;</span><span class="si">%s</span><span class="se">\&quot;</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">args</span><span class="o">.</span><span class="n">library_short_name</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No such library: </span><span class="se">\&quot;</span><span class="si">%s</span><span class="se">\&quot;</span><span class="s2">.&quot;</span> <span class="o">%</span>
+                                     <span class="n">args</span><span class="o">.</span><span class="n">library_short_name</span><span class="p">)</span>
                 <span class="n">lane</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Library short name is required to create a new lane.&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Library short name is required to create a new lane.&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">parent_id</span><span class="p">:</span>
             <span class="n">lane</span><span class="o">.</span><span class="n">parent_id</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">parent_id</span>
@@ -1474,6 +1494,7 @@
         <span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;Lane settings stored.</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">explain</span><span class="p">()))</span>
         <span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span></div></div>
+
 
 <div class="viewcode-block" id="AddClassificationScript"><a class="viewcode-back" href="../../core.html#core.scripts.AddClassificationScript">[docs]</a><span class="k">class</span> <span class="nc">AddClassificationScript</span><span class="p">(</span><span class="n">IdentifierInputScript</span><span class="p">):</span>
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Add a classification to an identifier&quot;</span>
@@ -1566,8 +1587,8 @@
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Work processing script&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdin</span>
-    <span class="p">):</span>
+                 <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdin</span>
+                 <span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">WorkProcessingScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">)</span>
 
         <span class="n">args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span>
@@ -1610,14 +1631,14 @@
                     <span class="s1">&#39;Restricted to identifiers from DataSource &quot;</span><span class="si">%s</span><span class="s1">&quot;.&#39;</span><span class="p">,</span> <span class="n">data_source</span>
                 <span class="p">)</span>
             <span class="n">source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">)</span>
-            <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">data_source</span><span class="o">==</span><span class="n">source</span><span class="p">)</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">data_source</span> <span class="o">==</span> <span class="n">source</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">identifier_type</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">log</span><span class="p">:</span>
                 <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                     <span class="s1">&#39;Restricted to identifier type &quot;</span><span class="si">%s</span><span class="s1">&quot;.&#39;</span> <span class="o">%</span> <span class="n">identifier_type</span>
                 <span class="p">)</span>
-            <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="n">identifier_type</span><span class="p">)</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">identifier_type</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">log</span><span class="p">:</span>
             <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
@@ -1656,7 +1677,7 @@
         <span class="c1"># We actually process LicensePools, not Works.</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">identifier_type</span><span class="p">:</span>
-            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="n">identifier_type</span><span class="p">)</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">identifier_type</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">identifiers</span><span class="p">:</span>
             <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
                 <span class="n">Identifier</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">in_</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">identifier</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="p">])</span>
@@ -1672,7 +1693,7 @@
 <div class="viewcode-block" id="WorkConsolidationScript.do_run"><a class="viewcode-back" href="../../core.html#core.scripts.WorkConsolidationScript.do_run">[docs]</a>    <span class="k">def</span> <span class="nf">do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">WorkConsolidationScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">do_run</span><span class="p">()</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Work</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">LicensePool</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="kc">None</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="kc">None</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="s2">&quot;Deleting </span><span class="si">%d</span><span class="s2"> Works that have no LicensePools.&quot;</span> <span class="o">%</span> <span class="n">qu</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
@@ -1764,7 +1785,7 @@
                  <span class="n">data_source_name</span><span class="p">,</span> <span class="n">list_identifier</span><span class="p">,</span> <span class="n">list_name</span><span class="p">,</span>
                  <span class="n">primary_language</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span>
                  <span class="o">**</span><span class="n">manager_kwargs</span>
-             <span class="p">):</span>
+                 <span class="p">):</span>
         <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">custom_list</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">CustomList</span><span class="p">,</span>
@@ -1908,7 +1929,8 @@
 
 <div class="viewcode-block" id="OPDSImportScript.do_run"><a class="viewcode-back" href="../../core.html#core.scripts.OPDSImportScript.do_run">[docs]</a>    <span class="k">def</span> <span class="nf">do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">parsed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="n">cmd_args</span><span class="p">)</span>
-        <span class="n">collections</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">collections</span> <span class="ow">or</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_protocol</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">)</span>
+        <span class="n">collections</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">collections</span> <span class="ow">or</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_protocol</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">collections</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">run_monitor</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="n">parsed</span><span class="o">.</span><span class="n">force</span><span class="p">)</span></div>
 
@@ -2119,7 +2141,8 @@
             <span class="p">):</span>
                 <span class="n">_db</span> <span class="o">=</span> <span class="n">script</span><span class="o">.</span><span class="n">_db</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="n">results</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">text</span><span class="p">(</span><span class="n">sql</span><span class="p">),</span> <span class="nb">dict</span><span class="p">(</span><span class="n">service</span><span class="o">=</span><span class="n">service</span><span class="p">)))</span>
+                    <span class="n">results</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                        <span class="n">text</span><span class="p">(</span><span class="n">sql</span><span class="p">),</span> <span class="nb">dict</span><span class="p">(</span><span class="n">service</span><span class="o">=</span><span class="n">service</span><span class="p">)))</span>
                     <span class="k">if</span> <span class="n">exception</span><span class="p">:</span>
                         <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                             <span class="s2">&quot;Yes, everything should be fine -- I was able to find a timestamp in the new schema.&quot;</span>
@@ -2355,7 +2378,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">timestamp</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="p">:</span>
             <span class="c1"># There&#39;s no timestamp in the database! Raise an error.</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-            <span class="nb">print</span> <span class="p">(</span>
+            <span class="nb">print</span><span class="p">(</span>
                 <span class="s2">&quot;NO TIMESTAMP FOUND. Either initialize your untouched database &quot;</span>
                 <span class="s2">&quot;with the script `core/bin/initialize_database` OR run this &quot;</span>
                 <span class="s2">&quot;script with a timestamp that indicates the last migration run &quot;</span>
@@ -2447,14 +2470,14 @@
         <span class="n">timestamp_str</span> <span class="o">=</span> <span class="n">timestamp</span><span class="o">.</span><span class="n">finish</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y%m</span><span class="si">%d</span><span class="s1">&#39;</span><span class="p">)</span>
         <span class="n">counter</span> <span class="o">=</span> <span class="n">timestamp</span><span class="o">.</span><span class="n">counter</span>
 
-        <span class="k">if</span> <span class="n">migration_file</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span><span class="o">&gt;=</span><span class="n">timestamp_str</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">migration_file</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span><span class="o">&gt;</span><span class="n">timestamp_str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">migration_file</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">timestamp_str</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">migration_file</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">timestamp_str</span><span class="p">:</span>
                 <span class="n">is_after_timestamp</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">elif</span> <span class="n">counter</span><span class="p">:</span>
                 <span class="n">count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MIGRATION_WITH_COUNTER</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">migration_file</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">count</span><span class="p">:</span>
                     <span class="n">migration_num</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">count</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
-                    <span class="k">if</span> <span class="n">migration_num</span><span class="o">==</span><span class="n">counter</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">migration_num</span> <span class="o">==</span> <span class="n">counter</span><span class="p">:</span>
                         <span class="n">is_match</span> <span class="o">=</span> <span class="kc">True</span>
                     <span class="k">if</span> <span class="n">migration_num</span> <span class="o">&gt;</span> <span class="n">counter</span><span class="p">:</span>
                         <span class="n">is_after_timestamp</span> <span class="o">=</span> <span class="kc">True</span>
@@ -2499,7 +2522,8 @@
                         <span class="bp">self</span><span class="o">.</span><span class="n">update_timestamps</span><span class="p">(</span><span class="n">migration_file</span><span class="p">)</span>
                         <span class="k">continue</span>
                     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                        <span class="n">raise_error</span><span class="p">(</span><span class="n">full_migration_path</span><span class="p">,</span> <span class="s2">&quot;Migration has been halted.&quot;</span><span class="p">)</span>
+                        <span class="n">raise_error</span><span class="p">(</span><span class="n">full_migration_path</span><span class="p">,</span>
+                                    <span class="s2">&quot;Migration has been halted.&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;All new migrations have been run.&quot;</span><span class="p">)</span></div>
 
@@ -2513,15 +2537,20 @@
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">migration_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">clause</span><span class="p">:</span>
                 <span class="n">sql</span> <span class="o">=</span> <span class="n">clause</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
 
-                <span class="n">transactionless</span> <span class="o">=</span> <span class="nb">any</span><span class="p">([</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">TRANSACTIONLESS_COMMANDS</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">sql</span><span class="o">.</span><span class="n">lower</span><span class="p">()])</span>
-                <span class="n">one_tx_per_statement</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">TRANSACTION_PER_STATEMENT</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">sql</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
-                <span class="n">ok_to_execute</span> <span class="o">=</span> <span class="ow">not</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">DO_NOT_EXECUTE</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">sql</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
+                <span class="n">transactionless</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">TRANSACTIONLESS_COMMANDS</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">sql</span><span class="o">.</span><span class="n">lower</span><span class="p">()])</span>
+                <span class="n">one_tx_per_statement</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">TRANSACTION_PER_STATEMENT</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">sql</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
+                <span class="n">ok_to_execute</span> <span class="o">=</span> <span class="ow">not</span> <span class="nb">bool</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">DO_NOT_EXECUTE</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">sql</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
 
                 <span class="k">if</span> <span class="n">ok_to_execute</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">transactionless</span><span class="p">:</span>
-                        <span class="n">new_session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_migration_without_transaction</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span>
+                        <span class="n">new_session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_migration_without_transaction</span><span class="p">(</span>
+                            <span class="n">sql</span><span class="p">)</span>
                     <span class="k">elif</span> <span class="n">one_tx_per_statement</span><span class="p">:</span>
-                        <span class="n">commands</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_statements_from_sql_file</span><span class="p">(</span><span class="n">migration_path</span><span class="p">)</span>
+                        <span class="n">commands</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_statements_from_sql_file</span><span class="p">(</span>
+                            <span class="n">migration_path</span><span class="p">)</span>
                         <span class="k">for</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">commands</span><span class="p">:</span>
                             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;BEGIN;</span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s2">COMMIT;&quot;</span><span class="p">)</span>
                     <span class="k">else</span><span class="p">:</span>
@@ -2627,14 +2656,14 @@
             <span class="k">return</span>
 
         <span class="c1"># The dates of the scrips are the same so compare the counters</span>
-        <span class="k">if</span> <span class="n">finish_timestamp</span><span class="o">==</span><span class="n">last_run_date</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">finish_timestamp</span> <span class="o">==</span> <span class="n">last_run_date</span><span class="p">:</span>
             <span class="c1"># The current script has no counter, so it&#39;s the same script that ran</span>
             <span class="c1"># or an earlier script that ran</span>
             <span class="k">if</span> <span class="n">counter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">return</span>
             <span class="c1"># The previous script has a higher counter</span>
             <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">counter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">counter</span> <span class="o">&gt;</span> <span class="n">counter</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">counter</span> <span class="o">&gt;</span> <span class="n">counter</span><span class="p">):</span>
                 <span class="k">return</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
@@ -2714,6 +2743,50 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div></div>
 
 
+<div class="viewcode-block" id="DatabaseVacuum"><a class="viewcode-back" href="../../core.html#core.scripts.DatabaseVacuum">[docs]</a><span class="k">class</span> <span class="nc">DatabaseVacuum</span><span class="p">(</span><span class="n">Script</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Script to vacuum all database tables</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        Script (_type_): _description_</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">Script</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+<div class="viewcode-block" id="DatabaseVacuum.do_run"><a class="viewcode-back" href="../../core.html#core.scripts.DatabaseVacuum.do_run">[docs]</a>    <span class="k">def</span> <span class="nf">do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subcommand</span><span class="o">=</span><span class="s1">&#39;FULL&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Run the database vacuum</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            subcommand (str, optional): </span>
+<span class="sd">                Can be any of these</span>
+<span class="sd">                FULL [ boolean ]</span>
+<span class="sd">                FREEZE [ boolean ]</span>
+<span class="sd">                VERBOSE [ boolean ]</span>
+<span class="sd">                ANALYZE [ boolean ]</span>
+<span class="sd">                DISABLE_PAGE_SKIPPING [ boolean ]</span>
+<span class="sd">                SKIP_LOCKED [ boolean ]</span>
+<span class="sd">                INDEX_CLEANUP { AUTO | ON | OFF }</span>
+<span class="sd">                PROCESS_TOAST [ boolean ]</span>
+<span class="sd">                TRUNCATE [ boolean ]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%m/</span><span class="si">%d</span><span class="s2">/%Y&quot;</span><span class="p">)</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Database vacuum starting </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">today</span><span class="p">)</span>
+        <span class="c1"># Go back up to engine-level.</span>
+        <span class="n">connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">get_bind</span><span class="p">()</span>
+        <span class="c1"># Get table names</span>
+        <span class="n">all_db_tables</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">table_names</span><span class="p">()</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+            <span class="n">session</span><span class="o">.</span><span class="n">connection</span><span class="p">()</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">set_isolation_level</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">table</span> <span class="ow">in</span> <span class="n">all_db_tables</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Vacuuming table: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">table</span><span class="p">)</span>
+                <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;VACUUM </span><span class="si">%s</span><span class="s1"> </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">subcommand</span><span class="p">,</span> <span class="n">table</span><span class="p">))</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">duration</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Database vacuum completed on </span><span class="si">%s</span><span class="s1"> and took </span><span class="si">%d</span><span class="s1"> seconds&#39;</span> <span class="o">%</span>
+                      <span class="p">(</span><span class="n">today</span><span class="p">,</span> <span class="n">duration</span><span class="p">))</span></div></div>
+
+
 <div class="viewcode-block" id="CheckContributorNamesInDB"><a class="viewcode-back" href="../../core.html#core.scripts.CheckContributorNamesInDB">[docs]</a><span class="k">class</span> <span class="nc">CheckContributorNamesInDB</span><span class="p">(</span><span class="n">IdentifierInputScript</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot; Checks that contributor sort_names are display_names in</span>
 <span class="sd">    &quot;last name, comma, other names&quot; format.</span>
@@ -2730,8 +2803,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">COMPLAINT_SOURCE</span> <span class="o">=</span> <span class="s2">&quot;CheckContributorNamesInDB&quot;</span>
-    <span class="n">COMPLAINT_TYPE</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/problem/wrong-author&quot;</span><span class="p">;</span>
-
+    <span class="n">COMPLAINT_TYPE</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/problem/wrong-author&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdin</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">CheckContributorNamesInDB</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">)</span>
@@ -2739,7 +2811,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">parsed_args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span>
             <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="n">cmd_args</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">stdin</span>
         <span class="p">)</span>
-
 
 <div class="viewcode-block" id="CheckContributorNamesInDB.make_query"><a class="viewcode-back" href="../../core.html#core.scripts.CheckContributorNamesInDB.make_query">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">make_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -2763,7 +2834,7 @@
                 <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                     <span class="s1">&#39;Restricted to identifier type &quot;</span><span class="si">%s</span><span class="s1">&quot;.&#39;</span> <span class="o">%</span> <span class="n">identifier_type</span>
                 <span class="p">)</span>
-            <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="n">identifier_type</span><span class="p">)</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">identifier_type</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">log</span><span class="p">:</span>
             <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
@@ -2771,7 +2842,6 @@
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">query</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Edition</span><span class="o">.</span><span class="n">id</span><span class="p">)</span></div>
-
 
 <div class="viewcode-block" id="CheckContributorNamesInDB.do_run"><a class="viewcode-back" href="../../core.html#core.scripts.CheckContributorNamesInDB.do_run">[docs]</a>    <span class="k">def</span> <span class="nf">do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
 
@@ -2791,12 +2861,12 @@
             <span class="k">for</span> <span class="n">edition</span> <span class="ow">in</span> <span class="n">editions</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">contributions</span><span class="p">:</span>
                     <span class="k">for</span> <span class="n">contribution</span> <span class="ow">in</span> <span class="n">edition</span><span class="o">.</span><span class="n">contributions</span><span class="p">:</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">process_contribution_local</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">contribution</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">process_contribution_local</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">contribution</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
             <span class="n">offset</span> <span class="o">+=</span> <span class="n">batch_size</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
-
 
 <div class="viewcode-block" id="CheckContributorNamesInDB.process_contribution_local"><a class="viewcode-back" href="../../core.html#core.scripts.CheckContributorNamesInDB.process_contribution_local">[docs]</a>    <span class="k">def</span> <span class="nf">process_contribution_local</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">contribution</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">contribution</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">contribution</span><span class="o">.</span><span class="n">edition</span><span class="p">:</span>
@@ -2807,7 +2877,8 @@
         <span class="n">identifier</span> <span class="o">=</span> <span class="n">contribution</span><span class="o">.</span><span class="n">edition</span><span class="o">.</span><span class="n">primary_identifier</span>
 
         <span class="k">if</span> <span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span> <span class="ow">and</span> <span class="n">contributor</span><span class="o">.</span><span class="n">display_name</span><span class="p">:</span>
-            <span class="n">computed_sort_name_local_new</span> <span class="o">=</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">&quot;NFKD&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">display_name_to_sort_name</span><span class="p">(</span><span class="n">contributor</span><span class="o">.</span><span class="n">display_name</span><span class="p">)))</span>
+            <span class="n">computed_sort_name_local_new</span> <span class="o">=</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span>
+                <span class="s2">&quot;NFKD&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">display_name_to_sort_name</span><span class="p">(</span><span class="n">contributor</span><span class="o">.</span><span class="n">display_name</span><span class="p">)))</span>
             <span class="c1"># Did HumanName parser produce a differet result from the plain comma replacement?</span>
             <span class="k">if</span> <span class="p">(</span><span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="n">computed_sort_name_local_new</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()):</span>
                 <span class="n">error_message_detail</span> <span class="o">=</span> <span class="s2">&quot;Contributor[id=</span><span class="si">%s</span><span class="s2">].sort_name is oddly different from computed_sort_name, human intervention required.&quot;</span> <span class="o">%</span> <span class="n">contributor</span><span class="o">.</span><span class="n">id</span>
@@ -2822,24 +2893,27 @@
                 <span class="c1"># it probably means that a human metadata professional had added an explanation/expansion to the</span>
                 <span class="c1"># sort_name, s.a. &quot;Bob A. Jones&quot; --&gt; &quot;Bob A. (Allan) Jones&quot;, and we&#39;d rather not replace this data</span>
                 <span class="c1"># with the &quot;Jones, Bob A.&quot; that the auto-algorigthm would generate.</span>
-                <span class="n">length_difference</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">computed_sort_name_local_new</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">length_difference</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span>
+                <span class="p">))</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">computed_sort_name_local_new</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
                 <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">length_difference</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
                     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_local_mismatch</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">,</span> <span class="n">contribution</span><span class="o">=</span><span class="n">contribution</span><span class="p">,</span>
-                        <span class="n">computed_sort_name</span><span class="o">=</span><span class="n">computed_sort_name_local_new</span><span class="p">,</span> <span class="n">error_message_detail</span><span class="o">=</span><span class="n">error_message_detail</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">log</span><span class="p">)</span>
+                                                       <span class="n">computed_sort_name</span><span class="o">=</span><span class="n">computed_sort_name_local_new</span><span class="p">,</span> <span class="n">error_message_detail</span><span class="o">=</span><span class="n">error_message_detail</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">log</span><span class="p">)</span>
 
-                <span class="n">match_ratio</span> <span class="o">=</span> <span class="n">contributor_name_match_ratio</span><span class="p">(</span><span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="p">,</span> <span class="n">computed_sort_name_local_new</span><span class="p">,</span> <span class="n">normalize_names</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">match_ratio</span> <span class="o">=</span> <span class="n">contributor_name_match_ratio</span><span class="p">(</span>
+                    <span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="p">,</span> <span class="n">computed_sort_name_local_new</span><span class="p">,</span> <span class="n">normalize_names</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="p">(</span><span class="n">match_ratio</span> <span class="o">&lt;</span> <span class="mi">40</span><span class="p">):</span>
                     <span class="c1"># ask a human.  this kind of score can happen when the sort_name is a transliteration of the display_name,</span>
                     <span class="c1"># and is non-trivial to fix.</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">process_local_mismatch</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">,</span> <span class="n">contribution</span><span class="o">=</span><span class="n">contribution</span><span class="p">,</span>
-                        <span class="n">computed_sort_name</span><span class="o">=</span><span class="n">computed_sort_name_local_new</span><span class="p">,</span> <span class="n">error_message_detail</span><span class="o">=</span><span class="n">error_message_detail</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">log</span><span class="p">)</span>
+                                                <span class="n">computed_sort_name</span><span class="o">=</span><span class="n">computed_sort_name_local_new</span><span class="p">,</span> <span class="n">error_message_detail</span><span class="o">=</span><span class="n">error_message_detail</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">log</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="c1"># we can fix it!</span>
-                    <span class="n">output</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="s2">local_fix&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">contributor</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="p">,</span> <span class="n">contributor</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">computed_sort_name_local_new</span><span class="p">)</span>
+                    <span class="n">output</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="s2">local_fix&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                        <span class="n">contributor</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="p">,</span> <span class="n">contributor</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">computed_sort_name_local_new</span><span class="p">)</span>
                     <span class="nb">print</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">))</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">set_contributor_sort_name</span><span class="p">(</span><span class="n">computed_sort_name_local_new</span><span class="p">,</span> <span class="n">contribution</span><span class="p">)</span></div>
-
+                    <span class="bp">self</span><span class="o">.</span><span class="n">set_contributor_sort_name</span><span class="p">(</span>
+                        <span class="n">computed_sort_name_local_new</span><span class="p">,</span> <span class="n">contribution</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="CheckContributorNamesInDB.set_contributor_sort_name"><a class="viewcode-back" href="../../core.html#core.scripts.CheckContributorNamesInDB.set_contributor_sort_name">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">set_contributor_sort_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">sort_name</span><span class="p">,</span> <span class="n">contribution</span><span class="p">):</span>
@@ -2854,9 +2928,8 @@
         <span class="n">edition_contributions</span> <span class="o">=</span> <span class="n">contribution</span><span class="o">.</span><span class="n">edition</span><span class="o">.</span><span class="n">contributions</span>
         <span class="k">for</span> <span class="n">edition_contribution</span> <span class="ow">in</span> <span class="n">edition_contributions</span><span class="p">:</span>
             <span class="k">if</span> <span class="p">((</span><span class="n">edition_contribution</span><span class="o">.</span><span class="n">role</span> <span class="o">==</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PRIMARY_AUTHOR_ROLE</span><span class="p">)</span> <span class="ow">and</span>
-                <span class="p">(</span><span class="n">edition_contribution</span><span class="o">.</span><span class="n">contributor</span><span class="o">.</span><span class="n">display_name</span> <span class="o">==</span> <span class="n">contribution</span><span class="o">.</span><span class="n">contributor</span><span class="o">.</span><span class="n">display_name</span><span class="p">)):</span>
+                    <span class="p">(</span><span class="n">edition_contribution</span><span class="o">.</span><span class="n">contributor</span><span class="o">.</span><span class="n">display_name</span> <span class="o">==</span> <span class="n">contribution</span><span class="o">.</span><span class="n">contributor</span><span class="o">.</span><span class="n">display_name</span><span class="p">)):</span>
                 <span class="n">contribution</span><span class="o">.</span><span class="n">edition</span><span class="o">.</span><span class="n">sort_author</span> <span class="o">=</span> <span class="n">sort_name</span></div>
-
 
 <div class="viewcode-block" id="CheckContributorNamesInDB.process_local_mismatch"><a class="viewcode-back" href="../../core.html#core.scripts.CheckContributorNamesInDB.process_local_mismatch">[docs]</a>    <span class="k">def</span> <span class="nf">process_local_mismatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">contribution</span><span class="p">,</span> <span class="n">computed_sort_name</span><span class="p">,</span> <span class="n">error_message_detail</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -2865,8 +2938,7 @@
 <span class="sd">        method in the child class in metadata_wrangler code, we sometimes go do a web query.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_problem</span><span class="p">(</span><span class="n">source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">COMPLAINT_SOURCE</span><span class="p">,</span> <span class="n">contribution</span><span class="o">=</span><span class="n">contribution</span><span class="p">,</span>
-            <span class="n">computed_sort_name</span><span class="o">=</span><span class="n">computed_sort_name</span><span class="p">,</span> <span class="n">error_message_detail</span><span class="o">=</span><span class="n">error_message_detail</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">log</span><span class="p">)</span></div>
-
+                              <span class="n">computed_sort_name</span><span class="o">=</span><span class="n">computed_sort_name</span><span class="p">,</span> <span class="n">error_message_detail</span><span class="o">=</span><span class="n">error_message_detail</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">log</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="CheckContributorNamesInDB.register_problem"><a class="viewcode-back" href="../../core.html#core.scripts.CheckContributorNamesInDB.register_problem">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">register_problem</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">contribution</span><span class="p">,</span> <span class="n">computed_sort_name</span><span class="p">,</span> <span class="n">error_message_detail</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -2879,19 +2951,18 @@
 
         <span class="n">pools</span> <span class="o">=</span> <span class="n">contribution</span><span class="o">.</span><span class="n">edition</span><span class="o">.</span><span class="n">is_presentation_for</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">complaint</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">Complaint</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">pools</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">cls</span><span class="o">.</span><span class="n">COMPLAINT_TYPE</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">error_message_detail</span><span class="p">)</span>
-            <span class="n">output</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="s2">complain|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">contributor</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="p">,</span> <span class="n">contributor</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">computed_sort_name</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>
+            <span class="n">complaint</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">Complaint</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+                <span class="n">pools</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">cls</span><span class="o">.</span><span class="n">COMPLAINT_TYPE</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">error_message_detail</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">|</span><span class="se">\t</span><span class="s2">complain|</span><span class="se">\t</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="n">contributor</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="p">,</span> <span class="n">contributor</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">computed_sort_name</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>
             <span class="nb">print</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">))</span>
         <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="c1"># log and move on, don&#39;t stop run</span>
-            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Error registering complaint: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">contributor</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Error registering complaint: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
+                      <span class="n">contributor</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
             <span class="n">success</span> <span class="o">=</span> <span class="kc">False</span>
 
         <span class="k">return</span> <span class="n">success</span></div></div>
-
-
-
-
 
 
 <div class="viewcode-block" id="Explain"><a class="viewcode-back" href="../../core.html#core.scripts.Explain">[docs]</a><span class="k">class</span> <span class="nc">Explain</span><span class="p">(</span><span class="n">IdentifierInputScript</span><span class="p">):</span>
@@ -2904,7 +2975,8 @@
     <span class="n">TIME_FORMAT</span> <span class="o">=</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M&quot;</span>
 
 <div class="viewcode-block" id="Explain.do_run"><a class="viewcode-back" href="../../core.html#core.scripts.Explain.do_run">[docs]</a>    <span class="k">def</span> <span class="nf">do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdin</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">):</span>
-        <span class="n">param_args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="n">cmd_args</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">stdin</span><span class="p">)</span>
+        <span class="n">param_args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="n">cmd_args</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">stdin</span><span class="p">)</span>
         <span class="n">identifier_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">param_args</span><span class="o">.</span><span class="n">identifiers</span><span class="p">]</span>
         <span class="n">editions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Edition</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">Edition</span><span class="o">.</span><span class="n">primary_identifier_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_ids</span><span class="p">)</span>
@@ -2928,10 +3000,12 @@
             <span class="k">return</span>
 
         <span class="c1"># Tell about the Edition record.</span>
-        <span class="n">output</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">) according to </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">edition</span><span class="o">.</span><span class="n">author</span><span class="p">,</span> <span class="n">edition</span><span class="o">.</span><span class="n">medium</span><span class="p">,</span> <span class="n">edition</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">) according to </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="n">edition</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">edition</span><span class="o">.</span><span class="n">author</span><span class="p">,</span> <span class="n">edition</span><span class="o">.</span><span class="n">medium</span><span class="p">,</span> <span class="n">edition</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; Permanent work ID: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">permanent_work_id</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; Metadata URL: </span><span class="si">%s</span><span class="s2"> &quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">METADATA_URL_TEMPLATE</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">urn</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; Metadata URL: </span><span class="si">%s</span><span class="s2"> &quot;</span> <span class="o">%</span>
+                   <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">METADATA_URL_TEMPLATE</span> <span class="o">%</span> <span class="n">edition</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">urn</span><span class="p">))</span>
 
         <span class="n">seen</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">explain_identifier</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">seen</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
@@ -2958,19 +3032,19 @@
 
         <span class="c1"># Note:  Can change DB state.</span>
         <span class="k">if</span> <span class="n">work</span> <span class="ow">and</span> <span class="n">presentation_calculation_policy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;!!! About to calculate presentation!&quot;</span><span class="p">)</span>
-             <span class="n">work</span><span class="o">.</span><span class="n">calculate_presentation</span><span class="p">(</span><span class="n">policy</span><span class="o">=</span><span class="n">presentation_calculation_policy</span><span class="p">)</span>
-             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;!!! All done!&quot;</span><span class="p">)</span>
-             <span class="nb">print</span><span class="p">()</span>
-             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;After recalculating presentation:&quot;</span><span class="p">)</span>
-             <span class="bp">self</span><span class="o">.</span><span class="n">explain_work</span><span class="p">(</span><span class="n">work</span><span class="p">)</span></div>
-
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;!!! About to calculate presentation!&quot;</span><span class="p">)</span>
+            <span class="n">work</span><span class="o">.</span><span class="n">calculate_presentation</span><span class="p">(</span><span class="n">policy</span><span class="o">=</span><span class="n">presentation_calculation_policy</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;!!! All done!&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">()</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;After recalculating presentation:&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">explain_work</span><span class="p">(</span><span class="n">work</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Explain.explain_contribution"><a class="viewcode-back" href="../../core.html#core.scripts.Explain.explain_contribution">[docs]</a>    <span class="k">def</span> <span class="nf">explain_contribution</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">contribution</span><span class="p">):</span>
         <span class="n">contributor_id</span> <span class="o">=</span> <span class="n">contribution</span><span class="o">.</span><span class="n">contributor</span><span class="o">.</span><span class="n">id</span>
         <span class="n">contributor_sort_name</span> <span class="o">=</span> <span class="n">contribution</span><span class="o">.</span><span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span>
         <span class="n">contributor_display_name</span> <span class="o">=</span> <span class="n">contribution</span><span class="o">.</span><span class="n">contributor</span><span class="o">.</span><span class="n">display_name</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; Contributor[</span><span class="si">%s</span><span class="s2">]: contributor_sort_name=</span><span class="si">%s</span><span class="s2">, contributor_display_name=</span><span class="si">%s</span><span class="s2">, &quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">contributor_id</span><span class="p">,</span> <span class="n">contributor_sort_name</span><span class="p">,</span> <span class="n">contributor_display_name</span><span class="p">))</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; Contributor[</span><span class="si">%s</span><span class="s2">]: contributor_sort_name=</span><span class="si">%s</span><span class="s2">, contributor_display_name=</span><span class="si">%s</span><span class="s2">, &quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="n">contributor_id</span><span class="p">,</span> <span class="n">contributor_sort_name</span><span class="p">,</span> <span class="n">contributor_display_name</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="Explain.explain_identifier"><a class="viewcode-back" href="../../core.html#core.scripts.Explain.explain_identifier">[docs]</a>    <span class="k">def</span> <span class="nf">explain_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">primary</span><span class="p">,</span> <span class="n">seen</span><span class="p">,</span> <span class="n">strength</span><span class="p">,</span> <span class="n">level</span><span class="p">):</span>
         <span class="n">indent</span> <span class="o">=</span> <span class="s2">&quot;  &quot;</span> <span class="o">*</span> <span class="n">level</span>
@@ -2980,7 +3054,8 @@
             <span class="n">ident</span> <span class="o">=</span> <span class="s2">&quot;Identifier&quot;</span>
         <span class="k">if</span> <span class="n">primary</span><span class="p">:</span>
             <span class="n">strength</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2"> (q=</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">ident</span><span class="p">,</span> <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">strength</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2"> (q=</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">indent</span><span class="p">,</span> <span class="n">ident</span><span class="p">,</span>
+                   <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">strength</span><span class="p">))</span>
 
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
         <span class="n">classifications</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">classifications_for_identifier_ids</span><span class="p">(</span>
@@ -2992,10 +3067,10 @@
                 <span class="n">genre</span> <span class="o">=</span> <span class="n">genre</span><span class="o">.</span><span class="n">name</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">genre</span> <span class="o">=</span> <span class="s2">&quot;(!genre)&quot;</span>
-            <span class="c1">#print(&quot;%s  %s says: %s/%s %s w=%s&quot; % (</span>
+            <span class="c1"># print(&quot;%s  %s says: %s/%s %s w=%s&quot; % (</span>
             <span class="c1">#    indent, classification.data_source.name,</span>
             <span class="c1">#    subject.identifier, subject.name, genre, classification.weight</span>
-            <span class="c1">#))</span>
+            <span class="c1"># ))</span>
         <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">equivalency</span> <span class="ow">in</span> <span class="n">identifier</span><span class="o">.</span><span class="n">equivalencies</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">equivalency</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
@@ -3017,7 +3092,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; Collection: </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">pool</span><span class="o">.</span><span class="n">collection</span><span class="p">)</span>
             <span class="n">libraries</span> <span class="o">=</span> <span class="p">[</span><span class="n">library</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">library</span> <span class="ow">in</span> <span class="n">pool</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">libraries</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">libraries</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; Available to libraries: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">libraries</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; Available to libraries: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span>
+                           <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">libraries</span><span class="p">))</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;Not available to any libraries!&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -3030,7 +3106,8 @@
                     <span class="n">fulfillable</span> <span class="o">=</span> <span class="s2">&quot;Fulfillable&quot;</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">fulfillable</span> <span class="o">=</span> <span class="s2">&quot;Unfulfillable&quot;</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">fulfillable</span><span class="p">,</span> <span class="n">dm</span><span class="o">.</span><span class="n">content_type</span><span class="p">,</span> <span class="n">dm</span><span class="o">.</span><span class="n">drm_scheme</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span>
+                           <span class="p">(</span><span class="n">fulfillable</span><span class="p">,</span> <span class="n">dm</span><span class="o">.</span><span class="n">content_type</span><span class="p">,</span> <span class="n">dm</span><span class="o">.</span><span class="n">drm_scheme</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; No delivery mechanisms.&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; </span><span class="si">%s</span><span class="s2"> owned, </span><span class="si">%d</span><span class="s2"> available, </span><span class="si">%d</span><span class="s2"> holds, </span><span class="si">%d</span><span class="s2"> reserves&quot;</span> <span class="o">%</span> <span class="p">(</span>
@@ -3040,7 +3117,8 @@
 <div class="viewcode-block" id="Explain.explain_work"><a class="viewcode-back" href="../../core.html#core.scripts.Explain.explain_work">[docs]</a>    <span class="k">def</span> <span class="nf">explain_work</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;Work info:&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">work</span><span class="o">.</span><span class="n">presentation_edition</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; Identifier of presentation edition: </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">work</span><span class="o">.</span><span class="n">presentation_edition</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; Identifier of presentation edition: </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span>
+                       <span class="n">work</span><span class="o">.</span><span class="n">presentation_edition</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; No presentation edition.&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; Fiction: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">work</span><span class="o">.</span><span class="n">fiction</span><span class="p">)</span>
@@ -3103,6 +3181,7 @@
 <span class="sd">    This is a common problem on a new installation or when a new collection</span>
 <span class="sd">    is being configured.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">WhereAreMyBooksScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
@@ -3110,7 +3189,8 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">search</span> <span class="o">=</span> <span class="n">search</span> <span class="ow">or</span> <span class="n">ExternalSearchIndex</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s2">&quot;Here&#39;s your problem: the search integration is missing or misconfigured.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">(</span>
+                <span class="s2">&quot;Here&#39;s your problem: the search integration is missing or misconfigured.&quot;</span><span class="p">)</span>
             <span class="k">raise</span>
 
 <div class="viewcode-block" id="WhereAreMyBooksScript.out"><a class="viewcode-back" href="../../core.html#core.scripts.WhereAreMyBooksScript.out">[docs]</a>    <span class="k">def</span> <span class="nf">out</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
@@ -3170,11 +3250,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s1">&#39;Examining collection &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span><span class="p">,</span> <span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
         <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Work</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection</span><span class="o">==</span><span class="n">collection</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection</span> <span class="o">==</span> <span class="n">collection</span>
         <span class="p">)</span>
 
-        <span class="n">ready</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">presentation_ready</span><span class="o">==</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">unready</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">presentation_ready</span><span class="o">==</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">ready</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">presentation_ready</span> <span class="o">==</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">unready</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">presentation_ready</span> <span class="o">==</span> <span class="kc">False</span><span class="p">)</span>
 
         <span class="n">ready_count</span> <span class="o">=</span> <span class="n">ready</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
         <span class="n">unready_count</span> <span class="o">=</span> <span class="n">unready</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
@@ -3185,8 +3265,8 @@
         <span class="n">LPDM</span> <span class="o">=</span> <span class="n">LicensePoolDeliveryMechanism</span>
         <span class="n">no_delivery_mechanisms</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="o">~</span><span class="n">exists</span><span class="p">()</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-                <span class="n">and_</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">==</span><span class="n">LPDM</span><span class="o">.</span><span class="n">data_source_id</span><span class="p">,</span>
-                     <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">==</span><span class="n">LPDM</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">)</span>
+                <span class="n">and_</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">data_source_id</span> <span class="o">==</span> <span class="n">LPDM</span><span class="o">.</span><span class="n">data_source_id</span><span class="p">,</span>
+                     <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier_id</span> <span class="o">==</span> <span class="n">LPDM</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">no_delivery_mechanisms</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -3196,7 +3276,7 @@
             <span class="p">)</span>
 
         <span class="c1"># Check if the license pools are suppressed.</span>
-        <span class="n">suppressed</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">suppressed</span><span class="o">==</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+        <span class="n">suppressed</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">suppressed</span> <span class="o">==</span> <span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">suppressed</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">(</span>
                 <span class="s2">&quot; </span><span class="si">%d</span><span class="s2"> works have suppressed LicensePools and won&#39;t show up.&quot;</span><span class="p">,</span>
@@ -3227,6 +3307,7 @@
 <span class="sd">    This script is helpful for accounting for and tracking collections on</span>
 <span class="sd">    the metadata wrangler.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">ListCollectionMetadataIdentifiersScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
@@ -3250,6 +3331,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;COLLECTIONS</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;=&#39;</span><span class="o">*</span><span class="mi">50</span><span class="o">+</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
         <span class="k">def</span> <span class="nf">add_line</span><span class="p">(</span><span class="nb">id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">metadata_identifier</span><span class="p">):</span>
             <span class="n">line</span> <span class="o">=</span> <span class="s1">&#39;(</span><span class="si">%s</span><span class="s1">) </span><span class="si">%s</span><span class="s1">/</span><span class="si">%s</span><span class="s1"> =&gt; </span><span class="si">%s</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span>
                 <span class="nb">id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">metadata_identifier</span>
@@ -3296,13 +3378,14 @@
     <span class="sd">&quot;&quot;&quot;Mix-in class for a script that might remove all coverage records</span>
 <span class="sd">    for the search engine.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
 <div class="viewcode-block" id="RemovesSearchCoverage.remove_search_coverage_records"><a class="viewcode-back" href="../../core.html#core.scripts.RemovesSearchCoverage.remove_search_coverage_records">[docs]</a>    <span class="k">def</span> <span class="nf">remove_search_coverage_records</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Delete all search coverage records from the database.</span>
 
 <span class="sd">        :return: The number of records deleted.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">wcr</span> <span class="o">=</span> <span class="n">WorkCoverageRecord</span>
-        <span class="n">clause</span> <span class="o">=</span> <span class="n">wcr</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">wcr</span><span class="o">.</span><span class="n">UPDATE_SEARCH_INDEX_OPERATION</span>
+        <span class="n">clause</span> <span class="o">=</span> <span class="n">wcr</span><span class="o">.</span><span class="n">operation</span> <span class="o">==</span> <span class="n">wcr</span><span class="o">.</span><span class="n">UPDATE_SEARCH_INDEX_OPERATION</span>
         <span class="n">count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">wcr</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">clause</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">wcr</span><span class="o">.</span><span class="n">__table__</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">clause</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">count</span></div></div>
@@ -3340,6 +3423,7 @@
 <span class="sd">    This guarantees the SearchIndexCoverageProvider will add</span>
 <span class="sd">    fresh coverage for every Work the next time it runs.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
 <div class="viewcode-block" id="SearchIndexCoverageRemover.do_run"><a class="viewcode-back" href="../../core.html#core.scripts.SearchIndexCoverageRemover.do_run">[docs]</a>    <span class="k">def</span> <span class="nf">do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remove_search_coverage_records</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">TimestampData</span><span class="p">(</span>
@@ -3351,6 +3435,7 @@
 
 <div class="viewcode-block" id="MockStdin"><a class="viewcode-back" href="../../core.html#core.scripts.MockStdin">[docs]</a><span class="k">class</span> <span class="nc">MockStdin</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Mock a list of identifiers passed in on standard input.&quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">lines</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span>
 
