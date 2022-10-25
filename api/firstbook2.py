@@ -21,13 +21,14 @@ from core.model import (
     Patron,
 )
 
+
 class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
 
-    NAME = 'First Book'
+    NAME = 'First Book (deprecated)'
 
     DESCRIPTION = _("""
         An authentication service for Open eBooks that authenticates
-        using access codes and PINs. (This is the new version.)""")
+        using access codes and PINs. (This is the deprecated version.)""")
 
     DISPLAY_NAME = NAME
     DEFAULT_IDENTIFIER_LABEL = _("Access Code")
@@ -52,14 +53,16 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
             "default": "https://ebooks.firstbook.org/api/",
             "required": True
         },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Key"), "required": True },
+        {"key": ExternalIntegration.PASSWORD,
+            "label": _("Key"), "required": True},
     ] + BasicAuthenticationProvider.SETTINGS
 
     log = logging.getLogger("First Book JWT authentication API")
 
     def __init__(self, library_id, integration, analytics=None, root=None,
                  secret=None):
-        super(FirstBookAuthenticationAPI, self).__init__(library_id, integration, analytics)
+        super(FirstBookAuthenticationAPI, self).__init__(
+            library_id, integration, analytics)
         root = root or integration.url
         secret = secret or integration.password
         if not (root and secret):
@@ -140,6 +143,7 @@ class MockFirstBookResponse(object):
             content = content.encode("utf8")
         self.content = content
 
+
 class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
 
     SUCCESS = '"Valid Code Pin Pair"'
@@ -191,7 +195,6 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
         assert (time.time()-int(payload['iat'])) < 2
 
         return payload['barcode'], payload['pin']
-
 
 
 # Specify which of the classes defined in this module is the

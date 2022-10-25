@@ -118,7 +118,7 @@ class MirrorUploader(metaclass=ABCMeta):
         :type mirror_to: string
 
         :param collection: Collection
-        :type collection: Optional[Collection]
+        :type collection: Optional[core.model.collection.Collection]
         """
         now = utc_now()
         exception = self.do_upload(representation)

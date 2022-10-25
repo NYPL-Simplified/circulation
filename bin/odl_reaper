@@ -2,9 +2,22 @@
 """Remove all expired licenses from ODL 1.x collections."""
 import os
 import sys
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
-from core.scripts import RunCollectionMonitorScript
-from api.odl import ODLExpiredItemsReaper
-RunCollectionMonitorScript(ODLExpiredItemsReaper).run()
+from newrelic import agent
+
+
+def odl_reaper():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
+
+    from core.scripts import RunCollectionMonitorScript
+    from api.odl import ODLExpiredItemsReaper
+
+    RunCollectionMonitorScript(ODLExpiredItemsReaper).run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='odl_reaper', group='Scripts'):
+        odl_reaper()

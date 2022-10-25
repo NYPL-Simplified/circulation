@@ -3,11 +3,21 @@
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
 
-from scripts import CacheMARCFiles           # noqa: E402
+def cache_marc_files():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-CacheMARCFiles().run()
+    from scripts import CacheMARCFiles           # noqa: E402
+
+    CacheMARCFiles().run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='cache_marc_files', group='Scripts'):
+        cache_marc_files()

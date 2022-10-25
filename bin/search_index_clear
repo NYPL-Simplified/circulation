@@ -8,11 +8,20 @@ providing automatic recovery from bugs and major metadata changes.
 
 import os
 import sys
+from newrelic import agent
 
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
+def search_index_clear():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
 
-from core.scripts import SearchIndexCoverageRemover     # noqa: E402
+    from core.scripts import SearchIndexCoverageRemover     # noqa: E402
 
-SearchIndexCoverageRemover().run()
+    SearchIndexCoverageRemover().run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='search_index_clear', group='Scripts'):
+        search_index_clear()
