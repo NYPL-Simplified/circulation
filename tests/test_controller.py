@@ -881,7 +881,7 @@ class TestBaseController(CirculationControllerTest):
                 assert 401 == result.status_code
                 assert None == flask.request.patron
 
-        # Incorrect authorization header format -> 401 error
+        # Incorrect authorization header format -> 400 error
         with patch(
                 'api.base_controller.BaseCirculationManagerController.authorization_header',
             lambda x: 'undefined'
