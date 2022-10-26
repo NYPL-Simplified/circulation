@@ -61,11 +61,13 @@ class TestNoveListAPI(DatabaseTest):
 
         # Without either configuration value, an error is raised.
         self.integration.password = None
-        pytest.raises(CannotLoadConfiguration, NoveListAPI.from_config, self._default_library)
+        pytest.raises(CannotLoadConfiguration,
+                      NoveListAPI.from_config, self._default_library)
 
         self.integration.password = 'yep'
         self.integration.username = None
-        pytest.raises(CannotLoadConfiguration, NoveListAPI.from_config, self._default_library)
+        pytest.raises(CannotLoadConfiguration,
+                      NoveListAPI.from_config, self._default_library)
 
     def test_is_configured(self):
         # If an ExternalIntegration exists, the API is_configured
@@ -81,10 +83,13 @@ class TestNoveListAPI(DatabaseTest):
 
     def test_review_response(self):
         invalid_credential_response = (403, {}, b'HTML Access Denied page')
-        pytest.raises(Exception, self.novelist.review_response, invalid_credential_response)
+        pytest.raises(Exception, self.novelist.review_response,
+                      invalid_credential_response)
 
-        missing_argument_response = (200, {}, b'"Missing ISBN, UPC, or Client Identifier!"')
-        pytest.raises(Exception, self.novelist.review_response, missing_argument_response)
+        missing_argument_response = (
+            200, {}, b'"Missing ISBN, UPC, or Client Identifier!"')
+        pytest.raises(Exception, self.novelist.review_response,
+                      missing_argument_response)
 
         response = (200, {}, b"Here's the goods!")
         assert response == self.novelist.review_response(response)
@@ -118,7 +123,7 @@ class TestNoveListAPI(DatabaseTest):
         vampire = self.sample_representation("vampire_kisses.json")
         metadata = self.novelist.lookup_info_to_metadata(vampire)
 
-        [lexile] = filter(lambda s: s.type=='Lexile', metadata.subjects)
+        [lexile] = filter(lambda s: s.type == 'Lexile', metadata.subjects)
         assert '630' == lexile.identifier
         assert 'Vampire kisses manga' == metadata.series
         # The full title should be selected, since every volume
@@ -144,13 +149,13 @@ class TestNoveListAPI(DatabaseTest):
         # all the volumes have the same 'main_title'
         assert 'full_title' == ideal_title_key
 
-
-        watchman = json.loads(self.sample_data("alternate_series_example.json"))
+        watchman = json.loads(self.sample_data(
+            "alternate_series_example.json"))
         book_info = watchman['TitleInfo']
         series_info = watchman['FeatureContent']['SeriesInfo']
         # Confirms that the new example doesn't match any volume's full title
         assert [] == [v for v in series_info['series_titles']
-                if v.get('full_title')==book_info.get('full_title')]
+                      if v.get('full_title') == book_info.get('full_title')]
 
         # But it still finds its matching volume
         (metadata, ideal_title_key) = self.novelist.get_series_information(
@@ -184,6 +189,27 @@ class TestNoveListAPI(DatabaseTest):
             ValueError, self.novelist.get_series_information,
             metadata, series_info, book_info
         )
+
+        # If matching_series_volume is an empty list
+        book_info = dict(
+            main_title='The Baby-Sitters Club',
+            full_title='The Baby-Sitters Club: Claudia and Mean Janine'
+        )
+        series_info = dict(
+            full_title='The Baby-Sitters Club series',
+            series_titles=[
+                # The volume is here twice!
+                dict(
+                    full_title='The Baby',
+                    main_title='The Baby',
+                    series_position='3.'
+                )
+            ]
+        )
+        (metadata, ideal_title_key) = self.novelist.get_series_information(
+            metadata, series_info, book_info
+        )
+        assert 'main_title' == ideal_title_key
 
     def test_lookup(self):
         # Test the lookup() method.
@@ -226,7 +252,7 @@ class TestNoveListAPI(DatabaseTest):
                  ISBN=identifier.identifier,
                  password=novelist.password,
                  version=novelist.version,
-            ) ==
+                 ) ==
             params1)
 
         # The HTTP request went out to the query URL -- not the scrubbed URL.
@@ -279,7 +305,8 @@ class TestNoveListAPI(DatabaseTest):
         assert 'password=secret' in full_result
 
         # With a scrub, no authentication information is included.
-        scrubbed_result = self.novelist.build_query_url(params, include_auth=False)
+        scrubbed_result = self.novelist.build_query_url(
+            params, include_auth=False)
         assert False == scrubbed_result.endswith(auth_details)
         assert 'profile=username' not in scrubbed_result
         assert 'password=secret' not in scrubbed_result
@@ -301,7 +328,8 @@ class TestNoveListAPI(DatabaseTest):
         assert None == scrub(None)
         assert None == scrub('[electronic resource]')
         assert None == scrub('[electronic resource] :  ')
-        assert 'A Biomythography' == scrub('[electronic resource] :  A Biomythography')
+        assert 'A Biomythography' == scrub(
+            '[electronic resource] :  A Biomythography')
 
     def test_confirm_same_identifier(self):
         source = DataSource.lookup(self._db, DataSource.NOVELIST)
@@ -315,8 +343,10 @@ class TestNoveListAPI(DatabaseTest):
         match = Metadata(source, primary_identifier=identifier)
         mistake = Metadata(source, primary_identifier=unmatched_identifier)
 
-        assert False == self.novelist._confirm_same_identifier([metadata, mistake])
-        assert True == self.novelist._confirm_same_identifier([metadata, match])
+        assert False == self.novelist._confirm_same_identifier(
+            [metadata, mistake])
+        assert True == self.novelist._confirm_same_identifier(
+            [metadata, match])
 
     def test_lookup_equivalent_isbns(self):
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
@@ -341,6 +371,7 @@ class TestNoveListAPI(DatabaseTest):
         # Create an API class that can mockout NoveListAPI.choose_best_metadata
         class MockBestMetadataAPI(MockNoveListAPI):
             choose_best_metadata_return = None
+
             def choose_best_metadata(self, *args, **kwargs):
                 return self.choose_best_metadata_return
         api = MockBestMetadataAPI.from_config(self._default_library)
@@ -374,24 +405,32 @@ class TestNoveListAPI(DatabaseTest):
         assert metadatas[1] == api.lookup_equivalent_isbns(identifier)
 
     def test_choose_best_metadata(self):
-        more_identifier = self._identifier(identifier_type=Identifier.NOVELIST_ID)
-        less_identifier = self._identifier(identifier_type=Identifier.NOVELIST_ID)
-        metadatas = [Metadata(DataSource.NOVELIST, primary_identifier=more_identifier)]
+        more_identifier = self._identifier(
+            identifier_type=Identifier.NOVELIST_ID)
+        less_identifier = self._identifier(
+            identifier_type=Identifier.NOVELIST_ID)
+        metadatas = [Metadata(DataSource.NOVELIST,
+                              primary_identifier=more_identifier)]
 
         # When only one Metadata object is given, that object is returned.
-        result = self.novelist.choose_best_metadata(metadatas, self._identifier())
+        result = self.novelist.choose_best_metadata(
+            metadatas, self._identifier())
         assert True == isinstance(result, tuple)
         assert metadatas[0] == result[0]
         # A default confidence of 1.0 is returned.
         assert 1.0 == result[1]
 
         # When top identifiers have equal representation, the method returns none.
-        metadatas.append(Metadata(DataSource.NOVELIST, primary_identifier=less_identifier))
-        assert (None, None) == self.novelist.choose_best_metadata(metadatas, self._identifier())
+        metadatas.append(Metadata(DataSource.NOVELIST,
+                         primary_identifier=less_identifier))
+        assert (None, None) == self.novelist.choose_best_metadata(
+            metadatas, self._identifier())
 
         # But when one pulls ahead, we get the metadata object again.
-        metadatas.append(Metadata(DataSource.NOVELIST, primary_identifier=more_identifier))
-        result = self.novelist.choose_best_metadata(metadatas, self._identifier())
+        metadatas.append(Metadata(DataSource.NOVELIST,
+                         primary_identifier=more_identifier))
+        result = self.novelist.choose_best_metadata(
+            metadatas, self._identifier())
         assert True == isinstance(result, tuple)
         metadata, confidence = result
         assert True == isinstance(metadata, Metadata)
@@ -404,16 +443,19 @@ class TestNoveListAPI(DatabaseTest):
         assert items == []
 
         # Set up a book for this library.
-        edition = self._edition(identifier_type=Identifier.ISBN, publication_date="2012-01-01")
+        edition = self._edition(
+            identifier_type=Identifier.ISBN, publication_date="2012-01-01")
         pool = self._licensepool(edition, collection=self._default_collection)
-        contributor = self._contributor(sort_name=edition.sort_author, name=edition.author)
+        contributor = self._contributor(
+            sort_name=edition.sort_author, name=edition.author)
 
         items = self.novelist.get_items_from_query(self._default_library)
 
         item = dict(
             author=contributor[0]._sort_name,
             title=edition.title,
-            mediaType=self.novelist.medium_to_book_format_type_values.get(edition.medium, ""),
+            mediaType=self.novelist.medium_to_book_format_type_values.get(
+                edition.medium, ""),
             isbn=edition.primary_identifier.identifier,
             distributor=edition.data_source.name,
             publicationDate=edition.published.strftime("%Y%m%d")
@@ -423,7 +465,8 @@ class TestNoveListAPI(DatabaseTest):
 
     def test_create_item_object(self):
         # We pass no identifier or item to process so we get nothing back.
-        (currentIdentifier, existingItem, newItem, addItem) = self.novelist.create_item_object(None, None, None)
+        (currentIdentifier, existingItem, newItem,
+         addItem) = self.novelist.create_item_object(None, None, None)
         assert currentIdentifier == None
         assert existingItem == None
         assert newItem == None
@@ -464,13 +507,13 @@ class TestNoveListAPI(DatabaseTest):
         assert (
             newItem ==
             {"isbn": "23456",
-            "mediaType": "EBook",
-            "title": "Title 1",
-            "role": "Author",
-            "author": "Author 1",
-            "distributor": "Gutenberg",
-            "publicationDate": "20020101"
-            })
+             "mediaType": "EBook",
+             "title": "Title 1",
+             "role": "Author",
+             "author": "Author 1",
+             "distributor": "Gutenberg",
+             "publicationDate": "20020101"
+             })
         # We want to still process this item along with the next one in case
         # the following one has the same ISBN.
         assert addItem == False
@@ -488,83 +531,85 @@ class TestNoveListAPI(DatabaseTest):
         )
         assert currentIdentifier == book1_from_query[2]
         assert (existingItem ==
-            {"isbn": "23456",
-            "mediaType": "EBook",
-            "title": "Title 1",
-            "author": "Author 2",
-            "role": "Primary Author",
-            "distributor": "Gutenberg",
-            "publicationDate": "20020101"
-            })
+                {"isbn": "23456",
+                 "mediaType": "EBook",
+                 "title": "Title 1",
+                 "author": "Author 2",
+                 "role": "Primary Author",
+                 "distributor": "Gutenberg",
+                 "publicationDate": "20020101"
+                 })
         assert newItem == None
         assert addItem == False
 
         # Test that a narrator gets added along with an author.
         (currentIdentifier, existingItem, newItem, addItem) = (
-            self.novelist.create_item_object(book1_narrator_from_query, currentIdentifier, existingItem)
+            self.novelist.create_item_object(
+                book1_narrator_from_query, currentIdentifier, existingItem)
         )
         assert currentIdentifier == book1_narrator_from_query[2]
         assert (existingItem ==
-            {"isbn": "23456",
-            "mediaType": "EBook",
-            "title": "Title 1",
-            "author": "Author 2",
-            # The role has been updated to author since the last processed item
-            # has an author role. This property is eventually removed before
-            # sending to Novelist so it's not really important.
-            "role": "Narrator",
-            "narrator": "Narrator 1",
-            "distributor": "Gutenberg",
-            "publicationDate": "20020101"
-            })
+                {"isbn": "23456",
+                 "mediaType": "EBook",
+                 "title": "Title 1",
+                 "author": "Author 2",
+                 # The role has been updated to author since the last processed item
+                 # has an author role. This property is eventually removed before
+                 # sending to Novelist so it's not really important.
+                 "role": "Narrator",
+                 "narrator": "Narrator 1",
+                 "distributor": "Gutenberg",
+                 "publicationDate": "20020101"
+                 })
         assert newItem == None
         assert addItem == False
 
         # New Object
         (currentIdentifier, existingItem, newItem, addItem) = (
-            self.novelist.create_item_object(book2_from_query, currentIdentifier, existingItem)
+            self.novelist.create_item_object(
+                book2_from_query, currentIdentifier, existingItem)
         )
         assert currentIdentifier == book2_from_query[2]
         assert (existingItem ==
-            {"isbn": "23456",
-            "mediaType": "EBook",
-            "title": "Title 1",
-            "author": "Author 2",
-            "role": "Narrator",
-            "narrator": "Narrator 1",
-            "distributor": "Gutenberg",
-            "publicationDate": "20020101"
-            })
+                {"isbn": "23456",
+                 "mediaType": "EBook",
+                 "title": "Title 1",
+                 "author": "Author 2",
+                 "role": "Narrator",
+                 "narrator": "Narrator 1",
+                 "distributor": "Gutenberg",
+                 "publicationDate": "20020101"
+                 })
         assert (newItem ==
-            {"isbn": "56789",
-            "mediaType": "EBook",
-            "title": "Title 2",
-            "role": "Author",
-            "author": "Author 3",
-            "distributor": "Gutenberg",
-            "publicationDate": "14140101"
-            })
+                {"isbn": "56789",
+                 "mediaType": "EBook",
+                 "title": "Title 2",
+                 "role": "Author",
+                 "author": "Author 3",
+                 "distributor": "Gutenberg",
+                 "publicationDate": "14140101"
+                 })
         assert addItem == True
 
         # New Object
         # Test that a narrator got added but not an author
         (currentIdentifier, existingItem, newItem, addItem) = (
-            self.novelist.create_item_object(book1_narrator_from_query, None, None)
+            self.novelist.create_item_object(
+                book1_narrator_from_query, None, None)
         )
 
         assert currentIdentifier == book1_narrator_from_query[2]
         assert existingItem == None
         assert (newItem ==
-            {"isbn": "23456",
-            "mediaType": "EBook",
-            "title": "Title 1",
-            "role": "Narrator",
-            "narrator": "Narrator 1",
-            "distributor": "Gutenberg",
-            "publicationDate": "20020101"
-            })
+                {"isbn": "23456",
+                 "mediaType": "EBook",
+                 "title": "Title 1",
+                 "role": "Narrator",
+                 "narrator": "Narrator 1",
+                 "distributor": "Gutenberg",
+                 "publicationDate": "20020101"
+                 })
         assert addItem == False
-
 
     def test_put_items_novelist(self):
         response = self.novelist.put_items_novelist(self._default_library)
@@ -597,8 +642,10 @@ class TestNoveListAPI(DatabaseTest):
         }
 
         data = [
-            {"isbn":"12345", "mediaType": "http://schema.org/EBook", "title": "Book 1", "author": "Author 1" },
-            {"isbn":"12346", "mediaType": "http://schema.org/EBook", "title": "Book 2", "author": "Author 2" },
+            {"isbn": "12345", "mediaType": "http://schema.org/EBook",
+                "title": "Book 1", "author": "Author 1"},
+            {"isbn": "12346", "mediaType": "http://schema.org/EBook",
+                "title": "Book 2", "author": "Author 2"},
         ]
         result = self.novelist.make_novelist_data_object(data)
 
@@ -619,7 +666,8 @@ class TestNoveListAPI(DatabaseTest):
         isbns = ["12345", "12346", "12347"]
         data = self.novelist.make_novelist_data_object(isbns)
 
-        response = self.novelist.put("http://apiendpoint.com", headers, data=data)
+        response = self.novelist.put(
+            "http://apiendpoint.com", headers, data=data)
         (params, args) = self.called_with
 
         assert params == ("http://apiendpoint.com", data)
