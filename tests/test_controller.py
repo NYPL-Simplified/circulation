@@ -1422,6 +1422,12 @@ class TestIndexController(CirculationControllerTest):
             assert 302 == response.status_code
             assert "http://cdn/default/groups/" == response.headers['location']
 
+    def test_post_to_root(self):
+        with self.app.test_request_context('/', method='POST'):
+            flask.request.library = self.library
+            response = self.manager.index_controller()
+            assert 405 == response.status_code
+
     def test_custom_index_view(self):
         """If a custom index view is registered for a library,
         it is called instead of the normal IndexController code.

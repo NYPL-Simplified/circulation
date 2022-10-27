@@ -811,6 +811,8 @@ class IndexController(CirculationManagerController):
 
     def __call__(self):
         # If this library provides a custom index view, use that.
+        if flask.request.method == 'POST':
+            return Response('Method not allowed', 405)
         library = flask.request.library
         custom = self.manager.custom_index_views.get(library.id)
         if custom is not None:

@@ -267,7 +267,8 @@ def library_dir_route(path, *args, **kwargs):
         return default_library_no_slash
     return decorator
 
-@library_route("/", strict_slashes=False)
+
+@library_route("/", strict_slashes=False, methods=['GET', 'POST'])
 @has_library
 @allows_cors(allowed_domain_type=set({"admin", "patron"}))
 @returns_problem_detail
