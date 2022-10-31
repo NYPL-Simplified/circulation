@@ -2639,13 +2639,10 @@ class OAuthController(object):
 
         patron_info = json.dumps(patrondata.to_response_parameters)
         try:
-            library = self.authenticator.library_authenticators.get(
-                self.authenticator.current_library_name
-            ).library
             root_lane = cdn_url_for(
                 'acquisition_groups',
                 _external=True,
-                library_short_name=library.short_name,
+                library_short_name=patron.root_lane.library.short_name,
                 lane_identifier=patron.root_lane.id,
             )
         except AttributeError:
@@ -2760,7 +2757,7 @@ class BasicAuthTempTokenController(object):
                 root_lane = cdn_url_for(
                     'acquisition_groups',
                     _external=True,
-                    library_short_name=self.authenticator.library.short_name,
+                    library_short_name=patron.root_lane.library.short_name,
                     lane_identifier=patron.root_lane.id,
                 )
             except AttributeError:
