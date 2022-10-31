@@ -60,7 +60,10 @@ services:
       - type: bind
         source: .
         target: /home/simplified/circulation
-        read_only: true
+        read_only: false
+      # Mount volumes to access the local server time via ntp for the script runner 
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
 
   webapp:
     container_name: cm_local_webapp

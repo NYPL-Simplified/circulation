@@ -2,8 +2,14 @@
 
 #### Housekeeping functions and variables ####################################
 # This is to halt the script runner create a manual database maintenance window between 01:00 and 03:00 on Wendesdays.
+# Check if the script being run is the database vacuum which is the only script that should run during the carved out window.  
+# True = 0, False = 1 in Bash
+# This is the full script as entered and may include a directory name
+# relative to Library Simplified directory/circulation/bin.
+SCRIPT_PATH="$1"
+[ "$SCRIPT_PATH" = "database_vacuum" ]; EXCEPTION_SCRIPT=$?
 
-if [[ $(date +%u) -eq 3 && $(date +%H) -eq 1 ]]; then
+if [[ $(date +%u) -eq 3 && $(date +%H) -eq 1 && $EXCEPTION_SCRIPT -eq 1 ]]; then
   echo "I don't run at this time"
   exit 0
 elif [[ $(date +%u) -eq 3 && $(date +%H) -eq 2 ]]; then

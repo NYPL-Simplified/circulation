@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+"""
+Remove miscellaneous expired things (Credentials, CachedFeeds, Loans, etc.) from the database.
+"""
+
+import os
+import sys
+from newrelic import agent
+
+
+def database_vacuum():
+    bin_dir = os.path.split(__file__)[0]
+    package_dir = os.path.join(bin_dir, "..")
+    sys.path.append(os.path.abspath(package_dir))
+
+    from core.scripts import DatabaseVacuum
+    DatabaseVacuum().run()
+
+
+if __name__ == '__main__':
+    nrApp = agent.register_application()
+
+    with agent.BackgroundTask(nrApp, name='database_vacuum', group='Scripts'):
+        database_vacuum()

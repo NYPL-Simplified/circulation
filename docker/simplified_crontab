@@ -99,7 +99,11 @@ PID1_STDERR=/proc/1/fd/2
 #   https://github.com/NYPL-Simplified/Simplified/wiki/Circulation-Manager-Scripts
 #
 ##############################################################################
+## Database Vacuum ###########################################################
+# database_vacuum - Running a weekly FULL vacuum for db maintenance 
+# Frequency: Every Wednesday at 01:02AM
 
+2 1 * * 3 core/bin/run database_vacuum |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 #### Updates to caches and indexes ###########################################
 
