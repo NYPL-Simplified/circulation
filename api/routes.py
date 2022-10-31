@@ -442,6 +442,30 @@ def patron_profile():
 @returns_problem_detail
 @compressible
 def active_loans():
+    """Allows admins to update their password
+    ---
+    post:
+      tags:
+        - authentication
+      summary: Update password for currently configured admin.
+      description: |
+        Sets the password from form data for the current admin. This requires a CSRF token.
+      security:
+        - BasicAuth: []
+      parameters:
+        - X-CSRF-Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: ChangePasswordPost
+      responses:
+        200:
+          description: A text confirmation that the password was updated
+          content:
+            text/html:
+              example: Success
+    """
     return app.manager.loans.sync()
 
 @library_route('/annotations/', methods=['HEAD', 'GET', 'POST'])

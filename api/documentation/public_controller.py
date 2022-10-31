@@ -4,16 +4,16 @@ from apispec.exceptions import APISpecError
 from apispec_webframeworks.flask import FlaskPlugin
 
 from .plugins import CSRFPlugin
-from api.admin import routes as adminRoutes
+from api import routes as publicRoutes
 
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class OpenAPIController:
+class PublicAPIController:
     OPENAPI_VERSION = '3.0.1'
-    DOC_VERSION = '0.1.0-alpha'
+    DOC_VERSION = '0.1.0-public'
 
     def __init__(self):
         self.spec = self.generateSpecBase()
@@ -1004,7 +1004,7 @@ class OpenAPIController:
         )
 
     def addPaths(self):
-        for name, method in adminRoutes.__dict__.items():
+        for name, method in publicRoutes.__dict__.items():
             self.addPath(name, method)
 
     def addPath(self, name, method):

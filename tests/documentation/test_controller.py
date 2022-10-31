@@ -3,7 +3,7 @@ from apispec import APISpec
 import pytest
 
 from api.app import app
-from api.documentation.controller import OpenAPIController
+from api.documentation.admin_controller import AdminAPIController
 
 
 class TestDocumentationController:
@@ -13,7 +13,7 @@ class TestDocumentationController:
 
     @pytest.fixture
     def test_controller(self, test_open_api_spec):
-        class TestController(OpenAPIController):
+        class TestController(AdminAPIController):
             def __init__(self):
                 self.spec = test_open_api_spec
 
@@ -21,12 +21,12 @@ class TestDocumentationController:
 
     def test_generateSpec(self):
         with app.test_request_context():
-            testSpec = OpenAPIController.generateSpec()
+            testSpec = AdminAPIController.generateSpec()
 
             # Assert presence of basic version numbers and title
             assert testSpec['info']['version']\
-                == OpenAPIController.DOC_VERSION
-            assert testSpec['openapi'] == OpenAPIController.OPENAPI_VERSION
+                == AdminAPIController.DOC_VERSION
+            assert testSpec['openapi'] == AdminAPIController.OPENAPI_VERSION
             assert testSpec['info']['title'] == 'Library Simplified Circulation Manager'
 
             # Assert presence of described paths
