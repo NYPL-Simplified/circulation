@@ -4,7 +4,7 @@ from api.documentation.public_controller import PublicAPIController
 
 
 @app.route('/admin_docs')
-def generate_documentation():
+def generate_admin_documentation():
     return AdminAPIController.generateSpec()
 
 
