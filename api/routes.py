@@ -442,29 +442,29 @@ def patron_profile():
 @returns_problem_detail
 @compressible
 def active_loans():
-    """Allows admins to update their password
+    """Sync the authenticated patron's loans and holds with all third-party providers.
+
     ---
-    post:
-      tags:
-        - authentication
-      summary: Update password for currently configured admin.
-      description: |
-        Sets the password from form data for the current admin. This requires a CSRF token.
-      security:
-        - BasicAuth: []
-      parameters:
-        - X-CSRF-Token
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema: ChangePasswordPost
-      responses:
-        200:
-          description: A text confirmation that the password was updated
-          content:
-            text/html:
-              example: Success
+    get:
+        tags:
+            - loans
+        summary: Sync the authenticated patron's loans and holds with all third-party providers.
+        security:
+            - BasicAuth: []
+        parameters:
+            - in: path
+              name: library_short_name
+              schema:
+                  type: string
+              description: The short code of a library that holds the requested work
+        responses:
+            200:
+                description: An OPDS Feed response of loans and holds with up-to-date information.
+                content:
+                    application/json:
+                        schema: OPDSFeedResponse
+            304:
+                description: The information has not been modified since last access.
     """
     return app.manager.loans.sync()
 
@@ -534,6 +534,67 @@ def revoke_loan_or_hold(license_pool_id):
 @requires_auth
 @returns_problem_detail
 def loan_or_hold_detail(identifier_type, identifier):
+    """Sync the authenticated patron's loans and holds with all third-party providers.
+
+    ---
+    get:
+        tags:
+            - loans
+        summary: Sync the authenticated patron's loans and holds with all third-party providers.
+        security:
+            - BasicAuth: []
+        parameters:
+            - in: path
+              name: library_short_name
+              schema:
+                  type: string
+              description: The short code of a library that holds the requested work
+            - in: path
+              name: identifier_type
+              schema:
+                type: string
+              description: The type of the identifier being used to retrieve a work
+            - in: path
+              name: identifier
+              schema:
+                type: string
+              description: An identifier for a work record
+        responses:
+            200:
+                description: An OPDS Entry response of loan or hold.
+                content:
+                    application/json:
+                        schema: OPDSEntry
+            404:
+                description: |
+                    An error including:
+                    * `NO_ACTIVE_LOAN_OR_HOLD`: You have no active loan or hold for "%(title)s".
+                content:
+                    application/json:
+                        schema: ProblemResponse 
+    delete:
+        tags:
+            -  loans
+        summary: Revoke a loan or hold
+        security:
+            - BasicAuth: []
+        parameters:
+            - in: path
+              name: library_short_name
+              schema:
+                  type: string
+              description: The short code of a library that holds the requested work
+            - in: path
+              name: identifier_type
+              schema:
+                type: string
+              description: The type of the identifier being used to retrieve a work
+            - in: path
+              name: identifier
+              schema:
+                type: string
+              description: An identifier for a work record
+    """
     return app.manager.loans.detail(identifier_type, identifier)
 
 @library_dir_route('/works')
@@ -643,6 +704,29 @@ def adobe_vendor_id_status():
 @requires_auth
 @returns_problem_detail
 def http_basic_auth_token():
+    """Generate and return a temporary token from HTTP Basic Auth credentials.
+    ---
+    get:
+        tags:
+            - loans
+        summary: Generate and return a temporary token from HTTP Basic Auth credentials.
+        security:
+            - BasicAuth: []
+        parameters:
+            - in: path
+              name: library_short_name
+              schema:
+                  type: string
+              description: The short code of a library that holds the requested work
+        responses:
+            200:
+                description: An OPDS Feed response of loans and holds with up-to-date information.
+                content:
+                    application/json:
+                        schema: OPDSFeedResponse
+            304:
+                description: The information has not been modified since last access.
+    """
     return app.manager.basic_auth_token_controller.basic_auth_temp_token(flask.request.args, app.manager._db)
 
 # Route that redirects to the authentication URL for an OAuth provider
