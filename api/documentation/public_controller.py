@@ -144,7 +144,15 @@ class PublicAPIController:
             {
                 'access_token': {
                     'type': 'object',
-                    'description': ''
+                    'description': 'HTTP Basic Auth Token'
+                },
+                'token_type': {
+                    'type': 'string',
+                    'example': 'Bearer'
+                },
+                'expires_in': {
+                    'type': 'integer',
+                    'description': 'Number of seconds remaining until token expires'
                 }
             }
         )

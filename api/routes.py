@@ -614,7 +614,6 @@ def revoke_loan_or_hold(license_pool_id):
 @returns_problem_detail
 def loan_or_hold_detail(identifier_type, identifier):
     """Sync the authenticated patron's loans and holds with all third-party providers.
-
     ---
     get:
         tags:
@@ -787,7 +786,7 @@ def http_basic_auth_token():
     ---
     get:
         tags:
-            - loans
+            - authentication
         summary: Generate and return a temporary token from HTTP Basic Auth credentials.
         security:
             - BasicAuth: []
@@ -799,12 +798,15 @@ def http_basic_auth_token():
               description: The short code of a library that holds the requested work
         responses:
             200:
-                description: An OPDS Feed response of loans and holds with up-to-date information.
+                description: A temporary HTTP Auth token.
                 content:
                     application/json:
-                        schema: OPDSFeedResponse
-            304:
-                description: The information has not been modified since last access.
+                        schema: HTTPAuthToken
+            4XX:
+                description: Patron not authorized.
+                content:
+                    application/json:
+                        schema: ProblemResponse
     """
     return app.manager.basic_auth_token_controller.basic_auth_temp_token(flask.request.args, app.manager._db)
 
