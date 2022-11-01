@@ -435,7 +435,8 @@ def lane_search(lane_identifier):
 def patron_profile():
     return app.manager.profiles.protocol()
 
-@library_dir_route('/loans', methods=['GET', 'HEAD'])
+
+@library_dir_route('/loans')
 @has_library
 @allows_cors(allowed_domain_type=set({"admin", "patron"}))
 @requires_auth
