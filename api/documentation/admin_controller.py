@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class OpenAPIController:
+class AdminAPIController:
     OPENAPI_VERSION = '3.0.1'
     DOC_VERSION = '0.1.0-alpha'
 

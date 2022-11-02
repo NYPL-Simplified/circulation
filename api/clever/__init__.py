@@ -102,8 +102,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     TOKEN_DATA_SOURCE_NAME = 'Clever'
 
     EXTERNAL_AUTHENTICATE_URL = (
-        "https://clever.com/oauth/authorize"
-        "?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_url)s&state=%(state)s"
+        "https://clever.com/oauth/authorize?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_url)s&state=%(state)s"
     )
     CLEVER_TOKEN_URL = "https://clever.com/oauth/tokens"
 
@@ -261,21 +260,20 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         identifier = data.get('id', None)
 
+        user_type = data.get('type', None)
+
         if not identifier:
             return INVALID_CREDENTIALS.detailed(lgt("A valid Clever login is required."))
 
-        if result.get('type') not in self.SUPPORTED_USER_TYPES:
+        if user_type not in self.SUPPORTED_USER_TYPES:
             return UNSUPPORTED_CLEVER_USER_TYPE
 
-        links = result['links']
-
-        user_link = [link for link in links if link['rel']
-                     == 'canonical'][0]['uri']
         # The canonical link includes the API version, so we use the base URL.
-        user = self._get(self.CLEVER_API_BASE_URL + user_link, bearer_headers)
+        user = self._get(self.CLEVER_API_VERSIONED_URL +
+                         'users/%s' % identifier, bearer_headers)
 
         user_data = user['data']
-        school_id = user_data['school']
+        school_id = user_data['roles'][user_type]['school']
         school = self._get(
             f"{self.CLEVER_API_VERSIONED_URL}/schools/{school_id}", bearer_headers)
         school_nces_id = school['data'].get('nces_id')
@@ -293,16 +291,16 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         external_type = None
 
-        if result['type'] == 'student':
+        if user_type == 'student':
             # We need to be able to assign an external_type to students, so that they
             # get the correct content level. To do so we rely on the grade field in the
             # user data we get back from Clever. Their API doesn't guarantee that the
             # grade field is present, so we supply a default.
-            student_grade = user_data.get('grade', None)
+            student_grade = user_data['roles'][user_type].get('grade', None)
 
             if not student_grade:   # If no grade was supplied, log the school/student
                 msg = (f"CLEVER_UNKNOWN_PATRON_GRADE: School with NCES ID {school_nces_id} "
-                       f"did not supply grade for student {user_data.get('id')}")
+                       f"did not supply grade for student {identifier}")
                 self.log.info(msg)
 
             # If we can't determine a type from the grade level, set to "A"
