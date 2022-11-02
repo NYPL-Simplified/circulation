@@ -176,6 +176,8 @@ Github Actions handles generating the `.rst` source files, generating the HTML s
 
 To view the documentation _locally_, go into the `/docs` directory and run `make html`. This will generate the .rst source files and build the static site in `/docs/build/html`.
 
+API documentation using Swagger(OpenAPI) can be found on at the `/apidocs_admin` and `/apidocs_public` endpoints.
+
 ## Continuous Integration
 
 This project runs all the unit tests through Github Actions for new pull requests and when merging into the default `develop` branch. The relevant file can be found in `.github/workflows/test.yml`. When contributing updates or fixes, it's required for the test Github Action to pass for all python 3 environments. Run the `tox` command locally before pushing changes to make sure you find any failing tests before committing them.
