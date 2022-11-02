@@ -135,9 +135,9 @@ class TestCleverAuthenticationAPI(DatabaseTest):
             id='1234',
             type='student'
         )))
-        self.api.queue_response(dict(data=dict(
+        self.api.queue_response(dict(data=dict(roles=dict(
             student=dict(school='1234')
-        )))
+        ))))
 
         self.api.queue_response(dict(data=dict(nces_id='I am not Title I')))
 
@@ -149,9 +149,9 @@ class TestCleverAuthenticationAPI(DatabaseTest):
             id='1234',
             type='student'
         )))
-        self.api.queue_response(dict(data=dict(
+        self.api.queue_response(dict(data=dict(roles=dict(
             student=dict(school='1234')
-        )))
+        ))))
         self.api.queue_response(dict(data=dict()))
 
         token = self.api.remote_patron_lookup("")
@@ -162,12 +162,12 @@ class TestCleverAuthenticationAPI(DatabaseTest):
             id='1234',
             type='student'
         )))
-        self.api.queue_response(dict(data=dict(
+        self.api.queue_response(dict(data=dict(roles=dict(
             student=dict(
                 school='1234',
                 grade=""
             )
-        )))
+        ))))
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         patrondata = self.api.remote_patron_lookup("token")
@@ -178,12 +178,12 @@ class TestCleverAuthenticationAPI(DatabaseTest):
             id='5678',
             type='student'
         )))
-        self.api.queue_response(dict(data=dict(
+        self.api.queue_response(dict(data=dict(roles=dict(
             student=dict(
                 school='1234',
                 grade="10"
             )
-        )))
+        ))))
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         patrondata = self.api.remote_patron_lookup("token")
@@ -200,11 +200,11 @@ class TestCleverAuthenticationAPI(DatabaseTest):
             id='1',
             type='teacher'
         )))
-        self.api.queue_response(dict(data=dict(
+        self.api.queue_response(dict(data=dict(roles=dict(
             teacher=dict(
                 school='1234'
             )
-        )))
+        ))))
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         patrondata = self.api.remote_patron_lookup("teacher token")
@@ -216,12 +216,12 @@ class TestCleverAuthenticationAPI(DatabaseTest):
                 id='2',
                 type='student'
             )))
-            self.api.queue_response(dict(data=dict(
+            self.api.queue_response(dict(data=dict(roles=dict(
                 student=dict(
                     school='1234',
                     grade=grade
                 )
-            )))
+            ))))
             self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         queue_student(grade="1")
@@ -243,11 +243,11 @@ class TestCleverAuthenticationAPI(DatabaseTest):
             id='1',
             type='teacher'
         )))
-        self.api.queue_response(dict(data=dict(
+        self.api.queue_response(dict(data=dict(roles=dict(
             teacher=dict(
                 school='1234'
             )
-        )))
+        ))))
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         with self.app.test_request_context("/"):

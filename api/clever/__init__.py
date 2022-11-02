@@ -273,7 +273,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
                          'users/%s' % identifier, bearer_headers)
 
         user_data = user['data']
-        school_id = user_data[user_type]['school']
+        school_id = user_data['roles'][user_type]['school']
         school = self._get(
             f"{self.CLEVER_API_VERSIONED_URL}/schools/{school_id}", bearer_headers)
         school_nces_id = school['data'].get('nces_id')
@@ -296,7 +296,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             # get the correct content level. To do so we rely on the grade field in the
             # user data we get back from Clever. Their API doesn't guarantee that the
             # grade field is present, so we supply a default.
-            student_grade = user_data[user_type].get('grade', None)
+            student_grade = user_data['roles'][user_type].get('grade', None)
 
             if not student_grade:   # If no grade was supplied, log the school/student
                 msg = (f"CLEVER_UNKNOWN_PATRON_GRADE: School with NCES ID {school_nces_id} "
