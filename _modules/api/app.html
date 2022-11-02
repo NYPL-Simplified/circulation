@@ -79,9 +79,12 @@
 <span class="n">babel</span> <span class="o">=</span> <span class="n">Babel</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
 
 <span class="n">swaggerui_print</span> <span class="o">=</span> <span class="n">get_swaggerui_blueprint</span><span class="p">(</span>
-    <span class="s1">&#39;/apidocs&#39;</span><span class="p">,</span> <span class="s1">&#39;/documentation&#39;</span>
+    <span class="s1">&#39;/apidocs_admin&#39;</span><span class="p">,</span> <span class="s1">&#39;/admin_docs&#39;</span><span class="p">,</span> <span class="n">blueprint_name</span><span class="o">=</span><span class="s1">&#39;apmin_api&#39;</span>
 <span class="p">)</span>
+<span class="n">public_docs</span> <span class="o">=</span> <span class="n">get_swaggerui_blueprint</span><span class="p">(</span>
+    <span class="s1">&#39;/apidocs_public&#39;</span><span class="p">,</span> <span class="s1">&#39;/public_docs&#39;</span><span class="p">,</span> <span class="n">blueprint_name</span><span class="o">=</span><span class="s1">&#39;public_api&#39;</span><span class="p">)</span>
 <span class="n">app</span><span class="o">.</span><span class="n">register_blueprint</span><span class="p">(</span><span class="n">swaggerui_print</span><span class="p">)</span>
+<span class="n">app</span><span class="o">.</span><span class="n">register_blueprint</span><span class="p">(</span><span class="n">public_docs</span><span class="p">)</span>
 
 <div class="viewcode-block" id="initialize_database"><a class="viewcode-back" href="../../api.html#api.app.initialize_database">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">before_first_request</span>
 <span class="k">def</span> <span class="nf">initialize_database</span><span class="p">(</span><span class="n">autoinitialize</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>

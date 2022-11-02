@@ -178,6 +178,7 @@
 <span class="kn">from</span> <span class="nn">.shared_collection</span> <span class="kn">import</span> <span class="n">SharedCollectionAPI</span>
 <span class="kn">from</span> <span class="nn">.testing</span> <span class="kn">import</span> <span class="n">MockCirculationAPI</span><span class="p">,</span> <span class="n">MockSharedCollectionAPI</span>
 
+
 <div class="viewcode-block" id="CirculationManager"><a class="viewcode-back" href="../../api.html#api.controller.CirculationManager">[docs]</a><span class="k">class</span> <span class="nc">CirculationManager</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">testing</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
@@ -189,7 +190,8 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
             <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Could not load configuration file: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exception</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
+                    <span class="s2">&quot;Could not load configuration file: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exception</span><span class="p">))</span>
                 <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">testing</span> <span class="o">=</span> <span class="n">testing</span>
@@ -217,7 +219,7 @@
             <span class="c1"># problems.</span>
             <span class="n">index_controller</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;index_controller&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="k">if</span> <span class="p">(</span><span class="n">index_controller</span> <span class="ow">and</span> <span class="ow">not</span>
-                <span class="n">worklist</span><span class="o">.</span><span class="n">accessible_to</span><span class="p">(</span><span class="n">index_controller</span><span class="o">.</span><span class="n">request_patron</span><span class="p">)):</span>
+                    <span class="n">worklist</span><span class="o">.</span><span class="n">accessible_to</span><span class="p">(</span><span class="n">index_controller</span><span class="o">.</span><span class="n">request_patron</span><span class="p">)):</span>
                 <span class="k">return</span> <span class="n">NO_SUCH_LANE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Lane does not exist&quot;</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="n">BaseFacets</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="s1">&#39;max_cache_age&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -305,7 +307,8 @@
             <span class="n">url</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">url</span> <span class="o">==</span> <span class="s2">&quot;*&quot;</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">url</span>
-            <span class="n">scheme</span><span class="p">,</span> <span class="n">netloc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">fragment</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+            <span class="n">scheme</span><span class="p">,</span> <span class="n">netloc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">fragment</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span>
+                <span class="n">url</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">scheme</span> <span class="ow">and</span> <span class="n">netloc</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">scheme</span> <span class="o">+</span> <span class="s2">&quot;://&quot;</span> <span class="o">+</span> <span class="n">netloc</span>
             <span class="k">else</span><span class="p">:</span>
@@ -318,7 +321,7 @@
                 <span class="n">domain</span> <span class="o">=</span> <span class="n">get_domain</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">domain</span><span class="p">:</span>
                     <span class="n">patron_web_domains</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
-                
+
         <span class="n">sitewide_admin_web_client_urls</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">ADMIN_WEB_HOSTNAMES</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
         <span class="k">if</span> <span class="n">sitewide_admin_web_client_urls</span><span class="p">:</span>
@@ -329,8 +332,8 @@
 
         <span class="kn">from</span> <span class="nn">.registry</span> <span class="kn">import</span> <span class="n">Registration</span>
         <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
-            <span class="n">ConfigurationSetting</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">key</span><span class="o">==</span><span class="n">Registration</span><span class="o">.</span><span class="n">LIBRARY_REGISTRATION_WEB_CLIENT</span><span class="p">):</span>
+                <span class="n">ConfigurationSetting</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="n">Registration</span><span class="o">.</span><span class="n">LIBRARY_REGISTRATION_WEB_CLIENT</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
                 <span class="n">patron_web_domains</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">get_domain</span><span class="p">(</span><span class="n">setting</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
 
@@ -474,7 +477,8 @@
 <span class="sd">        This method will be called fresh every time the site</span>
 <span class="sd">        configuration changes.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_token_controller</span> <span class="o">=</span> <span class="n">BasicAuthTempTokenController</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">auth</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">basic_auth_token_controller</span> <span class="o">=</span> <span class="n">BasicAuthTempTokenController</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">auth</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">oauth_controller</span> <span class="o">=</span> <span class="n">OAuthController</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">auth</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">saml_controller</span> <span class="o">=</span> <span class="n">SAMLController</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">auth</span><span class="p">)</span></div>
 
@@ -495,7 +499,8 @@
             <span class="n">vendor_id</span> <span class="o">=</span> <span class="n">adobe</span><span class="o">.</span><span class="n">username</span>
             <span class="n">node_value</span> <span class="o">=</span> <span class="n">adobe</span><span class="o">.</span><span class="n">password</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">vendor_id</span> <span class="ow">and</span> <span class="n">node_value</span><span class="p">):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Adobe Vendor ID is disabled due to missing or incomplete configuration. This is probably nothing to worry about.&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;Adobe Vendor ID is disabled due to missing or incomplete configuration. This is probably nothing to worry about.&quot;</span><span class="p">)</span>
 
         <span class="c1"># But almost all libraries will have a Short Client Token</span>
         <span class="c1"># setup. We&#39;re not setting anything up here, but this is useful</span>
@@ -544,7 +549,8 @@
 
         <span class="c1"># Some features are only available if a patron authentication</span>
         <span class="c1"># mechanism is set up for this library.</span>
-        <span class="n">authenticator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">auth</span><span class="o">.</span><span class="n">library_authenticators</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">)</span>
+        <span class="n">authenticator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">auth</span><span class="o">.</span><span class="n">library_authenticators</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">)</span>
         <span class="n">library_identifies_patrons</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">authenticator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">authenticator</span><span class="o">.</span><span class="n">identifies_individuals</span>
         <span class="p">)</span>
@@ -606,7 +612,8 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">public_key_integration_document</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Serve a document with the sitewide public key.&quot;&quot;&quot;</span>
-        <span class="n">site_id</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">BASE_URL_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">site_id</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">BASE_URL_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
         <span class="n">document</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">site_id</span><span class="p">)</span>
 
         <span class="n">public</span><span class="p">,</span> <span class="n">private</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sitewide_key_pair</span>
@@ -622,7 +629,7 @@
         <span class="n">pool_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">pool</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">pool</span> <span class="ow">in</span> <span class="n">license_pools</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">object_class</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">object_class</span><span class="o">.</span><span class="n">patron_id</span><span class="o">==</span><span class="n">patron</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">object_class</span><span class="o">.</span><span class="n">patron_id</span> <span class="o">==</span> <span class="n">patron</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
             <span class="n">object_class</span><span class="o">.</span><span class="n">license_pool_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">pool_ids</span><span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">eagerload</span><span class="p">(</span><span class="n">object_class</span><span class="o">.</span><span class="n">license_pool</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
 
@@ -699,7 +706,8 @@
         <span class="c1"># time in UTC but with no indication of the actual source</span>
         <span class="c1"># timezone of the message the date comes from.&quot;</span>
         <span class="k">if</span> <span class="n">parsed_if_modified_since</span><span class="o">.</span><span class="n">tzinfo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">parsed_if_modified_since</span> <span class="o">=</span> <span class="n">parsed_if_modified_since</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">pytz</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
+            <span class="n">parsed_if_modified_since</span> <span class="o">=</span> <span class="n">parsed_if_modified_since</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+                <span class="n">tzinfo</span><span class="o">=</span><span class="n">pytz</span><span class="o">.</span><span class="n">UTC</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">parsed_if_modified_since</span> <span class="o">&gt;=</span> <span class="n">last_modified</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="mi">304</span><span class="p">)</span>
@@ -716,7 +724,8 @@
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">Lane</span><span class="p">):</span>
                 <span class="n">lane</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">WorkList</span><span class="p">):</span>
-                <span class="n">lane</span><span class="o">.</span><span class="n">children</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">child</span><span class="p">)</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">lane</span><span class="o">.</span><span class="n">children</span><span class="p">]</span>
+                <span class="n">lane</span><span class="o">.</span><span class="n">children</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
+                                 <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">lane</span><span class="o">.</span><span class="n">children</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">lane_identifier</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">)</span>
@@ -737,7 +746,7 @@
             <span class="k">return</span> <span class="n">NO_SUCH_LANE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Lane </span><span class="si">%(lane_identifier)s</span><span class="s2"> does not exist or is not associated with library </span><span class="si">%(library_id)s</span><span class="s2">&quot;</span><span class="p">,</span>
                   <span class="n">lane_identifier</span><span class="o">=</span><span class="n">lane_identifier</span><span class="p">,</span> <span class="n">library_id</span><span class="o">=</span><span class="n">library_id</span>
-                <span class="p">)</span>
+                  <span class="p">)</span>
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">lane</span></div>
@@ -769,12 +778,12 @@
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
         <span class="n">pools</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">collection</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
             <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Collection</span><span class="o">.</span><span class="n">libraries</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-                <span class="n">Identifier</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="n">identifier_type</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-                <span class="n">Identifier</span><span class="o">.</span><span class="n">identifier</span><span class="o">==</span><span class="n">identifier</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-                <span class="n">Library</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">library</span><span class="o">.</span><span class="n">id</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+                <span class="n">Identifier</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">identifier_type</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Identifier</span><span class="o">.</span><span class="n">identifier</span> <span class="o">==</span> <span class="n">identifier</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Library</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">library</span><span class="o">.</span><span class="n">id</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">pools</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">NO_LICENSES</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The item you&#39;re asking about (</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">) isn&#39;t in this collection.&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span>
@@ -828,11 +837,11 @@
             <span class="k">return</span> <span class="n">NOT_AGE_APPROPRIATE</span>
 
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">allow_holds</span> <span class="ow">and</span>
-            <span class="n">license_pool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span>
-            <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="ow">and</span>
-            <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">unlimited_access</span> <span class="ow">and</span>
-            <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">self_hosted</span>
-        <span class="p">):</span>
+                <span class="n">license_pool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span>
+                <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="ow">and</span>
+                <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">unlimited_access</span> <span class="ow">and</span>
+                <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">self_hosted</span>
+            <span class="p">):</span>
             <span class="k">return</span> <span class="n">FORBIDDEN_BY_POLICY</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library policy prohibits the placement of holds.&quot;</span><span class="p">),</span>
                 <span class="n">status_code</span><span class="o">=</span><span class="mi">403</span>
@@ -866,7 +875,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">authentication_for_opds_document</span><span class="p">,</span>
             <span class="mi">200</span><span class="p">,</span>
             <span class="p">{</span>
-                <span class="s2">&quot;Content-Type&quot;</span> <span class="p">:</span> <span class="n">AuthenticationForOPDSDocument</span><span class="o">.</span><span class="n">MEDIA_TYPE</span>
+                <span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="n">AuthenticationForOPDSDocument</span><span class="o">.</span><span class="n">MEDIA_TYPE</span>
             <span class="p">}</span>
         <span class="p">)</span></div>
 
@@ -913,8 +922,9 @@
         <span class="sd">&quot;&quot;&quot;Serves a sitewide public key document&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">public_key_integration_document</span><span class="p">,</span>
-            <span class="mi">200</span><span class="p">,</span> <span class="p">{</span> <span class="s1">&#39;Content-Type&#39;</span> <span class="p">:</span> <span class="s1">&#39;application/opds+json&#39;</span> <span class="p">}</span>
+            <span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">:</span> <span class="s1">&#39;application/opds+json&#39;</span><span class="p">}</span>
         <span class="p">)</span></div></div>
+
 
 <div class="viewcode-block" id="OPDSFeedController"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController">[docs]</a><span class="k">class</span> <span class="nc">OPDSFeedController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
 
@@ -1183,7 +1193,8 @@
         <span class="c1"># request arguments, and another way if there is a query</span>
         <span class="c1"># string.</span>
         <span class="n">make_url_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">facets</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
-        <span class="n">make_url</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span>
+
+        <span class="k">def</span> <span class="nf">make_url</span><span class="p">():</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span>
             <span class="s1">&#39;lane_search&#39;</span><span class="p">,</span> <span class="n">lane_identifier</span><span class="o">=</span><span class="n">lane_identifier</span><span class="p">,</span>
             <span class="n">library_short_name</span><span class="o">=</span><span class="n">library_short_name</span><span class="p">,</span>
             <span class="o">**</span><span class="n">make_url_kwargs</span>
@@ -1191,7 +1202,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">query</span><span class="p">:</span>
             <span class="c1"># Send the search form</span>
             <span class="n">open_search_doc</span> <span class="o">=</span> <span class="n">OpenSearchDocument</span><span class="o">.</span><span class="n">for_lane</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">make_url</span><span class="p">())</span>
-            <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span> <span class="s2">&quot;Content-Type&quot;</span> <span class="p">:</span> <span class="s2">&quot;application/opensearchdescription+xml&quot;</span> <span class="p">}</span>
+            <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="s2">&quot;application/opensearchdescription+xml&quot;</span><span class="p">}</span>
             <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">open_search_doc</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
 
         <span class="c1"># We have a query -- add it to the keyword arguments used when</span>
@@ -1315,10 +1326,12 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="n">exporter</span> <span class="o">=</span> <span class="n">MARCExporter</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">body</span> <span class="o">+=</span> <span class="s2">&quot;&lt;p&gt;&quot;</span> <span class="o">+</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;No MARC exporter is currently configured for this library.&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;&lt;/p&gt;&quot;</span>
+            <span class="n">body</span> <span class="o">+=</span> <span class="s2">&quot;&lt;p&gt;&quot;</span> <span class="o">+</span> \
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;No MARC exporter is currently configured for this library.&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;&lt;/p&gt;&quot;</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">library</span><span class="o">.</span><span class="n">cachedmarcfiles</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">exporter</span><span class="p">:</span>
-            <span class="n">body</span> <span class="o">+=</span> <span class="s2">&quot;&lt;p&gt;&quot;</span> <span class="o">+</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;MARC files aren&#39;t ready to download yet.&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;&lt;/p&gt;&quot;</span>
+            <span class="n">body</span> <span class="o">+=</span> <span class="s2">&quot;&lt;p&gt;&quot;</span> <span class="o">+</span> \
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;MARC files aren&#39;t ready to download yet.&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;&lt;/p&gt;&quot;</span>
 
         <span class="n">files_by_lane</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">library</span><span class="o">.</span><span class="n">cachedmarcfiles</span><span class="p">:</span>
@@ -1331,7 +1344,8 @@
 
         <span class="c1"># TODO: By default the MARC script only caches one level of lanes,</span>
         <span class="c1"># so sorting by priority is good enough.</span>
-        <span class="n">lanes</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">files_by_lane</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">priority</span> <span class="k">if</span> <span class="n">x</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">lanes</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">files_by_lane</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span>
+                       <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">priority</span> <span class="k">if</span> <span class="n">x</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">lane</span> <span class="ow">in</span> <span class="n">lanes</span><span class="p">:</span>
             <span class="n">files</span> <span class="o">=</span> <span class="n">files_by_lane</span><span class="p">[</span><span class="n">lane</span><span class="p">]</span>
@@ -1340,8 +1354,10 @@
             <span class="k">if</span> <span class="n">files</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;full&quot;</span><span class="p">):</span>
                 <span class="n">file</span> <span class="o">=</span> <span class="n">files</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;full&quot;</span><span class="p">)</span>
                 <span class="n">full_url</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">mirror_url</span>
-                <span class="n">full_label</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Full file - last updated </span><span class="si">%(update_time)s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">update_time</span><span class="o">=</span><span class="n">file</span><span class="o">.</span><span class="n">end_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">time_format</span><span class="p">))</span>
-                <span class="n">body</span> <span class="o">+=</span> <span class="s1">&#39;&lt;a href=&quot;</span><span class="si">%s</span><span class="s1">&quot;&gt;</span><span class="si">%s</span><span class="s1">&lt;/a&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">files</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;full&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">mirror_url</span><span class="p">,</span> <span class="n">full_label</span><span class="p">)</span>
+                <span class="n">full_label</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Full file - last updated </span><span class="si">%(update_time)s</span><span class="s2">&quot;</span><span class="p">,</span>
+                               <span class="n">update_time</span><span class="o">=</span><span class="n">file</span><span class="o">.</span><span class="n">end_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">time_format</span><span class="p">))</span>
+                <span class="n">body</span> <span class="o">+=</span> <span class="s1">&#39;&lt;a href=&quot;</span><span class="si">%s</span><span class="s1">&quot;&gt;</span><span class="si">%s</span><span class="s1">&lt;/a&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">files</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;full&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">mirror_url</span><span class="p">,</span> <span class="n">full_label</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="n">files</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;updates&quot;</span><span class="p">):</span>
                     <span class="n">body</span> <span class="o">+=</span> <span class="s2">&quot;&lt;h4&gt;</span><span class="si">%s</span><span class="s2">&lt;/h4&gt;&quot;</span> <span class="o">%</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Update-only files&quot;</span><span class="p">)</span>
@@ -1350,9 +1366,11 @@
                     <span class="k">for</span> <span class="n">update</span> <span class="ow">in</span> <span class="n">files</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;updates&quot;</span><span class="p">):</span>
                         <span class="n">update_url</span> <span class="o">=</span> <span class="n">update</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">mirror_url</span>
                         <span class="n">update_label</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Updates from </span><span class="si">%(start_time)s</span><span class="s2"> to </span><span class="si">%(end_time)s</span><span class="s2">&quot;</span><span class="p">,</span>
-                                         <span class="n">start_time</span><span class="o">=</span><span class="n">update</span><span class="o">.</span><span class="n">start_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">time_format</span><span class="p">),</span>
+                                         <span class="n">start_time</span><span class="o">=</span><span class="n">update</span><span class="o">.</span><span class="n">start_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span>
+                                             <span class="n">time_format</span><span class="p">),</span>
                                          <span class="n">end_time</span><span class="o">=</span><span class="n">update</span><span class="o">.</span><span class="n">end_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">time_format</span><span class="p">))</span>
-                        <span class="n">body</span> <span class="o">+=</span> <span class="s1">&#39;&lt;li&gt;&lt;a href=&quot;</span><span class="si">%s</span><span class="s1">&quot;&gt;</span><span class="si">%s</span><span class="s1">&lt;/a&gt;&lt;/li&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">update_url</span><span class="p">,</span> <span class="n">update_label</span><span class="p">)</span>
+                        <span class="n">body</span> <span class="o">+=</span> <span class="s1">&#39;&lt;li&gt;&lt;a href=&quot;</span><span class="si">%s</span><span class="s1">&quot;&gt;</span><span class="si">%s</span><span class="s1">&lt;/a&gt;&lt;/li&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
+                            <span class="n">update_url</span><span class="p">,</span> <span class="n">update_label</span><span class="p">)</span>
                     <span class="n">body</span> <span class="o">+=</span> <span class="s2">&quot;&lt;/ul&gt;&quot;</span>
 
             <span class="n">body</span> <span class="o">+=</span> <span class="s2">&quot;&lt;/section&gt;&quot;</span>
@@ -1363,9 +1381,8 @@
         <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;text/html&quot;</span>
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">html</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span></div></div>
 
+
 <div class="viewcode-block" id="LoanController"><a class="viewcode-back" href="../../api.html#api.controller.LoanController">[docs]</a><span class="k">class</span> <span class="nc">LoanController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
-
-
 
 <div class="viewcode-block" id="LoanController.sync"><a class="viewcode-back" href="../../api.html#api.controller.LoanController.sync">[docs]</a>    <span class="k">def</span> <span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Sync the authenticated patron&#39;s loans and holds with all third-party</span>
@@ -1382,13 +1399,6 @@
         <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="n">Response</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">response</span>
-
-        <span class="c1"># TODO: SimplyE used to make a HEAD request to the bookshelf feed</span>
-        <span class="c1"># as a quick way of checking authentication. Does this still happen?</span>
-        <span class="c1"># It shouldn&#39;t -- the patron profile feed should be used instead.</span>
-        <span class="c1"># If it&#39;s not used, we can take this out.</span>
-        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s1">&#39;HEAD&#39;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">()</span>
 
         <span class="c1"># First synchronize our local list of loans and holds with all</span>
         <span class="c1"># third-party loan providers.</span>
@@ -1444,7 +1454,8 @@
             <span class="c1"># We need to actually go out to the API</span>
             <span class="c1"># and try to take out a loan.</span>
             <span class="n">pool</span><span class="p">,</span> <span class="n">mechanism</span> <span class="o">=</span> <span class="n">result</span>
-            <span class="n">loan_or_hold</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_borrow</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">mechanism</span><span class="p">)</span>
+            <span class="n">loan_or_hold</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_borrow</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">mechanism</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loan_or_hold</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">loan_or_hold</span>
@@ -1498,7 +1509,8 @@
             <span class="p">)</span>
         <span class="k">except</span> <span class="n">OutstandingFines</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">result</span> <span class="o">=</span> <span class="n">OUTSTANDING_FINES</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
-                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You must pay your $</span><span class="si">%(fine_amount).2f</span><span class="s2"> outstanding fines before you can borrow more books.&quot;</span><span class="p">,</span> <span class="n">fine_amount</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">fines</span><span class="p">)</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You must pay your $</span><span class="si">%(fine_amount).2f</span><span class="s2"> outstanding fines before you can borrow more books.&quot;</span><span class="p">,</span>
+                  <span class="n">fine_amount</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">fines</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="n">AuthorizationExpired</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">result</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -1544,7 +1556,7 @@
 
         <span class="n">existing_loans</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Loan</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">Loan</span><span class="o">.</span><span class="n">license_pool_id</span><span class="o">.</span><span class="n">in_</span><span class="p">([</span><span class="n">lp</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">lp</span> <span class="ow">in</span> <span class="n">pools</span><span class="p">]),</span>
-            <span class="n">Loan</span><span class="o">.</span><span class="n">patron</span><span class="o">==</span><span class="n">patron</span>
+            <span class="n">Loan</span><span class="o">.</span><span class="n">patron</span> <span class="o">==</span> <span class="n">patron</span>
         <span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">existing_loans</span><span class="p">:</span>
             <span class="c1"># The patron already has at least one loan on this book already.</span>
@@ -1581,7 +1593,7 @@
             <span class="c1"># with the shortest wait.</span>
             <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">best</span>
                 <span class="ow">or</span> <span class="n">pool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="n">best</span><span class="o">.</span><span class="n">licenses_available</span>
-                <span class="ow">or</span> <span class="n">pool</span><span class="o">.</span><span class="n">patrons_in_hold_queue</span> <span class="o">&lt;</span> <span class="n">best</span><span class="o">.</span><span class="n">patrons_in_hold_queue</span><span class="p">):</span>
+                    <span class="ow">or</span> <span class="n">pool</span><span class="o">.</span><span class="n">patrons_in_hold_queue</span> <span class="o">&lt;</span> <span class="n">best</span><span class="o">.</span><span class="n">patrons_in_hold_queue</span><span class="p">):</span>
                 <span class="n">best</span> <span class="o">=</span> <span class="n">pool</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">best</span><span class="p">:</span>
@@ -1670,7 +1682,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">mechanism</span><span class="p">:</span>
             <span class="c1"># See if the loan already has a mechanism set. We can use that.</span>
             <span class="k">if</span> <span class="n">loan</span> <span class="ow">and</span> <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span><span class="p">:</span>
-                <span class="n">mechanism</span> <span class="o">=</span>  <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span>
+                <span class="n">mechanism</span> <span class="o">=</span> <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">BAD_DELIVERY_MECHANISM</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                     <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You must specify a delivery mechanism to fulfill this loan.&quot;</span><span class="p">)</span>
@@ -1695,8 +1707,8 @@
             <span class="k">return</span> <span class="n">DELIVERY_CONFLICT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
         <span class="k">except</span> <span class="n">NoActiveLoan</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">NO_ACTIVE_LOAN</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
-                    <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Can</span><span class="se">\&#39;</span><span class="s1">t fulfill loan because you have no active loan for this book.&#39;</span><span class="p">),</span>
-                    <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
+                <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Can</span><span class="se">\&#39;</span><span class="s1">t fulfill loan because you have no active loan for this book.&#39;</span><span class="p">),</span>
+                <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="n">CannotFulfill</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">CANNOT_FULFILL</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span>
@@ -1720,8 +1732,8 @@
         <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="n">encoding_header</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">fulfillment</span><span class="o">.</span><span class="n">data_source_name</span> <span class="o">==</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">ENKI</span>
-            <span class="ow">and</span> <span class="n">mechanism</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">drm_scheme_media_type</span> <span class="o">==</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span><span class="p">):</span>
-                <span class="n">encoding_header</span><span class="p">[</span><span class="s2">&quot;Accept-Encoding&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;deflate&quot;</span>
+                <span class="ow">and</span> <span class="n">mechanism</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">drm_scheme_media_type</span> <span class="o">==</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span><span class="p">):</span>
+            <span class="n">encoding_header</span><span class="p">[</span><span class="s2">&quot;Accept-Encoding&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;deflate&quot;</span>
 
         <span class="k">if</span> <span class="n">mechanism</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">is_streaming</span><span class="p">:</span>
             <span class="c1"># If this is a streaming delivery mechanism, create an OPDS entry</span>
@@ -1752,7 +1764,8 @@
                 <span class="c1"># of redirecting to it, since it may be downloaded through an</span>
                 <span class="c1"># indirect acquisition link.</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="n">do_get</span><span class="p">(</span><span class="n">fulfillment</span><span class="o">.</span><span class="n">content_link</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">encoding_header</span><span class="p">)</span>
+                    <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="n">do_get</span><span class="p">(</span>
+                        <span class="n">fulfillment</span><span class="o">.</span><span class="n">content_link</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">encoding_header</span><span class="p">)</span>
                     <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>
                 <span class="k">except</span> <span class="n">RemoteIntegrationException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -1775,7 +1788,8 @@
 <span class="sd">        :param patron: A Patron, probably None.</span>
 <span class="sd">        :param lpdm: A LicensePoolDeliveryMechanism.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">authenticator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">auth</span><span class="o">.</span><span class="n">library_authenticators</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">)</span>
+        <span class="n">authenticator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">auth</span><span class="o">.</span><span class="n">library_authenticators</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">authenticator</span> <span class="ow">and</span> <span class="n">authenticator</span><span class="o">.</span><span class="n">identifies_individuals</span><span class="p">:</span>
             <span class="c1"># This library identifies individual patrons, so there is</span>
             <span class="c1"># no reason to fulfill books without a loan. Even if the</span>
@@ -1820,7 +1834,8 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">revoke_loan</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">pool</span><span class="p">)</span>
             <span class="k">except</span> <span class="n">RemoteRefusedReturn</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">title</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Loan deleted locally but remote refused. Loan is likely to show up again on next sync.&quot;</span><span class="p">)</span>
+                <span class="n">title</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span>
+                    <span class="s2">&quot;Loan deleted locally but remote refused. Loan is likely to show up again on next sync.&quot;</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">COULD_NOT_MIRROR_TO_REMOTE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="mi">503</span><span class="p">)</span>
             <span class="k">except</span> <span class="n">CannotReturn</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">title</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Loan deleted locally but remote failed.&quot;</span><span class="p">)</span>
@@ -1840,7 +1855,7 @@
         <span class="k">return</span> <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">single_entry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LoanController.detail"><a class="viewcode-back" href="../../api.html#api.controller.LoanController.detail">[docs]</a>    <span class="k">def</span> <span class="nf">detail</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s1">&#39;DELETE&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;DELETE&#39;</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">revoke_loan_or_hold</span><span class="p">(</span><span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
 
         <span class="n">patron</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span>
@@ -1857,7 +1872,8 @@
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">loan</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">hold</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">NO_ACTIVE_LOAN_OR_HOLD</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
-                <span class="n">_</span><span class="p">(</span><span class="s1">&#39;You have no active loan or hold for &quot;</span><span class="si">%(title)s</span><span class="s1">&quot;.&#39;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">pool</span><span class="o">.</span><span class="n">work</span><span class="o">.</span><span class="n">title</span><span class="p">),</span>
+                <span class="n">_</span><span class="p">(</span><span class="s1">&#39;You have no active loan or hold for &quot;</span><span class="si">%(title)s</span><span class="s1">&quot;.&#39;</span><span class="p">,</span>
+                  <span class="n">title</span><span class="o">=</span><span class="n">pool</span><span class="o">.</span><span class="n">work</span><span class="o">.</span><span class="n">title</span><span class="p">),</span>
                 <span class="n">status_code</span><span class="o">=</span><span class="mi">404</span>
             <span class="p">)</span>
 
@@ -1870,6 +1886,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">item</span>
             <span class="p">)</span></div></div>
 
+
 <div class="viewcode-block" id="AnnotationController"><a class="viewcode-back" href="../../api.html#api.controller.AnnotationController">[docs]</a><span class="k">class</span> <span class="nc">AnnotationController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
 
 <div class="viewcode-block" id="AnnotationController.container"><a class="viewcode-back" href="../../api.html#api.controller.AnnotationController.container">[docs]</a>    <span class="k">def</span> <span class="nf">container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">accept_post</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
@@ -1880,7 +1897,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Allow&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;GET,HEAD,OPTIONS&#39;</span>
 
-        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s1">&#39;HEAD&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;HEAD&#39;</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
 
         <span class="n">patron</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span>
@@ -1890,11 +1907,13 @@
                                <span class="s1">&#39;&lt;http://www.w3.org/TR/annotation-protocol/&gt;; rel=&quot;http://www.w3.org/ns/ldp#constrainedBy&quot;&#39;</span><span class="p">]</span>
             <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">AnnotationWriter</span><span class="o">.</span><span class="n">CONTENT_TYPE</span>
 
-            <span class="n">container</span><span class="p">,</span> <span class="n">timestamp</span> <span class="o">=</span> <span class="n">AnnotationWriter</span><span class="o">.</span><span class="n">annotation_container_for</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">)</span>
+            <span class="n">container</span><span class="p">,</span> <span class="n">timestamp</span> <span class="o">=</span> <span class="n">AnnotationWriter</span><span class="o">.</span><span class="n">annotation_container_for</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">)</span>
             <span class="n">etag</span> <span class="o">=</span> <span class="s1">&#39;W/&quot;&quot;&#39;</span>
             <span class="k">if</span> <span class="n">timestamp</span><span class="p">:</span>
                 <span class="n">etag</span> <span class="o">=</span> <span class="s1">&#39;W/&quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="n">timestamp</span>
-                <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Last-Modified&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">format_date_time</span><span class="p">(</span><span class="n">mktime</span><span class="p">(</span><span class="n">timestamp</span><span class="o">.</span><span class="n">timetuple</span><span class="p">()))</span>
+                <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Last-Modified&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">format_date_time</span><span class="p">(</span>
+                    <span class="n">mktime</span><span class="p">(</span><span class="n">timestamp</span><span class="o">.</span><span class="n">timetuple</span><span class="p">()))</span>
             <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;ETag&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">etag</span>
 
             <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">container</span><span class="p">)</span>
@@ -1921,7 +1940,7 @@
         <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Allow&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;GET,HEAD,OPTIONS,DELETE&#39;</span>
 
-        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s1">&#39;HEAD&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;HEAD&#39;</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
 
         <span class="n">patron</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span>
@@ -1952,7 +1971,8 @@
         <span class="k">if</span> <span class="n">languages</span><span class="p">:</span>
             <span class="n">languages</span> <span class="o">=</span> <span class="n">languages</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">audiences</span><span class="p">:</span>
-            <span class="n">audiences</span> <span class="o">=</span> <span class="p">[</span><span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">unquote_plus</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">audiences</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)]</span>
+            <span class="n">audiences</span> <span class="o">=</span> <span class="p">[</span><span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">unquote_plus</span><span class="p">(</span>
+                <span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">audiences</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)]</span>
 
         <span class="k">return</span> <span class="n">languages</span><span class="p">,</span> <span class="n">audiences</span>
 
@@ -2027,7 +2047,8 @@
         <span class="n">patron</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span>
 
         <span class="k">if</span> <span class="n">patron</span><span class="p">:</span>
-            <span class="n">pools</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_licensepools</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
+            <span class="n">pools</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_licensepools</span><span class="p">(</span>
+                <span class="n">library</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pools</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">pools</span>
 
@@ -2161,7 +2182,7 @@
             <span class="c1"># Return a list of valid URIs to use as the type of a problem detail</span>
             <span class="c1"># document.</span>
             <span class="n">data</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Complaint</span><span class="o">.</span><span class="n">VALID_TYPES</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span> <span class="p">:</span> <span class="s2">&quot;text/uri-list&quot;</span><span class="p">})</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="s2">&quot;text/uri-list&quot;</span><span class="p">})</span>
 
         <span class="n">data</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">data</span>
         <span class="n">controller</span> <span class="o">=</span> <span class="n">ComplaintController</span><span class="p">()</span>
@@ -2261,7 +2282,8 @@
             <span class="n">neighborhood</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">if</span> <span class="n">patron</span><span class="p">:</span>
                 <span class="n">neighborhood</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="s1">&#39;neighborhood&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-            <span class="n">pools</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_licensepools</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
+            <span class="n">pools</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_licensepools</span><span class="p">(</span>
+                <span class="n">library</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pools</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">pools</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
@@ -2290,14 +2312,17 @@
         <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="n">ODLAPI</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">INVALID_LOAN_FOR_ODL_NOTIFICATION</span>
 
-        <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">circulation_apis</span><span class="p">[</span><span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">]</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span><span class="p">)</span>
+        <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">circulation_apis</span><span class="p">[</span><span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">]</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span>
+            <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span><span class="p">)</span>
         <span class="n">api</span><span class="o">.</span><span class="n">update_loan</span><span class="p">(</span><span class="n">loan</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">status_doc</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Success&#39;</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div></div>
+
 
 <div class="viewcode-block" id="SharedCollectionController"><a class="viewcode-back" href="../../api.html#api.controller.SharedCollectionController">[docs]</a><span class="k">class</span> <span class="nc">SharedCollectionController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Enable this circulation manager to share its collections with</span>
 <span class="sd">    libraries on other circulation managers, for collection types that</span>
 <span class="sd">    support it.&quot;&quot;&quot;</span>
+
 <div class="viewcode-block" id="SharedCollectionController.info"><a class="viewcode-back" href="../../api.html#api.controller.SharedCollectionController.info">[docs]</a>    <span class="k">def</span> <span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return an OPDS2 catalog-like document with a link to register.&quot;&quot;&quot;</span>
         <span class="n">collection</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">collection_name</span><span class="p">)</span>
@@ -2368,12 +2393,12 @@
         <span class="k">if</span> <span class="n">identifier_type</span> <span class="ow">and</span> <span class="n">identifier</span><span class="p">:</span>
             <span class="n">pools</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-                    <span class="n">Identifier</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="n">identifier_type</span>
-                <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-                    <span class="n">Identifier</span><span class="o">.</span><span class="n">identifier</span><span class="o">==</span><span class="n">identifier</span>
-                <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span>
-                <span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+                    <span class="n">Identifier</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">identifier_type</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                    <span class="n">Identifier</span><span class="o">.</span><span class="n">identifier</span> <span class="o">==</span> <span class="n">identifier</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span> <span class="o">==</span> <span class="n">collection</span><span class="o">.</span><span class="n">id</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">pools</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">NO_LICENSES</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                     <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The item you&#39;re asking about (</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">) isn&#39;t in this collection.&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span>
@@ -2387,7 +2412,8 @@
             <span class="n">pool</span> <span class="o">=</span> <span class="n">hold</span><span class="o">.</span><span class="n">license_pool</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">loan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection</span><span class="o">.</span><span class="n">borrow</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">hold</span><span class="p">)</span>
+            <span class="n">loan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection</span><span class="o">.</span><span class="n">borrow</span><span class="p">(</span>
+                <span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">hold</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">AuthorizationFailedException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
         <span class="k">except</span> <span class="n">NoAvailableCopies</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
@@ -2451,7 +2477,8 @@
                 <span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">fulfillment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection</span><span class="o">.</span><span class="n">fulfill</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">mechanism</span><span class="p">)</span>
+            <span class="n">fulfillment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection</span><span class="o">.</span><span class="n">fulfill</span><span class="p">(</span>
+                <span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">mechanism</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">AuthorizationFailedException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
         <span class="k">except</span> <span class="n">CannotFulfill</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
