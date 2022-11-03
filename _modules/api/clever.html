@@ -218,6 +218,7 @@
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_token</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
         <span class="n">invalid</span> <span class="o">=</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
             <span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;A valid Clever login is required.&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;get_token&#39;</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">response</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">invalid</span>
 
@@ -295,6 +296,7 @@
         <span class="n">identifier</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
         <span class="n">user_type</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;identifier&#39;</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">lgt</span><span class="p">(</span><span class="s2">&quot;A valid Clever login is required.&quot;</span><span class="p">))</span>
@@ -302,7 +304,6 @@
         <span class="k">if</span> <span class="n">user_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_USER_TYPES</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">UNSUPPORTED_CLEVER_USER_TYPE</span>
 
-        <span class="c1"># The canonical link includes the API version, so we use the base URL.</span>
         <span class="n">user</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">CLEVER_API_VERSIONED_URL</span> <span class="o">+</span>
                          <span class="s1">&#39;users/</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">bearer_headers</span><span class="p">)</span>
 
