@@ -529,7 +529,8 @@ def fulfill(license_pool_id, mechanism_id=None, part=None):
 def revoke_loan_or_hold(license_pool_id):
     return app.manager.loans.revoke(license_pool_id)
 
-@library_route('/loans/<identifier_type>/<path:identifier>', methods=['GET', 'DELETE'])
+
+@library_route('/loans/<identifier_type>/<path:identifier>')
 @has_library
 @allows_cors(allowed_domain_type=set({"admin", "patron"}))
 @requires_auth
@@ -573,28 +574,6 @@ def loan_or_hold_detail(identifier_type, identifier):
                 content:
                     application/json:
                         schema: ProblemResponse 
-    delete:
-        tags:
-            -  loans
-        summary: Revoke a loan or hold
-        security:
-            - BasicAuth: []
-        parameters:
-            - in: path
-              name: library_short_name
-              schema:
-                  type: string
-              description: The short code of a library that holds the requested work
-            - in: path
-              name: identifier_type
-              schema:
-                type: string
-              description: The type of the identifier being used to retrieve a work
-            - in: path
-              name: identifier
-              schema:
-                type: string
-              description: An identifier for a work record
     """
     return app.manager.loans.detail(identifier_type, identifier)
 
