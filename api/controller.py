@@ -1821,9 +1821,6 @@ class LoanController(CirculationManagerController):
         return AcquisitionFeed.single_entry(self._db, work, annotator)
 
     def detail(self, identifier_type, identifier):
-        if flask.request.method == 'DELETE':
-            return self.revoke_loan_or_hold(identifier_type, identifier)
-
         patron = flask.request.patron
         library = flask.request.library
         pools = self.load_licensepools(library, identifier_type, identifier)
