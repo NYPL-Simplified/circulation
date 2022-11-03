@@ -184,6 +184,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         response = self._get_token(payload, headers)
         invalid = INVALID_CREDENTIALS.detailed(
             lgt("A valid Clever login is required."))
+        self.log.info('get_token', response)
         if not response:
             return invalid
 
@@ -261,6 +262,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         identifier = data.get('id', None)
 
         user_type = data.get('type', None)
+        self.log.info('identifier', identifier)
 
         if not identifier:
             return INVALID_CREDENTIALS.detailed(lgt("A valid Clever login is required."))
@@ -268,7 +270,6 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         if user_type not in self.SUPPORTED_USER_TYPES:
             return UNSUPPORTED_CLEVER_USER_TYPE
 
-        # The canonical link includes the API version, so we use the base URL.
         user = self._get(self.CLEVER_API_VERSIONED_URL +
                          'users/%s' % identifier, bearer_headers)
 
