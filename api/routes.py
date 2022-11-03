@@ -403,6 +403,11 @@ def shared_collection_borrow(collection_name, identifier_type, identifier, hold_
               schema:
                   type: string
               description: identifier of a work.
+            - in: path
+              name: hold_id
+              schema:
+                  type: string
+              description: The hold id of a work
         responses:
             201:
                 description: An OPDS Entry response of loan information.
@@ -441,6 +446,11 @@ def shared_collection_borrow(collection_name, identifier_type, identifier, hold_
               schema:
                   type: string
               description: identifier of a work.
+            - in: path
+              name: hold_id
+              schema:
+                  type: string
+              description: The hold id of a work
         responses:
             201:
                 description: An OPDS Entry response of loan information.
@@ -613,12 +623,12 @@ def revoke_loan_or_hold(license_pool_id):
 @requires_auth
 @returns_problem_detail
 def loan_or_hold_detail(identifier_type, identifier):
-    """Sync the authenticated patron's loans and holds with all third-party providers.
+    """Return an OPDSEntryResponse of the requested work.
     ---
     get:
         tags:
             - loans
-        summary: Sync the authenticated patron's loans and holds with all third-party providers.
+        summary: Return an OPDSEntryResponse of the requested work.
         security:
             - BasicAuth: []
         parameters:
