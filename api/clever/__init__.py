@@ -264,7 +264,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         identifier = data.get('id', None)
 
         user_type = data.get('type', None)
-        self.log.info('identifier', result.to_dict())
+        self.log.info('identifier', result)
 
         if not identifier:
             return INVALID_CREDENTIALS.detailed(lgt("A valid Clever login is required."))
