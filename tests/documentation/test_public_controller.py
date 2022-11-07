@@ -28,13 +28,12 @@ class TestDocumentationController:
                 == PublicAPIController.DOC_VERSION
             assert testSpec['openapi'] == PublicAPIController.OPENAPI_VERSION
             assert testSpec['info']['title'] == 'Library Simplified Circulation Manager'
-
             # Assert presence of described paths
-            assert testSpec['paths']['/{library_short_name}/loans']['get']['responses']['200']['content']['application/json']['schema']['$ref']\
+            assert testSpec['paths']['/{library_short_name}/loans/']['get']['responses']['200']['content']['application/json']['schema']['$ref']\
                 == '#/components/schemas/OPDSEntry'
 
             # Assert presence of paths without docstrings
-            assert testSpec['paths']['/admin/static/circulation-web.css'] == {}
+            assert testSpec['paths']['/{library_short_name}/authentication_document'] == {}
 
             # Assert that localhost is the default server
             assert testSpec['servers'][0]['url'] == 'http://localhost'
