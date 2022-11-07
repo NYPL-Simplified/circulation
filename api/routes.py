@@ -445,7 +445,7 @@ def shared_collection_borrow(collection_name, identifier_type, identifier, hold_
               name: identifier
               schema:
                   type: string
-              description: identifier of a work.
+              description: Identifier of a work.
             - in: path
               name: hold_id
               schema:
@@ -458,10 +458,10 @@ def shared_collection_borrow(collection_name, identifier_type, identifier, hold_
                     application/json:
                         schema: OPDSEntry
             4XX:
-                description: Problem detail including |
-                    -  *Collection not found*
+                description: Problem detail including
                     -  *INVALID_CREDENTIALS*
                     -  *LOAN_NOT_FOUND*
+                    -  *NO_SUCH_COLLECTION*
                 content:
                     application/json:
                         schema: ProblemResponse 
@@ -653,10 +653,11 @@ def loan_or_hold_detail(identifier_type, identifier):
                 content:
                     application/json:
                         schema: OPDSEntry
-            404:
+            4XX:
                 description: |
                     An error including:
                     * `NO_ACTIVE_LOAN_OR_HOLD`: You have no active loan or hold for "%(title)s".
+                    * `NO_LICENSES`: The item you're asking about (%s/%s) isn't in this collection
                 content:
                     application/json:
                         schema: ProblemResponse 

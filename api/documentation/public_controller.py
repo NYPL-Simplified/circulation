@@ -179,8 +179,8 @@ class PublicAPIController:
             'schema', 'HTTPAuthToken', 'object',
             {
                 'access_token': {
-                    'type': 'object',
-                    'description': 'HTTP Basic Auth Token'
+                    'type': 'string',
+                    'example': 'JWT Auth Token'
                 },
                 'token_type': {
                     'type': 'string',
