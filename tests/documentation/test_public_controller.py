@@ -3,7 +3,7 @@ from apispec import APISpec
 import pytest
 
 from api.app import app
-from api.documentation.admin_controller import AdminAPIController
+from api.documentation.public_controller import PublicAPIController
 
 
 class TestDocumentationController:
@@ -13,7 +13,7 @@ class TestDocumentationController:
 
     @pytest.fixture
     def test_controller(self, test_open_api_spec):
-        class TestController(AdminAPIController):
+        class TestController(PublicAPIController):
             def __init__(self):
                 self.spec = test_open_api_spec
 
@@ -21,20 +21,19 @@ class TestDocumentationController:
 
     def test_generateSpec(self):
         with app.test_request_context():
-            testSpec = AdminAPIController.generateSpec()
+            testSpec = PublicAPIController.generateSpec()
 
             # Assert presence of basic version numbers and title
             assert testSpec['info']['version']\
-                == AdminAPIController.DOC_VERSION
-            assert testSpec['openapi'] == AdminAPIController.OPENAPI_VERSION
+                == PublicAPIController.DOC_VERSION
+            assert testSpec['openapi'] == PublicAPIController.OPENAPI_VERSION
             assert testSpec['info']['title'] == 'Library Simplified Circulation Manager'
-
             # Assert presence of described paths
-            assert testSpec['paths']['/{library_short_name}/admin/custom_lists']['get']['responses']['200']['content']['application/json']['schema']['$ref']\
-                == '#/components/schemas/CustomListResponse'
+            assert testSpec['paths']['/{library_short_name}/loans/']['get']['responses']['200']['content']['application/json']['schema']['$ref']\
+                == '#/components/schemas/OPDSEntry'
 
             # Assert presence of paths without docstrings
-            assert testSpec['paths']['/admin/static/circulation-web.css'] == {}
+            assert testSpec['paths']['/{library_short_name}/authentication_document'] == {}
 
             # Assert that localhost is the default server
             assert testSpec['servers'][0]['url'] == 'http://localhost'

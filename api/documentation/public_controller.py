@@ -57,6 +57,42 @@ class PublicAPIController:
             }
         )
         self.addComponent(
+            'schema', 'BibframeProvider', 'object',
+            {
+                'bibframe:ProviderName': {'type': 'string'}
+            }
+        )
+        self.addComponent(
+            'schema', 'AtomSeries', 'object',
+            {
+                'atom:name': {'type': 'string'},
+                'atom:position': {'type': 'integer'},
+            }
+        )
+        self.addComponent(
+            'schema', 'AtomAuthor', 'object',
+            {
+                'atom:name': {'type': 'string'},
+                'atom:sort_name': {'type': 'string'},
+                'atom:family_name': {'type': 'string'},
+                'simplified:wikipedia_name': {'type': 'string'},
+                'atom:sameas': {
+                    'type': 'string',
+                    'enum': ['http://viaf.org/viaf/[VIAF_ID]', 'http://id.loc.gov/authorities/names/[LCNAF_ID]'],
+                    'description': 'A resolvable VIAF or LCNAF URI for the current author'
+                }
+            }
+        )
+        self.addComponent(
+            'schema', 'AtomCategory', 'object',
+            {
+                'scheme': {'type': 'string'},
+                'term': {'type': 'string'},
+                'label': {'type': 'string'}
+            },
+            requiredFields=['schema', 'term', 'label']
+        )
+        self.addComponent(
             'schema', 'OPDSEntry', 'object',
             {
                 'atom:id': {'type': 'string'},
@@ -143,8 +179,16 @@ class PublicAPIController:
             'schema', 'HTTPAuthToken', 'object',
             {
                 'access_token': {
-                    'type': 'object',
-                    'description': ''
+                    'type': 'string',
+                    'example': 'JWT Auth Token'
+                },
+                'token_type': {
+                    'type': 'string',
+                    'example': 'Bearer'
+                },
+                'expires_in': {
+                    'type': 'integer',
+                    'description': 'Number of seconds remaining until token expires'
                 }
             }
         )
