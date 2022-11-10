@@ -268,13 +268,18 @@ def library_dir_route(path, *args, **kwargs):
     return decorator
 
 
-@library_route("/", strict_slashes=False, methods=['GET', 'POST'])
+@library_route("/", strict_slashes=False)
 @has_library
 @allows_cors(allowed_domain_type=set({"admin", "patron"}))
 @returns_problem_detail
 @compressible
 def index():
     return app.manager.index_controller()
+
+
+@app.route('/', methods=['POST'])
+def return_post():
+    return Response('Method not allowed', 405)
 
 @library_route('/authentication_document')
 @has_library
