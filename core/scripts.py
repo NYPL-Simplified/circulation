@@ -2745,8 +2745,13 @@ class DatabaseVacuum(Script):
         with self._db as session:
             session.connection().connection.set_isolation_level(0)
             for table in all_db_tables:
+                table_start = time.time()
                 self.log.info('Vacuuming table: %s' % table)
                 session.execute('VACUUM %s %s' % (subcommand, table))
+                table_end = time.time()
+                table_vac_duration = table_end - table_start
+                self.log.info('Vaccuuming table %s took %d' %
+                              (table, table_vac_duration))
         end = time.time()
         duration = end - start
         self.log.info('Database vacuum completed on %s and took %d seconds' %
