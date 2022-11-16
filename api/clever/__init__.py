@@ -182,6 +182,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             'Content-Type': 'application/json',
         }
         response = self._get_token(payload, headers)
+        self.logger.info('clever token response: ', response)
         invalid = INVALID_CREDENTIALS.detailed(
             lgt("A valid Clever login is required."))
         if not response:
