@@ -279,7 +279,6 @@ def index():
 
 @app.route('/', methods=['POST'])
 def return_post():
-    # Handle 405 error for POST method to '/'
     return Response('Method not allowed', 405)
 
 @library_route('/authentication_document')

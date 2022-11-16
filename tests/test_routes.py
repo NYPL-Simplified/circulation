@@ -309,7 +309,6 @@ class TestIndex(RouteTest):
             self.assert_request_calls(url, self.controller)
 
     def test_index_post(self):
-        # Test for 405 error when post to index
         response = self.request('/', 'POST')
         assert response.status_code == 405
 
