@@ -311,7 +311,6 @@ class TestIndex(RouteTest):
     def test_index_post(self):
         # Test for 405 error when post to index
         response = self.request('/', 'POST')
-        print(response)
         assert response.status_code == 405
 
     def test_authentication_document(self):
