@@ -2594,7 +2594,7 @@ class OAuthController(object):
         provider to demonstrate that it knows which URL a patron was
         redirected to.
         """
-        return url_for('oauth_callback', library_short_name=library_short_name, _external=True)
+        return url_for('oauth_callback', library_short_name=library_short_name, _external=True, _scheme='https')
 
     def oauth_authentication_redirect(self, params, _db):
         """Redirect an unauthenticated patron to the authentication URL of the
