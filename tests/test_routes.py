@@ -308,6 +308,10 @@ class TestIndex(RouteTest):
         for url in '/', '':
             self.assert_request_calls(url, self.controller)
 
+    def test_index_post(self):
+        response = self.request('/', 'POST')
+        assert response.status_code == 405
+
     def test_authentication_document(self):
         url = '/authentication_document'
         self.assert_request_calls(url, self.controller.authentication_document)
