@@ -2584,6 +2584,7 @@ class OAuthController(object):
 
     def __init__(self, authenticator):
         self.authenticator = authenticator
+        self.log = logging.getLogger(__name__)
 
     @classmethod
     def oauth_authentication_callback_url(cls, library_short_name):
@@ -2670,7 +2671,6 @@ class OAuthController(object):
         simplified_token = self.authenticator.create_bearer_token(
             provider.NAME, provider_token.credential
         )
-
         patron_info = json.dumps(patrondata.to_response_parameters)
         try:
             root_lane = cdn_url_for(
@@ -2687,6 +2687,9 @@ class OAuthController(object):
             patron_info=patron_info,
             root_lane=root_lane,
         )
+        self.log.info('provider RESPONSE: ',
+                      client_redirect_uri + "#" + urllib.parse.urlencode(params))
+
         return redirect(client_redirect_uri + "#" + urllib.parse.urlencode(params))
 
     def _redirect_with_error(self, redirect_uri, pd):
