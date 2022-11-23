@@ -119,7 +119,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
             expect_uri = url_for("oauth_callback",
                                  library_short_name=self._default_library.name,
-                                 _external=True)
+                                 _external=True, _scheme='https')
             assert 'authorization_code' == payload['grant_type']
             assert expect_uri == payload['redirect_uri']
             assert 'a code' == payload['code']
@@ -295,7 +295,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
             request.library = self._default_library
             params = my_api.external_authenticate_url("state", self._db)
             expected_redirect_uri = url_for("oauth_callback", library_short_name=self._default_library.short_name,
-                                            _external=True)
+                                            _external=True, _scheme='https')
             expected = (
                 'https://clever.com/oauth/authorize'
                 '?response_type=code&client_id=fake_client_id&redirect_uri=%s&state=state'
