@@ -370,13 +370,102 @@ def shared_collection_info(collection_name):
 def shared_collection_register(collection_name):
     return app.manager.shared_collection_controller.register(collection_name)
 
-@app.route("/collections/<collection_name>/<identifier_type>/<path:identifier>/borrow",
-           methods=['GET', 'POST'], defaults=dict(hold_id=None))
-@app.route("/collections/<collection_name>/holds/<hold_id>/borrow",
-           methods=['GET', 'POST'], defaults=dict(identifier_type=None, identifier=None))
+
+@app.route("/collections/<collection_name>/<identifier_type>/<path:identifier>/borrow", methods=['GET', 'POST'], defaults=dict(hold_id=None))
+@app.route("/collections/<collection_name>/holds/<hold_id>/borrow", methods=['GET', 'POST'], defaults=dict(identifier_type=None, identifier=None))
 @allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 def shared_collection_borrow(collection_name, identifier_type, identifier, hold_id):
+    """Retrieve OPDS Entry for a loan item to borrow.
+
+    ---
+    get:
+        tags:
+            - loans
+        summary: Retrieve OPDS Entry for a loan item to borrow.
+        description: |
+            Includes
+            -  /collections/<collection_name>/holds/<hold_id>/borrow
+            -  /collections/<collection_name>/<identifier_type>/<path:identifier>/borrow
+        parameters:
+            - in: path
+              name: collection_name
+              schema:
+                  type: string
+              description: Name of the collection
+            - in: path
+              name: identifier_type
+              schema:
+                  type: string
+              description: Type of identifier i.e. ISBN
+            - in: path
+              name: identifier
+              schema:
+                  type: string
+              description: identifier of a work.
+            - in: path
+              name: hold_id
+              schema:
+                  type: string
+              description: The hold id of a work
+        responses:
+            201:
+                description: An OPDS Entry response of loan information.
+                content:
+                    application/json:
+                        schema: OPDSEntry
+            4XX:
+                description: Problem detail including |
+                    -  *Collection not found*
+                    -  *INVALID_CREDENTIALS*
+                    -  *LOAN_NOT_FOUND*
+                content:
+                    application/json:
+                        schema: ProblemResponse 
+    post:
+        tags:
+            - loans
+        summary: Retrieve OPDS Entry for a loan item to borrow.
+        description: |
+            Includes
+            -  /collections/<collection_name>/holds/<hold_id>/borrow
+            -  /collections/<collection_name>/<identifier_type>/<path:identifier>/borrow
+        parameters:
+            - in: path
+              name: collection_name
+              schema:
+                  type: string
+              description: Name of the collection
+            - in: path
+              name: identifier_type
+              schema:
+                  type: string
+              description: Type of identifier i.e. ISBN
+            - in: path
+              name: identifier
+              schema:
+                  type: string
+              description: Identifier of a work.
+            - in: path
+              name: hold_id
+              schema:
+                  type: string
+              description: The hold id of a work
+        responses:
+            201:
+                description: An OPDS Entry response of loan information.
+                content:
+                    application/json:
+                        schema: OPDSEntry
+            4XX:
+                description: Problem detail including
+                    -  *INVALID_CREDENTIALS*
+                    -  *LOAN_NOT_FOUND*
+                    -  *NO_SUCH_COLLECTION*
+                content:
+                    application/json:
+                        schema: ProblemResponse 
+    """
     return app.manager.shared_collection_controller.borrow(collection_name, identifier_type, identifier, hold_id)
 
 @app.route("/collections/<collection_name>/loans/<loan_id>")
@@ -435,13 +524,38 @@ def lane_search(lane_identifier):
 def patron_profile():
     return app.manager.profiles.protocol()
 
-@library_dir_route('/loans', methods=['GET', 'HEAD'])
+
+@library_dir_route('/loans')
 @has_library
 @allows_cors(allowed_domain_type=set({"admin", "patron"}))
 @requires_auth
 @returns_problem_detail
 @compressible
 def active_loans():
+    """Sync the authenticated patron's loans and holds with all third-party providers.
+
+    ---
+    get:
+        tags:
+            - loans
+        summary: Sync the authenticated patron's loans and holds with all third-party providers.
+        security:
+            - BasicAuth: []
+        parameters:
+            - in: path
+              name: library_short_name
+              schema:
+                  type: string
+              description: The short code of a library that holds the requested work
+        responses:
+            200:
+                description: An OPDS Entry response of loan and holds with up-to-date information.
+                content:
+                    application/json:
+                        schema: OPDSEntry
+            304:
+                description: The information has not been modified since last access.
+    """
     return app.manager.loans.sync()
 
 @library_route('/annotations/', methods=['HEAD', 'GET', 'POST'])
@@ -504,12 +618,52 @@ def fulfill(license_pool_id, mechanism_id=None, part=None):
 def revoke_loan_or_hold(license_pool_id):
     return app.manager.loans.revoke(license_pool_id)
 
-@library_route('/loans/<identifier_type>/<path:identifier>', methods=['GET', 'DELETE'])
+
+@library_route('/loans/<identifier_type>/<path:identifier>')
 @has_library
 @allows_cors(allowed_domain_type=set({"admin", "patron"}))
 @requires_auth
 @returns_problem_detail
 def loan_or_hold_detail(identifier_type, identifier):
+    """Return an OPDSEntryResponse of the requested work.
+    ---
+    get:
+        tags:
+            - loans
+        summary: Return an OPDSEntryResponse of the requested work.
+        security:
+            - BasicAuth: []
+        parameters:
+            - in: path
+              name: library_short_name
+              schema:
+                  type: string
+              description: The short code of a library that holds the requested work
+            - in: path
+              name: identifier_type
+              schema:
+                type: string
+              description: The type of the identifier being used to retrieve a work
+            - in: path
+              name: identifier
+              schema:
+                type: string
+              description: An identifier for a work record
+        responses:
+            200:
+                description: An OPDS Entry response of loan or hold.
+                content:
+                    application/json:
+                        schema: OPDSEntry
+            4XX:
+                description: |
+                    An error including:
+                    * `NO_ACTIVE_LOAN_OR_HOLD`: You have no active loan or hold for "%(title)s".
+                    * `NO_LICENSES`: The item you're asking about (%s/%s) isn't in this collection
+                content:
+                    application/json:
+                        schema: ProblemResponse 
+    """
     return app.manager.loans.detail(identifier_type, identifier)
 
 @library_dir_route('/works')
@@ -619,6 +773,32 @@ def adobe_vendor_id_status():
 @requires_auth
 @returns_problem_detail
 def http_basic_auth_token():
+    """Generate and return a temporary token from HTTP Basic Auth credentials.
+    ---
+    get:
+        tags:
+            - authentication
+        summary: Generate and return a temporary token from HTTP Basic Auth credentials.
+        security:
+            - BasicAuth: []
+        parameters:
+            - in: path
+              name: library_short_name
+              schema:
+                  type: string
+              description: The short code of a library that holds the requested work
+        responses:
+            200:
+                description: A temporary HTTP Auth token.
+                content:
+                    application/json:
+                        schema: HTTPAuthToken
+            4XX:
+                description: Patron not authorized.
+                content:
+                    application/json:
+                        schema: ProblemResponse
+    """
     return app.manager.basic_auth_token_controller.basic_auth_temp_token(flask.request.args, app.manager._db)
 
 # Route that redirects to the authentication URL for an OAuth provider

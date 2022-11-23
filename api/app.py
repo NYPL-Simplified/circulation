@@ -45,9 +45,12 @@ app.config['BABEL_TRANSLATION_DIRECTORIES'] = "../translations"
 babel = Babel(app)
 
 swaggerui_print = get_swaggerui_blueprint(
-    '/apidocs', '/documentation'
+    '/apidocs_admin', '/admin_docs', blueprint_name='apmin_api'
 )
+public_docs = get_swaggerui_blueprint(
+    '/apidocs_public', '/public_docs', blueprint_name='public_api')
 app.register_blueprint(swaggerui_print)
+app.register_blueprint(public_docs)
 
 @app.before_first_request
 def initialize_database(autoinitialize=True):
