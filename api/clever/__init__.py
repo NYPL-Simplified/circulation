@@ -144,12 +144,14 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         # in.  This will give us a bearer token we can use to look up
         # detailed patron information.
         token = self.remote_exchange_code_for_bearer_token(_db, code)
+        self.log.info('CLEVER token', token)
         if isinstance(token, ProblemDetail):
             return token
 
         # Now that we have a bearer token, use it to look up patron
         # information.
         patrondata = self.remote_patron_lookup(token)
+        self.log.info('CLEVER patrondata', patrondata)
         if isinstance(patrondata, ProblemDetail):
             return patrondata
 
@@ -158,6 +160,9 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         # Create a credential for the Patron.
         credential, is_new = self.create_token(_db, patron, token)
+        self.log.info('CLEVER cred', credential)
+        # self.log.info('CLEVER pat', patron)
+        # self.log.info('CLEVER pd', patrondata)
         return credential, patron, patrondata
 
     # End implementations of OAuthAuthenticationProvider abstract
@@ -265,7 +270,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         identifier = data.get('id', None)
 
         user_type = data.get('type', None)
-
+        self.log.info('CLEVER PATRON LOOKUP', result.get('error'))
         if not identifier:
             return INVALID_CREDENTIALS.detailed(lgt("A valid Clever login is required."))
 

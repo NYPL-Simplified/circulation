@@ -2658,6 +2658,7 @@ class OAuthController(object):
         # provider (such as patron name) which we can't store in the
         # database.
         response = provider.oauth_callback(_db, code)
+        # self.log.info('OATH_CALLBACK', response)
         if isinstance(response, ProblemDetail):
             # Most likely the OAuth provider didn't like the credentials
             # we sent.
@@ -2671,6 +2672,7 @@ class OAuthController(object):
         simplified_token = self.authenticator.create_bearer_token(
             provider.NAME, provider_token.credential
         )
+        self.log.info('simplified_token', simplified_token)
         patron_info = json.dumps(patrondata.to_response_parameters)
         try:
             root_lane = cdn_url_for(
