@@ -2672,7 +2672,6 @@ class OAuthController(object):
         simplified_token = self.authenticator.create_bearer_token(
             provider.NAME, provider_token.credential
         )
-        self.log.info('simplified_token', simplified_token)
         patron_info = json.dumps(patrondata.to_response_parameters)
         try:
             root_lane = cdn_url_for(
@@ -2689,9 +2688,6 @@ class OAuthController(object):
             patron_info=patron_info,
             root_lane=root_lane,
         )
-        self.log.info('provider RESPONSE: ',
-                      client_redirect_uri + "#" + urllib.parse.urlencode(params))
-
         return redirect(client_redirect_uri + "#" + urllib.parse.urlencode(params))
 
     def _redirect_with_error(self, redirect_uri, pd):
