@@ -90,8 +90,7 @@ MAILTO=""
 
 PID1_STDOUT=/proc/1/fd/1
 PID1_STDERR=/proc/1/fd/2
-
-
+CRON_TZ=$TZ
 ## Crontab Entries for Library Simplified ####################################
 #
 # For reference info on all the scripts below, see the individual entries here:
