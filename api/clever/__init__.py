@@ -44,6 +44,10 @@ with open('%s/title_i.json' % clever_dir) as f:
     json_data = f.read()
     TITLE_I_NCES_IDS = json.loads(json_data)
 
+# NCES ID not guaranteed, and returns empty string
+if 'TESTING' in os.environ:
+    TITLE_I_NCES_IDS.append('')
+
 CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP = {
     "InfantToddler": "E",               # Early
     "Preschool": "E",
@@ -268,8 +272,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             f"{self.CLEVER_API_VERSIONED_URL}/schools/{school_id}", bearer_headers)
         school_data = school['data']
         school_nces_id = school_data['nces_id']
-        # NCES ID not guaranteed, and returns empty string
-        TITLE_I_NCES_IDS.append('')
+
         # TODO: check student free and reduced lunch status as well
         if school_nces_id is None:
             self.log.error(
