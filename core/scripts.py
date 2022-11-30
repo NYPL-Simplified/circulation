@@ -2735,9 +2735,9 @@ class DatabaseVacuum(Script):
                 PROCESS_TOAST [ boolean ]
                 TRUNCATE [ boolean ]
         """
-        today = datetime.now().strftime("%m/%d/%Y")
+        today = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
         start = time.time()
-        self.log.warn('Database vacuum starting %s' % today)
+        self.log.info('Database vacuum starting %s' % today)
         # Go back up to engine-level.
         connection = self._db.get_bind()
         # Get table names
@@ -2745,11 +2745,15 @@ class DatabaseVacuum(Script):
         with self._db as session:
             session.connection().connection.set_isolation_level(0)
             for table in all_db_tables:
-                self.log.info('Vacuuming table: %s' % table)
+                table_start = time.time()
                 session.execute('VACUUM %s %s' % (subcommand, table))
+                table_end = time.time()
+                table_vac_duration = table_end - table_start
+                self.log.info('Vaccuuming of table %s took %d' %
+                              (table, table_vac_duration))
         end = time.time()
         duration = end - start
-        self.log.warn('Database vacuum completed on %s and took %d seconds' %
+        self.log.info('Database vacuum completed on %s and took %d seconds' %
                       (today, duration))
 
 
