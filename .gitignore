@@ -76,4 +76,4 @@ docs/source/*
 .python-version
 
 #Local HTTPS
-proxy/certs*
+proxy/

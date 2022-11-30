@@ -101,11 +101,6 @@ Other lifecycle management commands (a full list is available via `make help`):
 * `make clean` - stops the cluster, removes the containers and virtual network, and the db volume
 * `make full-clean` - same as `make clean`, but also deletes the Docker images for the cluster
 
-Run in HTTPS mode:
-
-* Create proxy/certs file and add local certificates.
-* `make up-watch-proxy` will run on localhost:6500.
-
 #### Accessing the Containers
 
 While the cluster is running, you can access the containers with these commands:

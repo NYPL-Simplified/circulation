@@ -85,9 +85,6 @@ up:
 up-watch:
 	$(compose_command) up webapp scripts
 
-up-watch-proxy:
-	$(compose_command) up webapp scripts proxy
-
 up-webapp:
 	$(compose_command) up -d webapp
 
