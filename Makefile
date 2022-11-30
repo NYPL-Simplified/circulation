@@ -67,7 +67,7 @@ help:
 ##############################################################################
 
 build:
-	$(compose_command) build --build-arg build_TZ="$(TZ)"
+	$(compose_command) build
 
 clean:
 	$(compose_command) down --volumes
