@@ -74,3 +74,6 @@ docs/source/*
 
 # Pyenv
 .python-version
+
+#Local HTTPS
+proxy/certs*

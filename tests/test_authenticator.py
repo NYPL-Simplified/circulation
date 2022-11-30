@@ -2766,7 +2766,8 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
             params = my_api.external_authenticate_url_parameters("state", self._db)
             assert "state" == params['state']
             assert "clientid" == params['client_id']
-            expected_url = url_for("oauth_callback", library_short_name=self._default_library.short_name, _external=True)
+            expected_url = url_for(
+                "oauth_callback", library_short_name=self._default_library.short_name, _external=True, _scheme='https')
             assert expected_url == params['oauth_callback_url']
 
 class TestOAuthController(AuthenticatorTest):
