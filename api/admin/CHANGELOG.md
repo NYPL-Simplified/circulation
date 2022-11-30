@@ -3,6 +3,13 @@ version number, and is separate from the CHANGELOG at this repository's root.
 
 ## Changelog
 
+### v0.1.15
+
+#### Reverted
+
+- Reverted simplified-circulation-web version number to v0.5.16 due to
+  unresolved bugs.
+
 ### v0.1.14
 
 #### Updated
