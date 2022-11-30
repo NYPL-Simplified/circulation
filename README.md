@@ -65,9 +65,6 @@ cd ./circulation
 make build
 ```
 
-#### Setting TZ for cron jobs
-Set environmental variable `TZ` to your local time zone.  This runs on America/New_York as default time zone.
-
 ### Operation
 
 Once the images are successfully built, you can start a local cluster with:

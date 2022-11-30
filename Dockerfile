@@ -101,7 +101,7 @@ RUN apt-get update \
     libxmlsec1-openssl \
     libxml2-dev \
     # Network Time Protocol (ntp) to sync container to local server time
-    tzdata\
+    ntp \
  && locale-gen en_US \
  && update-locale LANG=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 \
  && apt-get clean --yes \
@@ -109,11 +109,10 @@ RUN apt-get update \
 
 ENV LANG="en_US.UTF-8"
 ENV LC_CTYPE="en_US.UTF-8"
-ARG build_TZ="America/New_York"
-ENV TZ=${build_TZ}
 
 # Enable Network Time Protocol to run script container on host time
-RUN dpkg-reconfigure tzdata
+RUN systemctl enable ntp
+
 # Create simplified group and user, and log directory
 RUN groupadd --gid 1000 simplified \
  && useradd --uid 1000 --gid 1000 --shell /bin/bash --create-home --home-dir /home/simplified simplified \
