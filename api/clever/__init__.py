@@ -45,8 +45,7 @@ with open('%s/title_i.json' % clever_dir) as f:
     TITLE_I_NCES_IDS = json.loads(json_data)
 
 # NCES ID not guaranteed, and returns empty string
-if 'TESTING' in os.environ:
-    TITLE_I_NCES_IDS.append('')
+TITLE_I_NCES_IDS.append('')
 
 CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP = {
     "InfantToddler": "E",               # Early
