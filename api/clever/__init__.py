@@ -45,6 +45,7 @@ with open('%s/title_i.json' % clever_dir) as f:
     TITLE_I_NCES_IDS = json.loads(json_data)
 
 # NCES ID not guaranteed, and returns empty string
+# TODO fix this for production need to check and reject empty nces id
 TITLE_I_NCES_IDS.append('')
 
 CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP = {
