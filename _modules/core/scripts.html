@@ -2769,9 +2769,9 @@
 <span class="sd">                PROCESS_TOAST [ boolean ]</span>
 <span class="sd">                TRUNCATE [ boolean ]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%m/</span><span class="si">%d</span><span class="s2">/%Y&quot;</span><span class="p">)</span>
+        <span class="n">today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%m/</span><span class="si">%d</span><span class="s2">/%Y, %H:%M:%S&quot;</span><span class="p">)</span>
         <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Database vacuum starting </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">today</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Database vacuum starting </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">today</span><span class="p">)</span>
         <span class="c1"># Go back up to engine-level.</span>
         <span class="n">connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">get_bind</span><span class="p">()</span>
         <span class="c1"># Get table names</span>
@@ -2779,11 +2779,15 @@
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
             <span class="n">session</span><span class="o">.</span><span class="n">connection</span><span class="p">()</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">set_isolation_level</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">table</span> <span class="ow">in</span> <span class="n">all_db_tables</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Vacuuming table: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">table</span><span class="p">)</span>
+                <span class="n">table_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
                 <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;VACUUM </span><span class="si">%s</span><span class="s1"> </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">subcommand</span><span class="p">,</span> <span class="n">table</span><span class="p">))</span>
+                <span class="n">table_end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+                <span class="n">table_vac_duration</span> <span class="o">=</span> <span class="n">table_end</span> <span class="o">-</span> <span class="n">table_start</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Vaccuuming of table </span><span class="si">%s</span><span class="s1"> took </span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span>
+                              <span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">table_vac_duration</span><span class="p">))</span>
         <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="n">duration</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Database vacuum completed on </span><span class="si">%s</span><span class="s1"> and took </span><span class="si">%d</span><span class="s1"> seconds&#39;</span> <span class="o">%</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Database vacuum completed on </span><span class="si">%s</span><span class="s1"> and took </span><span class="si">%d</span><span class="s1"> seconds&#39;</span> <span class="o">%</span>
                       <span class="p">(</span><span class="n">today</span><span class="p">,</span> <span class="n">duration</span><span class="p">))</span></div></div>
 
 
