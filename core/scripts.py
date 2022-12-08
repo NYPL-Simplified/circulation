@@ -2749,7 +2749,7 @@ class DatabaseVacuum(Script):
                 session.execute('VACUUM %s %s' % (subcommand, table))
                 table_end = time.time()
                 table_vac_duration = table_end - table_start
-                self.log.info('Vaccuuming of table %s took %d' %
+                self.log.info('Vacuuming of table %s took %d seconds' %
                               (table, table_vac_duration))
         end = time.time()
         duration = end - start
