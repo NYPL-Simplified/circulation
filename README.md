@@ -65,6 +65,9 @@ cd ./circulation
 make build
 ```
 
+#### Setting TZ for cron jobs
+Set environmental variable `TZ` to your local time zone.  This runs on America/New_York as default time zone.
+
 ### Operation
 
 Once the images are successfully built, you can start a local cluster with:
@@ -175,6 +178,8 @@ Code documentation using Sphinx can be found on this repo's [Github Pages](http:
 Github Actions handles generating the `.rst` source files, generating the HTML static site, and deploying the build to the `gh-pages` branch.
 
 To view the documentation _locally_, go into the `/docs` directory and run `make html`. This will generate the .rst source files and build the static site in `/docs/build/html`.
+
+API documentation using Swagger(OpenAPI) can be found on at the `/apidocs_admin` and `/apidocs_public` endpoints.
 
 ## Continuous Integration
 

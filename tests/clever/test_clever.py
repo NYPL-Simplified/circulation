@@ -80,7 +80,8 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
     def test_authenticated_patron(self):
         """An end-to-end test of authenticated_patron()."""
-        assert self.api.authenticated_patron(self._db, "not a valid token") is None
+        assert self.api.authenticated_patron(
+            self._db, "not a valid token") is None
 
         # This patron has a valid clever token.
         patron = self._patron()
@@ -95,17 +96,20 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         # Test success.
         self.api.queue_response(dict(access_token="a token"))
         with self.app.test_request_context("/"):
-            assert self.api.remote_exchange_code_for_bearer_token(self._db, "code") == "a token"
+            assert self.api.remote_exchange_code_for_bearer_token(
+                self._db, "code") == "a token"
 
         # Test failure.
         self.api.queue_response(None)
         with self.app.test_request_context("/"):
-            problem = self.api.remote_exchange_code_for_bearer_token(self._db, "code")
+            problem = self.api.remote_exchange_code_for_bearer_token(
+                self._db, "code")
         assert INVALID_CREDENTIALS.uri == problem.uri
 
         self.api.queue_response(dict(something_else="not a token"))
         with self.app.test_request_context("/"):
-            problem = self.api.remote_exchange_code_for_bearer_token(self._db, "code")
+            problem = self.api.remote_exchange_code_for_bearer_token(
+                self._db, "code")
         assert INVALID_CREDENTIALS.uri == problem.uri
 
     def test_remote_exchange_payload(self):
@@ -115,57 +119,83 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
             expect_uri = url_for("oauth_callback",
                                  library_short_name=self._default_library.name,
-                                 _external=True)
+                                 _external=True, _scheme='https')
             assert 'authorization_code' == payload['grant_type']
             assert expect_uri == payload['redirect_uri']
             assert 'a code' == payload['code']
 
     def test_remote_patron_lookup_unsupported_user_type(self):
-        self.api.queue_response(dict(type='district_admin', data=dict(id='1234')))
+        self.api.queue_response(dict(type='user', data=dict(
+            id='1234'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(
+            dict(data=dict(roles=dict(district_admin=None), data=dict(id='1234'))))
         token = self.api.remote_patron_lookup("token")
         assert UNSUPPORTED_CLEVER_USER_TYPE == token
 
     def test_remote_patron_lookup_ineligible(self):
-        self.api.queue_response(dict(type='student', data=dict(id='1234'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234')))
+        self.api.queue_response(dict(type='user', data=dict(
+            id='1234'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(
+            dict(data=dict(roles=dict(student=dict(
+                school='1234', district='1234')))))
         self.api.queue_response(dict(data=dict(nces_id='I am not Title I')))
 
         token = self.api.remote_patron_lookup("")
         assert CLEVER_NOT_ELIGIBLE == token
 
     def test_remote_patron_lookup_missing_nces_id(self):
-        self.api.queue_response(dict(type='student', data=dict(id='1234'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234')))
-        self.api.queue_response(dict(data=dict()))
+        self.api.queue_response(dict(type='user', data=dict(
+            id='1234'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(
+            dict(data=dict(roles=dict(student=dict(
+                school='1234', district='1234')))))
+        self.api.queue_response(dict(data=dict(nces_id=None)))
 
         token = self.api.remote_patron_lookup("")
         assert CLEVER_UNKNOWN_SCHOOL == token
 
     def test_remote_patron_unknown_student_grade(self):
-        self.api.queue_response(dict(type='student', data=dict(id='2'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade="")))
+        self.api.queue_response(dict(type='user', data=dict(
+            id='1234'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(dict(data=dict(roles=dict(
+            student=dict(
+                school='1234',
+                grade=""
+            )
+        ))))
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         patrondata = self.api.remote_patron_lookup("token")
         assert patrondata.external_type is None
 
     def test_remote_patron_lookup_title_i(self):
-        self.api.queue_response(dict(type='student', data=dict(id='5678'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade="10")))
+        self.api.queue_response(dict(type='user', data=dict(
+            id='1234'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(dict(data=dict(roles=dict(
+            student=dict(
+                school='1234',
+                grade="10"
+            )
+        ))))
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         patrondata = self.api.remote_patron_lookup("token")
         assert patrondata.personal_name is None
-        assert "5678" == patrondata.permanent_id
-        assert "5678" == patrondata.authorization_identifier
+        assert "1234" == patrondata.permanent_id
+        assert "1234" == patrondata.authorization_identifier
 
     def test_remote_patron_lookup_free_lunch_status(self):
         pass
 
     def test_remote_patron_lookup_external_type(self):
         # Teachers have an external type of 'A' indicating all access.
-        self.api.queue_response(dict(type='teacher', data=dict(id='1'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
+        self.api.queue_response(dict(type='user', data=dict(
+            id='1234'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(dict(data=dict(roles=dict(
+            teacher=dict(
+                school='1234'
+            )
+        ))))
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         patrondata = self.api.remote_patron_lookup("teacher token")
@@ -173,8 +203,14 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
         # Student type is based on grade
         def queue_student(grade):
-            self.api.queue_response(dict(type='student', data=dict(id='2'), links=[dict(rel='canonical', uri='test')]))
-            self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade=grade)))
+            self.api.queue_response(dict(type='user', data=dict(
+                id='1234'), links=[dict(rel='canonical', uri='test')]))
+            self.api.queue_response(dict(data=dict(roles=dict(
+                student=dict(
+                    school='1234',
+                    grade=grade
+                )
+            ))))
             self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         queue_student(grade="1")
@@ -192,16 +228,23 @@ class TestCleverAuthenticationAPI(DatabaseTest):
     def test_oauth_callback_creates_patron(self):
         """Test a successful run of oauth_callback."""
         self.api.queue_response(dict(access_token="bearer token"))
-        self.api.queue_response(dict(type='teacher', data=dict(id='1'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
+        self.api.queue_response(dict(type='user', data=dict(
+            id='1234'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(dict(data=dict(roles=dict(
+            teacher=dict(
+                school='1234'
+            )
+        ))))
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         with self.app.test_request_context("/"):
-            response = self.api.oauth_callback(self._db, dict(code="teacher code"))
+            response = self.api.oauth_callback(
+                self._db, dict(code="teacher code"))
             credential, patron, patrondata = response
 
         # The bearer token was turned into a Credential.
-        expect_credential, ignore = self.api.create_token(self._db, patron, "bearer token")
+        expect_credential, ignore = self.api.create_token(
+            self._db, patron, "bearer token")
         assert credential == expect_credential
 
         # Since the patron is a teacher, their external_type was set to 'A'.
@@ -213,7 +256,8 @@ class TestCleverAuthenticationAPI(DatabaseTest):
     def test_oauth_callback_problem_detail_if_bad_token(self):
         self.api.queue_response(dict(something_else="not a token"))
         with self.app.test_request_context("/"):
-            response = self.api.oauth_callback(self._db, dict(code="teacher code"))
+            response = self.api.oauth_callback(
+                self._db, dict(code="teacher code"))
         assert isinstance(response, ProblemDetail)
         assert INVALID_CREDENTIALS.uri == response.uri
 
@@ -222,7 +266,8 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         self.api.queue_response(dict())
 
         with self.app.test_request_context("/"):
-            response = self.api.oauth_callback(self._db, dict(code="teacher code"))
+            response = self.api.oauth_callback(
+                self._db, dict(code="teacher code"))
 
         assert isinstance(response, ProblemDetail)
         assert INVALID_CREDENTIALS.uri == response.uri
@@ -230,13 +275,14 @@ class TestCleverAuthenticationAPI(DatabaseTest):
     def test_external_authenticate_url(self):
         """Verify that external_authenticate_url is generated properly"""
         # We're about to call url_for, so we must create an application context.
-        my_api = CleverAuthenticationAPI(self._default_library, self.mock_integration)
+        my_api = CleverAuthenticationAPI(
+            self._default_library, self.mock_integration)
 
         with self.app.test_request_context("/"):
             request.library = self._default_library
             params = my_api.external_authenticate_url("state", self._db)
             expected_redirect_uri = url_for("oauth_callback", library_short_name=self._default_library.short_name,
-                                            _external=True)
+                                            _external=True, _scheme='https')
             expected = (
                 'https://clever.com/oauth/authorize'
                 '?response_type=code&client_id=fake_client_id&redirect_uri=%s&state=state'

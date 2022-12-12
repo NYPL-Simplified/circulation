@@ -1,6 +1,8 @@
 import json
 import logging
-import urllib.request, urllib.parse, urllib.error
+import urllib.request
+import urllib.parse
+import urllib.error
 from collections import Counter
 from flask_babel import lazy_gettext as _
 
@@ -47,6 +49,7 @@ from sqlalchemy.sql import (
 from sqlalchemy.orm import aliased
 from core.util.http import HTTP
 
+
 class NoveListAPI(object):
 
     PROTOCOL = ExternalIntegration.NOVELIST
@@ -58,8 +61,10 @@ class NoveListAPI(object):
     AUTHORIZED_IDENTIFIER = "62521fa1-bdbb-4939-84aa-aee2a52c8d59"
 
     SETTINGS = [
-        { "key": ExternalIntegration.USERNAME, "label": _("Profile"), "required": True },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Password"), "required": True },
+        {"key": ExternalIntegration.USERNAME,
+            "label": _("Profile"), "required": True},
+        {"key": ExternalIntegration.PASSWORD,
+            "label": _("Password"), "required": True},
     ]
 
     # Different libraries may have different NoveList integrations
@@ -88,8 +93,8 @@ class NoveListAPI(object):
     currentQueryIdentifier = None
 
     medium_to_book_format_type_values = {
-        Edition.BOOK_MEDIUM : "EBook",
-        Edition.AUDIO_MEDIUM : "Audiobook",
+        Edition.BOOK_MEDIUM: "EBook",
+        Edition.AUDIO_MEDIUM: "Audiobook",
     }
 
     @classmethod
@@ -122,8 +127,8 @@ class NoveListAPI(object):
     @classmethod
     def is_configured(cls, library):
         if (cls.IS_CONFIGURED is None or
-            library.id != cls._configuration_library_id
-        ):
+                library.id != cls._configuration_library_id
+            ):
             profile, password = cls.values(library)
             cls.IS_CONFIGURED = bool(profile and password)
             cls._configuration_library_id = library.id
@@ -150,15 +155,15 @@ class NoveListAPI(object):
         isbns = list()
         for license_source in license_sources:
             isbns += [eq.output for eq in identifier.equivalencies if (
-                eq.data_source==license_source and
-                eq.strength==1 and
-                eq.output.type==Identifier.ISBN
+                eq.data_source == license_source and
+                eq.strength == 1 and
+                eq.output.type == Identifier.ISBN
             )]
 
         if not isbns:
             self.log.warning(
                 ("Identifiers without an ISBN equivalent can't"
-                "be looked up with NoveList: %r"), identifier
+                 "be looked up with NoveList: %r"), identifier
             )
             return None
 
@@ -172,7 +177,7 @@ class NoveListAPI(object):
         if not lookup_metadata:
             self.log.warning(
                 ("No NoveList metadata found for Identifiers without an ISBN"
-                "equivalent can't be looked up with NoveList: %r"), identifier
+                 "equivalent can't be looked up with NoveList: %r"), identifier
             )
             return None
 
@@ -193,7 +198,7 @@ class NoveListAPI(object):
             metadata.primary_identifier.identifier
             for metadata in metadata_objects
         ])
-        return len(novelist_ids)==1
+        return len(novelist_ids) == 1
 
     def choose_best_metadata(self, metadata_objects, identifier):
         """Chooses the most likely book metadata from a list of Metadata objects
@@ -214,13 +219,14 @@ class NoveListAPI(object):
             counter[metadata.primary_identifier] += 1
 
         [(target_identifier, most_amount),
-        (ignore, secondmost)] = counter.most_common(2)
-        if most_amount==secondmost:
+         (ignore, secondmost)] = counter.most_common(2)
+        if most_amount == secondmost:
             # The counts are the same, and neither can be trusted.
             self.log.warning(self.NO_ISBN_EQUIVALENCY, identifier)
             return None, None
         confidence = most_amount / float(len(metadata_objects))
-        target_metadata = [m for m in metadata_objects if m.primary_identifier==target_identifier]
+        target_metadata = [
+            m for m in metadata_objects if m.primary_identifier == target_identifier]
         return target_metadata[0], confidence
 
     def lookup(self, identifier, **kwargs):
@@ -270,7 +276,8 @@ class NoveListAPI(object):
         if status_code == 403:
             raise Exception("Invalid NoveList credentials")
         if content.startswith(b'"Missing'):
-            raise Exception("Invalid NoveList parameters: %s" % content.decode("utf-8"))
+            raise Exception("Invalid NoveList parameters: %s" %
+                            content.decode("utf-8"))
         return response
 
     @classmethod
@@ -396,9 +403,9 @@ class NoveListAPI(object):
 
         # If nothing interesting comes from the API, ignore it.
         if not (metadata.measurements or metadata.series_position or
-            metadata.series or metadata.subjects or metadata.links or
-            metadata.subtitle or metadata.recommendations
-        ):
+                metadata.series or metadata.subjects or metadata.links or
+                metadata.subtitle or metadata.recommendations
+                ):
             metadata = None
         return metadata
 
@@ -411,16 +418,19 @@ class NoveListAPI(object):
             series_titles = series_info.get('series_titles')
             if series_titles:
                 matching_series_volume = [volume for volume in series_titles
-                        if volume.get('full_title')==book_info.get('full_title')]
+                                          if volume.get('full_title') == book_info.get('full_title')]
                 if not matching_series_volume:
                     # If there's no full_title match, try the main_title.
                     matching_series_volume = [volume for volume in series_titles
-                        if volume.get('main_title')==book_info.get('main_title')]
+                                              if volume.get('main_title') == book_info.get('main_title')]
                 if len(matching_series_volume) > 1:
                     # This probably won't happen, but if it does, it will be
                     # difficult to debug without an error.
                     raise ValueError("Multiple matching volumes found.")
-                series_position = matching_series_volume[0].get('volume')
+                if len(matching_series_volume) > 0:
+                    series_position = matching_series_volume[0].get('volume')
+                else:
+                    series_position = None
                 if series_position:
                     if series_position.endswith('.'):
                         series_position = series_position[:-1]
@@ -428,8 +438,9 @@ class NoveListAPI(object):
 
                 # Sometimes all of the volumes in a series have the same
                 # main_title so using the full_title is preferred.
-                main_titles = [volume.get(title_key) for volume in series_titles]
-                if len(main_titles) > 1 and len(set(main_titles))==1:
+                main_titles = [volume.get(title_key)
+                               for volume in series_titles]
+                if len(main_titles) > 1 and len(set(main_titles)) == 1:
                     title_key = 'full_title'
 
         return metadata, title_key
@@ -479,24 +490,25 @@ class NoveListAPI(object):
 
         isbnQuery = select(
             [i1.identifier, i1.type, i2.identifier,
-            Edition.title, Edition.medium, Edition.published,
-            Contribution.role, Contributor.sort_name,
-            DataSource.name],
+             Edition.title, Edition.medium, Edition.published,
+             Contribution.role, Contributor.sort_name,
+             DataSource.name],
         ).select_from(
-            join(LicensePool, i1, i1.id==LicensePool.identifier_id)
-            .join(Equivalency, i1.id==Equivalency.input_id, LEFT_OUTER_JOIN)
-            .join(i2, Equivalency.output_id==i2.id, LEFT_OUTER_JOIN)
+            join(LicensePool, i1, i1.id == LicensePool.identifier_id)
+            .join(Equivalency, i1.id == Equivalency.input_id, LEFT_OUTER_JOIN)
+            .join(i2, Equivalency.output_id == i2.id, LEFT_OUTER_JOIN)
             .join(
                 Edition,
-                or_(Edition.primary_identifier_id==i1.id, Edition.primary_identifier_id==i2.id)
+                or_(Edition.primary_identifier_id == i1.id,
+                    Edition.primary_identifier_id == i2.id)
             )
-            .join(Contribution, Edition.id==Contribution.edition_id)
-            .join(Contributor, Contribution.contributor_id==Contributor.id)
-            .join(DataSource, DataSource.id==LicensePool.data_source_id)
+            .join(Contribution, Edition.id == Contribution.edition_id)
+            .join(Contributor, Contribution.contributor_id == Contributor.id)
+            .join(DataSource, DataSource.id == LicensePool.data_source_id)
         ).where(
             and_(
                 LicensePool.collection_id.in_(collectionList),
-                or_(i1.type=="ISBN", i2.type=="ISBN"),
+                or_(i1.type == "ISBN", i2.type == "ISBN"),
                 or_(Contribution.role.in_(roles))
             )
         ).order_by(i1.identifier, i2.identifier)
@@ -588,7 +600,8 @@ class NoveListAPI(object):
         else:
             # If we encounter a new ISBN, we take whatever values are initially given.
             title = object[3]
-            mediaType = self.medium_to_book_format_type_values.get(object[4], "")
+            mediaType = self.medium_to_book_format_type_values.get(
+                object[4], "")
 
             newItem = dict(
                 isbn=isbn,
@@ -619,7 +632,7 @@ class NoveListAPI(object):
 
         content = None
         if items:
-            data=json.dumps(self.make_novelist_data_object(items))
+            data = json.dumps(self.make_novelist_data_object(items))
             response = self.put(
                 self.COLLECTION_DATA_API,
                 {

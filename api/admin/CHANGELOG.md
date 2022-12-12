@@ -3,6 +3,19 @@ version number, and is separate from the CHANGELOG at this repository's root.
 
 ## Changelog
 
+### v0.1.15
+
+#### Reverted
+
+- Reverted simplified-circulation-web version number to v0.5.16 due to
+  unresolved bugs.
+
+### v0.1.14
+
+#### Updated
+
+- Updated simplified-circulation-web version number to v0.5.17.
+
 ### v0.1.13
 
 #### Updated
@@ -14,16 +27,19 @@ version number, and is separate from the CHANGELOG at this repository's root.
 #### Updated
 
 - Updated simplified-circulation-web version number to v0.5.14.
+
 ### v0.1.11
 
 #### Updated
 
 - Updated simplified-circulation-web version number to v0.5.13.
+
 ### v0.1.10
 
 #### Updated
 
 - Updated simplified-circulation-web version number to v0.5.12.
+
 ### v0.1.9
 
 #### Updated
@@ -35,11 +51,13 @@ version number, and is separate from the CHANGELOG at this repository's root.
 #### Updated
 
 - Updated simplified-circulation-web version number to v0.5.10.
+
 ### v0.1.7
 
 #### Updated
 
 - Updated simplified-circulation-web version number to v0.5.9.
+
 ### v0.1.6
 
 #### Updated

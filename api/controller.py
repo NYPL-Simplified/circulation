@@ -144,6 +144,7 @@ from .problem_details import *
 from .shared_collection import SharedCollectionAPI
 from .testing import MockCirculationAPI, MockSharedCollectionAPI
 
+
 class CirculationManager(object):
 
     def __init__(self, _db, testing=False):
@@ -155,7 +156,8 @@ class CirculationManager(object):
             try:
                 self.config = Configuration.load(_db)
             except CannotLoadConfiguration as exception:
-                self.log.exception("Could not load configuration file: {0}".format(exception))
+                self.log.exception(
+                    "Could not load configuration file: {0}".format(exception))
                 sys.exit()
 
         self.testing = testing
@@ -183,7 +185,7 @@ class CirculationManager(object):
             # problems.
             index_controller = getattr(self, 'index_controller', None)
             if (index_controller and not
-                worklist.accessible_to(index_controller.request_patron)):
+                    worklist.accessible_to(index_controller.request_patron)):
                 return NO_SUCH_LANE.detailed(_("Lane does not exist"))
 
         if isinstance(facets, BaseFacets) and getattr(facets, 'max_cache_age', None) is not None:
@@ -271,7 +273,8 @@ class CirculationManager(object):
             url = url.strip()
             if url == "*":
                 return url
-            scheme, netloc, path, parameters, query, fragment = urllib.parse.urlparse(url)
+            scheme, netloc, path, parameters, query, fragment = urllib.parse.urlparse(
+                url)
             if scheme and netloc:
                 return scheme + "://" + netloc
             else:
@@ -284,7 +287,7 @@ class CirculationManager(object):
                 domain = get_domain(url)
                 if domain:
                     patron_web_domains.add(domain)
-                
+
         sitewide_admin_web_client_urls = ConfigurationSetting.sitewide(
             self._db, Configuration.ADMIN_WEB_HOSTNAMES).value
         if sitewide_admin_web_client_urls:
@@ -295,8 +298,8 @@ class CirculationManager(object):
 
         from .registry import Registration
         for setting in self._db.query(
-            ConfigurationSetting).filter(
-            ConfigurationSetting.key==Registration.LIBRARY_REGISTRATION_WEB_CLIENT):
+                ConfigurationSetting).filter(
+                ConfigurationSetting.key == Registration.LIBRARY_REGISTRATION_WEB_CLIENT):
             if setting.value:
                 patron_web_domains.add(get_domain(setting.value))
 
@@ -440,7 +443,8 @@ class CirculationManager(object):
         This method will be called fresh every time the site
         configuration changes.
         """
-        self.basic_auth_token_controller = BasicAuthTempTokenController(self.auth)
+        self.basic_auth_token_controller = BasicAuthTempTokenController(
+            self.auth)
         self.oauth_controller = OAuthController(self.auth)
         self.saml_controller = SAMLController(self, self.auth)
 
@@ -461,7 +465,8 @@ class CirculationManager(object):
             vendor_id = adobe.username
             node_value = adobe.password
             if not (vendor_id and node_value):
-                self.log.warn("Adobe Vendor ID is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
+                self.log.warn(
+                    "Adobe Vendor ID is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
 
         # But almost all libraries will have a Short Client Token
         # setup. We're not setting anything up here, but this is useful
@@ -510,7 +515,8 @@ class CirculationManager(object):
 
         # Some features are only available if a patron authentication
         # mechanism is set up for this library.
-        authenticator = self.auth.library_authenticators.get(library.short_name)
+        authenticator = self.auth.library_authenticators.get(
+            library.short_name)
         library_identifies_patrons = (
             authenticator is not None and authenticator.identifies_individuals
         )
@@ -572,7 +578,8 @@ class CirculationManager(object):
     @property
     def public_key_integration_document(self):
         """Serve a document with the sitewide public key."""
-        site_id = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
+        site_id = ConfigurationSetting.sitewide(
+            self._db, Configuration.BASE_URL_KEY).value
         document = dict(id=site_id)
 
         public, private = self.sitewide_key_pair
@@ -588,7 +595,7 @@ class CirculationManagerController(BaseCirculationManagerController):
         pool_ids = [pool.id for pool in license_pools]
 
         return self._db.query(object_class).filter(
-            object_class.patron_id==patron.id,
+            object_class.patron_id == patron.id,
             object_class.license_pool_id.in_(pool_ids)
         ).options(eagerload(object_class.license_pool)).all()
 
@@ -665,7 +672,8 @@ class CirculationManagerController(BaseCirculationManagerController):
         # time in UTC but with no indication of the actual source
         # timezone of the message the date comes from."
         if parsed_if_modified_since.tzinfo is None:
-            parsed_if_modified_since = parsed_if_modified_since.replace(tzinfo=pytz.UTC)
+            parsed_if_modified_since = parsed_if_modified_since.replace(
+                tzinfo=pytz.UTC)
 
         if parsed_if_modified_since >= last_modified:
             return Response(status=304)
@@ -682,7 +690,8 @@ class CirculationManagerController(BaseCirculationManagerController):
             if isinstance(lane, Lane):
                 lane = self._db.merge(lane)
             elif isinstance(lane, WorkList):
-                lane.children = [self._db.merge(child) for child in lane.children]
+                lane.children = [self._db.merge(child)
+                                 for child in lane.children]
         else:
             try:
                 lane_identifier = int(lane_identifier)
@@ -703,7 +712,7 @@ class CirculationManagerController(BaseCirculationManagerController):
             return NO_SUCH_LANE.detailed(
                 _("Lane %(lane_identifier)s does not exist or is not associated with library %(library_id)s",
                   lane_identifier=lane_identifier, library_id=library_id
-                )
+                  )
             )
 
         return lane
@@ -735,12 +744,12 @@ class CirculationManagerController(BaseCirculationManagerController):
         _db = Session.object_session(library)
         pools = _db.query(LicensePool).join(LicensePool.collection).join(
             LicensePool.identifier).join(Collection.libraries).filter(
-                Identifier.type==identifier_type
-            ).filter(
-                Identifier.identifier==identifier
-            ).filter(
-                Library.id==library.id
-            ).all()
+                Identifier.type == identifier_type
+        ).filter(
+                Identifier.identifier == identifier
+        ).filter(
+                Library.id == library.id
+        ).all()
         if not pools:
             return NO_LICENSES.detailed(
                 _("The item you're asking about (%s/%s) isn't in this collection.") % (
@@ -794,11 +803,11 @@ class CirculationManagerController(BaseCirculationManagerController):
             return NOT_AGE_APPROPRIATE
 
         if (not patron.library.allow_holds and
-            license_pool.licenses_available == 0 and
-            not license_pool.open_access and
-            not license_pool.unlimited_access and
-            not license_pool.self_hosted
-        ):
+                license_pool.licenses_available == 0 and
+                not license_pool.open_access and
+                not license_pool.unlimited_access and
+                not license_pool.self_hosted
+            ):
             return FORBIDDEN_BY_POLICY.detailed(
                 _("Library policy prohibits the placement of holds."),
                 status_code=403
@@ -832,7 +841,7 @@ class IndexController(CirculationManagerController):
             self.manager.authentication_for_opds_document,
             200,
             {
-                "Content-Type" : AuthenticationForOPDSDocument.MEDIA_TYPE
+                "Content-Type": AuthenticationForOPDSDocument.MEDIA_TYPE
             }
         )
 
@@ -879,8 +888,9 @@ class IndexController(CirculationManagerController):
         """Serves a sitewide public key document"""
         return Response(
             self.manager.public_key_integration_document,
-            200, { 'Content-Type' : 'application/opds+json' }
+            200, {'Content-Type': 'application/opds+json'}
         )
+
 
 class OPDSFeedController(CirculationManagerController):
 
@@ -1149,7 +1159,8 @@ class OPDSFeedController(CirculationManagerController):
         # request arguments, and another way if there is a query
         # string.
         make_url_kwargs = dict(list(facets.items()))
-        make_url = lambda: self.url_for(
+
+        def make_url(): return self.url_for(
             'lane_search', lane_identifier=lane_identifier,
             library_short_name=library_short_name,
             **make_url_kwargs
@@ -1157,7 +1168,7 @@ class OPDSFeedController(CirculationManagerController):
         if not query:
             # Send the search form
             open_search_doc = OpenSearchDocument.for_lane(lane, make_url())
-            headers = { "Content-Type" : "application/opensearchdescription+xml" }
+            headers = {"Content-Type": "application/opensearchdescription+xml"}
             return Response(open_search_doc, 200, headers)
 
         # We have a query -- add it to the keyword arguments used when
@@ -1281,10 +1292,12 @@ class MARCRecordController(CirculationManagerController):
         try:
             exporter = MARCExporter.from_config(library)
         except CannotLoadConfiguration as e:
-            body += "<p>" + _("No MARC exporter is currently configured for this library.") + "</p>"
+            body += "<p>" + \
+                _("No MARC exporter is currently configured for this library.") + "</p>"
 
         if len(library.cachedmarcfiles) < 1 and exporter:
-            body += "<p>" + _("MARC files aren't ready to download yet.") + "</p>"
+            body += "<p>" + \
+                _("MARC files aren't ready to download yet.") + "</p>"
 
         files_by_lane = defaultdict(dict)
         for file in library.cachedmarcfiles:
@@ -1297,7 +1310,8 @@ class MARCRecordController(CirculationManagerController):
 
         # TODO: By default the MARC script only caches one level of lanes,
         # so sorting by priority is good enough.
-        lanes = sorted(list(files_by_lane.keys()), key=lambda x: x.priority if x else -1)
+        lanes = sorted(list(files_by_lane.keys()),
+                       key=lambda x: x.priority if x else -1)
 
         for lane in lanes:
             files = files_by_lane[lane]
@@ -1306,8 +1320,10 @@ class MARCRecordController(CirculationManagerController):
             if files.get("full"):
                 file = files.get("full")
                 full_url = file.representation.mirror_url
-                full_label = _("Full file - last updated %(update_time)s", update_time=file.end_time.strftime(time_format))
-                body += '<a href="%s">%s</a>' % (files.get("full").representation.mirror_url, full_label)
+                full_label = _("Full file - last updated %(update_time)s",
+                               update_time=file.end_time.strftime(time_format))
+                body += '<a href="%s">%s</a>' % (
+                    files.get("full").representation.mirror_url, full_label)
 
                 if files.get("updates"):
                     body += "<h4>%s</h4>" % _("Update-only files")
@@ -1316,9 +1332,11 @@ class MARCRecordController(CirculationManagerController):
                     for update in files.get("updates"):
                         update_url = update.representation.mirror_url
                         update_label = _("Updates from %(start_time)s to %(end_time)s",
-                                         start_time=update.start_time.strftime(time_format),
+                                         start_time=update.start_time.strftime(
+                                             time_format),
                                          end_time=update.end_time.strftime(time_format))
-                        body += '<li><a href="%s">%s</a></li>' % (update_url, update_label)
+                        body += '<li><a href="%s">%s</a></li>' % (
+                            update_url, update_label)
                     body += "</ul>"
 
             body += "</section>"
@@ -1329,9 +1347,8 @@ class MARCRecordController(CirculationManagerController):
         headers['Content-Type'] = "text/html"
         return Response(html, 200, headers)
 
+
 class LoanController(CirculationManagerController):
-
-
 
     def sync(self):
         """Sync the authenticated patron's loans and holds with all third-party
@@ -1348,13 +1365,6 @@ class LoanController(CirculationManagerController):
         )
         if isinstance(response, Response):
             return response
-
-        # TODO: SimplyE used to make a HEAD request to the bookshelf feed
-        # as a quick way of checking authentication. Does this still happen?
-        # It shouldn't -- the patron profile feed should be used instead.
-        # If it's not used, we can take this out.
-        if flask.request.method=='HEAD':
-            return Response()
 
         # First synchronize our local list of loans and holds with all
         # third-party loan providers.
@@ -1410,7 +1420,8 @@ class LoanController(CirculationManagerController):
             # We need to actually go out to the API
             # and try to take out a loan.
             pool, mechanism = result
-            loan_or_hold, is_new = self._borrow(patron, credential, pool, mechanism)
+            loan_or_hold, is_new = self._borrow(
+                patron, credential, pool, mechanism)
 
         if isinstance(loan_or_hold, ProblemDetail):
             return loan_or_hold
@@ -1464,7 +1475,8 @@ class LoanController(CirculationManagerController):
             )
         except OutstandingFines as e:
             result = OUTSTANDING_FINES.detailed(
-                _("You must pay your $%(fine_amount).2f outstanding fines before you can borrow more books.", fine_amount=patron.fines)
+                _("You must pay your $%(fine_amount).2f outstanding fines before you can borrow more books.",
+                  fine_amount=patron.fines)
             )
         except AuthorizationExpired as e:
             result = e.as_problem_detail_document(debug=False)
@@ -1510,7 +1522,7 @@ class LoanController(CirculationManagerController):
 
         existing_loans = self._db.query(Loan).filter(
             Loan.license_pool_id.in_([lp.id for lp in pools]),
-            Loan.patron==patron
+            Loan.patron == patron
         ).all()
         if existing_loans:
             # The patron already has at least one loan on this book already.
@@ -1547,7 +1559,7 @@ class LoanController(CirculationManagerController):
             # with the shortest wait.
             if (not best
                 or pool.licenses_available > best.licenses_available
-                or pool.patrons_in_hold_queue < best.patrons_in_hold_queue):
+                    or pool.patrons_in_hold_queue < best.patrons_in_hold_queue):
                 best = pool
 
         if not best:
@@ -1636,7 +1648,7 @@ class LoanController(CirculationManagerController):
         if not mechanism:
             # See if the loan already has a mechanism set. We can use that.
             if loan and loan.fulfillment:
-                mechanism =  loan.fulfillment
+                mechanism = loan.fulfillment
             else:
                 return BAD_DELIVERY_MECHANISM.detailed(
                     _("You must specify a delivery mechanism to fulfill this loan.")
@@ -1661,8 +1673,8 @@ class LoanController(CirculationManagerController):
             return DELIVERY_CONFLICT.detailed(str(e))
         except NoActiveLoan as e:
             return NO_ACTIVE_LOAN.detailed(
-                    _('Can\'t fulfill loan because you have no active loan for this book.'),
-                    status_code=e.status_code
+                _('Can\'t fulfill loan because you have no active loan for this book.'),
+                status_code=e.status_code
             )
         except CannotFulfill as e:
             return CANNOT_FULFILL.with_debug(
@@ -1686,8 +1698,8 @@ class LoanController(CirculationManagerController):
         headers = dict()
         encoding_header = dict()
         if (fulfillment.data_source_name == DataSource.ENKI
-            and mechanism.delivery_mechanism.drm_scheme_media_type == DeliveryMechanism.NO_DRM):
-                encoding_header["Accept-Encoding"] = "deflate"
+                and mechanism.delivery_mechanism.drm_scheme_media_type == DeliveryMechanism.NO_DRM):
+            encoding_header["Accept-Encoding"] = "deflate"
 
         if mechanism.delivery_mechanism.is_streaming:
             # If this is a streaming delivery mechanism, create an OPDS entry
@@ -1718,7 +1730,8 @@ class LoanController(CirculationManagerController):
                 # of redirecting to it, since it may be downloaded through an
                 # indirect acquisition link.
                 try:
-                    status_code, headers, content = do_get(fulfillment.content_link, headers=encoding_header)
+                    status_code, headers, content = do_get(
+                        fulfillment.content_link, headers=encoding_header)
                     headers = dict(headers)
                 except RemoteIntegrationException as e:
                     return e.as_problem_detail_document(debug=False)
@@ -1741,7 +1754,8 @@ class LoanController(CirculationManagerController):
         :param patron: A Patron, probably None.
         :param lpdm: A LicensePoolDeliveryMechanism.
         """
-        authenticator = self.manager.auth.library_authenticators.get(library.short_name)
+        authenticator = self.manager.auth.library_authenticators.get(
+            library.short_name)
         if authenticator and authenticator.identifies_individuals:
             # This library identifies individual patrons, so there is
             # no reason to fulfill books without a loan. Even if the
@@ -1786,7 +1800,8 @@ class LoanController(CirculationManagerController):
             try:
                 self.circulation.revoke_loan(patron, credential, pool)
             except RemoteRefusedReturn as e:
-                title = _("Loan deleted locally but remote refused. Loan is likely to show up again on next sync.")
+                title = _(
+                    "Loan deleted locally but remote refused. Loan is likely to show up again on next sync.")
                 return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, status_code=503)
             except CannotReturn as e:
                 title = _("Loan deleted locally but remote failed.")
@@ -1806,9 +1821,6 @@ class LoanController(CirculationManagerController):
         return AcquisitionFeed.single_entry(self._db, work, annotator)
 
     def detail(self, identifier_type, identifier):
-        if flask.request.method=='DELETE':
-            return self.revoke_loan_or_hold(identifier_type, identifier)
-
         patron = flask.request.patron
         library = flask.request.library
         pools = self.load_licensepools(library, identifier_type, identifier)
@@ -1823,7 +1835,8 @@ class LoanController(CirculationManagerController):
 
         if not loan and not hold:
             return NO_ACTIVE_LOAN_OR_HOLD.detailed(
-                _('You have no active loan or hold for "%(title)s".', title=pool.work.title),
+                _('You have no active loan or hold for "%(title)s".',
+                  title=pool.work.title),
                 status_code=404
             )
 
@@ -1836,6 +1849,7 @@ class LoanController(CirculationManagerController):
                 self.circulation, item
             )
 
+
 class AnnotationController(CirculationManagerController):
 
     def container(self, identifier=None, accept_post=True):
@@ -1846,7 +1860,7 @@ class AnnotationController(CirculationManagerController):
         else:
             headers['Allow'] = 'GET,HEAD,OPTIONS'
 
-        if flask.request.method=='HEAD':
+        if flask.request.method == 'HEAD':
             return Response(status=200, headers=headers)
 
         patron = flask.request.patron
@@ -1856,11 +1870,13 @@ class AnnotationController(CirculationManagerController):
                                '<http://www.w3.org/TR/annotation-protocol/>; rel="http://www.w3.org/ns/ldp#constrainedBy"']
             headers['Content-Type'] = AnnotationWriter.CONTENT_TYPE
 
-            container, timestamp = AnnotationWriter.annotation_container_for(patron, identifier=identifier)
+            container, timestamp = AnnotationWriter.annotation_container_for(
+                patron, identifier=identifier)
             etag = 'W/""'
             if timestamp:
                 etag = 'W/"%s"' % timestamp
-                headers['Last-Modified'] = format_date_time(mktime(timestamp.timetuple()))
+                headers['Last-Modified'] = format_date_time(
+                    mktime(timestamp.timetuple()))
             headers['ETag'] = etag
 
             content = json.dumps(container)
@@ -1887,7 +1903,7 @@ class AnnotationController(CirculationManagerController):
         headers = dict()
         headers['Allow'] = 'GET,HEAD,OPTIONS,DELETE'
 
-        if flask.request.method=='HEAD':
+        if flask.request.method == 'HEAD':
             return Response(status=200, headers=headers)
 
         patron = flask.request.patron
@@ -1918,7 +1934,8 @@ class WorkController(CirculationManagerController):
         if languages:
             languages = languages.split(',')
         if audiences:
-            audiences = [urllib.parse.unquote_plus(a) for a in audiences.split(',')]
+            audiences = [urllib.parse.unquote_plus(
+                a) for a in audiences.split(',')]
 
         return languages, audiences
 
@@ -1993,7 +2010,8 @@ class WorkController(CirculationManagerController):
         patron = flask.request.patron
 
         if patron:
-            pools = self.load_licensepools(library, identifier_type, identifier)
+            pools = self.load_licensepools(
+                library, identifier_type, identifier)
             if isinstance(pools, ProblemDetail):
                 return pools
 
@@ -2127,7 +2145,7 @@ class WorkController(CirculationManagerController):
             # Return a list of valid URIs to use as the type of a problem detail
             # document.
             data = "\n".join(Complaint.VALID_TYPES)
-            return Response(data, 200, {"Content-Type" : "text/uri-list"})
+            return Response(data, 200, {"Content-Type": "text/uri-list"})
 
         data = flask.request.data
         controller = ComplaintController()
@@ -2227,7 +2245,8 @@ class AnalyticsController(CirculationManagerController):
             neighborhood = None
             if patron:
                 neighborhood = getattr(patron, 'neighborhood', None)
-            pools = self.load_licensepools(library, identifier_type, identifier)
+            pools = self.load_licensepools(
+                library, identifier_type, identifier)
             if isinstance(pools, ProblemDetail):
                 return pools
             self.manager.analytics.collect_event(
@@ -2256,14 +2275,17 @@ class ODLNotificationController(CirculationManagerController):
         if collection.protocol != ODLAPI.NAME:
             return INVALID_LOAN_FOR_ODL_NOTIFICATION
 
-        api = self.manager.circulation_apis[library.id].api_for_license_pool(loan.license_pool)
+        api = self.manager.circulation_apis[library.id].api_for_license_pool(
+            loan.license_pool)
         api.update_loan(loan, json.loads(status_doc))
         return Response(_('Success'), 200)
+
 
 class SharedCollectionController(CirculationManagerController):
     """Enable this circulation manager to share its collections with
     libraries on other circulation managers, for collection types that
     support it."""
+
     def info(self, collection_name):
         """Return an OPDS2 catalog-like document with a link to register."""
         collection = get_one(self._db, Collection, name=collection_name)
@@ -2334,12 +2356,12 @@ class SharedCollectionController(CirculationManagerController):
         if identifier_type and identifier:
             pools = self._db.query(LicensePool).join(
                 LicensePool.identifier).filter(
-                    Identifier.type==identifier_type
-                ).filter(
-                    Identifier.identifier==identifier
-                ).filter(
-                    LicensePool.collection_id==collection.id
-                ).all()
+                    Identifier.type == identifier_type
+            ).filter(
+                    Identifier.identifier == identifier
+            ).filter(
+                    LicensePool.collection_id == collection.id
+            ).all()
             if not pools:
                 return NO_LICENSES.detailed(
                     _("The item you're asking about (%s/%s) isn't in this collection.") % (
@@ -2353,7 +2375,8 @@ class SharedCollectionController(CirculationManagerController):
             pool = hold.license_pool
 
         try:
-            loan = self.shared_collection.borrow(collection, client, pool, hold)
+            loan = self.shared_collection.borrow(
+                collection, client, pool, hold)
         except AuthorizationFailedException as e:
             return INVALID_CREDENTIALS.detailed(str(e))
         except NoAvailableCopies as e:
@@ -2417,7 +2440,8 @@ class SharedCollectionController(CirculationManagerController):
                 )
 
         try:
-            fulfillment = self.shared_collection.fulfill(collection, client, loan, mechanism)
+            fulfillment = self.shared_collection.fulfill(
+                collection, client, loan, mechanism)
         except AuthorizationFailedException as e:
             return INVALID_CREDENTIALS.detailed(str(e))
         except CannotFulfill as e:
