@@ -60,7 +60,8 @@ services:
       - type: bind
         source: .
         target: /home/simplified/circulation
-        read_only: true
+        read_only: false
+      # Mount volumes to access the local server time via ntp for the script runner 
 
   webapp:
     container_name: cm_local_webapp
