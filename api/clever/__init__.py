@@ -258,9 +258,10 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         user_link = [link for link in links if link['rel']
                      == 'canonical'][0]['uri']
+        district_link = [link for link in links if link['rel']
+                         == 'district'][0]['uri']
         # The canonical link includes the API version, so we use the base URL.
         user = self._get(self.CLEVER_API_BASE_URL + user_link, bearer_headers)
-
         user_data = user['data']
         user_role_dict = user_data.get('roles')
         user_types = list(user_role_dict.keys())
@@ -274,10 +275,17 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         school_nces_id = school_data['nces_id']
 
         # TODO: check student free and reduced lunch status as well
-        if school_nces_id is None:
-            self.log.error(
-                "No NCES ID found in Clever school data: %s", repr(school))
-            return CLEVER_UNKNOWN_SCHOOL
+        if not school_nces_id:
+            #Set empty for demo district
+            district = self._get(self.CLEVER_API_BASE_URL +
+                                 district_link, bearer_headers)
+            district_data = district['data']
+            district_name = district_data['name']
+            # Reject non-Demo blank nces_id's
+            if not '#DEMO' in district_name:
+                self.log.error(
+                    "No NCES ID found in Clever school data: %s", repr(school))
+                return CLEVER_UNKNOWN_SCHOOL
 
         if school_nces_id not in TITLE_I_NCES_IDS:
             self.log.info("%s didn't match a Title I NCES ID", school_nces_id)

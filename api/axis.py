@@ -1125,6 +1125,8 @@ class BibliographicParser(Axis360Parser):
             element, 'axis:imageUrl', ns
         )
         if thumbnail_url:
+            # Switch out http for https
+            thumbnail_url = thumbnail_url.replace('http://', 'https://')
             # We presume all images from this service are JPEGs.
             media_type = MediaTypes.JPEG_MEDIA_TYPE
             if '/Medium/' in thumbnail_url:
