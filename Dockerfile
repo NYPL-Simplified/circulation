@@ -74,9 +74,13 @@ RUN apt-get update \
     curl \
     ca-certificates \
     gnupg \
+    # For adding repositories
+    software-properties-common \
  && curl -sSL ${NODESOURCE_KEYFILE} | apt-key add - \
  && echo "deb https://deb.nodesource.com/node_14.x focal main" >> /etc/apt/sources.list.d/nodesource.list \
  && echo "deb-src https://deb.nodesource.com/node_14.x focal main" >> /etc/apt/sources.list.d/nodesource.list \
+ # Add repository for python 3.10
+ && add-apt-repository ppa:deadsnakes/ppa \
  && apt-get update \
  && apt-get install --yes --no-install-recommends \
     build-essential \
