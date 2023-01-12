@@ -192,6 +192,33 @@ class PublicAPIController:
                 }
             }
         )
+        self.addComponent(
+            'schema', 'LoanFullfilmentSchema', 'object',
+            {
+                'headers': {
+                    'type': 'object',
+                            'properties': {
+                                'Content-type': {
+                                    'type': 'string',
+                                    'example': "application/epub+zip",
+                                },
+                                'Content-disposition': {
+                                    'type': 'string',
+                                    'example': 'attachment; filename=\"ebook.epub\"'
+                                }
+                            }
+                },
+                'content': {
+                    'type': 'string',
+                            'format': 'binary',
+                            'description': "<binary data for ebook.epub file>"
+                },
+                'status': {
+                    'type': 'integer',
+                    'example': 200
+                }
+            }
+        )
 
     def addParameters(self):
         # TODO Extend addComponent to accomodate parameters
