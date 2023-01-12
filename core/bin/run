@@ -180,9 +180,6 @@ if [[ ! -f $LOG_FILE ]]; then
   touch $LOG_FILE
 fi
 
-# Force Python scripts not to write .pyc files
-export PYTHONDONTWRITEBYTECODE=1
-
 # Make sure we have the SIMPLIFIED_* env vars
 source $CM_REPO_ROOT/../environment.sh
 
