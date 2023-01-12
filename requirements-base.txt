@@ -99,7 +99,7 @@ soupsieve==1.9.6
 # Sphinx is for code documentation
 Sphinx==5.0.0b1
 sphinxcontrib-websupport==1.2.4
-SQLAlchemy==1.4.36
+SQLAlchemy==1.4.46
 strict-rfc3339==0.7
 textblob==0.15.3
 typing==3.7.4.3
