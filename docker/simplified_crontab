@@ -129,8 +129,9 @@ CRON_TZ=$TZ
 #### Bibliographic metadata maintenance ######################################
 
 # update_nyt_best_seller_lists - Bring in the entire history of all NYT best-seller lists.
+# TODO This script does not run correctly in a Docker container. It needs to be updated before reused.
 #   Frequency: Minute 30 of hour 3 (once daily)
-30 3 * * * core/bin/run update_nyt_best_seller_lists |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
+# 30 3 * * * core/bin/run update_nyt_best_seller_lists |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # work_presentation_editions - Re-generate presentation editions of any Works that need it.
 #   Frequency: Minute 7 of every 3rd hour from 1 through 23
