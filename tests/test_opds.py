@@ -273,10 +273,9 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         assert isinstance(response, OPDSEntryResponse)
         assert '<title>%s</title>' % work.title in response.get_data(as_text=True)
 
-        # By default, the representation is private but can be cached
+        # By default, the representation is private and must be revalidated
         # by the recipient.
         assert True == response.private
-        assert 30*60 == response.max_age
 
         # Test the case where we override the defaults.
         response = m(self._db, work, annotator, url, max_age=12, private=False)

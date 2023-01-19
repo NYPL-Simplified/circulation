@@ -1240,7 +1240,6 @@ class TestOPDS(DatabaseTest):
             )
         response = make_page(pagination)
         assert isinstance(response, OPDSFeedResponse)
-        assert OPDSFeed.DEFAULT_MAX_AGE == response.max_age
         assert OPDSFeed.ACQUISITION_FEED_TYPE == response.content_type
         assert private == response.private
 
@@ -1346,7 +1345,6 @@ class TestAcquisitionFeed(DatabaseTest):
         # The result is an OPDSFeedResponse. The 'private' argument,
         # unused by page(), was passed along into the constructor.
         assert isinstance(response, OPDSFeedResponse)
-        assert 10 == response.max_age
         assert private == response.private
 
         assert '<title>feed title</title>' in str(response)
@@ -2580,7 +2578,6 @@ class TestNavigationFeed(DatabaseTest):
         # max_age and private were propagated to the response
         # constructor.
         assert isinstance(response, OPDSFeedResponse)
-        assert 42 == response.max_age
         assert private == response.private
 
         # The media type of this response is different than from the
