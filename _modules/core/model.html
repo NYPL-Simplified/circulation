@@ -344,7 +344,7 @@
     <span class="k">def</span> <span class="nf">engine</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">url</span> <span class="o">=</span> <span class="n">url</span> <span class="ow">or</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">database_url</span><span class="p">()</span>
         <span class="c1"># Default sqlalchemy QueuePool pool_size is 10 and max_overflow is 20. This triples it.</span>
-        <span class="k">return</span> <span class="n">create_engine</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">echo</span><span class="o">=</span><span class="n">DEBUG</span><span class="p">,</span> <span class="n">pool_size</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_overflow</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">create_engine</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">echo</span><span class="o">=</span><span class="n">DEBUG</span><span class="p">,</span> <span class="n">pool_size</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_overflow</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">pool_recycle</span><span class="o">=</span><span class="mi">60</span><span class="o">*</span><span class="mi">30</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SessionManager.sessionmaker"><a class="viewcode-back" href="../../core.model.html#core.model.SessionManager.sessionmaker">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">sessionmaker</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">session</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -646,11 +646,11 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2023, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
       
     </div>
 

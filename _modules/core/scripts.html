@@ -2783,7 +2783,7 @@
                 <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;VACUUM </span><span class="si">%s</span><span class="s1"> </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">subcommand</span><span class="p">,</span> <span class="n">table</span><span class="p">))</span>
                 <span class="n">table_end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
                 <span class="n">table_vac_duration</span> <span class="o">=</span> <span class="n">table_end</span> <span class="o">-</span> <span class="n">table_start</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Vaccuuming of table </span><span class="si">%s</span><span class="s1"> took </span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Vacuuming of table </span><span class="si">%s</span><span class="s1"> took </span><span class="si">%d</span><span class="s1"> seconds&#39;</span> <span class="o">%</span>
                               <span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">table_vac_duration</span><span class="p">))</span>
         <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="n">duration</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
@@ -3501,11 +3501,11 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2023, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
       
     </div>
 

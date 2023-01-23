@@ -133,6 +133,8 @@
             <span class="c1"># A private resource should be re-requested, rather than</span>
             <span class="c1"># retrieved from cache, if the authorization credentials</span>
             <span class="c1"># change from those originally used to retrieve it.</span>
+            <span class="c1"># Set max_age to 0 to prevent caching.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_age</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Vary&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;Authorization&#39;</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">private</span> <span class="o">=</span> <span class="s2">&quot;public&quot;</span>
@@ -244,11 +246,11 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2023, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
       
     </div>
 

@@ -837,11 +837,11 @@
             <span class="k">return</span> <span class="n">NOT_AGE_APPROPRIATE</span>
 
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">allow_holds</span> <span class="ow">and</span>
-                <span class="n">license_pool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span>
-                <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="ow">and</span>
-                <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">unlimited_access</span> <span class="ow">and</span>
-                <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">self_hosted</span>
-            <span class="p">):</span>
+                    <span class="n">license_pool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span>
+                    <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="ow">and</span>
+                    <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">unlimited_access</span> <span class="ow">and</span>
+                    <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">self_hosted</span>
+                <span class="p">):</span>
             <span class="k">return</span> <span class="n">FORBIDDEN_BY_POLICY</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library policy prohibits the placement of holds.&quot;</span><span class="p">),</span>
                 <span class="n">status_code</span><span class="o">=</span><span class="mi">403</span>
@@ -2425,27 +2425,55 @@
             <span class="p">)</span></div>
 
 <div class="viewcode-block" id="SharedCollectionController.revoke_loan"><a class="viewcode-back" href="../../api.html#api.controller.SharedCollectionController.revoke_loan">[docs]</a>    <span class="k">def</span> <span class="nf">revoke_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">loan_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Revoke a loan for a given collection and loan ID.</span>
+
+<span class="sd">        :param collection_name: The name of the collection.</span>
+<span class="sd">        :param loan_id: The ID of the loan.</span>
+<span class="sd">        :return: A success response with a status code of 200 if the loan is successfully revoked, </span>
+<span class="sd">                 or a ProblemDetail object if an error occurs.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Load the collection</span>
         <span class="n">collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_collection</span><span class="p">(</span><span class="n">collection_name</span><span class="p">)</span>
+        <span class="c1"># If the collection could not be loaded, return a ProblemDetail object</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">collection</span>
+
+        <span class="c1"># Authenticate the client</span>
         <span class="n">client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticated_client_from_request</span><span class="p">()</span>
+        <span class="c1"># If the client could not be authenticated, return a ProblemDetail object</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">client</span>
+
+        <span class="c1"># Retrieve the loan with the given ID that belongs to the authenticated client</span>
         <span class="n">loan</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">loan_id</span><span class="p">,</span> <span class="n">integration_client</span><span class="o">=</span><span class="n">client</span><span class="p">)</span>
+        <span class="c1"># If the loan is not found or does not belong to the collection, return the LOAN_NOT_FOUND constant</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">loan</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">collection</span> <span class="o">==</span> <span class="n">collection</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">LOAN_NOT_FOUND</span>
 
+        <span class="c1"># Attempt to revoke the loan</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection</span><span class="o">.</span><span class="n">revoke_loan</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">loan</span><span class="p">)</span>
+        <span class="c1"># If the authorization fails, return the INVALID_CREDENTIALS constant with a detailed error message</span>
         <span class="k">except</span> <span class="n">AuthorizationFailedException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">INVALID_CREDENTIALS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="c1"># If the loan is not checked out, return the NO_ACTIVE_LOAN constant with a detailed error message</span>
         <span class="k">except</span> <span class="n">NotCheckedOut</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">NO_ACTIVE_LOAN</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="c1"># If the loan cannot be returned, return the COULD_NOT_MIRROR_TO_REMOTE constant with a detailed error message</span>
         <span class="k">except</span> <span class="n">CannotReturn</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">COULD_NOT_MIRROR_TO_REMOTE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="c1"># If the loan is successfully revoked, return a success response with a status code of 200</span>
         <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SharedCollectionController.fulfill"><a class="viewcode-back" href="../../api.html#api.controller.SharedCollectionController.fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">loan_id</span><span class="p">,</span> <span class="n">mechanism_id</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="n">HTTP</span><span class="o">.</span><span class="n">get_with_timeout</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Fulfill a loan for a given collection, loan ID, and delivery mechanism ID.</span>
+
+<span class="sd">        :param collection_name: The name of the collection.</span>
+<span class="sd">        :param loan_id: The ID of the loan.</span>
+<span class="sd">        :param mechanism_id: The ID of the delivery mechanism.</span>
+<span class="sd">        :param do_get: An optional function for making HTTP GET requests.</span>
+<span class="sd">        :return: The content of the fulfillment with a status code of 200 and the appropriate headers if the loan is successfully fulfilled, or a ProblemDetail object if an error occurs.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_collection</span><span class="p">(</span><span class="n">collection_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">collection</span>
@@ -2625,11 +2653,11 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2023, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
       
     </div>
 

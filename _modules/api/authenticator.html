@@ -2618,6 +2618,7 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">authenticator</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">authenticator</span> <span class="o">=</span> <span class="n">authenticator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 <div class="viewcode-block" id="OAuthController.oauth_authentication_callback_url"><a class="viewcode-back" href="../../api.html#api.authenticator.OAuthController.oauth_authentication_callback_url">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">oauth_authentication_callback_url</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library_short_name</span><span class="p">):</span>
@@ -2628,7 +2629,7 @@
 <span class="sd">        provider to demonstrate that it knows which URL a patron was</span>
 <span class="sd">        redirected to.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;oauth_callback&#39;</span><span class="p">,</span> <span class="n">library_short_name</span><span class="o">=</span><span class="n">library_short_name</span><span class="p">,</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;oauth_callback&#39;</span><span class="p">,</span> <span class="n">library_short_name</span><span class="o">=</span><span class="n">library_short_name</span><span class="p">,</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">_scheme</span><span class="o">=</span><span class="s1">&#39;https&#39;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="OAuthController.oauth_authentication_redirect"><a class="viewcode-back" href="../../api.html#api.authenticator.OAuthController.oauth_authentication_redirect">[docs]</a>    <span class="k">def</span> <span class="nf">oauth_authentication_redirect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Redirect an unauthenticated patron to the authentication URL of the</span>
@@ -2691,6 +2692,7 @@
         <span class="c1"># provider (such as patron name) which we can&#39;t store in the</span>
         <span class="c1"># database.</span>
         <span class="n">response</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">oauth_callback</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">code</span><span class="p">)</span>
+        <span class="c1"># self.log.info(&#39;OATH_CALLBACK&#39;, response)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="c1"># Most likely the OAuth provider didn&#39;t like the credentials</span>
             <span class="c1"># we sent.</span>
@@ -2704,7 +2706,6 @@
         <span class="n">simplified_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">authenticator</span><span class="o">.</span><span class="n">create_bearer_token</span><span class="p">(</span>
             <span class="n">provider</span><span class="o">.</span><span class="n">NAME</span><span class="p">,</span> <span class="n">provider_token</span><span class="o">.</span><span class="n">credential</span>
         <span class="p">)</span>
-
         <span class="n">patron_info</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">patrondata</span><span class="o">.</span><span class="n">to_response_parameters</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">root_lane</span> <span class="o">=</span> <span class="n">cdn_url_for</span><span class="p">(</span>
@@ -2896,11 +2897,11 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2023, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
       
     </div>
 

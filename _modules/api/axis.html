@@ -1159,6 +1159,8 @@
             <span class="n">element</span><span class="p">,</span> <span class="s1">&#39;axis:imageUrl&#39;</span><span class="p">,</span> <span class="n">ns</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">thumbnail_url</span><span class="p">:</span>
+            <span class="c1"># Switch out http for https</span>
+            <span class="n">thumbnail_url</span> <span class="o">=</span> <span class="n">thumbnail_url</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;http://&#39;</span><span class="p">,</span> <span class="s1">&#39;https://&#39;</span><span class="p">)</span>
             <span class="c1"># We presume all images from this service are JPEGs.</span>
             <span class="n">media_type</span> <span class="o">=</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">JPEG_MEDIA_TYPE</span>
             <span class="k">if</span> <span class="s1">&#39;/Medium/&#39;</span> <span class="ow">in</span> <span class="n">thumbnail_url</span><span class="p">:</span>
@@ -2000,11 +2002,11 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2022, The New York Public Library, Astor, Lenox, and Tilden Foundations.
+      &copy;2023, The New York Public Library, Astor, Lenox, and Tilden Foundations.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.0b1</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
       
     </div>
 
