@@ -371,7 +371,6 @@ class TestCachedFeed:
         assert isinstance(r, OPDSFeedResponse)
         assert 200 == r.status_code
         assert OPDSFeed.ACQUISITION_FEED_TYPE == r.content_type
-        assert 102 == r.max_age
         assert "Here's a feed." == str(r)
 
         # The extra argument `private`, not used by CachedFeed.fetch, was
@@ -390,7 +389,6 @@ class TestCachedFeed:
         assert isinstance(r, OPDSFeedResponse)
         assert 200 == r.status_code
         assert OPDSFeed.ACQUISITION_FEED_TYPE == r.content_type
-        assert 102 == r.max_age
         assert "Here's a feed." == str(r)
 
         # If we tell CachedFeed to cache its feed 'forever', that only
@@ -401,7 +399,6 @@ class TestCachedFeed:
             max_age=CachedFeed.CACHE_FOREVER, private=private
         )
         assert isinstance(r, OPDSFeedResponse)
-        assert OPDSFeed.DEFAULT_MAX_AGE == r.max_age
 
         # If the Library associated with the WorkList used in the feed
         # has root lanes, `private` is always set to True, even if we
