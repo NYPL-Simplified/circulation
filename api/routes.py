@@ -478,12 +478,79 @@ def shared_collection_borrow(collection_name, identifier_type, identifier, hold_
 @allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 def shared_collection_loan_info(collection_name, loan_id):
+    """Create an OPDS entry representing a single loan or hold.
+
+    ---
+    get:
+        tags:
+            - loans
+        summary: Create an OPDS entry representing a single loan or hold.
+        parameters:
+            - in: path
+              name: collection_name
+              schema:
+                  type: string
+              description: Name of the collection
+            - in: path
+              name: loan_id
+              schema:
+                  type: string
+              description: The loan id of a work
+        responses:
+            200:
+                description: An OPDS Entry response of loan information.
+                content:
+                    application/json:
+                        schema: OPDSEntry
+            4XX:
+                description: Problem detail including |
+                    -  *Collection not found*
+                    -  *INVALID_CREDENTIALS*
+                    -  *LOAN_NOT_FOUND*
+                content:
+                    application/json:
+                        schema: ProblemResponse
+    """
     return app.manager.shared_collection_controller.loan_info(collection_name, loan_id)
 
 @app.route("/collections/<collection_name>/loans/<loan_id>/revoke")
 @allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 def shared_collection_revoke_loan(collection_name, loan_id):
+    """Revoke a loan or hold.
+
+    ---
+    get:
+        tags:
+            - loans
+        summary: Revoke a loan or hold.
+        parameters:
+            - in: path
+              name: collection_name
+              schema:
+                  type: string
+              description: Name of the collection
+            - in: path
+              name: loan_id
+              schema:
+                  type: string
+              description: The loan id of a work
+        responses:
+            200:
+                description: Confirmation that the loan or hold has been revoked.
+                content:
+                    application/json:
+                        example: Success
+            4XX:
+                description: Problem detail including |
+                    -  *NO_ACTIVE_LOAN*
+                    -  *INVALID_CREDENTIALS*
+                    -  *COULD_NOT_MIRROR_TO_REMOTE*
+                    -  *LOAN_NOT_FOUND*
+                content:
+                    application/json:
+                        schema: ProblemResponse
+    """
     return app.manager.shared_collection_controller.revoke_loan(collection_name, loan_id)
 
 @app.route("/collections/<collection_name>/loans/<loan_id>/fulfill", defaults=dict(mechanism_id=None))
@@ -491,6 +558,49 @@ def shared_collection_revoke_loan(collection_name, loan_id):
 @allows_cors(allowed_domain_type=set({"admin"}))
 @returns_problem_detail
 def shared_collection_fulfill(collection_name, loan_id, mechanism_id):
+    """Fulfill a loan for a given collection, loan ID, and delivery mechanism ID.
+
+    ---
+    get:
+        tags:
+            - loans
+        summary: Fulfill a loan for a given collection, loan ID, and delivery mechanism ID. 
+        description: |
+            Includes
+            -   /collections/<collection_name>/loans/<loan_id>/fulfill
+            -   /collections/<collection_name>/loans/<loan_id>/fulfill/<mechanism_id>
+        parameters:
+            - in: path
+              name: collection_name
+              schema:
+                  type: string
+              description: Name of the collection
+            - in: path
+              name: loan_id
+              schema:
+                  type: string
+              description: The loan id of a work
+            - in: path
+              name: mechanism_id
+              schema:
+                  type: string
+              description: The mechanism delivery id (optional).
+        responses:
+            200:
+                description: Successful delivery of loan headers and content.
+                content:
+                    application/json:
+                        schema: LoanFullfilmentSchema
+            4XX:
+                description: Problem detail including |
+                    -  *NO_ACTIVE_LOAN*
+                    -  *INVALID_CREDENTIALS*
+                    -  *COULD_NOT_MIRROR_TO_REMOTE*
+                    -  *LOAN_NOT_FOUND*
+                content:
+                    application/json:
+                        schema: ProblemResponse
+    """
     return app.manager.shared_collection_controller.fulfill(collection_name, loan_id, mechanism_id)
 
 @app.route("/collections/<collection_name>/holds/<hold_id>")

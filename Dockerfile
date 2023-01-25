@@ -74,9 +74,13 @@ RUN apt-get update \
     curl \
     ca-certificates \
     gnupg \
+    # For adding repositories
+    software-properties-common \
  && curl -sSL ${NODESOURCE_KEYFILE} | apt-key add - \
  && echo "deb https://deb.nodesource.com/node_14.x focal main" >> /etc/apt/sources.list.d/nodesource.list \
  && echo "deb-src https://deb.nodesource.com/node_14.x focal main" >> /etc/apt/sources.list.d/nodesource.list \
+ # Add repository for python 3.10
+ && add-apt-repository ppa:deadsnakes/ppa \
  && apt-get update \
  && apt-get install --yes --no-install-recommends \
     build-essential \
@@ -84,7 +88,8 @@ RUN apt-get update \
     software-properties-common \
     language-pack-en \
     git \
-    python3.10 \
+    # Need 3.10-dev for build of xmlsec
+    python3.10-dev \
     python3-dev \
     python3-setuptools \
     python3-venv \
@@ -129,7 +134,8 @@ ENV SIMPLIFIED_VENV /simplified_venv
 # Set up for installing Python dependencies, by creating a virtualenv and updating
 # the installation tools. Also, install a pinned version of the NLTK corpus, to avoid
 # having to re-download / re-install that if other Python dependencies change.
-RUN python3 -m venv ${SIMPLIFIED_VENV} \
+RUN python3 -m pip install virtualenv \
+ && virtualenv -p python3.10 ${SIMPLIFIED_VENV} \
  && ${SIMPLIFIED_VENV}/bin/python3 -m pip install -U pip setuptools \
  && ${SIMPLIFIED_VENV}/bin/python3 -m pip install textblob==0.15.3 \
  && ${SIMPLIFIED_VENV}/bin/python3 -m textblob.download_corpora \

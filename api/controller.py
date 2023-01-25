@@ -803,11 +803,11 @@ class CirculationManagerController(BaseCirculationManagerController):
             return NOT_AGE_APPROPRIATE
 
         if (not patron.library.allow_holds and
-                license_pool.licenses_available == 0 and
-                not license_pool.open_access and
-                not license_pool.unlimited_access and
-                not license_pool.self_hosted
-            ):
+                    license_pool.licenses_available == 0 and
+                    not license_pool.open_access and
+                    not license_pool.unlimited_access and
+                    not license_pool.self_hosted
+                ):
             return FORBIDDEN_BY_POLICY.detailed(
                 _("Library policy prohibits the placement of holds."),
                 status_code=403
@@ -2391,27 +2391,55 @@ class SharedCollectionController(CirculationManagerController):
             )
 
     def revoke_loan(self, collection_name, loan_id):
+        """Revoke a loan for a given collection and loan ID.
+
+        :param collection_name: The name of the collection.
+        :param loan_id: The ID of the loan.
+        :return: A success response with a status code of 200 if the loan is successfully revoked, 
+                 or a ProblemDetail object if an error occurs.
+        """
+        # Load the collection
         collection = self.load_collection(collection_name)
+        # If the collection could not be loaded, return a ProblemDetail object
         if isinstance(collection, ProblemDetail):
             return collection
+
+        # Authenticate the client
         client = self.authenticated_client_from_request()
+        # If the client could not be authenticated, return a ProblemDetail object
         if isinstance(client, ProblemDetail):
             return client
+
+        # Retrieve the loan with the given ID that belongs to the authenticated client
         loan = get_one(self._db, Loan, id=loan_id, integration_client=client)
+        # If the loan is not found or does not belong to the collection, return the LOAN_NOT_FOUND constant
         if not loan or not loan.license_pool.collection == collection:
             return LOAN_NOT_FOUND
 
+        # Attempt to revoke the loan
         try:
             self.shared_collection.revoke_loan(collection, client, loan)
+        # If the authorization fails, return the INVALID_CREDENTIALS constant with a detailed error message
         except AuthorizationFailedException as e:
             return INVALID_CREDENTIALS.detailed(str(e))
+        # If the loan is not checked out, return the NO_ACTIVE_LOAN constant with a detailed error message
         except NotCheckedOut as e:
             return NO_ACTIVE_LOAN.detailed(str(e))
+        # If the loan cannot be returned, return the COULD_NOT_MIRROR_TO_REMOTE constant with a detailed error message
         except CannotReturn as e:
             return COULD_NOT_MIRROR_TO_REMOTE.detailed(str(e))
+        # If the loan is successfully revoked, return a success response with a status code of 200
         return Response(_("Success"), 200)
 
     def fulfill(self, collection_name, loan_id, mechanism_id, do_get=HTTP.get_with_timeout):
+        """Fulfill a loan for a given collection, loan ID, and delivery mechanism ID.
+
+        :param collection_name: The name of the collection.
+        :param loan_id: The ID of the loan.
+        :param mechanism_id: The ID of the delivery mechanism.
+        :param do_get: An optional function for making HTTP GET requests.
+        :return: The content of the fulfillment with a status code of 200 and the appropriate headers if the loan is successfully fulfilled, or a ProblemDetail object if an error occurs.
+        """
         collection = self.load_collection(collection_name)
         if isinstance(collection, ProblemDetail):
             return collection
