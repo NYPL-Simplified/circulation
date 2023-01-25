@@ -99,6 +99,8 @@ class Response(FlaskResponse):
             # A private resource should be re-requested, rather than
             # retrieved from cache, if the authorization credentials
             # change from those originally used to retrieve it.
+            # Set max_age to 0 to prevent caching.
+            self.max_age = 0
             headers['Vary'] = 'Authorization'
         else:
             private = "public"

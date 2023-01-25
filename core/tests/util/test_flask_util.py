@@ -54,7 +54,7 @@ class TestResponse(object):
         # Test the case where the response is private but may be
         # cached privately.
         headers = Response(max_age=300, private=True).headers
-        assert "private, no-transform, max-age=300" == headers['Cache-Control']
+        assert "private, no-cache" == headers['Cache-Control']
         assert 'Authorization' == headers['Vary']
 
         # Test the case where the response is public and may be cached,
@@ -86,7 +86,6 @@ class TestResponse(object):
         response = Response(max_age=30, private=True)
         cache_control = response.headers['Cache-Control']
         assert 'private' in cache_control
-        assert 'max-age=30' in cache_control
         assert 'Authorization' == response.headers['Vary']
 
     def test_unicode(self):

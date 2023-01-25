@@ -1153,12 +1153,12 @@ class TestParsers(Axis360Test):
         # Axis 360 API response and we can hack the URL to get the
         # full-sized image URL.
         assert LinkRelations.IMAGE == cover.rel
-        assert ("http://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Large/Empty" ==
+        assert ("https://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Large/Empty" ==
             cover.href)
         assert MediaTypes.JPEG_MEDIA_TYPE == cover.media_type
 
         assert LinkRelations.THUMBNAIL_IMAGE == cover.thumbnail.rel
-        assert ("http://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Medium/Empty" ==
+        assert ("https://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Medium/Empty" ==
             cover.thumbnail.href)
         assert MediaTypes.JPEG_MEDIA_TYPE == cover.thumbnail.media_type
 
@@ -1209,11 +1209,11 @@ class TestParsers(Axis360Test):
         # thumbnail.
         [cover] = bib2.links
         assert LinkRelations.IMAGE == cover.rel
-        assert "http://some-other-server/image.jpg" == cover.href
+        assert "https://some-other-server/image.jpg" == cover.href
         assert MediaTypes.JPEG_MEDIA_TYPE == cover.media_type
 
         assert LinkRelations.THUMBNAIL_IMAGE == cover.thumbnail.rel
-        assert "http://some-other-server/image.jpg" == cover.thumbnail.href
+        assert "https://some-other-server/image.jpg" == cover.thumbnail.href
         assert MediaTypes.JPEG_MEDIA_TYPE == cover.thumbnail.media_type
 
         # The first book is available in two formats -- "ePub" and "AxisNow"

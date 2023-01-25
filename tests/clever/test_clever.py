@@ -126,7 +126,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
     def test_remote_patron_lookup_unsupported_user_type(self):
         self.api.queue_response(dict(type='user', data=dict(
-            id='1234'), links=[dict(rel='canonical', uri='test')]))
+            id='1234'), links=[dict(rel='canonical', uri='test'), dict(rel='district', uri='test')]))
         self.api.queue_response(
             dict(data=dict(roles=dict(district_admin=None), data=dict(id='1234'))))
         token = self.api.remote_patron_lookup("token")
@@ -134,7 +134,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
     def test_remote_patron_lookup_ineligible(self):
         self.api.queue_response(dict(type='user', data=dict(
-            id='1234'), links=[dict(rel='canonical', uri='test')]))
+            id='1234'), links=[dict(rel='canonical', uri='test'), dict(rel='district', uri='test')]))
         self.api.queue_response(
             dict(data=dict(roles=dict(student=dict(
                 school='1234', district='1234')))))
@@ -144,19 +144,35 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         assert CLEVER_NOT_ELIGIBLE == token
 
     def test_remote_patron_lookup_missing_nces_id(self):
+        # Missing nces_id should return UNKNOWN_SCHOOL
         self.api.queue_response(dict(type='user', data=dict(
-            id='1234'), links=[dict(rel='canonical', uri='test')]))
+            id='1234'), links=[dict(rel='canonical', uri='test'), dict(rel='district', uri='test')]))
         self.api.queue_response(
             dict(data=dict(roles=dict(student=dict(
                 school='1234', district='1234')))))
         self.api.queue_response(dict(data=dict(nces_id=None)))
+        self.api.queue_response(dict(data=dict(name='non-demo')))
 
         token = self.api.remote_patron_lookup("")
         assert CLEVER_UNKNOWN_SCHOOL == token
 
+    def test_remote_patron_lookup_missing_sandbox_nces_id(self):
+        #Sandbox does not have nces id and should pass with blank string
+        self.api.queue_response(dict(type='user', data=dict(
+            id='1234'), links=[dict(rel='canonical', uri='test'), dict(rel='district', uri='test')]))
+        self.api.queue_response(
+            dict(data=dict(roles=dict(student=dict(
+                school='1234', district='1234')))))
+        self.api.queue_response(dict(data=dict(nces_id='')))
+        self.api.queue_response(dict(data=dict(name='#DEMO')))
+
+        patron_data = self.api.remote_patron_lookup("")
+        assert "1234" == patron_data.permanent_id
+        assert "1234" == patron_data.authorization_identifier
+
     def test_remote_patron_unknown_student_grade(self):
         self.api.queue_response(dict(type='user', data=dict(
-            id='1234'), links=[dict(rel='canonical', uri='test')]))
+            id='1234'), links=[dict(rel='canonical', uri='test'), dict(rel='district', uri='test')]))
         self.api.queue_response(dict(data=dict(roles=dict(
             student=dict(
                 school='1234',
@@ -170,7 +186,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
     def test_remote_patron_lookup_title_i(self):
         self.api.queue_response(dict(type='user', data=dict(
-            id='1234'), links=[dict(rel='canonical', uri='test')]))
+            id='1234'), links=[dict(rel='canonical', uri='test'), dict(rel='district', uri='test')]))
         self.api.queue_response(dict(data=dict(roles=dict(
             student=dict(
                 school='1234',
@@ -190,7 +206,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
     def test_remote_patron_lookup_external_type(self):
         # Teachers have an external type of 'A' indicating all access.
         self.api.queue_response(dict(type='user', data=dict(
-            id='1234'), links=[dict(rel='canonical', uri='test')]))
+            id='1234'), links=[dict(rel='canonical', uri='test'), dict(rel='district', uri='test')]))
         self.api.queue_response(dict(data=dict(roles=dict(
             teacher=dict(
                 school='1234'
@@ -204,7 +220,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         # Student type is based on grade
         def queue_student(grade):
             self.api.queue_response(dict(type='user', data=dict(
-                id='1234'), links=[dict(rel='canonical', uri='test')]))
+                id='1234'), links=[dict(rel='canonical', uri='test'), dict(rel='district', uri='test')]))
             self.api.queue_response(dict(data=dict(roles=dict(
                 student=dict(
                     school='1234',
@@ -229,7 +245,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         """Test a successful run of oauth_callback."""
         self.api.queue_response(dict(access_token="bearer token"))
         self.api.queue_response(dict(type='user', data=dict(
-            id='1234'), links=[dict(rel='canonical', uri='test')]))
+            id='1234'), links=[dict(rel='canonical', uri='test'), dict(rel='district', uri='test')]))
         self.api.queue_response(dict(data=dict(roles=dict(
             teacher=dict(
                 school='1234'
