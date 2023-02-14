@@ -347,35 +347,36 @@ class SessionManager(object):
         engine = cls.engine(url)
         if initialize_schema:
             cls.initialize_schema(engine)
-        connection = engine.connect()
+        with engine.connect() as connection:
 
-        # Check if the recursive equivalents function exists already.
-        query = select(
-            [literal_column('proname')]
-        ).select_from(
-            table('pg_proc')
-        ).where(
-            literal_column('proname')=='fn_recursive_equivalents'
-        )
-        result = connection.execute(query)
-        result = list(result)
-
-        # If it doesn't, create it.
-        if not result and initialize_data:
-            resource_file = os.path.join(
-                cls.resource_directory(), cls.RECURSIVE_EQUIVALENTS_FUNCTION
+            # Check if the recursive equivalents function exists already.
+            query = select(
+                [literal_column('proname')]
+            ).select_from(
+                table('pg_proc')
+            ).where(
+                literal_column('proname') == 'fn_recursive_equivalents'
             )
-            if not os.path.exists(resource_file):
-                raise IOError("Could not load recursive equivalents function from %s: file does not exist." % resource_file)
-            sql = open(resource_file).read()
-            connection.execute(sql)
+            result = connection.execute(query)
+            result = list(result)
 
-        if initialize_data:
-            session = Session(connection)
-            cls.initialize_data(session)
+            # If it doesn't, create it.
+            if not result and initialize_data:
+                resource_file = os.path.join(
+                    cls.resource_directory(), cls.RECURSIVE_EQUIVALENTS_FUNCTION
+                )
+                if not os.path.exists(resource_file):
+                    raise IOError(
+                        "Could not load recursive equivalents function from %s: file does not exist." % resource_file)
+                sql = open(resource_file).read()
+                connection.execute(sql)
 
-        if connection:
-            connection.close()
+            if initialize_data:
+                session = Session(connection)
+                cls.initialize_data(session)
+
+            if connection:
+                connection.close()
 
         if initialize_schema and initialize_data:
             # Only cache the engine if all initialization has been performed.
