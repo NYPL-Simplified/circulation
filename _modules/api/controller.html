@@ -1175,7 +1175,7 @@
 
         <span class="n">facets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_search_facets</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">lane</span>
+            <span class="k">return</span> <span class="n">facets</span>
 
         <span class="n">search_engine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_engine</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">search_engine</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
