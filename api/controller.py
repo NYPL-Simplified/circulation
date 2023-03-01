@@ -1141,7 +1141,7 @@ class OPDSFeedController(CirculationManagerController):
 
         facets = self._load_search_facets(lane)
         if isinstance(facets, ProblemDetail):
-            return lane
+            return facets
 
         search_engine = self.search_engine
         if isinstance(search_engine, ProblemDetail):
