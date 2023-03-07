@@ -405,6 +405,7 @@ class Configuration(ConfigurationConstants):
             url = cls.database_url()
             _db = SessionManager.session(url)
             cls.load_cdns(_db)
+            _db.close()
 
         from .model import ExternalIntegration
         return cls.integration(ExternalIntegration.CDN)
