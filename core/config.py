@@ -403,8 +403,12 @@ class Configuration(ConfigurationConstants):
             # information now.
             from .model import SessionManager
             url = cls.database_url()
-            _db = SessionManager.session(url)
+
+            _db = SessionManager.session(
+                url, initialize_data=False, initialize_schema=False)
+
             cls.load_cdns(_db)
+
             _db.close()
 
         from .model import ExternalIntegration
