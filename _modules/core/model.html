@@ -407,6 +407,7 @@
         <span class="k">if</span> <span class="n">initialize_data</span><span class="p">:</span>
             <span class="n">session</span> <span class="o">=</span> <span class="n">Session</span><span class="p">(</span><span class="n">connection</span><span class="p">)</span>
             <span class="bp">cls</span><span class="o">.</span><span class="n">initialize_data</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+            <span class="n">session</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">connection</span><span class="p">:</span>
             <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
@@ -443,10 +444,8 @@
                 <span class="n">url</span><span class="p">,</span> <span class="n">initialize_data</span><span class="o">=</span><span class="n">initialize_data</span><span class="p">,</span>
                 <span class="n">initialize_schema</span><span class="o">=</span><span class="n">initialize_schema</span>
             <span class="p">)</span>
-        <span class="n">session</span> <span class="o">=</span> <span class="n">Session</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">initialize_data</span><span class="p">:</span>
-            <span class="n">session</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">initialize_data</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">session</span></div>
+
+        <span class="k">return</span> <span class="n">Session</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SessionManager.initialize_data"><a class="viewcode-back" href="../../core.model.html#core.model.SessionManager.initialize_data">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">initialize_data</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">set_site_configuration</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
