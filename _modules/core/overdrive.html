@@ -923,7 +923,7 @@
         <span class="c1"># The current behavior will respond to errors other than</span>
         <span class="c1"># NotFound by leaving the book alone, but this might not be</span>
         <span class="c1"># the right behavior.</span>
-        <span class="k">if</span> <span class="n">error_code</span> <span class="o">==</span> <span class="s1">&#39;NotFound&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">error_code</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;NotFound&#39;</span><span class="p">,</span> <span class="s1">&#39;TitleNotFoundError&#39;</span><span class="p">]:</span>
             <span class="n">licenses_owned</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="n">licenses_available</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="n">patrons_in_hold_queue</span> <span class="o">=</span> <span class="mi">0</span>
