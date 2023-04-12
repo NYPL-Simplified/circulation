@@ -373,6 +373,7 @@ class SessionManager(object):
         if initialize_data:
             session = Session(connection)
             cls.initialize_data(session)
+            session.close()
 
         if connection:
             connection.close()
@@ -409,10 +410,8 @@ class SessionManager(object):
                 url, initialize_data=initialize_data,
                 initialize_schema=initialize_schema
             )
-        session = Session(engine)
-        if initialize_data:
-            session = cls.initialize_data(session)
-        return session
+
+        return Session(engine)
 
     @classmethod
     def initialize_data(cls, session, set_site_configuration=True):

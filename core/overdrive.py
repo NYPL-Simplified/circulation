@@ -889,7 +889,7 @@ class OverdriveRepresentationExtractor(object):
         # The current behavior will respond to errors other than
         # NotFound by leaving the book alone, but this might not be
         # the right behavior.
-        if error_code == 'NotFound':
+        if error_code in ['NotFound', 'TitleNotFoundError']:
             licenses_owned = 0
             licenses_available = 0
             patrons_in_hold_queue = 0
