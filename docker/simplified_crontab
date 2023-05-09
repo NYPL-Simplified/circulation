@@ -123,7 +123,7 @@ CRON_TZ=$TZ
 0 0 * * * core/bin/run update_custom_list_size |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 # update_lane_size - Update the cached sizes of all lanes.
-#   Frequency: Minute 2 of hour 10 (once daily)
+#   Frequency: Minute 2 of hour 7 (once daily)
 2 7 * * * core/bin/run update_lane_size |& tee -a /var/log/cron.log > $PID1_STDOUT 2>$PID1_STDERR
 
 #### Bibliographic metadata maintenance ######################################
