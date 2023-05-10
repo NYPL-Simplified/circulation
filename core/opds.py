@@ -1019,6 +1019,10 @@ class AcquisitionFeed(OPDSFeed):
         # Add "up" link.
         AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(lane), title=str(lane.display_name))
 
+        # Add URLs to change faceted views
+        for args in cls.facet_links(annotator, facets):
+            AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, **args)
+
         # We do not add breadcrumbs to this feed since you're not
         # technically searching the this lane; you are searching the
         # library's entire collection, using _some_ of the constraints
