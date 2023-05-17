@@ -2938,11 +2938,11 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
         )
 
         # Patch some methods that Authenticator would use
-        class MockAuthenticationProvider:
+        class MockAuthenticator:
             providers = [basic, ]
         short_name = self._default_library.short_name
         setattr(authenticator, "current_library_short_name", short_name)
-        setattr(authenticator, "library_authenticators", {short_name: MockAuthenticationProvider})
+        setattr(authenticator, "library_authenticators", {short_name: MockAuthenticator})
 
         self.controller = BasicAuthTempTokenController(authenticator)
 
