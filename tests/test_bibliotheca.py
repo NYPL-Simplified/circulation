@@ -169,7 +169,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         assert ("Checking activity for test patron for library %s" % with_default_patron.name ==
             patron_activity.name)
         assert "Found 2 loans/holds" == patron_activity.result
-        patron, pin = api.patron_activity_called_with
+        (patron, is_new), pin = api.patron_activity_called_with
         assert "username1" == patron.authorization_identifier
         assert "password1" == pin
 

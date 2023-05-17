@@ -1455,7 +1455,13 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         :return: A Patron if one can be authenticated; a ProblemDetail
             if an error occurs; None if the credentials are missing or wrong.
         """
-        patron = self.authenticate(_db, header)
+        is_new = False
+        try:
+            patron, is_new = self.authenticate(_db, header)
+        except TypeError:
+            # This is a ProblemDetail
+            patron = self.authenticate(_db, header)
+
         if not isinstance(patron, Patron):
             return patron
         if PatronUtility.needs_external_sync(patron):
@@ -1466,7 +1472,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
             # update. But we have a cached_neighborhood (which _is_ a
             # model field) to use in situations like this.
             patron.neighborhood = patron.cached_neighborhood
-        return patron
+        return patron, is_new
 
     def update_patron_metadata(self, patron):
         """Refresh our local record of this patron's account information.
@@ -1792,6 +1798,8 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     # indicates that no value should be used.)
     class_default = object()
 
+    patron_is_new = False
+
     def __init__(self, library, integration, analytics=None):
         """Create a BasicAuthenticationProvider.
 
@@ -1876,7 +1884,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     def testing_patron(self, _db):
         """Look up a Patron object reserved for testing purposes.
 
-        :return: A 2-tuple (Patron, password)
+        :return: A 2-tuple tuple ((Patron, is_new), password)
         """
         if self.test_username is None:
             return self.test_username, self.test_password
@@ -1888,16 +1896,21 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
 
         :raise:CannotLoadConfiguration: If no test patron is configured.
         :raise:IntegrationException: If the returned patron is not a Patron object.
-        :return: A 2-tuple (Patron, password)
+        :return: A 2-tuple tuple ((Patron, is_new), password).
         """
         if self.test_username is None:
             raise CannotLoadConfiguration(
                 "No test patron identifier is configured."
             )
 
-        patron, password = self.testing_patron(_db)
+        is_new = False
+        try:
+            (patron, is_new), password = self.testing_patron(_db)
+        except (ValueError, TypeError):
+            patron, password = self.testing_patron(_db)
+
         if isinstance(patron, Patron):
-            return patron, password
+            return ((patron, is_new), password)
 
         if not patron:
             message = (
@@ -1959,27 +1972,29 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
 
         :param credentials: A bearer token string
 
-        :return: A Patron if one can be looked up; a ProblemDetail
-            if an error occurs.
+        :return: A Patron if one can be looked up and is_new = False status;
+            a ProblemDetail if an error occurs and is_new = False status.
         """
         credential = Credential.lookup_by_token(
             _db, None, BasicAuthenticationProvider.TOKEN_TYPE, credentials
         )
 
         if isinstance(credential, Credential):
-            return credential.patron
+            # Return the patron and is_new = False, no patrons are created here
+            return credential.patron, False
         else:
-            return INVALID_HTTP_BASIC_BEARER_TOKEN
+            # Return a ProblemDetail and is_new = False, no patrons are created here
+            return INVALID_HTTP_BASIC_BEARER_TOKEN, False
 
     def _authenticate_from_credentials(self, _db, credentials):
         """Turn a dict of credentials into a Patron object.
 
         :param credentials: A dictionary with keys 'username' and 'password'.
 
-        "return: A Patron if one can be authenticated; a ProblemDetail
-            if an error occurs; None if the credentials are missing or wrong.
+        "return: A Patron if one can be authenticated and is_new status;
+            a ProblemDetail if an error occurs;
+            None if the credentials are missing or wrong.
         """
-
         username = self.scrub_credential(credentials.get('username'))
         password = self.scrub_credential(credentials.get('password'))
         server_side_validation_result = self.server_side_validation(
@@ -2028,7 +2043,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             # Just make sure our local data is up to date with
             # whatever we just got from remote.
             self.apply_patrondata(patrondata, patron)
-            return patron
+            return patron, self.patron_is_new
 
         # At this point there are two possibilities:
         #
@@ -2069,6 +2084,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             patron, is_new = patrondata.get_or_create_patron(
                 _db, self.library_id, analytics=self.analytics
             )
+            self.patron_is_new = is_new
 
         # The lookup failed in the first place either because the
         # Patron did not exist on the local side, or because one of
@@ -2077,7 +2093,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         # we now need to update the Patron record with the account
         # information we just got from the source of truth.
         self.apply_patrondata(patrondata, patron)
-        return patron
+        return patron, self.patron_is_new
 
     def apply_patrondata(self, patrondata, patron):
         """Apply a PatronData object to the given patron and make sure
@@ -2511,6 +2527,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider, BearerTokenSigner):
         patron, is_new = patrondata.get_or_create_patron(
             _db, self.library_id, analytics=self.analytics
         )
+        patrondata.is_new = is_new
 
         # Create a credential for the Patron.
         credential, is_new = self.create_token(_db, patron, token)
@@ -2780,8 +2797,11 @@ class BasicAuthTempTokenController(object):
     def basic_auth_temp_token(self, params, _db):
         """Generate and return a temporary token from HTTP Basic Auth credentials.
         """
-        patron = self.authenticator.authenticated_patron(
-            _db, flask.request.authorization)
+        try:
+            patron, is_new = self.authenticator.authenticated_patron(_db, flask.request.authorization)
+        except TypeError:
+            # This is likely a ProblemDetail that didn't get a patron is_new status back with it
+            patron = self.authenticator.authenticated_patron(_db, flask.request.authorization)
 
         if isinstance(patron, ProblemDetail):
             # There was a problem turning the authorization header into a valid patron.
@@ -2811,6 +2831,7 @@ class BasicAuthTempTokenController(object):
                 token_type="bearer",
                 expires_in=BasicAuthTempTokenController.TOKEN_DURATION.seconds,
                 root_lane=root_lane,
+                is_new=is_new
             )
 
             return flask.jsonify(data)

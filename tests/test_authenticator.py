@@ -86,7 +86,7 @@ class MockAuthenticationProvider(object):
         self.patrondata = patrondata
 
     def authenticate(self, _db, header):
-        return self.patron
+        return self.patron, False
 
 
 class MockBasicAuthenticationProvider(
@@ -103,7 +103,7 @@ class MockBasicAuthenticationProvider(
         self.patrondata = patrondata
 
     def authenticate(self, _db, header):
-        return self.patron
+        return self.patron, False
 
     def remote_authenticate(self, username, password):
         return self.patrondata
@@ -203,6 +203,7 @@ class TestPatronData(AuthenticatorTest):
             authorization_expires=self.expiration_time,
             fines=Money(6, "USD"),
             block_reason=PatronData.NO_VALUE,
+            is_new=False,
         )
 
     def test_to_dict(self):
@@ -217,7 +218,8 @@ class TestPatronData(AuthenticatorTest):
             email_address="5",
             authorization_expires=self.expiration_time.strftime("%Y-%m-%d"),
             fines="6",
-            block_reason=None
+            block_reason=None,
+            is_new=False
         )
         assert data == expect
 
@@ -976,7 +978,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             basic_auth_provider=basic
         )
         assert (
-            patron ==
+            patron, _ ==
             authenticator.authenticated_patron(
                 self._db, dict(username="foo", password="bar")
             ))
@@ -1580,7 +1582,7 @@ class TestAuthenticationProvider(AuthenticatorTest):
                              patrondata=expired,
                              remote_patron_lookup_patrondata=expired
         )
-        patron = provider.authenticated_patron(
+        patron, _ = provider.authenticated_patron(
             self._db, self.credentials
         )
         assert "1" == patron.external_identifier
@@ -1613,12 +1615,13 @@ class TestAuthenticationProvider(AuthenticatorTest):
             patrondata=incomplete_data,
             remote_patron_lookup_patrondata=complete_data
         )
-        patron2 = provider.authenticated_patron(
+        patron2, patron2_is_new = provider.authenticated_patron(
             self._db, self.credentials
         )
 
         # We found the right patron.
         assert patron == patron2
+        assert patron2_is_new is False
 
         # We updated their metadata.
         assert "user" == patron.username
@@ -1640,7 +1643,7 @@ class TestAuthenticationProvider(AuthenticatorTest):
         # patron has borrowing privileges.
         last_sync = patron.last_external_sync
         assert False == PatronUtility.needs_external_sync(patron)
-        patron = provider.authenticated_patron(
+        patron, _ = provider.authenticated_patron(
             self._db, dict(username=username)
         )
         assert last_sync == patron.last_external_sync
@@ -1661,7 +1664,7 @@ class TestAuthenticationProvider(AuthenticatorTest):
             complete=False
         )
         provider.patrondata = incomplete_data
-        patron = provider.authenticated_patron(
+        patron, _ = provider.authenticated_patron(
             self._db, dict(username="someotheridentifier")
         )
         assert patron.last_external_sync > last_sync
@@ -2026,7 +2029,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
             patron=patron
         )
         value = present_patron.testing_patron(self._db)
-        assert (patron, "2") == value
+        assert ((patron, False), "2") == value
 
         # Finally, testing_patron_or_bust works, returning the same
         # value as testing_patron()
@@ -2327,7 +2330,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         # the credentials.
         credentials_with_spaces = dict(username="  user ", password=" pass \t ")
         for creds in (self.credentials, credentials_with_spaces):
-            assert patron == provider.authenticate(self._db, self.credentials)
+            assert patron, _ == provider.authenticate(self._db, self.credentials)
 
         # All the different ways the database lookup might go are covered in
         # test_local_patron_lookup. This test only covers the case where
@@ -2380,7 +2383,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         )
 
         # The patron can be authenticated.
-        assert patron == provider.authenticate(self._db, self.credentials)
+        assert (patron, False) == provider.authenticate(self._db, self.credentials)
 
         # The Authenticator noticed that the patron's account was out
         # of sync, and since the authentication response did not
@@ -2406,7 +2409,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         )
 
         # The patron can be authenticated.
-        assert patron == provider.authenticate(self._db, self.credentials)
+        assert (patron, False) == provider.authenticate(self._db, self.credentials)
 
         # Since the authentication response provided a complete
         # overview of the patron, the Authenticator was able to sync
@@ -2449,7 +2452,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         assert None == provider.authenticate(self._db, self.credentials)
 
         # This succeeds because we pass the regex test.
-        assert patron == provider.authenticate(
+        assert patron, _ == provider.authenticate(
             self._db, dict(username="food", password="barbecue"))
 
     def test_authentication_succeeds_but_patronlookup_fails(self):
@@ -2480,7 +2483,10 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
             self._str, ExternalIntegration.PATRON_AUTH_GOAL
         )
         provider = MockBasic(library, integration, patrondata=patrondata, remote_patron_lookup_patrondata=patrondata)
-        patron = provider.authenticate(self._db, self.credentials)
+        patron, patron_is_new = provider.authenticate(self._db, self.credentials)
+
+        # Verify that the patron was created
+        assert patron_is_new is True
 
         # A server side Patron was created from the PatronData.
         assert isinstance(patron, Patron)
@@ -2517,11 +2523,12 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
 
         provider = self.mock_basic(patrondata=patrondata)
         provider.external_type_regular_expression = re.compile("^(.)")
-        patron2 = provider.authenticate(self._db, self.credentials)
+        patron2, patron2_is_new = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
         # authorization provider.
         assert patron2 == patron
+        assert patron2_is_new is False
 
         # And we updated our local copy of the patron to reflect their
         # new identifiers.
@@ -2547,11 +2554,12 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         )
 
         provider = self.mock_basic(patrondata=patrondata)
-        patron2 = provider.authenticate(self._db, self.credentials)
+        patron2, patron2_is_new = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
         # authorization provider, based on the username match.
         assert patron2 == patron
+        assert patron2_is_new is False
 
         # And we updated our local copy of the patron to reflect their
         # new identifiers.
@@ -2576,11 +2584,12 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         )
 
         provider = self.mock_basic(patrondata=patrondata)
-        patron2 = provider.authenticate(self._db, self.credentials)
+        patron2, patron2_is_new = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
         # authorization provider, based on the username match.
         assert patron2 == patron
+        assert patron2_is_new is False
 
         # And we updated our local copy of the patron to reflect their
         # new identifiers.
@@ -2958,8 +2967,9 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
             # Ensure the token is valid
             # TODO test this with app.test_client or something that can hit an authed route
             headers_bearer = f"Bearer {token}"
-            patron = self.controller.authenticator.authenticated_patron(self._db, headers_bearer)
+            patron, is_new = self.controller.authenticator.authenticated_patron(self._db, headers_bearer)
             assert 'unittestuser' == patron.username
+            assert is_new is False
 
     def test_basic_auth_temp_token_patron_root_lane(self):
         """

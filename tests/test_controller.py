@@ -867,7 +867,7 @@ class TestBaseController(CirculationControllerTest):
         with self.request_context_with_library(
             "/", headers=dict(Authorization=self.valid_auth)
         ):
-            result = self.controller.authenticated_patron_from_request()
+            result, is_new = self.controller.authenticated_patron_from_request()
             assert self.default_patron == result
             assert self.default_patron == flask.request.patron
 
@@ -5691,7 +5691,7 @@ class TestProfileController(ControllerTest):
                 data=json.dumps(payload)
         ):
             # By default, a patron has no value for synchronize_annotations.
-            request_patron = self.controller.authenticated_patron_from_request()
+            request_patron, is_new = self.controller.authenticated_patron_from_request()
             assert None == request_patron.synchronize_annotations
 
             # This means we can't create annotations for them.
