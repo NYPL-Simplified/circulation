@@ -222,7 +222,7 @@ class TestAxis360API(Axis360Test):
             patron_activity.name)
         assert True == patron_activity.success
         assert "Found 2 loans/holds" == patron_activity.result
-        (patron, is_new), pin = api.patron_activity_called_with
+        patron, pin = api.patron_activity_called_with
         assert "username1" == patron.authorization_identifier
         assert "password1" == pin
 
