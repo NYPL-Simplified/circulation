@@ -125,6 +125,7 @@ class PatronData(object):
                  neighborhood=None,
                  cached_neighborhood=None,
                  complete=True,
+                 is_new=False,
                  ):
         """Store basic information about a patron.
 
@@ -203,6 +204,8 @@ class PatronData(object):
         complete data we are likely to get for this patron from this
         data source, or is it an abbreviated version of more complete
         data we could get some other way?
+
+        :param is_new: Is this the first time we are seeing this Patron?
         """
         self.permanent_id = permanent_id
 
@@ -214,6 +217,7 @@ class PatronData(object):
         self.block_reason = block_reason
         self.library_identifier = library_identifier
         self.complete = complete
+        self.is_new = is_new
 
         # We do not store personal_name in the database, but we provide
         # it to the client if possible.
@@ -442,7 +446,8 @@ class PatronData(object):
             external_type=self.external_type,
             block_reason=self.block_reason,
             personal_name=self.personal_name,
-            email_address=self.email_address
+            email_address=self.email_address,
+            is_new=self.is_new,
         )
         data = dict((k, scrub(v)) for k, v in list(data.items()))
 
