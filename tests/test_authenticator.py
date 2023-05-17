@@ -2937,6 +2937,13 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
             bearer_token_signing_secret="a secret"
         )
 
+        # Patch some methods that Authenticator would use
+        class MockAuthenticationProvider:
+            providers = [basic, ]
+        short_name = self._default_library.short_name
+        setattr(authenticator, "current_library_short_name", short_name)
+        setattr(authenticator, "library_authenticators", {short_name: MockAuthenticationProvider})
+
         self.controller = BasicAuthTempTokenController(authenticator)
 
     def test_basic_auth_temp_token(self):

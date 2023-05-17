@@ -1792,6 +1792,8 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     # indicates that no value should be used.)
     class_default = object()
 
+    patron_is_new = False
+
     def __init__(self, library, integration, analytics=None):
         """Create a BasicAuthenticationProvider.
 
@@ -1855,6 +1857,8 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         self.oauth_enabled = ConfigurationSetting.for_library_and_externalintegration(
             _db, self.HTTP_BASIC_OAUTH_ENABLED, library, integration
         ).bool_value or self.HTTP_BASIC_OAUTH_ENABLED_DEFAULT
+
+        self.patron_is_new = False
 
     def remote_patron_lookup(self, patron_or_patrondata):
         """Ask the remote for information about this patron, and then make sure
@@ -2028,6 +2032,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             # Just make sure our local data is up to date with
             # whatever we just got from remote.
             self.apply_patrondata(patrondata, patron)
+            self.patron_is_new = False
             return patron
 
         # At this point there are two possibilities:
@@ -2056,6 +2061,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             # For whatever reason, the remote lookup implementation
             # returned a Patron object instead of a PatronData. Just
             # use that Patron object.
+            self.patron_is_new = False
             return patrondata
 
         # At this point we have a _complete_ PatronData object which we
@@ -2069,6 +2075,9 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             patron, is_new = patrondata.get_or_create_patron(
                 _db, self.library_id, analytics=self.analytics
             )
+            self.patron_is_new = is_new
+        else:
+            self.patron_is_new = False
 
         # The lookup failed in the first place either because the
         # Patron did not exist on the local side, or because one of
@@ -2780,6 +2789,10 @@ class BasicAuthTempTokenController(object):
     def basic_auth_temp_token(self, params, _db):
         """Generate and return a temporary token from HTTP Basic Auth credentials.
         """
+        short_name = self.authenticator.current_library_short_name
+        providers = self.authenticator.library_authenticators[short_name].providers
+        is_new = list(providers)[0].patron_is_new
+
         patron = self.authenticator.authenticated_patron(
             _db, flask.request.authorization)
 
@@ -2811,6 +2824,7 @@ class BasicAuthTempTokenController(object):
                 token_type="bearer",
                 expires_in=BasicAuthTempTokenController.TOKEN_DURATION.seconds,
                 root_lane=root_lane,
+                is_new=is_new,
             )
 
             return flask.jsonify(data)
