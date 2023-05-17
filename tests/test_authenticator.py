@@ -217,6 +217,7 @@ class TestPatronData(AuthenticatorTest):
             email_address="5",
             authorization_expires=self.expiration_time.strftime("%Y-%m-%d"),
             fines="6",
+            is_new=False,
             block_reason=None
         )
         assert data == expect
@@ -2488,10 +2489,15 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         assert patrondata.permanent_id == patron.external_identifier
         assert (patrondata.authorization_identifier ==
             patron.authorization_identifier)
+        assert provider.patron_is_new is True
 
         # Information not relevant to the patron's identity was stored
         # in the Patron object after it was created.
         assert 1 == patron.fines
+
+        # Re-authenticate and ensure patron_is_new is False this time
+        provider.authenticate(self._db, self.credentials)
+        assert provider.patron_is_new is False
 
     def test_authentication_updates_outdated_patron_on_permanent_id_match(self):
         # A patron's permanent ID won't change.
@@ -2961,6 +2967,9 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
 
             token = response.json.get('access_token')
             assert token
+
+            is_new = response.json.get('is_new')
+            assert is_new is False
 
             # Ensure the token is valid
             # TODO test this with app.test_client or something that can hit an authed route
