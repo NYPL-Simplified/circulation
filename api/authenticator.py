@@ -2791,7 +2791,8 @@ class BasicAuthTempTokenController(object):
         """
         short_name = self.authenticator.current_library_short_name
         providers = self.authenticator.library_authenticators[short_name].providers
-        is_new = list(providers)[0].patron_is_new
+        basic_auth_providers = list(filter(lambda provider: isinstance(provider, BasicAuthenticationProvider), providers))
+        is_new = any([provider.patron_is_new for provider in basic_auth_providers])
 
         patron = self.authenticator.authenticated_patron(
             _db, flask.request.authorization)
