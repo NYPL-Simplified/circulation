@@ -1053,6 +1053,10 @@
         <span class="c1"># Add &quot;up&quot; link.</span>
         <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">opds_feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="s2">&quot;up&quot;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">annotator</span><span class="o">.</span><span class="n">lane_url</span><span class="p">(</span><span class="n">lane</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">))</span>
 
+        <span class="c1"># Add URLs to change faceted views</span>
+        <span class="k">for</span> <span class="n">args</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">facet_links</span><span class="p">(</span><span class="n">annotator</span><span class="p">,</span> <span class="n">facets</span><span class="p">):</span>
+            <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">opds_feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="o">**</span><span class="n">args</span><span class="p">)</span>
+
         <span class="c1"># We do not add breadcrumbs to this feed since you&#39;re not</span>
         <span class="c1"># technically searching the this lane; you are searching the</span>
         <span class="c1"># library&#39;s entire collection, using _some_ of the constraints</span>
