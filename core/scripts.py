@@ -83,10 +83,7 @@ from .opds_import import (
     OPDSImporter,
 )
 from .util import fast_query_count
-from .util.personal_names import (
-    contributor_name_match_ratio,
-    display_name_to_sort_name
-)
+from .util.personal_names import contributor_name_match_ratio, display_name_to_sort_name
 from .util.worker_pools import (
     DatabasePool,
 )
@@ -94,7 +91,6 @@ from .util.datetime_helpers import strptime_utc, to_utc, utc_now
 
 
 class Script(object):
-
     @property
     def _db(self):
         if not hasattr(self, "_session"):
@@ -108,11 +104,11 @@ class Script(object):
         This is either the .name of the Script object or the name of
         the class.
         """
-        return getattr(self, 'name', self.__class__.__name__)
+        return getattr(self, "name", self.__class__.__name__)
 
     @property
     def log(self):
-        if not hasattr(self, '_log'):
+        if not hasattr(self, "_log"):
             self._log = logging.getLogger(self.script_name)
         return self._log
 
@@ -134,8 +130,8 @@ class Script(object):
         """Try to pass the given string as a time."""
         if not time_string:
             return None
-        for format in ('%Y-%m-%d', '%m/%d/%Y', '%Y%m%d'):
-            for hours in ('', ' %H:%M:%S'):
+        for format in ("%Y-%m-%d", "%m/%d/%Y", "%Y%m%d"):
+            for hours in ("", " %H:%M:%S"):
                 full_format = format + hours
                 try:
                     parsed = strptime_utc(time_string, full_format)
@@ -164,10 +160,7 @@ class Script(object):
                 timestamp_data = None
             self.update_timestamp(timestamp_data, start_time, None)
         except Exception as e:
-            logging.error(
-                "Fatal exception while running script: %s", e,
-                exc_info=e
-            )
+            logging.error("Fatal exception while running script: %s", e, exc_info=e)
             stack_trace = traceback.format_exc()
             self.update_timestamp(None, start_time, stack_trace)
             raise
@@ -216,14 +209,16 @@ class TimestampScript(Script):
         if timestamp_data is None:
             timestamp_data = TimestampData()
         timestamp_data.finalize(
-            self.script_name, Timestamp.SCRIPT_TYPE, self.timestamp_collection,
-            start=start, exception=exception
+            self.script_name,
+            Timestamp.SCRIPT_TYPE,
+            self.timestamp_collection,
+            start=start,
+            exception=exception,
         )
         timestamp_data.apply(self._db)
 
 
 class RunMonitorScript(Script):
-
     def __init__(self, monitor, _db=None, **kwargs):
         super(RunMonitorScript, self).__init__(_db)
         if issubclass(monitor, CollectionMonitor):
@@ -291,7 +286,10 @@ class RunMultipleMonitorsScript(Script):
                 monitor.exception = e
                 self.log.error(
                     "Error running monitor %s for collection %s: %s",
-                    self.name, collection_name, e, exc_info=e
+                    self.name,
+                    collection_name,
+                    e,
+                    exc_info=e,
                 )
 
 
@@ -318,7 +316,7 @@ class RunCoverageProvidersScript(Script):
     def do_run(self):
         providers = list(self.providers)
         if not providers:
-            self.log.info('No CoverageProviders to run.')
+            self.log.info("No CoverageProviders to run.")
 
         progress = []
         while providers:
@@ -332,7 +330,8 @@ class RunCoverageProvidersScript(Script):
                 except Exception as e:
                     self.log.error(
                         "Error in %r, moving on to next CoverageProvider.",
-                        provider, exc_info=e
+                        provider,
+                        exc_info=e,
                     )
 
                 self.log.debug("Completed %s", provider.service_name)
@@ -350,8 +349,7 @@ class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
         providers = providers or list()
         if provider_class:
             providers += self.get_providers(_db, provider_class, **kwargs)
-        super(RunCollectionCoverageProviderScript,
-              self).__init__(providers, _db=_db)
+        super(RunCollectionCoverageProviderScript, self).__init__(providers, _db=_db)
 
     def get_providers(self, _db, provider_class, **kwargs):
         return list(provider_class.all(_db, **kwargs))
@@ -362,9 +360,7 @@ class RunThreadedCollectionCoverageProviderScript(Script):
 
     DEFAULT_WORKER_SIZE = 5
 
-    def __init__(self, provider_class, worker_size=None, _db=None,
-                 **provider_kwargs
-                 ):
+    def __init__(self, provider_class, worker_size=None, _db=None, **provider_kwargs):
         super(RunThreadedCollectionCoverageProviderScript, self).__init__(_db)
 
         self.worker_size = worker_size or self.DEFAULT_WORKER_SIZE
@@ -392,12 +388,10 @@ class RunThreadedCollectionCoverageProviderScript(Script):
 
         for collection in collections:
             provider = self.provider_class(collection, **self.provider_kwargs)
-            with (
-                pool or DatabasePool(self.worker_size, self.session_factory)
+            with pool or DatabasePool(
+                self.worker_size, self.session_factory
             ) as job_queue:
-                query_size, batch_size = self.get_query_and_batch_sizes(
-                    provider
-                )
+                query_size, batch_size = self.get_query_and_batch_sizes(provider)
                 # Without a commit, the query to count which items need
                 # coverage hangs in the database, blocking the threads.
                 self._db.commit()
@@ -408,13 +402,13 @@ class RunThreadedCollectionCoverageProviderScript(Script):
                 # value as its complets. It woudl be better if all the
                 # jobs could share a single 'progress' object.
                 while offset < query_size:
-                    progress = CoverageProviderProgress(
-                        start=utc_now()
-                    )
+                    progress = CoverageProviderProgress(start=utc_now())
                     progress.offset = offset
                     job = CollectionCoverageProviderJob(
-                        collection, self.provider_class, progress,
-                        **self.provider_kwargs
+                        collection,
+                        self.provider_class,
+                        progress,
+                        **self.provider_kwargs,
                     )
                     job_queue.put(job)
                     offset += batch_size
@@ -459,15 +453,18 @@ class IdentifierInputScript(InputScript):
     DATABASE_ID = "Database ID"
 
     @classmethod
-    def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin,
-                           *args, **kwargs):
+    def parse_command_line(
+        cls, _db=None, cmd_args=None, stdin=sys.stdin, *args, **kwargs
+    ):
         parser = cls.arg_parser()
         parsed = parser.parse_args(cmd_args)
         stdin = cls.read_stdin_lines(stdin)
         return cls.look_up_identifiers(_db, parsed, stdin, *args, **kwargs)
 
     @classmethod
-    def look_up_identifiers(cls, _db, parsed, stdin_identifier_strings, *args, **kwargs):
+    def look_up_identifiers(
+        cls, _db, parsed, stdin_identifier_strings, *args, **kwargs
+    ):
         """Turn identifiers as specified on the command line into
         real database Identifier objects.
         """
@@ -478,12 +475,14 @@ class IdentifierInputScript(InputScript):
             # We can also call parse_identifier_list.
             identifier_strings = parsed.identifier_strings
             if stdin_identifier_strings:
-                identifier_strings = (
-                    identifier_strings + stdin_identifier_strings
-                )
+                identifier_strings = identifier_strings + stdin_identifier_strings
             parsed.identifiers = cls.parse_identifier_list(
-                _db, parsed.identifier_type, data_source,
-                identifier_strings, *args, **kwargs
+                _db,
+                parsed.identifier_type,
+                data_source,
+                identifier_strings,
+                *args,
+                **kwargs,
             )
         else:
             # The script can call parse_identifier_list later if it
@@ -495,23 +494,24 @@ class IdentifierInputScript(InputScript):
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--identifier-type',
-            help='Process identifiers of this type. If IDENTIFIER is not specified, all identifiers of this type will be processed. To name identifiers by their database ID, use --identifier-type="Database ID"'
+            "--identifier-type",
+            help='Process identifiers of this type. If IDENTIFIER is not specified, all identifiers of this type will be processed. To name identifiers by their database ID, use --identifier-type="Database ID"',
         )
         parser.add_argument(
-            '--identifier-data-source',
-            help='Process only identifiers which have a LicensePool associated with this DataSource'
+            "--identifier-data-source",
+            help="Process only identifiers which have a LicensePool associated with this DataSource",
         )
         parser.add_argument(
-            'identifier_strings',
-            help='A specific identifier to process.',
-            metavar='IDENTIFIER', nargs='*'
+            "identifier_strings",
+            help="A specific identifier to process.",
+            metavar="IDENTIFIER",
+            nargs="*",
         )
         return parser
 
     @classmethod
     def parse_identifier_list(
-            cls, _db, identifier_type, data_source, arguments, autocreate=False
+        cls, _db, identifier_type, data_source, arguments, autocreate=False
     ):
         """Turn a list of identifiers into a list of Identifier objects.
 
@@ -530,16 +530,20 @@ class IdentifierInputScript(InputScript):
 
         if not identifier_type:
             raise ValueError(
-                "No identifier type specified! Use '--identifier-type=\"Database ID\"' to name identifiers by database ID.")
+                "No identifier type specified! Use '--identifier-type=\"Database ID\"' to name identifiers by database ID."
+            )
 
         if len(arguments) == 0:
             if data_source:
-                identifiers = _db.query(Identifier).\
-                    join(Identifier.licensed_through).\
-                    filter(
+                identifiers = (
+                    _db.query(Identifier)
+                    .join(Identifier.licensed_through)
+                    .filter(
                         Identifier.type == identifier_type,
-                        LicensePool.data_source == data_source
-                ).all()
+                        LicensePool.data_source == data_source,
+                    )
+                    .all()
+                )
             return identifiers
 
         for arg in arguments:
@@ -556,9 +560,7 @@ class IdentifierInputScript(InputScript):
                     _db, identifier_type, arg, autocreate=autocreate
                 )
             if not identifier:
-                logging.warning(
-                    "Could not load identifier %s/%s", identifier_type, arg
-                )
+                logging.warning("Could not load identifier %s/%s", identifier_type, arg)
             if identifier:
                 identifiers.append(identifier)
         return identifiers
@@ -566,9 +568,9 @@ class IdentifierInputScript(InputScript):
 
 class LibraryInputScript(InputScript):
     """A script that operates on one or more Libraries."""
+
     @classmethod
-    def parse_command_line(cls, _db=None, cmd_args=None,
-                           *args, **kwargs):
+    def parse_command_line(cls, _db=None, cmd_args=None, *args, **kwargs):
         parser = cls.arg_parser(_db)
         parsed = parser.parse_args(cmd_args)
         return cls.look_up_libraries(_db, parsed, *args, **kwargs)
@@ -579,10 +581,11 @@ class LibraryInputScript(InputScript):
         library_names = sorted(l.short_name for l in _db.query(Library))
         library_names = '"' + '", "'.join(library_names) + '"'
         parser.add_argument(
-            'libraries',
-            help='Name of a specific library to process. Libraries on this system: %s' % library_names,
-            metavar='SHORT_NAME',
-            nargs='*' if multiple_libraries else 1
+            "libraries",
+            help="Name of a specific library to process. Libraries on this system: %s"
+            % library_names,
+            metavar="SHORT_NAME",
+            nargs="*" if multiple_libraries else 1,
         )
         return parser
 
@@ -632,9 +635,7 @@ class LibraryInputScript(InputScript):
                     libraries.append(library)
                     break
             else:
-                logging.warning(
-                    "Could not find library %s", arg
-                )
+                logging.warning("Could not find library %s", arg)
         return libraries
 
     def do_run(self, *args, **kwargs):
@@ -653,24 +654,26 @@ class PatronInputScript(LibraryInputScript):
     """A script that operates on one or more Patrons."""
 
     @classmethod
-    def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin,
-                           *args, **kwargs):
+    def parse_command_line(
+        cls, _db=None, cmd_args=None, stdin=sys.stdin, *args, **kwargs
+    ):
         parser = cls.arg_parser(_db)
         parsed = parser.parse_args(cmd_args)
         if stdin:
             stdin = cls.read_stdin_lines(stdin)
         parsed = super(PatronInputScript, cls).look_up_libraries(
-            _db, parsed, *args, **kwargs)
+            _db, parsed, *args, **kwargs
+        )
         return cls.look_up_patrons(_db, parsed, stdin, *args, **kwargs)
 
     @classmethod
     def arg_parser(cls, _db):
-        parser = super(PatronInputScript, cls).arg_parser(
-            _db, multiple_libraries=False)
+        parser = super(PatronInputScript, cls).arg_parser(_db, multiple_libraries=False)
         parser.add_argument(
-            'identifiers',
-            help='A specific patron identifier to process.',
-            metavar='IDENTIFIER', nargs='+'
+            "identifiers",
+            help="A specific patron identifier to process.",
+            metavar="IDENTIFIER",
+            nargs="+",
         )
         return parser
 
@@ -683,9 +686,7 @@ class PatronInputScript(LibraryInputScript):
             patron_strings = parsed.identifiers
             library = parsed.libraries[0]
             if stdin_patron_strings:
-                patron_strings = (
-                    patron_strings + stdin_patron_strings
-                )
+                patron_strings = patron_strings + stdin_patron_strings
             parsed.patrons = cls.parse_patron_list(
                 _db, library, patron_strings, *args, **kwargs
             )
@@ -709,13 +710,18 @@ class PatronInputScript(LibraryInputScript):
         for arg in arguments:
             if not arg:
                 continue
-            for field in (Patron.authorization_identifier, Patron.username,
-                          Patron.external_identifier):
+            for field in (
+                Patron.authorization_identifier,
+                Patron.username,
+                Patron.external_identifier,
+            ):
                 try:
-                    patron = _db.query(Patron)\
-                        .filter(field == arg)\
-                        .filter(Patron.library_id == library.id)\
+                    patron = (
+                        _db.query(Patron)
+                        .filter(field == arg)
+                        .filter(Patron.library_id == library.id)
                         .one()
+                    )
                 except NoResultFound:
                     continue
                 except MultipleResultsFound:
@@ -724,9 +730,7 @@ class PatronInputScript(LibraryInputScript):
                     patrons.append(patron)
                     break
             else:
-                logging.warning(
-                    "Could not find patron %s", arg
-                )
+                logging.warning("Could not find patron %s", arg)
         return patrons
 
     def do_run(self, *args, **kwargs):
@@ -746,6 +750,7 @@ class LaneSweeperScript(LibraryInputScript):
 
     def process_library(self, library):
         from .lane import WorkList
+
         top_level = WorkList.top_level_for_library(self._db, library)
         queue = [top_level]
         while queue:
@@ -771,8 +776,7 @@ class CustomListSweeperScript(LibraryInputScript):
     """Do something to each custom list in a library."""
 
     def process_library(self, library):
-        lists = self._db.query(CustomList).filter(
-            CustomList.library_id == library.id)
+        lists = self._db.query(CustomList).filter(CustomList.library_id == library.id)
         for l in lists:
             self.process_custom_list(l)
         self._db.commit()
@@ -792,13 +796,10 @@ class SubjectInputScript(Script):
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
+        parser.add_argument("--subject-type", help="Process subjects of this type")
         parser.add_argument(
-            '--subject-type',
-            help='Process subjects of this type'
-        )
-        parser.add_argument(
-            '--subject-filter',
-            help='Process subjects whose names or identifiers match this substring'
+            "--subject-filter",
+            help="Process subjects whose names or identifiers match this substring",
         )
         return parser
 
@@ -810,14 +811,13 @@ class RunCoverageProviderScript(IdentifierInputScript):
     def arg_parser(cls):
         parser = IdentifierInputScript.arg_parser()
         parser.add_argument(
-            '--cutoff-time',
-            help='Update existing coverage records if they were originally created after this time.'
+            "--cutoff-time",
+            help="Update existing coverage records if they were originally created after this time.",
         )
         return parser
 
     @classmethod
-    def parse_command_line(cls, _db, cmd_args=None, stdin=sys.stdin,
-                           *args, **kwargs):
+    def parse_command_line(cls, _db, cmd_args=None, stdin=sys.stdin, *args, **kwargs):
         parser = cls.arg_parser()
         parsed = parser.parse_args(cmd_args)
         stdin = cls.read_stdin_lines(stdin)
@@ -826,8 +826,9 @@ class RunCoverageProviderScript(IdentifierInputScript):
             parsed.cutoff_time = cls.parse_time(parsed.cutoff_time)
         return parsed
 
-    def __init__(self, provider, _db=None, cmd_args=None, *provider_args, **provider_kwargs):
-
+    def __init__(
+        self, provider, _db=None, cmd_args=None, *provider_args, **provider_kwargs
+    ):
         super(RunCoverageProviderScript, self).__init__(_db)
         parsed_args = self.parse_command_line(self._db, cmd_args)
         if parsed_args.identifier_type:
@@ -847,9 +848,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
             kwargs.update(provider_kwargs)
 
             provider = provider(
-                self._db, *provider_args,
-                cutoff_time=parsed_args.cutoff_time,
-                **kwargs
+                self._db, *provider_args, cutoff_time=parsed_args.cutoff_time, **kwargs
             )
         self.provider = provider
         self.name = self.provider.service_name
@@ -883,13 +882,13 @@ class ShowLibrariesScript(Script):
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--short-name',
-            help='Only display information for the library with the given short name',
+            "--short-name",
+            help="Only display information for the library with the given short name",
         )
         parser.add_argument(
-            '--show-secrets',
-            help='Print out secrets associated with the library.',
-            action='store_true'
+            "--show-secrets",
+            help="Print out secrets associated with the library.",
+            action="store_true",
         )
         return parser
 
@@ -897,43 +896,33 @@ class ShowLibrariesScript(Script):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
         if args.short_name:
-            library = get_one(
-                _db, Library, short_name=args.short_name
-            )
+            library = get_one(_db, Library, short_name=args.short_name)
             libraries = [library]
         else:
             libraries = _db.query(Library).order_by(Library.name).all()
         if not libraries:
             output.write("No libraries found.\n")
         for library in libraries:
-            output.write(
-                "\n".join(
-                    library.explain(
-                        include_secrets=args.show_secrets
-                    )
-                )
-            )
+            output.write("\n".join(library.explain(include_secrets=args.show_secrets)))
             output.write("\n")
 
 
 class ConfigurationSettingScript(Script):
-
     @classmethod
     def _parse_setting(self, setting):
         """Parse a command-line setting option into a key-value pair."""
-        if not '=' in setting:
+        if not "=" in setting:
             raise ValueError(
-                'Incorrect format for setting: "%s". Should be "key=value"'
-                % setting
+                'Incorrect format for setting: "%s". Should be "key=value"' % setting
             )
-        return setting.split('=', 1)
+        return setting.split("=", 1)
 
     @classmethod
     def add_setting_argument(self, parser, help):
         """Modify an ArgumentParser to indicate that the script takes
         command-line settings.
         """
-        parser.add_argument('--setting', help=help, action="append")
+        parser.add_argument("--setting", help=help, action="append")
 
     def apply_settings(self, settings, obj):
         """Treat `settings` as a list of command-line argument settings,
@@ -958,21 +947,22 @@ class ConfigureSiteScript(ConfigurationSettingScript):
         parser = argparse.ArgumentParser()
 
         parser.add_argument(
-            '--show-secrets',
+            "--show-secrets",
             help="Include secrets when displaying site settings.",
             action="store_true",
-            default=False
+            default=False,
         )
 
         cls.add_setting_argument(
             parser,
-            'Set a site-wide setting, such as default_nongrouped_feed_max_age. Format: --setting="default_nongrouped_feed_max_age=1200"'
+            'Set a site-wide setting, such as default_nongrouped_feed_max_age. Format: --setting="default_nongrouped_feed_max_age=1200"',
         )
 
         parser.add_argument(
-            '--force',
+            "--force",
             help="Set a site-wide setting even if the key isn't a known setting.",
-            dest='force', action='store_true'
+            dest="force",
+            action="store_true",
         )
 
         return parser
@@ -983,7 +973,9 @@ class ConfigureSiteScript(ConfigurationSettingScript):
         if args.setting:
             for setting in args.setting:
                 key, value = self._parse_setting(setting)
-                if not args.force and not key in [s.get("key") for s in self.config.SITEWIDE_SETTINGS]:
+                if not args.force and not key in [
+                    s.get("key") for s in self.config.SITEWIDE_SETTINGS
+                ]:
                     raise ValueError(
                         "'%s' is not a known site-wide setting. Use --force to set it anyway."
                         % key
@@ -991,9 +983,9 @@ class ConfigureSiteScript(ConfigurationSettingScript):
                 else:
                     ConfigurationSetting.sitewide(_db, key).value = value
         output.write(
-            "\n".join(ConfigurationSetting.explain(
-                _db, include_secrets=args.show_secrets
-            ))
+            "\n".join(
+                ConfigurationSetting.explain(_db, include_secrets=args.show_secrets)
+            )
         )
         site_configuration_has_changed(_db)
         _db.commit()
@@ -1001,18 +993,19 @@ class ConfigureSiteScript(ConfigurationSettingScript):
 
 class ConfigureLibraryScript(ConfigurationSettingScript):
     """Create a library or change its settings."""
+
     name = "Change a library's settings"
 
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--name',
-            help='Official name of the library',
+            "--name",
+            help="Official name of the library",
         )
         parser.add_argument(
-            '--short-name',
-            help='Short name of the library',
+            "--short-name",
+            help="Short name of the library",
         )
         cls.add_setting_argument(
             parser,
@@ -1024,9 +1017,7 @@ class ConfigureLibraryScript(ConfigurationSettingScript):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
         if not args.short_name:
-            raise ValueError(
-                "You must identify the library by its short name."
-            )
+            raise ValueError("You must identify the library by its short name.")
 
         # Are we talking about an existing library?
         libraries = _db.query(Library).all()
@@ -1035,15 +1026,16 @@ class ConfigureLibraryScript(ConfigurationSettingScript):
             # Currently there can only be one library, and one already exists.
             [library] = libraries
             if args.short_name and library.short_name != args.short_name:
-                raise ValueError("Could not locate library '%s'" %
-                                 args.short_name)
+                raise ValueError("Could not locate library '%s'" % args.short_name)
         else:
             # No existing library. Make one.
             library, ignore = get_one_or_create(
-                _db, Library, create_method_kwargs=dict(
+                _db,
+                Library,
+                create_method_kwargs=dict(
                     uuid=str(uuid.uuid4()),
                     short_name=args.short_name,
-                )
+                ),
             )
 
         if args.name:
@@ -1067,13 +1059,13 @@ class ShowCollectionsScript(Script):
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--name',
-            help='Only display information for the collection with the given name',
+            "--name",
+            help="Only display information for the collection with the given name",
         )
         parser.add_argument(
-            '--show-secrets',
-            help='Display secret values such as passwords.',
-            action='store_true'
+            "--show-secrets",
+            help="Display secret values such as passwords.",
+            action="store_true",
         )
         return parser
 
@@ -1086,9 +1078,7 @@ class ShowCollectionsScript(Script):
             if collection:
                 collections = [collection]
             else:
-                output.write(
-                    "Could not locate collection by name: %s" % name
-                )
+                output.write("Could not locate collection by name: %s" % name)
                 collections = []
         else:
             collections = _db.query(Collection).order_by(Collection.name).all()
@@ -1096,9 +1086,7 @@ class ShowCollectionsScript(Script):
             output.write("No collections found.\n")
         for collection in collections:
             output.write(
-                "\n".join(
-                    collection.explain(include_secrets=args.show_secrets)
-                )
+                "\n".join(collection.explain(include_secrets=args.show_secrets))
             )
             output.write("\n")
 
@@ -1112,13 +1100,13 @@ class ShowIntegrationsScript(Script):
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--name',
-            help='Only display information for the integration with the given name or ID',
+            "--name",
+            help="Only display information for the integration with the given name or ID",
         )
         parser.add_argument(
-            '--show-secrets',
-            help='Display secret values such as passwords.',
-            action='store_true'
+            "--show-secrets",
+            help="Display secret values such as passwords.",
+            action="store_true",
         )
         return parser
 
@@ -1133,26 +1121,26 @@ class ShowIntegrationsScript(Script):
             if integration:
                 integrations = [integration]
             else:
-                output.write(
-                    "Could not locate integration by name or ID: %s\n" % args
-                )
+                output.write("Could not locate integration by name or ID: %s\n" % args)
                 integrations = []
         else:
-            integrations = _db.query(ExternalIntegration).order_by(
-                ExternalIntegration.name, ExternalIntegration.id).all()
+            integrations = (
+                _db.query(ExternalIntegration)
+                .order_by(ExternalIntegration.name, ExternalIntegration.id)
+                .all()
+            )
         if not integrations:
             output.write("No integrations found.\n")
         for integration in integrations:
             output.write(
-                "\n".join(
-                    integration.explain(include_secrets=args.show_secrets)
-                )
+                "\n".join(integration.explain(include_secrets=args.show_secrets))
             )
             output.write("\n")
 
 
 class ConfigureCollectionScript(ConfigurationSettingScript):
     """Create a collection or change its settings."""
+
     name = "Change a collection's settings"
 
     @classmethod
@@ -1163,31 +1151,26 @@ class ConfigureCollectionScript(ConfigurationSettingScript):
     @classmethod
     def arg_parser(cls, _db):
         parser = argparse.ArgumentParser()
+        parser.add_argument("--name", help="Name of the collection", required=True)
         parser.add_argument(
-            '--name',
-            help='Name of the collection',
-            required=True
+            "--protocol",
+            help='Protocol to use to get the licenses. Possible values: "%s"'
+            % ('", "'.join(ExternalIntegration.LICENSE_PROTOCOLS)),
         )
         parser.add_argument(
-            '--protocol',
-            help='Protocol to use to get the licenses. Possible values: "%s"' % (
-                '", "'.join(ExternalIntegration.LICENSE_PROTOCOLS)
-            )
-        )
-        parser.add_argument(
-            '--external-account-id',
+            "--external-account-id",
             help='The ID of this collection according to the license source. Sometimes called a "library ID".',
         )
         parser.add_argument(
-            '--url',
-            help='Run the acquisition protocol against this URL.',
+            "--url",
+            help="Run the acquisition protocol against this URL.",
         )
         parser.add_argument(
-            '--username',
+            "--username",
             help='Use this username to authenticate with the license protocol. Sometimes called a "key".',
         )
         parser.add_argument(
-            '--password',
+            "--password",
             help='Use this password to authenticate with the license protocol. Sometimes called a "secret".',
         )
         cls.add_setting_argument(
@@ -1197,8 +1180,9 @@ class ConfigureCollectionScript(ConfigurationSettingScript):
         library_names = cls._library_names(_db)
         if library_names:
             parser.add_argument(
-                '--library',
-                help='Associate this collection with the given library. Possible libraries: %s' % library_names,
+                "--library",
+                help="Associate this collection with the given library. Possible libraries: %s"
+                % library_names,
                 action="append",
             )
 
@@ -1207,8 +1191,8 @@ class ConfigureCollectionScript(ConfigurationSettingScript):
     @classmethod
     def _library_names(self, _db):
         """Return a string that lists known library names."""
-        library_names = [x.short_name for x in _db.query(
-            Library).order_by(Library.short_name)
+        library_names = [
+            x.short_name for x in _db.query(Library).order_by(Library.short_name)
         ]
         if library_names:
             return '"' + '", "'.join(library_names) + '"'
@@ -1232,7 +1216,8 @@ class ConfigureCollectionScript(ConfigurationSettingScript):
                 # We didn't find a Collection, and we don't have a protocol,
                 # so we can't create a new Collection.
                 raise ValueError(
-                    'No collection called "%s". You can create it, but you must specify a protocol.' % name
+                    'No collection called "%s". You can create it, but you must specify a protocol.'
+                    % name
                 )
         integration = collection.external_integration
         if protocol:
@@ -1248,7 +1233,7 @@ class ConfigureCollectionScript(ConfigurationSettingScript):
             integration.password = args.password
         self.apply_settings(args.setting, integration)
 
-        if hasattr(args, 'library'):
+        if hasattr(args, "library"):
             for name in args.library:
                 library = get_one(_db, Library, short_name=name)
                 if not library:
@@ -1268,6 +1253,7 @@ class ConfigureCollectionScript(ConfigurationSettingScript):
 
 class ConfigureIntegrationScript(ConfigurationSettingScript):
     """Create a integration or change its settings."""
+
     name = "Create a site-wide integration or change an integration's settings"
 
     @classmethod
@@ -1279,22 +1265,24 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
     def arg_parser(cls, _db):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--name',
-            help='Name of the integration',
+            "--name",
+            help="Name of the integration",
         )
         parser.add_argument(
-            '--id',
-            help='ID of the integration, if it has no name',
+            "--id",
+            help="ID of the integration, if it has no name",
         )
         parser.add_argument(
-            '--protocol', help='Protocol used by the integration.',
+            "--protocol",
+            help="Protocol used by the integration.",
         )
         parser.add_argument(
-            '--goal', help='Goal of the integration',
+            "--goal",
+            help="Goal of the integration",
         )
         cls.add_setting_argument(
             parser,
-            'Set a configuration value on the integration. Format: --setting="key=value"'
+            'Set a configuration value on the integration. Format: --setting="key=value"',
         )
         return parser
 
@@ -1316,7 +1304,8 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
             integration = get_one(_db, ExternalIntegration, name=name)
             if not integration and not (protocol and goal):
                 raise ValueError(
-                    'No integration with name "%s". To create it, you must also provide protocol and goal.' % name
+                    'No integration with name "%s". To create it, you must also provide protocol and goal.'
+                    % name
                 )
         if not integration and (protocol and goal):
             integration, is_new = get_one_or_create(
@@ -1354,8 +1343,8 @@ class ShowLanesScript(Script):
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--id',
-            help='Only display information for the lane with the given ID',
+            "--id",
+            help="Only display information for the lane with the given ID",
         )
         return parser
 
@@ -1368,25 +1357,20 @@ class ShowLanesScript(Script):
             if lane:
                 lanes = [lane]
             else:
-                output.write(
-                    "Could not locate lane with id: %s" % id
-                )
+                output.write("Could not locate lane with id: %s" % id)
                 lanes = []
         else:
             lanes = _db.query(Lane).order_by(Lane.id).all()
         if not lanes:
             output.write("No lanes found.\n")
         for lane in lanes:
-            output.write(
-                "\n".join(
-                    lane.explain()
-                )
-            )
+            output.write("\n".join(lane.explain()))
             output.write("\n\n")
 
 
 class ConfigureLaneScript(ConfigurationSettingScript):
     """Create a lane or change its settings."""
+
     name = "Change a lane's settings"
 
     @classmethod
@@ -1398,33 +1382,33 @@ class ConfigureLaneScript(ConfigurationSettingScript):
     def arg_parser(cls, _db):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--id',
-            help='ID of the lane, if editing an existing lane.',
+            "--id",
+            help="ID of the lane, if editing an existing lane.",
         )
         parser.add_argument(
-            '--library-short-name',
-            help='Short name of the library for this lane. Possible values: %s' % cls._library_names(
-                _db),
+            "--library-short-name",
+            help="Short name of the library for this lane. Possible values: %s"
+            % cls._library_names(_db),
         )
         parser.add_argument(
-            '--parent-id',
+            "--parent-id",
             help="The ID of this lane's parent lane",
         )
         parser.add_argument(
-            '--priority',
+            "--priority",
             help="The lane's priority",
         )
         parser.add_argument(
-            '--display-name',
-            help='The lane name that will be displayed to patrons.',
+            "--display-name",
+            help="The lane name that will be displayed to patrons.",
         )
         return parser
 
     @classmethod
     def _library_names(self, _db):
         """Return a string that lists known library names."""
-        library_names = [x.short_name for x in _db.query(
-            Library).order_by(Library.short_name)
+        library_names = [
+            x.short_name for x in _db.query(Library).order_by(Library.short_name)
         ]
         if library_names:
             return '"' + '", "'.join(library_names) + '"'
@@ -1439,15 +1423,12 @@ class ConfigureLaneScript(ConfigurationSettingScript):
         lane = get_one(_db, Lane, id=id)
         if not lane:
             if args.library_short_name:
-                library = get_one(
-                    _db, Library, short_name=args.library_short_name)
+                library = get_one(_db, Library, short_name=args.library_short_name)
                 if not library:
-                    raise ValueError("No such library: \"%s\"." %
-                                     args.library_short_name)
+                    raise ValueError('No such library: "%s".' % args.library_short_name)
                 lane, is_new = create(_db, Lane, library=library)
             else:
-                raise ValueError(
-                    "Library short name is required to create a new lane.")
+                raise ValueError("Library short name is required to create a new lane.")
 
         if args.parent_id:
             lane.parent_id = args.parent_id
@@ -1469,42 +1450,39 @@ class AddClassificationScript(IdentifierInputScript):
     def arg_parser(cls):
         parser = IdentifierInputScript.arg_parser()
         parser.add_argument(
-            '--subject-type',
-            help='The type of the subject to add to each identifier.',
-            required=True
+            "--subject-type",
+            help="The type of the subject to add to each identifier.",
+            required=True,
         )
         parser.add_argument(
-            '--subject-identifier',
-            help='The identifier of the subject to add to each identifier.'
+            "--subject-identifier",
+            help="The identifier of the subject to add to each identifier.",
         )
         parser.add_argument(
-            '--subject-name',
-            help='The name of the subject to add to each identifier.'
+            "--subject-name", help="The name of the subject to add to each identifier."
         )
         parser.add_argument(
-            '--data-source',
-            help='The data source to use when classifying.',
-            default=DataSource.MANUAL
+            "--data-source",
+            help="The data source to use when classifying.",
+            default=DataSource.MANUAL,
         )
         parser.add_argument(
-            '--weight',
-            help='The weight to use when classifying.',
+            "--weight",
+            help="The weight to use when classifying.",
             type=int,
-            default=1000
+            default=1000,
         )
         parser.add_argument(
-            '--create-subject',
+            "--create-subject",
             help="Add the subject to the database if it doesn't already exist",
-            action='store_const',
-            const=True
+            action="store_const",
+            const=True,
         )
         return parser
 
     def __init__(self, _db=None, cmd_args=None, stdin=sys.stdin):
         super(AddClassificationScript, self).__init__(_db=_db)
-        args = self.parse_command_line(
-            self._db, cmd_args=cmd_args, stdin=stdin
-        )
+        args = self.parse_command_line(self._db, cmd_args=cmd_args, stdin=stdin)
         self.identifier_type = args.identifier_type
         self.identifiers = args.identifiers
         subject_type = args.subject_type
@@ -1517,8 +1495,11 @@ class AddClassificationScript(IdentifierInputScript):
         self.data_source = DataSource.lookup(self._db, args.data_source)
         self.weight = args.weight
         self.subject, ignore = Subject.lookup(
-            self._db, subject_type, subject_identifier, subject_name,
-            autocreate=args.create_subject
+            self._db,
+            subject_type,
+            subject_identifier,
+            subject_name,
+            autocreate=args.create_subject,
         )
 
     def do_run(self):
@@ -1537,9 +1518,11 @@ class AddClassificationScript(IdentifierInputScript):
         if self.subject:
             for identifier in self.identifiers:
                 identifier.classify(
-                    self.data_source, self.subject.type,
-                    self.subject.identifier, self.subject.name,
-                    self.weight
+                    self.data_source,
+                    self.subject.type,
+                    self.subject.identifier,
+                    self.subject.name,
+                    self.weight,
                 )
                 work = identifier.work
                 if work:
@@ -1549,29 +1532,28 @@ class AddClassificationScript(IdentifierInputScript):
 
 
 class WorkProcessingScript(IdentifierInputScript):
-
     name = "Work processing script"
 
-    def __init__(self, force=False, batch_size=10, _db=None,
-                 cmd_args=None, stdin=sys.stdin
-                 ):
+    def __init__(
+        self, force=False, batch_size=10, _db=None, cmd_args=None, stdin=sys.stdin
+    ):
         super(WorkProcessingScript, self).__init__(_db=_db)
 
-        args = self.parse_command_line(
-            self._db, cmd_args=cmd_args, stdin=stdin
-        )
+        args = self.parse_command_line(self._db, cmd_args=cmd_args, stdin=stdin)
         self.identifier_type = args.identifier_type
         self.data_source = args.identifier_data_source
 
         self.identifiers = self.parse_identifier_list(
-            self._db, self.identifier_type, self.data_source,
-            args.identifier_strings
+            self._db, self.identifier_type, self.data_source, args.identifier_strings
         )
 
         self.batch_size = batch_size
         self.query = self.make_query(
-            self._db, self.identifier_type, self.identifiers, self.data_source,
-            log=self.log
+            self._db,
+            self.identifier_type,
+            self.identifiers,
+            self.data_source,
+            log=self.log,
         )
         self.force = force
 
@@ -1579,37 +1561,27 @@ class WorkProcessingScript(IdentifierInputScript):
     def make_query(cls, _db, identifier_type, identifiers, data_source, log=None):
         query = _db.query(Work)
         if identifiers or identifier_type:
-            query = query.join(Work.license_pools).join(
-                LicensePool.identifier
-            )
+            query = query.join(Work.license_pools).join(LicensePool.identifier)
 
         if identifiers:
             if log:
-                log.info(
-                    'Restricted to %d specific identifiers.' % len(identifiers)
-                )
+                log.info("Restricted to %d specific identifiers." % len(identifiers))
             query = query.filter(
                 LicensePool.identifier_id.in_([x.id for x in identifiers])
             )
         elif data_source:
             if log:
-                log.info(
-                    'Restricted to identifiers from DataSource "%s".', data_source
-                )
+                log.info('Restricted to identifiers from DataSource "%s".', data_source)
             source = DataSource.lookup(_db, data_source)
             query = query.filter(LicensePool.data_source == source)
 
         if identifier_type:
             if log:
-                log.info(
-                    'Restricted to identifier type "%s".' % identifier_type
-                )
+                log.info('Restricted to identifier type "%s".' % identifier_type)
             query = query.filter(Identifier.type == identifier_type)
 
         if log:
-            log.info(
-                "Processing %d works.", query.count()
-            )
+            log.info("Processing %d works.", query.count())
         return query.order_by(Work.id)
 
     def do_run(self):
@@ -1658,12 +1630,12 @@ class WorkConsolidationScript(WorkProcessingScript):
 
     def do_run(self):
         super(WorkConsolidationScript, self).do_run()
-        qu = self._db.query(Work).outerjoin(Work.license_pools).filter(
-            LicensePool.id == None
+        qu = (
+            self._db.query(Work)
+            .outerjoin(Work.license_pools)
+            .filter(LicensePool.id == None)
         )
-        self.log.info(
-            "Deleting %d Works that have no LicensePools." % qu.count()
-        )
+        self.log.info("Deleting %d Works that have no LicensePools." % qu.count())
         for i in qu:
             self._db.delete(i)
         self._db.commit()
@@ -1682,9 +1654,9 @@ class WorkPresentationScript(TimestampScript, WorkProcessingScript):
 
 
 class WorkClassificationScript(WorkPresentationScript):
-    """Recalculate the classification--and nothing else--for Work objects.
-    """
-    name = "Recalculate the classification for works that need it."""
+    """Recalculate the classification--and nothing else--for Work objects."""
+
+    name = "Recalculate the classification for works that need it." ""
 
     policy = PresentationCalculationPolicy(
         choose_edition=False,
@@ -1707,7 +1679,7 @@ class ReclassifyWorksForUncheckedSubjectsScript(WorkClassificationScript):
     Subjects because the rules for processing them changed.
     """
 
-    name = "Reclassify works that use unchecked subjects."""
+    name = "Reclassify works that use unchecked subjects." ""
 
     policy = WorkClassificationScript.policy
 
@@ -1747,22 +1719,26 @@ class CustomListManagementScript(Script):
     MembershipManager.
     """
 
-    def __init__(self, manager_class,
-                 data_source_name, list_identifier, list_name,
-                 primary_language, description,
-                 **manager_kwargs
-                 ):
+    def __init__(
+        self,
+        manager_class,
+        data_source_name,
+        list_identifier,
+        list_name,
+        primary_language,
+        description,
+        **manager_kwargs,
+    ):
         data_source = DataSource.lookup(self._db, data_source_name)
         self.custom_list, is_new = get_one_or_create(
-            self._db, CustomList,
+            self._db,
+            CustomList,
             data_source_id=data_source.id,
             foreign_identifier=list_identifier,
         )
         self.custom_list.primary_language = primary_language
         self.custom_list.description = description
-        self.membership_manager = manager_class(
-            self.custom_list, **manager_kwargs
-        )
+        self.membership_manager = manager_class(self.custom_list, **manager_kwargs)
 
     def run(self):
         self.membership_manager.update()
@@ -1773,9 +1749,9 @@ class CustomListManagementScript(Script):
 
 
 class CollectionType(Enum):
-    OPEN_ACCESS = 'OPEN_ACCESS'
-    PROTECTED_ACCESS = 'PROTECTED_ACCESS'
-    LCP = 'LCP'
+    OPEN_ACCESS = "OPEN_ACCESS"
+    PROTECTED_ACCESS = "PROTECTED_ACCESS"
+    LCP = "LCP"
 
     def __str__(self):
         return self.name
@@ -1807,30 +1783,32 @@ class CollectionInputScript(Script):
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--collection',
-            help='Collection to use',
-            dest='collection_names',
-            metavar='NAME', action='append', default=[]
+            "--collection",
+            help="Collection to use",
+            dest="collection_names",
+            metavar="NAME",
+            action="append",
+            default=[],
         )
         parser.add_argument(
-            '--collection-type',
-            help='Collection type. Valid values are: OPEN_ACCESS (default), PROTECTED_ACCESS.',
+            "--collection-type",
+            help="Collection type. Valid values are: OPEN_ACCESS (default), PROTECTED_ACCESS.",
             type=CollectionType,
             choices=list(CollectionType),
-            default=CollectionType.OPEN_ACCESS
+            default=CollectionType.OPEN_ACCESS,
         )
         return parser
 
 
 class CollectionArgumentsScript(CollectionInputScript):
-
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            'collection_names',
-            help='One or more collection names.',
-            metavar='COLLECTION', nargs='*'
+            "collection_names",
+            help="One or more collection names.",
+            metavar="COLLECTION",
+            nargs="*",
         )
         return parser
 
@@ -1859,8 +1837,8 @@ class RunCollectionMonitorScript(RunMultipleMonitorsScript, CollectionArgumentsS
         self.monitor_class = monitor_class
         self.name = self.monitor_class.SERVICE_NAME
         parsed = vars(self.parse_command_line(self._db, cmd_args=cmd_args))
-        parsed.pop('collection_names', None)
-        self.collections = parsed.pop('collections', None)
+        parsed.pop("collection_names", None)
+        self.collections = parsed.pop("collections", None)
         self.kwargs.update(parsed)
 
     def monitors(self, **kwargs):
@@ -1876,8 +1854,15 @@ class OPDSImportScript(CollectionInputScript):
     MONITOR_CLASS = OPDSImportMonitor
     PROTOCOL = ExternalIntegration.OPDS_IMPORT
 
-    def __init__(self, _db=None, importer_class=None, monitor_class=None,
-                 protocol=None, *args, **kwargs):
+    def __init__(
+        self,
+        _db=None,
+        importer_class=None,
+        monitor_class=None,
+        protocol=None,
+        *args,
+        **kwargs,
+    ):
         super(OPDSImportScript, self).__init__(_db, *args, **kwargs)
         self.importer_class = importer_class or self.IMPORTER_CLASS
         self.monitor_class = monitor_class or self.MONITOR_CLASS
@@ -1887,23 +1872,24 @@ class OPDSImportScript(CollectionInputScript):
     def arg_parser(cls):
         parser = CollectionInputScript.arg_parser()
         parser.add_argument(
-            '--force',
-            help='Import the feed from scratch, even if it seems like it was already imported.',
-            dest='force', action='store_true'
+            "--force",
+            help="Import the feed from scratch, even if it seems like it was already imported.",
+            dest="force",
+            action="store_true",
         )
         return parser
 
     def do_run(self, cmd_args=None):
         parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
         collections = parsed.collections or Collection.by_protocol(
-            self._db, self.protocol)
+            self._db, self.protocol
+        )
         for collection in collections:
             self.run_monitor(collection, force=parsed.force)
 
     def run_monitor(self, collection, force=None):
         monitor = self.monitor_class(
-            self._db, collection, import_class=self.importer_class,
-            force_reimport=force
+            self._db, collection, import_class=self.importer_class, force_reimport=force
         )
         monitor.run()
 
@@ -1925,10 +1911,14 @@ class MirrorResourcesScript(CollectionInputScript):
             collections = self._db.query(Collection).all()
 
         # But only process collections that have an associated MirrorUploader.
-        for collection, policy in self.collections_with_uploader(collections, collection_type):
+        for collection, policy in self.collections_with_uploader(
+            collections, collection_type
+        ):
             self.process_collection(collection, policy)
 
-    def collections_with_uploader(self, collections, collection_type=CollectionType.OPEN_ACCESS):
+    def collections_with_uploader(
+        self, collections, collection_type=CollectionType.OPEN_ACCESS
+    ):
         """Filter out collections that have no MirrorUploader.
 
         :yield: 2-tuples (Collection, ReplacementPolicy). The
@@ -1939,25 +1929,21 @@ class MirrorResourcesScript(CollectionInputScript):
             covers = MirrorUploader.for_collection(
                 collection, ExternalIntegrationLink.COVERS
             )
-            books_mirror_type = \
-                ExternalIntegrationLink.OPEN_ACCESS_BOOKS \
-                if collection_type == CollectionType.OPEN_ACCESS \
+            books_mirror_type = (
+                ExternalIntegrationLink.OPEN_ACCESS_BOOKS
+                if collection_type == CollectionType.OPEN_ACCESS
                 else ExternalIntegrationLink.PROTECTED_ACCESS_BOOKS
-            books = MirrorUploader.for_collection(
-                collection,
-                books_mirror_type
             )
+            books = MirrorUploader.for_collection(collection, books_mirror_type)
             if covers or books:
                 mirrors = {
                     ExternalIntegrationLink.COVERS: covers,
-                    books_mirror_type: books
+                    books_mirror_type: books,
                 }
                 policy = self.replacement_policy(mirrors)
                 yield collection, policy
             else:
-                self.log.info(
-                    "Skipping %r as it has no MirrorUploader.", collection
-                )
+                self.log.info("Skipping %r as it has no MirrorUploader.", collection)
 
     @classmethod
     def replacement_policy(cls, mirrors):
@@ -1965,7 +1951,8 @@ class MirrorResourcesScript(CollectionInputScript):
         given mirrors.
         """
         return ReplacementPolicy(
-            mirrors=mirrors, link_content=True,
+            mirrors=mirrors,
+            link_content=True,
             even_if_not_apparently_updated=True,
             http_get=Representation.cautious_http_get,
         )
@@ -2006,9 +1993,9 @@ class MirrorResourcesScript(CollectionInputScript):
             # this particular resource, but if every
             # LicensePoolDeliveryMechanism has the same rights
             # status, we can assume it's that one.
-            statuses = list(set([
-                x.rights_status for x in license_pool.delivery_mechanisms
-            ]))
+            statuses = list(
+                set([x.rights_status for x in license_pool.delivery_mechanisms])
+            )
             if len(statuses) == 1:
                 [rights_status] = statuses
         if rights_status:
@@ -2021,9 +2008,12 @@ class MirrorResourcesScript(CollectionInputScript):
         """
         identifier = link_obj.identifier
         license_pool, ignore = LicensePool.for_foreign_id(
-            self._db, collection.data_source,
-            identifier.type, identifier.identifier,
-            collection=collection, autocreate=False
+            self._db,
+            collection.data_source,
+            identifier.type,
+            identifier.identifier,
+            collection=collection,
+            autocreate=False,
         )
         if not license_pool:
             # This shouldn't happen.
@@ -2037,7 +2027,8 @@ class MirrorResourcesScript(CollectionInputScript):
             rights_status = self.derive_rights_status(license_pool, resource)
             if not rights_status:
                 self.log.warning(
-                    "Could not unambiguously determine rights status for %r, skipping.", link_obj
+                    "Could not unambiguously determine rights status for %r, skipping.",
+                    link_obj,
                 )
                 return
         else:
@@ -2048,15 +2039,16 @@ class MirrorResourcesScript(CollectionInputScript):
         # Mock up a LinkData that MetaToModelUtility can use to
         # mirror this link (or decide not to mirror it).
         linkdata = LinkData(
-            rel=link_obj.rel,
-            href=resource.url,
-            rights_uri=rights_status
+            rel=link_obj.rel, href=resource.url, rights_uri=rights_status
         )
 
         # Mirror the link (or not).
         self.MIRROR_UTILITY.mirror_link(
-            model_object=license_pool, data_source=collection.data_source,
-            link=linkdata, link_obj=link_obj, policy=policy
+            model_object=license_pool,
+            data_source=collection.data_source,
+            link=linkdata,
+            link_obj=link_obj,
+            policy=policy,
         )
 
 
@@ -2078,10 +2070,10 @@ class DatabaseMigrationScript(Script):
     MIGRATION_WITH_COUNTER = re.compile("\d{8}-(\d+)-(.)+\.(py|sql)")
 
     # There are some SQL commands that can't be run inside a transaction.
-    TRANSACTIONLESS_COMMANDS = ['alter type']
+    TRANSACTIONLESS_COMMANDS = ["alter type"]
 
-    TRANSACTION_PER_STATEMENT = 'SIMPLYE_MIGRATION_TRANSACTION_PER_STATEMENT'
-    DO_NOT_EXECUTE = 'SIMPLYE_MIGRATION_DO_NOT_EXECUTE'
+    TRANSACTION_PER_STATEMENT = "SIMPLYE_MIGRATION_TRANSACTION_PER_STATEMENT"
+    DO_NOT_EXECUTE = "SIMPLYE_MIGRATION_DO_NOT_EXECUTE"
 
     class TimestampInfo(object):
         """Act like a ORM Timestamp object, but with no database connection."""
@@ -2102,13 +2094,12 @@ class DatabaseMigrationScript(Script):
             # 2.3.0 - 'timestamp' field renamed to 'finish'
             exception = None
             for sql in (
-                    "SELECT finish, counter FROM timestamps WHERE service=:service LIMIT 1;",
-                    "SELECT timestamp, counter FROM timestamps WHERE service=:service LIMIT 1;",
+                "SELECT finish, counter FROM timestamps WHERE service=:service LIMIT 1;",
+                "SELECT timestamp, counter FROM timestamps WHERE service=:service LIMIT 1;",
             ):
                 _db = script._db
                 try:
-                    results = list(_db.execute(
-                        text(sql), dict(service=service)))
+                    results = list(_db.execute(text(sql), dict(service=service)))
                     if exception:
                         logging.error(
                             "Yes, everything should be fine -- I was able to find a timestamp in the new schema."
@@ -2120,7 +2111,9 @@ class DatabaseMigrationScript(Script):
                     # The database connection is now tainted; we must
                     # create a new one.
                     logging.error(
-                        "Got a database error obtaining the timestamp for %s. Hopefully the timestamps table itself must be migrated and this is all according to plan.", service, exc_info=e
+                        "Got a database error obtaining the timestamp for %s. Hopefully the timestamps table itself must be migrated and this is all according to plan.",
+                        service,
+                        exc_info=e,
                     )
                     _db.close()
                     script._session = production_session(initialize_data=False)
@@ -2161,8 +2154,7 @@ class DatabaseMigrationScript(Script):
             self.update(_db, self.finish, self.counter)
 
         def update(self, _db, finish, counter, migration_name=None):
-            """Saves a TimestampInfo object to the database.
-            """
+            """Saves a TimestampInfo object to the database."""
             # Reset values locally.
             self.finish = to_utc(finish)
             self.counter = counter
@@ -2172,14 +2164,16 @@ class DatabaseMigrationScript(Script):
                 " where service=:service"
             )
             values = dict(
-                finish=self.finish, counter=self.counter,
+                finish=self.finish,
+                counter=self.counter,
                 service=self.service,
             )
             _db.execute(text(sql), values)
             _db.flush()
 
             message = "%s Timestamp stamped at %s" % (
-                self.service, self.finish.strftime('%Y-%m-%d')
+                self.service,
+                self.finish.strftime("%Y-%m-%d"),
             )
             if migration_name:
                 message += " for %s" % migration_name
@@ -2189,20 +2183,30 @@ class DatabaseMigrationScript(Script):
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '-d', '--last-run-date',
-            help=('A date string representing the last migration file '
-                  'run against your database, formatted as YYYY-MM-DD')
+            "-d",
+            "--last-run-date",
+            help=(
+                "A date string representing the last migration file "
+                "run against your database, formatted as YYYY-MM-DD"
+            ),
         )
         parser.add_argument(
-            '-c', '--last-run-counter', type=int,
-            help=('An optional digit representing the counter of the last '
-                  'migration run against your database. Only necessary if '
-                  'multiple migrations were created on the same date.')
+            "-c",
+            "--last-run-counter",
+            type=int,
+            help=(
+                "An optional digit representing the counter of the last "
+                "migration run against your database. Only necessary if "
+                "multiple migrations were created on the same date."
+            ),
         )
         parser.add_argument(
-            '--python-only', action='store_true',
-            help=('Only run python migrations since the given timestamp or the'
-                  'most recent python timestamp')
+            "--python-only",
+            action="store_true",
+            help=(
+                "Only run python migrations since the given timestamp or the"
+                "most recent python timestamp"
+            ),
         )
         return parser
 
@@ -2233,7 +2237,7 @@ class DatabaseMigrationScript(Script):
               migrations are sorted by counter (asc).
             """
             key = []
-            if first.endswith('.py'):
+            if first.endswith(".py"):
                 key.append(1)
             else:
                 key.append(-1)
@@ -2262,8 +2266,8 @@ class DatabaseMigrationScript(Script):
         and its container server, organized in priority order (core first)
         """
         current_dir = os.path.split(os.path.abspath(__file__))[0]
-        core = os.path.join(current_dir, 'migration')
-        server = os.path.join(os.path.split(current_dir)[0], 'migration')
+        core = os.path.join(current_dir, "migration")
+        server = os.path.join(os.path.split(current_dir)[0], "migration")
 
         # Core is listed first, since core makes changes to the core database
         # schema. Server migrations generally fix bugs or otherwise update
@@ -2326,9 +2330,7 @@ class DatabaseMigrationScript(Script):
         last_run_date = parsed.last_run_date
         last_run_counter = parsed.last_run_counter
         if last_run_date:
-            timestamp = self.TimestampInfo(
-                self.name, last_run_date, last_run_counter
-            )
+            timestamp = self.TimestampInfo(self.name, last_run_date, last_run_counter)
             # Save the timestamp at this point. This will set back the clock
             # in the case that the input last_run_date/counter is before the
             # existing Timestamp.finish / Timestamp.counter.
@@ -2361,9 +2363,7 @@ class DatabaseMigrationScript(Script):
             print("%d new migrations found." % len(new_migrations))
             for migration in new_migrations:
                 print("  - %s" % migration)
-            self.run_migrations(
-                new_migrations, migrations_by_dir, timestamp
-            )
+            self.run_migrations(new_migrations, migrations_by_dir, timestamp)
             self._db.commit()
         else:
             print("No new migrations found. Your database is up-to-date.")
@@ -2380,9 +2380,9 @@ class DatabaseMigrationScript(Script):
         migrations = list()
         migrations_by_dir = defaultdict(list)
 
-        extensions = ['.py']
+        extensions = [".py"]
         if not self.python_only:
-            extensions.insert(0, '.sql')
+            extensions.insert(0, ".sql")
 
         for directory in self.directories_by_priority:
             # In the case of tests, the container server migration directory
@@ -2400,10 +2400,11 @@ class DatabaseMigrationScript(Script):
         """Return a list of migration filenames, representing migrations
         created since the timestamp
         """
-        last_run = timestamp.finish.strftime('%Y%m%d')
+        last_run = timestamp.finish.strftime("%Y%m%d")
         migrations = self.sort_migrations(migrations)
-        new_migrations = [migration for migration in migrations
-                          if int(migration[:8]) >= int(last_run)]
+        new_migrations = [
+            migration for migration in migrations if int(migration[:8]) >= int(last_run)
+        ]
 
         # Multiple migrations run on the same day have an additional digit
         # after the date and a dash, eg:
@@ -2433,7 +2434,7 @@ class DatabaseMigrationScript(Script):
         is_match = False
         is_after_timestamp = False
 
-        timestamp_str = timestamp.finish.strftime('%Y%m%d')
+        timestamp_str = timestamp.finish.strftime("%Y%m%d")
         counter = timestamp.counter
 
         if migration_file[:8] >= timestamp_str:
@@ -2479,7 +2480,7 @@ class DatabaseMigrationScript(Script):
                             raise_error(
                                 full_migration_path,
                                 "Migration raised error code '%d'" % se.code,
-                                code=se.code
+                                code=se.code,
                             )
 
                         # Sometimes a migration isn't relevant and it
@@ -2488,8 +2489,7 @@ class DatabaseMigrationScript(Script):
                         self.update_timestamps(migration_file)
                         continue
                     except Exception:
-                        raise_error(full_migration_path,
-                                    "Migration has been halted.")
+                        raise_error(full_migration_path, "Migration has been halted.")
         else:
             print("All new migrations have been run.")
 
@@ -2499,34 +2499,35 @@ class DatabaseMigrationScript(Script):
         migration_filename = os.path.split(migration_path)[1]
         ok_to_execute = True
 
-        if migration_path.endswith('.sql'):
+        if migration_path.endswith(".sql"):
             with open(migration_path) as clause:
                 sql = clause.read()
 
                 transactionless = any(
-                    [c for c in self.TRANSACTIONLESS_COMMANDS if c in sql.lower()])
+                    [c for c in self.TRANSACTIONLESS_COMMANDS if c in sql.lower()]
+                )
                 one_tx_per_statement = bool(
-                    self.TRANSACTION_PER_STATEMENT.lower() in sql.lower())
-                ok_to_execute = not bool(
-                    self.DO_NOT_EXECUTE.lower() in sql.lower())
+                    self.TRANSACTION_PER_STATEMENT.lower() in sql.lower()
+                )
+                ok_to_execute = not bool(self.DO_NOT_EXECUTE.lower() in sql.lower())
 
                 if ok_to_execute:
                     if transactionless:
-                        new_session = self._run_migration_without_transaction(
-                            sql)
+                        new_session = self._run_migration_without_transaction(sql)
                     elif one_tx_per_statement:
                         commands = self._extract_statements_from_sql_file(
-                            migration_path)
+                            migration_path
+                        )
                         for command in commands:
                             self._db.execute(f"BEGIN;{command}COMMIT;")
                     else:
                         # By wrapping the action in a transation, we can avoid
                         # rolling over errors and losing data in files
                         # with multiple interrelated SQL actions.
-                        sql = 'BEGIN;\n%s\nCOMMIT;' % sql
+                        sql = "BEGIN;\n%s\nCOMMIT;" % sql
                         self._db.execute(sql)
 
-        if migration_path.endswith('.py'):
+        if migration_path.endswith(".py"):
             module_name = migration_filename[:-3]
             subprocess.call(migration_path)
 
@@ -2545,20 +2546,20 @@ class DatabaseMigrationScript(Script):
             sql_file_lines = f.readlines()
 
         sql_commands = []
-        current_command = ''
+        current_command = ""
 
         for line in sql_file_lines:
-            if line.strip().startswith('--'):
+            if line.strip().startswith("--"):
                 continue
             else:
-                if current_command == '':
+                if current_command == "":
                     current_command = line.strip()
                 else:
-                    current_command = current_command + ' ' + line.strip()
+                    current_command = current_command + " " + line.strip()
 
-            if current_command.endswith(';'):
+            if current_command.endswith(";"):
                 sql_commands.append(current_command)
-                current_command = ''
+                current_command = ""
 
         return sql_commands
 
@@ -2575,15 +2576,18 @@ class DatabaseMigrationScript(Script):
         # In the case of 'ALTER TYPE' (at least), running commands
         # simultaneously raises psycopg2.InternalError ending with 'cannot be
         # executed from a fuction or multi-command string'
-        sql_commands = [command.strip()+';'
-                        for command in sql_statement.split(';')
-                        if command.strip()]
+        sql_commands = [
+            command.strip() + ";"
+            for command in sql_statement.split(";")
+            if command.strip()
+        ]
 
         # Run each command in the sql statement right up against the
         # database: no transactions, no guardrails.
         for command in sql_commands:
-            connection.execution_options(isolation_level='AUTOCOMMIT')\
-                .execute(text(command))
+            connection.execution_options(isolation_level="AUTOCOMMIT").execute(
+                text(command)
+            )
 
         # Update the script's Session to a new one that has the changed schema
         # and other important info.
@@ -2604,11 +2608,13 @@ class DatabaseMigrationScript(Script):
         if match:
             counter = int(match.groups()[0])
 
-        if migration_file.endswith('py') and self.python_timestamp:
+        if migration_file.endswith("py") and self.python_timestamp:
             # This is a python migration. Update the python timestamp.
             self.python_timestamp.update(
-                self._db, finish=last_run_date,
-                counter=counter, migration_name=migration_file
+                self._db,
+                finish=last_run_date,
+                counter=counter,
+                migration_name=migration_file,
             )
 
         # Nothing to update
@@ -2628,13 +2634,17 @@ class DatabaseMigrationScript(Script):
             if counter is None:
                 return
             # The previous script has a higher counter
-            if (self.overall_timestamp.counter is not None and
-                    self.overall_timestamp.counter > counter):
+            if (
+                self.overall_timestamp.counter is not None
+                and self.overall_timestamp.counter > counter
+            ):
                 return
 
         self.overall_timestamp.update(
-            self._db, finish=last_run_date,
-            counter=counter, migration_name=migration_file
+            self._db,
+            finish=last_run_date,
+            counter=counter,
+            migration_name=migration_file,
         )
 
 
@@ -2648,8 +2658,10 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
     def arg_parser(cls):
         parser = super(DatabaseMigrationInitializationScript, cls).arg_parser()
         parser.add_argument(
-            '-f', '--force', action='store_true',
-            help="Force reset the initialization, ignoring any existing timestamps."
+            "-f",
+            "--force",
+            action="store_true",
+            help="Force reset the initialization, ignoring any existing timestamps.",
         )
         return parser
 
@@ -2660,7 +2672,8 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
 
         if last_run_counter and not last_run_date:
             raise ValueError(
-                "Timestamp.counter must be reset alongside Timestamp.finish")
+                "Timestamp.counter must be reset alongside Timestamp.finish"
+            )
 
         existing_timestamp = get_one(self._db, Timestamp, service=self.name)
         if existing_timestamp and existing_timestamp.finish:
@@ -2669,21 +2682,28 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
             if parsed.force:
                 self.log.warning(
                     "Overwriting existing %s timestamp: %r",
-                    self.name, existing_timestamp)
+                    self.name,
+                    existing_timestamp,
+                )
             else:
                 raise RuntimeError(
-                    "%s timestamp already exists: %r. Use --force to update." %
-                    (self.name, existing_timestamp))
+                    "%s timestamp already exists: %r. Use --force to update."
+                    % (self.name, existing_timestamp)
+                )
 
         # Initialize the required timestamps with the Space Jam release date.
-        init_timestamp = self.parse_time('1996-11-15')
+        init_timestamp = self.parse_time("1996-11-15")
         overall_timestamp = existing_timestamp or Timestamp.stamp(
-            _db=self._db, service=self.SERVICE_NAME,
-            service_type=Timestamp.SCRIPT_TYPE, finish=init_timestamp
+            _db=self._db,
+            service=self.SERVICE_NAME,
+            service_type=Timestamp.SCRIPT_TYPE,
+            finish=init_timestamp,
         )
         python_timestamp = Timestamp.stamp(
-            _db=self._db, service=self.PY_TIMESTAMP_SERVICE_NAME,
-            service_type=Timestamp.SCRIPT_TYPE, finish=init_timestamp
+            _db=self._db,
+            service=self.PY_TIMESTAMP_SERVICE_NAME,
+            service_type=Timestamp.SCRIPT_TYPE,
+            finish=init_timestamp,
         )
 
         if last_run_date:
@@ -2695,8 +2715,8 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
             return
 
         migrations = self.sort_migrations(self.fetch_migration_files()[0])
-        py_migrations = [m for m in migrations if m.endswith('.py')]
-        sql_migrations = [m for m in migrations if m.endswith('.sql')]
+        py_migrations = [m for m in migrations if m.endswith(".py")]
+        sql_migrations = [m for m in migrations if m.endswith(".sql")]
 
         most_recent_sql_migration = sql_migrations[-1]
         most_recent_python_migration = py_migrations[-1]
@@ -2719,11 +2739,11 @@ class DatabaseVacuum(Script):
     def __init__(self):
         super(Script, self).__init__()
 
-    def do_run(self, subcommand='FULL'):
+    def do_run(self, subcommand=""):
         """Run the database vacuum
 
         Args:
-            subcommand (str, optional): 
+            subcommand (str, optional):
                 Can be any of these
                 FULL [ boolean ]
                 FREEZE [ boolean ]
@@ -2737,7 +2757,7 @@ class DatabaseVacuum(Script):
         """
         today = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
         start = time.time()
-        self.log.info('Database vacuum starting %s' % today)
+        self.log.info("Database vacuum starting %s" % today)
         # Go back up to engine-level.
         connection = self._db.get_bind()
         # Get table names
@@ -2746,19 +2766,22 @@ class DatabaseVacuum(Script):
             session.connection().connection.set_isolation_level(0)
             for table in all_db_tables:
                 table_start = time.time()
-                session.execute('VACUUM %s %s' % (subcommand, table))
+                session.execute("VACUUM %s %s" % (subcommand, table))
                 table_end = time.time()
                 table_vac_duration = table_end - table_start
-                self.log.info('Vacuuming of table %s took %d seconds' %
-                              (table, table_vac_duration))
+                self.log.info(
+                    "Vacuuming of table %s took %d seconds"
+                    % (table, table_vac_duration)
+                )
         end = time.time()
         duration = end - start
-        self.log.info('Database vacuum completed on %s and took %d seconds' %
-                      (today, duration))
+        self.log.info(
+            "Database vacuum completed on %s and took %d seconds" % (today, duration)
+        )
 
 
 class CheckContributorNamesInDB(IdentifierInputScript):
-    """ Checks that contributor sort_names are display_names in
+    """Checks that contributor sort_names are display_names in
     "last name, comma, other names" format.
 
     Read contributors edition by edition, so that can, if necessary,
@@ -2793,30 +2816,26 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
         if identifiers:
             if log:
-                log.info(
-                    'Restricted to %d specific identifiers.' % len(identifiers)
-                )
+                log.info("Restricted to %d specific identifiers." % len(identifiers))
             query = query.filter(
                 Edition.primary_identifier_id.in_([x.id for x in identifiers])
             )
         if identifier_type:
             if log:
-                log.info(
-                    'Restricted to identifier type "%s".' % identifier_type
-                )
+                log.info('Restricted to identifier type "%s".' % identifier_type)
             query = query.filter(Identifier.type == identifier_type)
 
         if log:
-            log.info(
-                "Processing %d editions.", query.count()
-            )
+            log.info("Processing %d editions.", query.count())
 
         return query.order_by(Edition.id)
 
     def do_run(self, batch_size=10):
-
         self.query = self.make_query(
-            self._db, self.parsed_args.identifier_type, self.parsed_args.identifiers, self.log
+            self._db,
+            self.parsed_args.identifier_type,
+            self.parsed_args.identifiers,
+            self.log,
         )
 
         editions = True
@@ -2832,7 +2851,8 @@ class CheckContributorNamesInDB(IdentifierInputScript):
                 if edition.contributions:
                     for contribution in edition.contributions:
                         self.process_contribution_local(
-                            self._db, contribution, self.log)
+                            self._db, contribution, self.log
+                        )
             offset += batch_size
 
             self._db.commit()
@@ -2848,10 +2868,17 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
         if contributor.sort_name and contributor.display_name:
             computed_sort_name_local_new = unicodedata.normalize(
-                "NFKD", str(display_name_to_sort_name(contributor.display_name)))
+                "NFKD", str(display_name_to_sort_name(contributor.display_name))
+            )
             # Did HumanName parser produce a differet result from the plain comma replacement?
-            if (contributor.sort_name.strip().lower() != computed_sort_name_local_new.strip().lower()):
-                error_message_detail = "Contributor[id=%s].sort_name is oddly different from computed_sort_name, human intervention required." % contributor.id
+            if (
+                contributor.sort_name.strip().lower()
+                != computed_sort_name_local_new.strip().lower()
+            ):
+                error_message_detail = (
+                    "Contributor[id=%s].sort_name is oddly different from computed_sort_name, human intervention required."
+                    % contributor.id
+                )
 
                 # computed names don't match.  by how much?  if it's a matter of a comma or a misplaced
                 # suffix, we can fix without asking for human intervention.  if the names are very different,
@@ -2863,31 +2890,50 @@ class CheckContributorNamesInDB(IdentifierInputScript):
                 # it probably means that a human metadata professional had added an explanation/expansion to the
                 # sort_name, s.a. "Bob A. Jones" --> "Bob A. (Allan) Jones", and we'd rather not replace this data
                 # with the "Jones, Bob A." that the auto-algorigthm would generate.
-                length_difference = len(contributor.sort_name.strip(
-                )) - len(computed_sort_name_local_new.strip())
+                length_difference = len(contributor.sort_name.strip()) - len(
+                    computed_sort_name_local_new.strip()
+                )
                 if abs(length_difference) > 3:
-                    return self.process_local_mismatch(_db=_db, contribution=contribution,
-                                                       computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
+                    return self.process_local_mismatch(
+                        _db=_db,
+                        contribution=contribution,
+                        computed_sort_name=computed_sort_name_local_new,
+                        error_message_detail=error_message_detail,
+                        log=log,
+                    )
 
                 match_ratio = contributor_name_match_ratio(
-                    contributor.sort_name, computed_sort_name_local_new, normalize_names=False)
+                    contributor.sort_name,
+                    computed_sort_name_local_new,
+                    normalize_names=False,
+                )
 
-                if (match_ratio < 40):
+                if match_ratio < 40:
                     # ask a human.  this kind of score can happen when the sort_name is a transliteration of the display_name,
                     # and is non-trivial to fix.
-                    self.process_local_mismatch(_db=_db, contribution=contribution,
-                                                computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
+                    self.process_local_mismatch(
+                        _db=_db,
+                        contribution=contribution,
+                        computed_sort_name=computed_sort_name_local_new,
+                        error_message_detail=error_message_detail,
+                        log=log,
+                    )
                 else:
                     # we can fix it!
                     output = "%s|\t%s|\t%s|\t%s|\tlocal_fix" % (
-                        contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name_local_new)
+                        contributor.id,
+                        contributor.sort_name,
+                        contributor.display_name,
+                        computed_sort_name_local_new,
+                    )
                     print(output.encode("utf8"))
                     self.set_contributor_sort_name(
-                        computed_sort_name_local_new, contribution)
+                        computed_sort_name_local_new, contribution
+                    )
 
     @classmethod
     def set_contributor_sort_name(cls, sort_name, contribution):
-        """ Sets the contributor.sort_name and associated edition.author_name to the passed-in value. """
+        """Sets the contributor.sort_name and associated edition.author_name to the passed-in value."""
         contribution.contributor.sort_name = sort_name
 
         # also change edition.sort_author, if the author was primary
@@ -2897,21 +2943,32 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         # If this author appears as Primary Author anywhere on the edition, then change edition.sort_author.
         edition_contributions = contribution.edition.contributions
         for edition_contribution in edition_contributions:
-            if ((edition_contribution.role == Contributor.PRIMARY_AUTHOR_ROLE) and
-                    (edition_contribution.contributor.display_name == contribution.contributor.display_name)):
+            if (edition_contribution.role == Contributor.PRIMARY_AUTHOR_ROLE) and (
+                edition_contribution.contributor.display_name
+                == contribution.contributor.display_name
+            ):
                 contribution.edition.sort_author = sort_name
 
-    def process_local_mismatch(self, _db, contribution, computed_sort_name, error_message_detail, log=None):
+    def process_local_mismatch(
+        self, _db, contribution, computed_sort_name, error_message_detail, log=None
+    ):
         """
         Determines if a problem is to be investigated further or recorded as a Complaint,
         to be solved by a human.  In this class, it's always a complaint.  In the overridden
         method in the child class in metadata_wrangler code, we sometimes go do a web query.
         """
-        self.register_problem(source=self.COMPLAINT_SOURCE, contribution=contribution,
-                              computed_sort_name=computed_sort_name, error_message_detail=error_message_detail, log=log)
+        self.register_problem(
+            source=self.COMPLAINT_SOURCE,
+            contribution=contribution,
+            computed_sort_name=computed_sort_name,
+            error_message_detail=error_message_detail,
+            log=log,
+        )
 
     @classmethod
-    def register_problem(cls, source, contribution, computed_sort_name, error_message_detail, log=None):
+    def register_problem(
+        cls, source, contribution, computed_sort_name, error_message_detail, log=None
+    ):
         """
         Make a Complaint in the database, so a human can take a look at this Contributor's name
         and resolve whatever the complex issue that got us here.
@@ -2922,14 +2979,19 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         pools = contribution.edition.is_presentation_for
         try:
             complaint, is_new = Complaint.register(
-                pools[0], cls.COMPLAINT_TYPE, source, error_message_detail)
+                pools[0], cls.COMPLAINT_TYPE, source, error_message_detail
+            )
             output = "%s|\t%s|\t%s|\t%s|\tcomplain|\t%s" % (
-                contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name, source)
+                contributor.id,
+                contributor.sort_name,
+                contributor.display_name,
+                computed_sort_name,
+                source,
+            )
             print(output.encode("utf8"))
         except ValueError as e:
             # log and move on, don't stop run
-            log.error("Error registering complaint: %r",
-                      contributor, exc_info=e)
+            log.error("Error registering complaint: %r", contributor, exc_info=e)
             success = False
 
         return success
@@ -2945,8 +3007,7 @@ class Explain(IdentifierInputScript):
     TIME_FORMAT = "%Y-%m-%d %H:%M"
 
     def do_run(self, cmd_args=None, stdin=sys.stdin, stdout=sys.stdout):
-        param_args = self.parse_command_line(
-            self._db, cmd_args=cmd_args, stdin=stdin)
+        param_args = self.parse_command_line(self._db, cmd_args=cmd_args, stdin=stdin)
         identifier_ids = [x.id for x in param_args.identifiers]
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
@@ -2960,22 +3021,28 @@ class Explain(IdentifierInputScript):
 
     def write(self, s):
         """Write a string to self.stdout."""
-        if not s.endswith('\n'):
-            s += '\n'
+        if not s.endswith("\n"):
+            s += "\n"
         self.stdout.write(s)
 
     def explain(self, _db, edition, presentation_calculation_policy=None):
-        if edition.medium not in ('Book', 'Audio'):
+        if edition.medium not in ("Book", "Audio"):
             # we haven't yet decided what to display for you
             return
 
         # Tell about the Edition record.
         output = "%s (%s, %s) according to %s" % (
-            edition.title, edition.author, edition.medium, edition.data_source.name)
+            edition.title,
+            edition.author,
+            edition.medium,
+            edition.data_source.name,
+        )
         self.write(output)
         self.write(" Permanent work ID: %s" % edition.permanent_work_id)
-        self.write(" Metadata URL: %s " %
-                   (self.METADATA_URL_TEMPLATE % edition.primary_identifier.urn))
+        self.write(
+            " Metadata URL: %s "
+            % (self.METADATA_URL_TEMPLATE % edition.primary_identifier.urn)
+        )
 
         seen = set()
         self.explain_identifier(edition.primary_identifier, True, seen, 1, 0)
@@ -3013,8 +3080,10 @@ class Explain(IdentifierInputScript):
         contributor_id = contribution.contributor.id
         contributor_sort_name = contribution.contributor.sort_name
         contributor_display_name = contribution.contributor.display_name
-        self.write(" Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s, " % (
-            contributor_id, contributor_sort_name, contributor_display_name))
+        self.write(
+            " Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s, "
+            % (contributor_id, contributor_sort_name, contributor_display_name)
+        )
 
     def explain_identifier(self, identifier, primary, seen, strength, level):
         indent = "  " * level
@@ -3024,12 +3093,15 @@ class Explain(IdentifierInputScript):
             ident = "Identifier"
         if primary:
             strength = 1
-        self.write("%s %s: %s/%s (q=%s)" % (indent, ident,
-                   identifier.type, identifier.identifier, strength))
+        self.write(
+            "%s %s: %s/%s (q=%s)"
+            % (indent, ident, identifier.type, identifier.identifier, strength)
+        )
 
         _db = Session.object_session(identifier)
         classifications = Identifier.classifications_for_identifier_ids(
-            _db, [identifier.id])
+            _db, [identifier.id]
+        )
         for classification in classifications:
             subject = classification.subject
             genre = subject.genre
@@ -3047,8 +3119,9 @@ class Explain(IdentifierInputScript):
                 continue
             seen.add(equivalency.id)
             output = equivalency.output
-            self.explain_identifier(output, False, seen,
-                                    equivalency.strength, level+1)
+            self.explain_identifier(
+                output, False, seen, equivalency.strength, level + 1
+            )
         if primary:
             crs = identifier.coverage_records
             if crs:
@@ -3062,8 +3135,7 @@ class Explain(IdentifierInputScript):
             self.write(" Collection: %r" % pool.collection)
             libraries = [library.name for library in pool.collection.libraries]
             if libraries:
-                self.write(" Available to libraries: %s" %
-                           ", ".join(libraries))
+                self.write(" Available to libraries: %s" % ", ".join(libraries))
             else:
                 self.write("Not available to any libraries!")
         else:
@@ -3076,19 +3148,26 @@ class Explain(IdentifierInputScript):
                     fulfillable = "Fulfillable"
                 else:
                     fulfillable = "Unfulfillable"
-                self.write("  %s %s/%s" %
-                           (fulfillable, dm.content_type, dm.drm_scheme))
+                self.write("  %s %s/%s" % (fulfillable, dm.content_type, dm.drm_scheme))
         else:
             self.write(" No delivery mechanisms.")
-        self.write(" %s owned, %d available, %d holds, %d reserves" % (
-            pool.licenses_owned, pool.licenses_available, pool.patrons_in_hold_queue, pool.licenses_reserved
-        ))
+        self.write(
+            " %s owned, %d available, %d holds, %d reserves"
+            % (
+                pool.licenses_owned,
+                pool.licenses_available,
+                pool.patrons_in_hold_queue,
+                pool.licenses_reserved,
+            )
+        )
 
     def explain_work(self, work):
         self.write("Work info:")
         if work.presentation_edition:
-            self.write(" Identifier of presentation edition: %r" %
-                       work.presentation_edition.primary_identifier)
+            self.write(
+                " Identifier of presentation edition: %r"
+                % work.presentation_edition.primary_identifier
+            )
         else:
             self.write(" No presentation edition.")
         self.write(" Fiction: %s" % work.fiction)
@@ -3105,7 +3184,7 @@ class Explain(IdentifierInputScript):
             if pool.collection:
                 collection = pool.collection.name
             else:
-                collection = '!collection'
+                collection = "!collection"
             self.write("  %s: %r %s" % (active, pool.identifier, collection))
         wcrs = sorted(work.coverage_records, key=lambda x: x.timestamp)
         if wcrs:
@@ -3115,8 +3194,7 @@ class Explain(IdentifierInputScript):
 
     def explain_coverage_record(self, cr):
         self._explain_coverage_record(
-            cr.timestamp, cr.data_source, cr.operation, cr.status,
-            cr.exception
+            cr.timestamp, cr.data_source, cr.operation, cr.status, cr.exception
         )
 
     def explain_work_coverage_record(self, cr):
@@ -3124,25 +3202,25 @@ class Explain(IdentifierInputScript):
             cr.timestamp, None, cr.operation, cr.status, cr.exception
         )
 
-    def _explain_coverage_record(self, timestamp, data_source, operation,
-                                 status, exception):
+    def _explain_coverage_record(
+        self, timestamp, data_source, operation, status, exception
+    ):
         timestamp = timestamp.strftime(self.TIME_FORMAT)
         if data_source:
-            data_source = data_source.name + ' | '
+            data_source = data_source.name + " | "
         else:
-            data_source = ''
+            data_source = ""
         if operation:
-            operation = operation + ' | '
+            operation = operation + " | "
         else:
-            operation = ''
+            operation = ""
         if exception:
-            exception = ' | ' + exception
+            exception = " | " + exception
         else:
-            exception = ''
-        self.write("   %s | %s%s%s%s" % (
-            timestamp, data_source, operation, status,
-            exception
-        ))
+            exception = ""
+        self.write(
+            "   %s | %s%s%s%s" % (timestamp, data_source, operation, status, exception)
+        )
 
 
 class WhereAreMyBooksScript(CollectionInputScript):
@@ -3160,7 +3238,8 @@ class WhereAreMyBooksScript(CollectionInputScript):
             self.search = search or ExternalSearchIndex(_db)
         except CannotLoadConfiguration:
             self.out(
-                "Here's your problem: the search integration is missing or misconfigured.")
+                "Here's your problem: the search integration is missing or misconfigured."
+            )
             raise
 
     def out(self, s, *args):
@@ -3209,7 +3288,8 @@ class WhereAreMyBooksScript(CollectionInputScript):
         )
         page_feeds_count = page_feeds.count()
         self.out(
-            "%d feeds in cachedfeeds table, not counting grouped feeds.", page_feeds_count
+            "%d feeds in cachedfeeds table, not counting grouped feeds.",
+            page_feeds_count,
         )
         if page_feeds_count:
             self.out(" Deleting them all.")
@@ -3219,8 +3299,10 @@ class WhereAreMyBooksScript(CollectionInputScript):
     def explain_collection(self, collection):
         self.out('Examining collection "%s"', collection.name)
 
-        base = self._db.query(Work).join(LicensePool).filter(
-            LicensePool.collection == collection
+        base = (
+            self._db.query(Work)
+            .join(LicensePool)
+            .filter(LicensePool.collection == collection)
         )
 
         ready = base.filter(Work.presentation_ready == True)
@@ -3235,22 +3317,23 @@ class WhereAreMyBooksScript(CollectionInputScript):
         LPDM = LicensePoolDeliveryMechanism
         no_delivery_mechanisms = base.filter(
             ~exists().where(
-                and_(LicensePool.data_source_id == LPDM.data_source_id,
-                     LicensePool.identifier_id == LPDM.identifier_id)
+                and_(
+                    LicensePool.data_source_id == LPDM.data_source_id,
+                    LicensePool.identifier_id == LPDM.identifier_id,
+                )
             )
         ).count()
         if no_delivery_mechanisms > 0:
             self.out(
                 " %d works are missing delivery mechanisms and won't show up.",
-                no_delivery_mechanisms
+                no_delivery_mechanisms,
             )
 
         # Check if the license pools are suppressed.
         suppressed = base.filter(LicensePool.suppressed == True).count()
         if suppressed > 0:
             self.out(
-                " %d works have suppressed LicensePools and won't show up.",
-                suppressed
+                " %d works have suppressed LicensePools and won't show up.", suppressed
             )
 
         # Check if the pools have available licenses.
@@ -3260,14 +3343,13 @@ class WhereAreMyBooksScript(CollectionInputScript):
         if not_owned > 0:
             self.out(
                 " %d non-open-access works have no owned licenses and won't show up.",
-                not_owned
+                not_owned,
             )
 
         filter = Filter(collections=[collection])
         count = self.search.count_works(filter)
         self.out(
-            " %d works in the search index, expected around %d.",
-            count, ready_count
+            " %d works in the search index, expected around %d.", count, ready_count
         )
 
 
@@ -3299,20 +3381,18 @@ class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
         if collection_ids:
             collections = collections.filter(Collection.id.in_(collection_ids))
 
-        self.output.write('COLLECTIONS\n')
-        self.output.write('='*50+'\n')
+        self.output.write("COLLECTIONS\n")
+        self.output.write("=" * 50 + "\n")
 
         def add_line(id, name, protocol, metadata_identifier):
-            line = '(%s) %s/%s => %s\n' % (
-                id, name, protocol, metadata_identifier
-            )
+            line = "(%s) %s/%s => %s\n" % (id, name, protocol, metadata_identifier)
             self.output.write(line)
 
         count = 0
         for collection in collections:
             if not count:
                 # Add a format line.
-                add_line('id', 'name', 'protocol', 'metadata_identifier')
+                add_line("id", "name", "protocol", "metadata_identifier")
 
             count += 1
             add_line(
@@ -3322,11 +3402,10 @@ class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
                 collection.metadata_identifier,
             )
 
-        self.output.write('\n%d collections found.\n' % count)
+        self.output.write("\n%d collections found.\n" % count)
 
 
 class UpdateLaneSizeScript(LaneSweeperScript):
-
     def should_process_lane(self, lane):
         """We don't want to process generic WorkLists -- there's nowhere
         to store the data.
@@ -3361,13 +3440,11 @@ class RemovesSearchCoverage(object):
         return count
 
 
-class RebuildSearchIndexScript(
-    RunWorkCoverageProviderScript, RemovesSearchCoverage
-):
+class RebuildSearchIndexScript(RunWorkCoverageProviderScript, RemovesSearchCoverage):
     """Completely delete the search index and recreate it."""
 
     def __init__(self, *args, **kwargs):
-        search = kwargs.get('search_index_client', None)
+        search = kwargs.get("search_index_client", None)
         self.search = search or ExternalSearchIndex(self._db)
         super(RebuildSearchIndexScript, self).__init__(
             SearchIndexCoverageProvider, *args, **kwargs
@@ -3397,9 +3474,7 @@ class SearchIndexCoverageRemover(TimestampScript, RemovesSearchCoverage):
     def do_run(self):
         count = self.remove_search_coverage_records()
         return TimestampData(
-            achievements="Coverage records deleted: %(deleted)d" % dict(
-                deleted=count
-            )
+            achievements="Coverage records deleted: %(deleted)d" % dict(deleted=count)
         )
 
 
