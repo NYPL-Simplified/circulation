@@ -2781,7 +2781,7 @@ class TestOAuthController(AuthenticatorTest):
     def setup_method(self):
         super(TestOAuthController, self).setup_method()
         class MockOAuthWithExternalAuthenticateURL(MockOAuth):
-            def __init__(self, library, _db, external_authenticate_url, patron, root_lane=None):
+            def __init__(self, library, _db, external_authenticate_url, patron, root_lane=None, is_new=False):
                 super(MockOAuthWithExternalAuthenticateURL, self).__init__(
                     library,
                 )
@@ -2790,8 +2790,9 @@ class TestOAuthController(AuthenticatorTest):
                 self.token, ignore = self.create_token(
                     _db, self.patron, "a token"
                 )
-                self.patrondata = PatronData(personal_name="Abcd")
+                self.patrondata = PatronData(personal_name="Abcd", is_new=is_new)
                 self.root_lane = root_lane
+                self.is_new = self.patrondata.is_new
 
             def external_authenticate_url(self, state, _db):
                 return self.url + "?state=" + state
@@ -2876,6 +2877,7 @@ class TestOAuthController(AuthenticatorTest):
             assert self.oauth1.NAME == provider_name
             assert self.oauth1.token.credential == provider_token
             assert str(self.oauth1.root_lane) in fragments.get('root_lane')[0]
+            assert str(self.oauth1.is_new) == fragments.get('is_new')[0]
 
         # Successful callback through OAuth provider 2.
         params = dict(code="foo", state=json.dumps(dict(provider=self.oauth2.NAME)))
