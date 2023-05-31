@@ -1215,7 +1215,7 @@ class TestOPDS(DatabaseTest):
         # but our mock Annotator got a chance to modify the feed in place.
         assert True == annotator.called
 
-    def test_search_feed(self):
+    def test_search_feed(self, monkeypatch):
         # Test the ability to create a paginated feed of works for a given
         # search query.
         fantasy_lane = self.fantasy
@@ -1228,6 +1228,13 @@ class TestOPDS(DatabaseTest):
         facets = SearchFacets(order="author", min_score=10)
 
         private = object()
+
+        def mock_available_facets(cls, config, facet_group_name):
+            """
+            Return the available order facets.
+            """
+            return ['author', 'title', 'added']
+        monkeypatch.setattr(Facets, "available_facets", mock_available_facets)
 
         def make_page(pagination):
             return AcquisitionFeed.search(
@@ -1282,6 +1289,12 @@ class TestOPDS(DatabaseTest):
         assert all(x in expect for x in ('order=author', 'min_score=10'))
 
         assert work2.title == parsed['entries'][0]['title']
+
+        # Ensure facet links are included
+        facets = self.links(parsed, 'http://opds-spec.org/facet')
+        sort_by_facets = [facet['title'] for facet in facets if facet['facetgroup'] == 'Sort by']
+        assert 'Title' in sort_by_facets
+        assert 'Author' in sort_by_facets
 
         # The feed has no breadcrumb links, since we're not
         # searching the lane -- just using some aspects of the lane
@@ -2479,7 +2492,14 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         )
         assert first_page_url == make_link(EbooksEntryPoint)
 
-    def test_search(self):
+    def test_search(self, monkeypatch):
+        def mock_available_facets(cls, config, facet_group_name):
+            """
+            Return the available order facets.
+            """
+            return ['author', 'title', 'added']
+        monkeypatch.setattr(Facets, "available_facets", mock_available_facets)
+
         # When AcquisitionFeed.search() generates the first page of
         # search results, it will link to related searches for different
         # entry points, assuming the WorkList has different entry points.

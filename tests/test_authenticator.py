@@ -217,6 +217,7 @@ class TestPatronData(AuthenticatorTest):
             email_address="5",
             authorization_expires=self.expiration_time.strftime("%Y-%m-%d"),
             fines="6",
+            is_new=False,
             block_reason=None
         )
         assert data == expect
@@ -2488,10 +2489,15 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         assert patrondata.permanent_id == patron.external_identifier
         assert (patrondata.authorization_identifier ==
             patron.authorization_identifier)
+        assert provider.patron_is_new is True
 
         # Information not relevant to the patron's identity was stored
         # in the Patron object after it was created.
         assert 1 == patron.fines
+
+        # Re-authenticate and ensure patron_is_new is False this time
+        provider.authenticate(self._db, self.credentials)
+        assert provider.patron_is_new is False
 
     def test_authentication_updates_outdated_patron_on_permanent_id_match(self):
         # A patron's permanent ID won't change.
@@ -2775,7 +2781,7 @@ class TestOAuthController(AuthenticatorTest):
     def setup_method(self):
         super(TestOAuthController, self).setup_method()
         class MockOAuthWithExternalAuthenticateURL(MockOAuth):
-            def __init__(self, library, _db, external_authenticate_url, patron, root_lane=None):
+            def __init__(self, library, _db, external_authenticate_url, patron, root_lane=None, is_new=False):
                 super(MockOAuthWithExternalAuthenticateURL, self).__init__(
                     library,
                 )
@@ -2784,8 +2790,9 @@ class TestOAuthController(AuthenticatorTest):
                 self.token, ignore = self.create_token(
                     _db, self.patron, "a token"
                 )
-                self.patrondata = PatronData(personal_name="Abcd")
+                self.patrondata = PatronData(personal_name="Abcd", is_new=is_new)
                 self.root_lane = root_lane
+                self.is_new = self.patrondata.is_new
 
             def external_authenticate_url(self, state, _db):
                 return self.url + "?state=" + state
@@ -2870,6 +2877,7 @@ class TestOAuthController(AuthenticatorTest):
             assert self.oauth1.NAME == provider_name
             assert self.oauth1.token.credential == provider_token
             assert str(self.oauth1.root_lane) in fragments.get('root_lane')[0]
+            assert str(self.oauth1.is_new) == fragments.get('is_new')[0]
 
         # Successful callback through OAuth provider 2.
         params = dict(code="foo", state=json.dumps(dict(provider=self.oauth2.NAME)))
@@ -2937,6 +2945,13 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
             bearer_token_signing_secret="a secret"
         )
 
+        # Patch some methods that Authenticator would use
+        class MockAuthenticator:
+            providers = [basic, ]
+        short_name = self._default_library.short_name
+        setattr(authenticator, "current_library_short_name", short_name)
+        setattr(authenticator, "library_authenticators", {short_name: MockAuthenticator})
+
         self.controller = BasicAuthTempTokenController(authenticator)
 
     def test_basic_auth_temp_token(self):
@@ -2954,6 +2969,9 @@ class TestBasicAuthTempTokenController(AuthenticatorTest):
 
             token = response.json.get('access_token')
             assert token
+
+            is_new = response.json.get('is_new')
+            assert is_new is False
 
             # Ensure the token is valid
             # TODO test this with app.test_client or something that can hit an authed route

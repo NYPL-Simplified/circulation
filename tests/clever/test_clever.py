@@ -258,6 +258,8 @@ class TestCleverAuthenticationAPI(DatabaseTest):
                 self._db, dict(code="teacher code"))
             credential, patron, patrondata = response
 
+        assert patrondata.is_new is True
+
         # The bearer token was turned into a Credential.
         expect_credential, ignore = self.api.create_token(
             self._db, patron, "bearer token")
