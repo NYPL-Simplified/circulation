@@ -2520,6 +2520,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider, BearerTokenSigner):
         patron, is_new = patrondata.get_or_create_patron(
             _db, self.library_id, analytics=self.analytics
         )
+        patrondata.is_new = is_new
 
         # Create a credential for the Patron.
         credential, is_new = self.create_token(_db, patron, token)
@@ -2701,6 +2702,7 @@ class OAuthController(object):
             access_token=simplified_token,
             patron_info=patron_info,
             root_lane=root_lane,
+            is_new=patrondata.is_new,
         )
         return redirect(client_redirect_uri + "#" + urllib.parse.urlencode(params))
 
