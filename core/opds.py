@@ -1021,6 +1021,8 @@ class AcquisitionFeed(OPDSFeed):
 
         # Add URLs to change faceted views
         for args in cls.facet_links(annotator, facets):
+            # Put the query parameter into the url
+            args["href"] += f"&q={query}"
             AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, **args)
 
         # We do not add breadcrumbs to this feed since you're not

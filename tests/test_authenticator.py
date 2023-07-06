@@ -2474,6 +2474,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
             permanent_id=self._str,
             authorization_identifier=self._str,
             fines=Money(1, "USD"),
+            external_type='H',
         )
 
         library = self._library()
@@ -2490,6 +2491,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         assert (patrondata.authorization_identifier ==
             patron.authorization_identifier)
         assert provider.patron_is_new is True
+        assert patron.external_type == patrondata.external_type
 
         # Information not relevant to the patron's identity was stored
         # in the Patron object after it was created.
@@ -2793,6 +2795,7 @@ class TestOAuthController(AuthenticatorTest):
                 self.patrondata = PatronData(personal_name="Abcd", is_new=is_new)
                 self.root_lane = root_lane
                 self.is_new = self.patrondata.is_new
+                self.age_group = self.patron.external_type
 
             def external_authenticate_url(self, state, _db):
                 return self.url + "?state=" + state
@@ -2878,6 +2881,7 @@ class TestOAuthController(AuthenticatorTest):
             assert self.oauth1.token.credential == provider_token
             assert str(self.oauth1.root_lane) in fragments.get('root_lane')[0]
             assert str(self.oauth1.is_new) == fragments.get('is_new')[0]
+            assert str(self.oauth1.age_group) == fragments.get('age_group')[0]
 
         # Successful callback through OAuth provider 2.
         params = dict(code="foo", state=json.dumps(dict(provider=self.oauth2.NAME)))
