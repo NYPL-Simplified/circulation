@@ -1055,6 +1055,8 @@
 
         <span class="c1"># Add URLs to change faceted views</span>
         <span class="k">for</span> <span class="n">args</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">facet_links</span><span class="p">(</span><span class="n">annotator</span><span class="p">,</span> <span class="n">facets</span><span class="p">):</span>
+            <span class="c1"># Put the query parameter into the url</span>
+            <span class="n">args</span><span class="p">[</span><span class="s2">&quot;href&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;&amp;q=</span><span class="si">{</span><span class="n">query</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">opds_feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="o">**</span><span class="n">args</span><span class="p">)</span>
 
         <span class="c1"># We do not add breadcrumbs to this feed since you&#39;re not</span>
