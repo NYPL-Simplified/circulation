@@ -1,6 +1,6 @@
 import datetime
 import logging
-from urllib.parse import quote
+from urllib.parse import quote, parse_qsl
 from collections import (
     defaultdict,
 )
@@ -1027,7 +1027,7 @@ class AcquisitionFeed(OPDSFeed):
         )
         original_facet = facets.order
         for facet in all_order_facets:
-            order = facet["title"].lower()
+            order = dict(parse_qsl(facet["href"])).get('order')
             if order in enabled_order_facets:
                 # search_url uses facets.order to generate a /feed/ url,
                 # but we want to generate a /search/ url for this given
