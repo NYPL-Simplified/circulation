@@ -34,7 +34,7 @@
   <h1>Source code for core.opds</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">quote</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">quote</span><span class="p">,</span> <span class="n">parse_qsl</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">defaultdict</span><span class="p">,</span>
 <span class="p">)</span>
@@ -1053,11 +1053,23 @@
         <span class="c1"># Add &quot;up&quot; link.</span>
         <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">opds_feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="s2">&quot;up&quot;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">annotator</span><span class="o">.</span><span class="n">lane_url</span><span class="p">(</span><span class="n">lane</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">))</span>
 
-        <span class="c1"># Add URLs to change faceted views</span>
-        <span class="k">for</span> <span class="n">args</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">facet_links</span><span class="p">(</span><span class="n">annotator</span><span class="p">,</span> <span class="n">facets</span><span class="p">):</span>
-            <span class="c1"># Put the query parameter into the url</span>
-            <span class="n">args</span><span class="p">[</span><span class="s2">&quot;href&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;&amp;q=</span><span class="si">{</span><span class="n">query</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">opds_feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="o">**</span><span class="n">args</span><span class="p">)</span>
+        <span class="c1"># Add URLs to change enabled faceted views</span>
+        <span class="n">enabled_order_facets</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">facets</span><span class="o">.</span><span class="n">enabled_facets</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">all_order_facets</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">facet</span><span class="p">:</span> <span class="s2">&quot;Sort by&quot;</span> <span class="ow">in</span> <span class="n">facet</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">facet_links</span><span class="p">(</span><span class="n">annotator</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">original_facet</span> <span class="o">=</span> <span class="n">facets</span><span class="o">.</span><span class="n">order</span>
+        <span class="k">for</span> <span class="n">facet</span> <span class="ow">in</span> <span class="n">all_order_facets</span><span class="p">:</span>
+            <span class="n">order</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">parse_qsl</span><span class="p">(</span><span class="n">facet</span><span class="p">[</span><span class="s2">&quot;href&quot;</span><span class="p">]))</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;order&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">enabled_order_facets</span><span class="p">:</span>
+                <span class="c1"># cls.facet_links generates a /feed/ url, but we want to use</span>
+                <span class="c1"># search_url to generate a /search/ url. We also want to generate</span>
+                <span class="c1"># the facet url for this given ordering facet instead of the original facet.</span>
+                <span class="n">facets</span><span class="o">.</span><span class="n">order</span> <span class="o">=</span> <span class="n">order</span>
+                <span class="n">facet</span><span class="p">[</span><span class="s2">&quot;href&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">search_url</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">)</span>
+                <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">opds_feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="o">**</span><span class="n">facet</span><span class="p">)</span>
+        <span class="n">facets</span><span class="o">.</span><span class="n">order</span> <span class="o">=</span> <span class="n">original_facet</span>
 
         <span class="c1"># We do not add breadcrumbs to this feed since you&#39;re not</span>
         <span class="c1"># technically searching the this lane; you are searching the</span>
