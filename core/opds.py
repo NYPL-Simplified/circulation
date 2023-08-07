@@ -1019,11 +1019,23 @@ class AcquisitionFeed(OPDSFeed):
         # Add "up" link.
         AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(lane), title=str(lane.display_name))
 
-        # Add URLs to change faceted views
-        for args in cls.facet_links(annotator, facets):
-            # Put the query parameter into the url
-            args["href"] += f"&q={query}"
-            AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, **args)
+        # Add URLs to change enabled faceted views
+        enabled_order_facets = list(facets.enabled_facets)[0]
+        all_order_facets = filter(
+            lambda facet: "Sort by" in facet.values(),
+            cls.facet_links(annotator, facets)
+        )
+        original_facet = facets.order
+        for facet in all_order_facets:
+            order = facet["title"].lower()
+            if order in enabled_order_facets:
+                # search_url uses facets.order to generate a /feed/ url,
+                # but we want to generate a /search/ url for this given
+                # ordering facet instead of the the original facet.
+                facets.order = order
+                facet["href"] = annotator.search_url(lane, query, pagination=None, facets=facets)
+                AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, **facet)
+        facets.order = original_facet
 
         # We do not add breadcrumbs to this feed since you're not
         # technically searching the this lane; you are searching the
