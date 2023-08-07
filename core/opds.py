@@ -1029,9 +1029,9 @@ class AcquisitionFeed(OPDSFeed):
         for facet in all_order_facets:
             order = dict(parse_qsl(facet["href"])).get('order')
             if order in enabled_order_facets:
-                # search_url uses facets.order to generate a /feed/ url,
-                # but we want to generate a /search/ url for this given
-                # ordering facet instead of the the original facet.
+                # cls.facet_links generates a /feed/ url, but we want to use
+                # search_url to generate a /search/ url. We also want to generate
+                # the facet url for this given ordering facet instead of the original facet.
                 facets.order = order
                 facet["href"] = annotator.search_url(lane, query, pagination=None, facets=facets)
                 AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, **facet)
