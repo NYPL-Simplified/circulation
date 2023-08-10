@@ -21,8 +21,8 @@ group = "simplified"
 bind = ["127.0.0.1:8000"]     # listen on 8000, only on the loopback address
 workers = (2 * multiprocessing.cpu_count()) + 1
 threads = 2
-max_requests = 2000
-max_requests_jitter = 100
+max_requests = 500
+max_requests_jitter = 50
 pythonpath = ",".join([
     str(VENV_ACTUAL),
     SIMPLIFIED_HOME,
