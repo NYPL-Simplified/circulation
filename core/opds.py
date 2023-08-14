@@ -1034,6 +1034,8 @@ class AcquisitionFeed(OPDSFeed):
                 # the facet url for this given ordering facet instead of the original facet.
                 facets.order = order
                 facet["href"] = annotator.search_url(lane, query, pagination=None, facets=facets)
+                if order == original_facet:
+                    facet["href"] += "&active=true"
                 AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, **facet)
         facets.order = original_facet
 
