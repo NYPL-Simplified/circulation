@@ -1068,6 +1068,8 @@
                 <span class="c1"># the facet url for this given ordering facet instead of the original facet.</span>
                 <span class="n">facets</span><span class="o">.</span><span class="n">order</span> <span class="o">=</span> <span class="n">order</span>
                 <span class="n">facet</span><span class="p">[</span><span class="s2">&quot;href&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">search_url</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">order</span> <span class="o">==</span> <span class="n">original_facet</span><span class="p">:</span>
+                    <span class="n">facet</span><span class="p">[</span><span class="s2">&quot;href&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="s2">&quot;&amp;active=true&quot;</span>
                 <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">opds_feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="o">**</span><span class="n">facet</span><span class="p">)</span>
         <span class="n">facets</span><span class="o">.</span><span class="n">order</span> <span class="o">=</span> <span class="n">original_facet</span>
 
