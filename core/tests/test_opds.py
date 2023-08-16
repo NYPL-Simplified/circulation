@@ -1296,6 +1296,9 @@ class TestOPDS(DatabaseTest):
         assert 'Title' in sort_by_facets
         assert 'Author' in sort_by_facets
 
+        [active_facet] = [facet['title'] for facet in facets if getattr(facet, "activefacet", False) == 'true']
+        assert active_facet == 'Author'
+
         # The feed has no breadcrumb links, since we're not
         # searching the lane -- just using some aspects of the lane
         # to guide the search.
