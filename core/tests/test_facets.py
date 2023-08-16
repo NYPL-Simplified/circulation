@@ -38,3 +38,6 @@ class TestFacetConfig(DatabaseTest):
         config.enable_facet(order_by, Facets.ORDER_RANDOM)
         assert Facets.ORDER_RANDOM in config.enabled_facets(order_by)
         assert config.default_facet(order_by) != Facets.ORDER_RANDOM
+
+        config.enable_facet(order_by, Facets.ORDER_RELEVANCE)
+        assert Facets.ORDER_RELEVANCE in config.enabled_facets(order_by)

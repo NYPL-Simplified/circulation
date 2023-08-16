@@ -2703,6 +2703,7 @@ class OAuthController(object):
             patron_info=patron_info,
             root_lane=root_lane,
             is_new=patrondata.is_new,
+            age_group=patron.external_type,
         )
         return redirect(client_redirect_uri + "#" + urllib.parse.urlencode(params))
 
@@ -2828,6 +2829,7 @@ class BasicAuthTempTokenController(object):
                 expires_in=BasicAuthTempTokenController.TOKEN_DURATION.seconds,
                 root_lane=root_lane,
                 is_new=is_new,
+                age_group=patron.external_type,
             )
 
             return flask.jsonify(data)

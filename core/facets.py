@@ -42,6 +42,7 @@ class FacetConstants(object):
     ORDER_SERIES_POSITION = 'series'
     ORDER_WORK_ID = 'work_id'
     ORDER_RANDOM = 'random'
+    ORDER_RELEVANCE = 'relevance'
     # Some order facets, like series and work id,
     # only make sense in certain contexts.
     # These are the options that can be enabled
@@ -51,6 +52,7 @@ class FacetConstants(object):
         ORDER_AUTHOR,
         ORDER_ADDED_TO_COLLECTION,
         ORDER_RANDOM,
+        ORDER_RELEVANCE,
     ]
 
     ORDER_ASCENDING = "asc"
@@ -88,6 +90,7 @@ class FacetConstants(object):
         ORDER_SERIES_POSITION: _('Series Position'),
         ORDER_WORK_ID : _('Work ID'),
         ORDER_RANDOM : _('Random'),
+        ORDER_RELEVANCE : _('Relevance'),
 
         AVAILABLE_NOW : _("Available now"),
         AVAILABLE_ALL : _("All"),
