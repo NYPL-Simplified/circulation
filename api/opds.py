@@ -1,4 +1,5 @@
 import urllib.request, urllib.parse, urllib.error
+from datetime import timedelta, datetime
 import copy
 import logging
 from flask import url_for
@@ -425,6 +426,7 @@ class CirculationManagerAnnotator(Annotator):
         always_available = OPDSFeed.makeelement(
             "{%s}availability" % OPDSFeed.OPDS_NS, status="available"
         )
+
         link_tag.append(always_available)
         return link_tag
 
@@ -1130,7 +1132,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             active_loan=active_loan
         )
 
-        children = AcquisitionFeed.license_tags(license_pool, active_loan, None)
+        children = AcquisitionFeed.license_tags(license_pool, active_loan, None, rel=rel, library=self.library)
         link_tag.extend(children)
 
         children = self.drm_device_registration_tags(
