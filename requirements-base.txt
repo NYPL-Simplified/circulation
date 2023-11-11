@@ -11,7 +11,7 @@ apispec-webframeworks==0.5.2
 Babel==2.8.0
 boto3==1.23.2
 botocore==1.26.2
-certifi==2021.10.8
+certifi==2022.12.7
 cffi==1.15.0
 chardet==4.0.0
 click==8.1.3
