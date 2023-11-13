@@ -46,11 +46,11 @@ class TestClever:
         THEN:  The matching external_type value should be returned, or None if the match fails
         """
         for e_grade in [
-            "InfantToddler", "Preschool", "PreKindergarten", "TransitionalKindergarten", "Kindergarten", "1", "2", "3"
+            "InfantToddler", "Preschool", "PreKindergarten", "TransitionalKindergarten", "Kindergarten", "1", "2", "3", "4"
         ]:
             assert external_type_from_clever_grade(e_grade) == "E"
 
-        for m_grade in ["4", "5", "6", "7", "8"]:
+        for m_grade in ["5", "6", "7", "8"]:
             assert external_type_from_clever_grade(m_grade) == "M"
 
         for h_grade in ["9", "10", "11", "12", "13", "PostGraduate"]:
