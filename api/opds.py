@@ -1,5 +1,4 @@
 import urllib.request, urllib.parse, urllib.error
-from datetime import timedelta, datetime
 import copy
 import logging
 from flask import url_for
