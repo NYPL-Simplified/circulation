@@ -1684,7 +1684,7 @@
         <span class="k">return</span> <span class="n">top_level_parent</span></div>
 
 <div class="viewcode-block" id="AcquisitionFeed.license_tags"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.license_tags">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">license_tags</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">hold</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">license_tags</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">hold</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="c1"># Generate a list of licensing tags. These should be inserted</span>
         <span class="c1"># into a &lt;link&gt; tag.</span>
         <span class="n">tags</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1722,10 +1722,16 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">status</span> <span class="o">=</span> <span class="s1">&#39;reserved&#39;</span>
                 <span class="n">since</span> <span class="o">=</span> <span class="n">hold</span><span class="o">.</span><span class="n">start</span>
-        <span class="k">elif</span> <span class="p">(</span><span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="ow">or</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">unlimited_access</span> <span class="ow">or</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">self_hosted</span> <span class="ow">or</span> <span class="p">(</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="ow">or</span> <span class="n">rel</span> <span class="o">==</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">OPEN_ACCESS_REL</span><span class="p">):</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="s1">&#39;available&#39;</span>
+
+            <span class="n">default_loan_period</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">default_loan_period</span><span class="p">(</span><span class="n">library</span><span class="p">)</span> <span class="k">if</span> <span class="n">library</span> <span class="k">else</span> <span class="n">collection</span><span class="o">.</span><span class="n">STANDARD_DEFAULT_LOAN_PERIOD</span>
+
+            <span class="n">since</span> <span class="o">=</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">availability_time</span>
+            <span class="n">until</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">default_loan_period</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="n">license_pool</span><span class="o">.</span><span class="n">unlimited_access</span> <span class="ow">or</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">self_hosted</span> <span class="ow">or</span> <span class="p">(</span>
                 <span class="n">license_pool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span>
-                <span class="n">license_pool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
-          <span class="p">):</span>
+                <span class="n">license_pool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)):</span>
             <span class="n">status</span> <span class="o">=</span> <span class="s1">&#39;available&#39;</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">status</span><span class="o">=</span><span class="s1">&#39;unavailable&#39;</span>
