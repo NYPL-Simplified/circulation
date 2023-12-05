@@ -57,9 +57,9 @@ CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP = {
     "1": "E",
     "2": "E",
     "3": "E",
-    "4": "E",                           # Middle
+    "4": "E",
     "5": "E",
-    "6": "M",
+    "6": "M",                           # Middle
     "7": "M",
     "8": "M",
     "9": "H",                           # High
