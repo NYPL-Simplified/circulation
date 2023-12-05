@@ -58,7 +58,7 @@ CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP = {
     "2": "E",
     "3": "E",
     "4": "E",                           # Middle
-    "5": "M",
+    "5": "E",
     "6": "M",
     "7": "M",
     "8": "M",
@@ -71,7 +71,6 @@ CLEVER_GRADE_TO_EXTERNAL_TYPE_MAP = {
     "Other": None,                      # Indeterminate
     "Ungraded": None,
 }
-
 
 def external_type_from_clever_grade(grade):
     """Maps a 'grade' value returned by the Clever API for student users to an external_type"""
