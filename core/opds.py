@@ -1650,7 +1650,7 @@ class AcquisitionFeed(OPDSFeed):
         return top_level_parent
 
     @classmethod
-    def license_tags(cls, license_pool, loan, hold):
+    def license_tags(cls, license_pool, loan, hold, rel=None, library=None):
         # Generate a list of licensing tags. These should be inserted
         # into a <link> tag.
         tags = []
@@ -1688,10 +1688,16 @@ class AcquisitionFeed(OPDSFeed):
             else:
                 status = 'reserved'
                 since = hold.start
-        elif (license_pool.open_access or license_pool.unlimited_access or license_pool.self_hosted or (
+        elif (license_pool.open_access or rel == OPDSFeed.OPEN_ACCESS_REL):
+            status = 'available'
+
+            default_loan_period = collection.default_loan_period(library) if library else collection.STANDARD_DEFAULT_LOAN_PERIOD
+
+            since = license_pool.availability_time
+            until = datetime.datetime.utcnow() + datetime.timedelta(days=default_loan_period)
+        elif (license_pool.unlimited_access or license_pool.self_hosted or (
                 license_pool.licenses_available > 0 and
-                license_pool.licenses_owned > 0)
-          ):
+                license_pool.licenses_owned > 0)):
             status = 'available'
         else:
             status='unavailable'
