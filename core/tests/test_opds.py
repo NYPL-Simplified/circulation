@@ -1625,6 +1625,33 @@ class TestAcquisitionFeed(DatabaseTest):
         assert 'status' in tags[0].attrib
         assert 'available' == tags[0].attrib['status']
 
+    def test_license_tags_open_access(self):
+        # Arrange
+        edition, pool = self._edition(with_license_pool=True)
+        pool.open_access = True
+        pool.self_hosted = False
+        pool.unlimited_access = False
+        creation_time = datetime.datetime.utcnow()
+
+        # Act
+        tags = AcquisitionFeed.license_tags(
+            pool, None, None
+        )
+
+        # Assert
+        assert 1 == len(tags)
+
+        [tag] = tags
+
+        assert ('status' in tag.attrib) == True
+        assert 'available' == tag.attrib['status']
+        assert 'since' in tag.attrib
+        assert tag.attrib['since'] == pool.availability_time.strftime('%Y-%m-%dT%H:%M:%S+00:00')
+        assert 'until' in tag.attrib
+        assert tag.attrib['until'] == (creation_time + datetime.timedelta(days=21)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        assert ('holds' in tag.attrib) == False
+        assert ('copies' in tag.attrib) == False
+
     def test_single_entry(self):
 
         # Here's a Work with two LicensePools.
