@@ -63,7 +63,7 @@ COPY ./docker/localdev_postgres_init.sh /docker-entrypoint-initdb.d/localdev_pos
 #
 ###############################################################################
 
-FROM ubuntu:20.04 as circulation_base
+FROM ubuntu:22.04 as circulation_base
 
 ARG DEBIAN_FRONTEND="noninteractive"
 ARG NODESOURCE_KEYFILE="https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
@@ -74,13 +74,9 @@ RUN apt-get update \
     curl \
     ca-certificates \
     gnupg \
-    # For adding repositories
-    software-properties-common \
  && curl -sSL ${NODESOURCE_KEYFILE} | apt-key add - \
  && echo "deb https://deb.nodesource.com/node_14.x focal main" >> /etc/apt/sources.list.d/nodesource.list \
  && echo "deb-src https://deb.nodesource.com/node_14.x focal main" >> /etc/apt/sources.list.d/nodesource.list \
- # Add repository for python 3.10
- && add-apt-repository ppa:deadsnakes/ppa \
  && apt-get update \
  && apt-get install --yes --no-install-recommends \
     build-essential \
@@ -90,7 +86,6 @@ RUN apt-get update \
     git \
     # Need 3.10-dev for build of xmlsec
     python3.10-dev \
-    python3-dev \
     python3-setuptools \
     python3-venv \
     python3-pip \
