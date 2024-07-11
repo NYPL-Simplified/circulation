@@ -85,7 +85,7 @@ python-Levenshtein==0.12.2
 pyrsistent==0.16.1
 # python-saml is required for SAML authentication
 python3-saml==1.14.0
-requests==2.27.1
+requests==2.31.0
 requests-futures==1.0.0
 # requests-mock is used for unit tests.
 requests-mock==1.8.0
