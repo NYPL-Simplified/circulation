@@ -57,9 +57,7 @@ COPY ./docker/localdev_postgres_init.sh /docker-entrypoint-initdb.d/localdev_pos
 #
 #   * We create a user, 'simplified', to be the non-root user we step down to
 #
-#   * We install NodeJS from the Nodesource packages, which lets us use Node 10,
-#     and avoids dependency conflicts between node and libxmlsec1 over the SSL
-#     library version that we'll get via system packages.
+#   * We install NodeJS from the Nodesource packages.
 #
 ###############################################################################
 
