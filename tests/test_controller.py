@@ -3943,7 +3943,7 @@ class TestOPDSFeedController(CirculationControllerTest):
                 last_item.sort_title, last_item.sort_author, last_item.id
             ]
             expect = "key=%s" % urllib.parse.quote_plus(
-                json.dumps(expected_pagination_key)
+                json.dumps(expected_pagination_key), safe=","
             )
             assert expect in next_link
 
