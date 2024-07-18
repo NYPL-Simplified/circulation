@@ -221,14 +221,14 @@ CMD ["webapp"]
 ###############################################################################
 
 FROM cm_webapp_base AS cm_webapp_local
-ENV FLASK_ENV development
+ENV FLASK_DEBUG 1
 
 ###############################################################################
 ## cm_webapp_active - self-contained version of webapp, for remote deploy
 ###############################################################################
 
 FROM cm_webapp_base AS cm_webapp_active
-ENV FLASK_ENV production
+ENV FLASK_DEBUG 0
 
 COPY --chown=simplified:simplified . /home/simplified/circulation/
 
@@ -263,14 +263,14 @@ CMD ["scripts", "|& tee -a /var/log/cron.log 2>$1"]
 ###############################################################################
 
 FROM cm_scripts_base AS cm_scripts_local
-ENV FLASK_ENV development
+ENV FLASK_DEBUG 1
 
 ###############################################################################
 ## cm_scripts_active - self-contained version of scripts, for remote deploy
 ###############################################################################
 
 FROM cm_scripts_base AS cm_scripts_active
-ENV FLASK_ENV production
+ENV FLASK_DEBUG 0
 
 COPY --chown=simplified:simplified . /home/simplified/circulation/
 
@@ -286,13 +286,13 @@ CMD ["exec"]
 ###############################################################################
 
 FROM cm_exec_base AS cm_exec_local
-ENV FLASK_ENV development
+ENV FLASK_DEBUG 0
 
 ###############################################################################
 ## cm_exec_active - self-contained version of exec, for remote deploy
 ###############################################################################
 
 FROM cm_exec_base AS cm_exec_active
-ENV FLASK_ENV production
+ENV FLASK_DEBUG 1
 
 COPY --chown=simplified:simplified . /home/simplified/circulation/
