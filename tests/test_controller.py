@@ -17,7 +17,6 @@ import urllib.parse
 import pytest
 from flask import Response as FlaskResponse
 from flask import url_for
-from flask_sqlalchemy_session import current_session
 from mock import MagicMock, patch
 from werkzeug.datastructures import ImmutableMultiDict
 from werkzeug.exceptions import NotFound
@@ -38,6 +37,7 @@ from api.circulation_exceptions import RemoteInitiatedServerError
 from api.config import Configuration, temp_config
 from api.controller import CirculationManager, CirculationManagerController
 from api.custom_index import CustomIndexView
+from api.flask_sqlalchemy_session import current_session
 from api.lanes import (
     ContributorFacets,
     ContributorLane,

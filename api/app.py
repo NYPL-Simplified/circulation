@@ -22,7 +22,7 @@ from flask import (
     request
 )
 from flask_swagger_ui import get_swaggerui_blueprint
-from flask_sqlalchemy_session import flask_scoped_session
+from .flask_sqlalchemy_session import flask_scoped_session
 from .config import Configuration
 from core.model import (
     ConfigurationSetting,
