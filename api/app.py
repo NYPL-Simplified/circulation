@@ -19,6 +19,7 @@ from flask import (
     Flask,
     Response,
     redirect,
+    request
 )
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_sqlalchemy_session import flask_scoped_session
@@ -37,12 +38,16 @@ from core.util import LanguageCodes
 from flask_babel import Babel
 
 
+def get_locale():
+    languages = Configuration.localization_languages() 
+    return request.accept_languages.best_match(languages, default="en")
+
 app = Flask(__name__)
 app._db = None
 app.static_resources_dir = Configuration.static_resources_dir()
 app.config['BABEL_DEFAULT_LOCALE'] = LanguageCodes.three_to_two[Configuration.localization_languages()[0]]
 app.config['BABEL_TRANSLATION_DIRECTORIES'] = "../translations"
-babel = Babel(app)
+babel = Babel(app, locale_selector=get_locale)
 
 swaggerui_print = get_swaggerui_blueprint(
     '/apidocs_admin', '/admin_docs', blueprint_name='apmin_api'
