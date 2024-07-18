@@ -286,13 +286,13 @@ CMD ["exec"]
 ###############################################################################
 
 FROM cm_exec_base AS cm_exec_local
-ENV FLASK_DEBUG 0
+ENV FLASK_DEBUG 1
 
 ###############################################################################
 ## cm_exec_active - self-contained version of exec, for remote deploy
 ###############################################################################
 
 FROM cm_exec_base AS cm_exec_active
-ENV FLASK_DEBUG 1
+ENV FLASK_DEBUG 0
 
 COPY --chown=simplified:simplified . /home/simplified/circulation/
