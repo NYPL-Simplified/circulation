@@ -386,16 +386,16 @@
                 <span class="n">redirect_url</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">url</span>
 
                 <span class="k">if</span> <span class="p">(</span><span class="n">collection</span><span class="p">):</span>
-                    <span class="n">quoted_collection</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
                     <span class="n">redirect_url</span> <span class="o">=</span> <span class="n">redirect_url</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
-                        <span class="n">quoted_collection</span><span class="p">,</span>
-                        <span class="n">quoted_collection</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">%2F</span><span class="s2">&quot;</span><span class="p">))</span>
+                        <span class="n">collection</span><span class="p">,</span>
+                        <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">quote_plus</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+                    <span class="p">)</span>
 
-                <span class="k">if</span> <span class="p">(</span><span class="n">book</span><span class="p">):</span>
-                    <span class="n">quoted_book</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">book</span><span class="p">)</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">book</span><span class="p">):</span> 
                     <span class="n">redirect_url</span> <span class="o">=</span> <span class="n">redirect_url</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
-                        <span class="n">quoted_book</span><span class="p">,</span>
-                        <span class="n">quoted_book</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">%2F</span><span class="s2">&quot;</span><span class="p">))</span>
+                        <span class="n">book</span><span class="p">,</span>
+                        <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">quote_plus</span><span class="p">(</span><span class="n">book</span><span class="p">)</span>
+                    <span class="p">)</span>
 
                 <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;admin_sign_in&#39;</span><span class="p">,</span> <span class="n">redirect</span><span class="o">=</span><span class="n">redirect_url</span><span class="p">))</span>
 

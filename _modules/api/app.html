@@ -54,9 +54,10 @@
     <span class="n">Flask</span><span class="p">,</span>
     <span class="n">Response</span><span class="p">,</span>
     <span class="n">redirect</span><span class="p">,</span>
+    <span class="n">request</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">flask_swagger_ui</span> <span class="kn">import</span> <span class="n">get_swaggerui_blueprint</span>
-<span class="kn">from</span> <span class="nn">flask_sqlalchemy_session</span> <span class="kn">import</span> <span class="n">flask_scoped_session</span>
+<span class="kn">from</span> <span class="nn">.flask_sqlalchemy_session</span> <span class="kn">import</span> <span class="n">flask_scoped_session</span>
 <span class="kn">from</span> <span class="nn">.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
@@ -72,12 +73,16 @@
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">Babel</span>
 
 
+<div class="viewcode-block" id="get_locale"><a class="viewcode-back" href="../../api.html#api.app.get_locale">[docs]</a><span class="k">def</span> <span class="nf">get_locale</span><span class="p">():</span>
+    <span class="n">languages</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">localization_languages</span><span class="p">()</span> 
+    <span class="k">return</span> <span class="n">request</span><span class="o">.</span><span class="n">accept_languages</span><span class="o">.</span><span class="n">best_match</span><span class="p">(</span><span class="n">languages</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;en&quot;</span><span class="p">)</span></div>
+
 <span class="n">app</span> <span class="o">=</span> <span class="n">Flask</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 <span class="n">app</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="n">app</span><span class="o">.</span><span class="n">static_resources_dir</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">static_resources_dir</span><span class="p">()</span>
 <span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;BABEL_DEFAULT_LOCALE&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">LanguageCodes</span><span class="o">.</span><span class="n">three_to_two</span><span class="p">[</span><span class="n">Configuration</span><span class="o">.</span><span class="n">localization_languages</span><span class="p">()[</span><span class="mi">0</span><span class="p">]]</span>
 <span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;BABEL_TRANSLATION_DIRECTORIES&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;../translations&quot;</span>
-<span class="n">babel</span> <span class="o">=</span> <span class="n">Babel</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+<span class="n">babel</span> <span class="o">=</span> <span class="n">Babel</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">locale_selector</span><span class="o">=</span><span class="n">get_locale</span><span class="p">)</span>
 
 <span class="n">swaggerui_print</span> <span class="o">=</span> <span class="n">get_swaggerui_blueprint</span><span class="p">(</span>
     <span class="s1">&#39;/apidocs_admin&#39;</span><span class="p">,</span> <span class="s1">&#39;/admin_docs&#39;</span><span class="p">,</span> <span class="n">blueprint_name</span><span class="o">=</span><span class="s1">&#39;apmin_api&#39;</span>
