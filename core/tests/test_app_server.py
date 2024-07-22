@@ -248,7 +248,7 @@ class TestComplaintController(DatabaseTest):
         self.controller = ComplaintController()
         self.edition, self.pool = self._edition(with_license_pool=True)
         self.app = Flask(__name__)
-        Babel(self.app)
+        Babel(self.app, locale_selector=lambda: "en")
 
     def test_no_license_pool(self):
         with self.app.test_request_context("/"):
@@ -294,7 +294,7 @@ class TestLoadMethods(DatabaseTest):
     def setup_method(self):
         super(TestLoadMethods, self).setup_method()
         self.app = Flask(__name__)
-        Babel(self.app)
+        Babel(self.app, locale_selector=lambda: "en")
 
     def test_load_facets_from_request(self):
         # The library has two EntryPoints enabled.
@@ -437,7 +437,7 @@ class TestErrorHandler(DatabaseTest):
 
         self.app = Flask(__name__)
         self.app.manager = MockManager()
-        Babel(self.app)
+        Babel(self.app, locale_selector=lambda: "en")
 
     def activate_debug_mode(self):
         """Set a site-wide setting that controls whether
