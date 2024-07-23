@@ -13,7 +13,7 @@ from flask import (
 from flask_cors.core import get_cors_options, set_cors_headers
 from werkzeug.exceptions import HTTPException
 
-from .app import app, babel
+from .app import app
 
 # We use URIs as identifiers throughout the application, meaning that
 # we never want werkzeug's merge_slashes feature.
@@ -57,10 +57,6 @@ def initialize_app_settings():
     # Finds or generates a site-wide bearer token signing secret
     BearerTokenSigner.bearer_token_signing_secret(app.manager._db)
 
-@babel.localeselector
-def get_locale():
-    languages = Configuration.localization_languages()
-    return request.accept_languages.best_match(languages)
 
 @app.teardown_request
 def shutdown_session(exception):

@@ -3,6 +3,7 @@ don't interact with any particular source of truth.
 """
 import pytest
 from flask_babel import lazy_gettext as _
+from flask_babel import Babel
 import base64
 import datetime
 from decimal import Decimal
@@ -1138,8 +1139,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         # We're about to call url_for, so we must create an application context.
         os.environ['AUTOINITIALIZE'] = "False"
-        from api.app import app
+        from api.app import app, get_locale
         self.app = app
+        Babel(app, locale_selector=get_locale)
         del os.environ['AUTOINITIALIZE']
         with self.app.test_request_context("/"):
 

@@ -5,7 +5,7 @@ import re
 import string
 from collections import Counter
 
-import flask_sqlalchemy_session
+import api.flask_sqlalchemy_session
 import sqlalchemy
 from money import Money
 from sqlalchemy import distinct, select
@@ -542,7 +542,7 @@ def is_session(value):
     :return: Boolean value indicating whether the value is a valid SQLAlchemy session or not
     :rtype: bool
     """
-    return isinstance(value, (sqlalchemy.orm.session.Session, flask_sqlalchemy_session.flask_scoped_session))
+    return isinstance(value, (sqlalchemy.orm.session.Session, api.flask_sqlalchemy_session.flask_scoped_session))
 
 
 def first_or_default(collection, default=None):

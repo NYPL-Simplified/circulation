@@ -12,13 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        project: [BPL, OE, SE]
+        project: [OE, SE]
         stage: [cm_scripts_active, cm_webapp_active]
         include:
-        - project: BPL
-          ECR_REPOSITORY: BPL_ECR_REPOSITORY
-          AWS_ACCESS_KEY_ID: SE_AWS_ACCESS_KEY_ID
-          AWS_SECRET_ACCESS_KEY: SE_AWS_SECRET_ACCESS_KEY
         - project: OE
           ECR_REPOSITORY: OE_ECR_REPOSITORY
           AWS_ACCESS_KEY_ID: OE_AWS_ACCESS_KEY_ID
@@ -31,12 +27,6 @@ jobs:
           container_tag: qa-cron-latest
         - stage: cm_webapp_active
           container_tag: qa-latest
-        - project: BPL
-          stage: cm_scripts_active
-          cluster_service: BPL_SCRIPTS_CLUSTER_SERVICE
-        - project: BPL
-          stage: cm_webapp_active
-          cluster_service: BPL_WEBAPP_CLUSTER_SERVICE
         - project: OE
           stage: cm_scripts_active
           cluster_service: OE_SCRIPTS_CLUSTER_SERVICE

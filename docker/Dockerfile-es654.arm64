@@ -5,6 +5,10 @@ ENV JAVA_HOME="/usr/lib/jvm/java-11-openjdk-java-home"
 
 EXPOSE 9200 9300
 
+RUN sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
+RUN sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
+RUN sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
+
 RUN yum update -y \
  && yum install -y \
     java-11-openjdk \

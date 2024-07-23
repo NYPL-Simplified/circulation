@@ -1,4 +1,5 @@
 import pytest
+import requests_mock
 from mock import MagicMock, create_autospec, patch
 
 from api.saml.metadata.federations import incommon
@@ -28,13 +29,15 @@ class TestSAMLMetadataLoader(object):
             metadata_loader.load_idp_metadata(url)
 
     @patch("urllib.request.urlopen")
-    def test_load_idp_metadata_correctly_loads_one_descriptor(self, urlopen_mock):
+    @patch("urllib.request.Request")
+    def test_load_idp_metadata_correctly_loads_one_descriptor(self, request_mock, urlopen_mock):
         # Arrange
         url = "http://md.incommon.org/InCommon/metadata.xml"
         incorrect_xml = fixtures.CORRECT_XML_WITH_IDP_1
         urlopen_response_mock = MagicMock()
         urlopen_response_mock.read = MagicMock(return_value=incorrect_xml)
         urlopen_mock.return_value = urlopen_response_mock
+        request_mock.return_value = url
         metadata_loader = SAMLMetadataLoader()
 
         # Act
@@ -45,13 +48,15 @@ class TestSAMLMetadataLoader(object):
         assert fixtures.CORRECT_XML_WITH_IDP_1 == xml_metadata
 
     @patch("urllib.request.urlopen")
-    def test_load_idp_metadata_correctly_loads_multiple_descriptors(self, urlopen_mock):
+    @patch("urllib.request.Request")
+    def test_load_idp_metadata_correctly_loads_multiple_descriptors(self, request_mock, urlopen_mock):
         # Arrange
         url = "http://md.incommon.org/InCommon/metadata.xml"
         incorrect_xml = fixtures.CORRECT_XML_WITH_MULTIPLE_IDPS
         urlopen_response_mock = MagicMock()
         urlopen_response_mock.read = MagicMock(return_value=incorrect_xml)
         urlopen_mock.return_value = urlopen_response_mock
+        request_mock.return_value = url
         metadata_loader = SAMLMetadataLoader()
 
         # Act
