@@ -823,6 +823,8 @@ class LibraryAuthenticator(object):
         # Set provider_name and provider_token so it can be referenced
         # in the basic auth provider check.
         provider_name, provider_token = None, None
+        if isinstance(header, auth.Authorization):
+            header = header.parameters or header.to_header()
 
         if isinstance(header, (bytes, str)):
             try:
@@ -834,7 +836,7 @@ class LibraryAuthenticator(object):
 
         if (self.basic_auth_provider
                 and (
-                    (isinstance(header, (dict, auth.Authorization)) and 'username' in header)
+                    (isinstance(header, dict) and 'username' in header)
                     or provider_name == BasicAuthenticationProvider.BEARER_TOKEN_PROVIDER_NAME
                 )
             ):
@@ -2108,7 +2110,9 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
 
         :param header: A dictionary with keys `username` and `password`.
         """
-        if not isinstance(header, (dict, auth.Authorization)):
+        if isinstance(header, auth.Authorization):
+            header = header.parameters
+        elif not isinstance(header, dict):
             return None
         return header.get('password', None)
 
