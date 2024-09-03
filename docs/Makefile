@@ -20,4 +20,4 @@ help:
 
 # Generate the .rst source files
 generate_rst:
-	sphinx-apidoc -f -o source/ .. ../tests/* ../core/tests/* ../integration_tests/* ../api/admin/routes.py ../api/routes.py
+	sphinx-apidoc -f -o source/ .. ../tests/* ../core/tests/* ../integration_tests/* ../api/admin/routes.py ../api/routes.py ../api/flask_sqlalchemy_session.py

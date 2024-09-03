@@ -18,7 +18,7 @@ from money import Money
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import or_
-from werkzeug.datastructures import Headers
+from werkzeug.datastructures import auth, Headers
 
 from api.util.short_client_token import ShortClientTokenUtility
 from api.annotations import AnnotationWriter
@@ -823,6 +823,8 @@ class LibraryAuthenticator(object):
         # Set provider_name and provider_token so it can be referenced
         # in the basic auth provider check.
         provider_name, provider_token = None, None
+        if isinstance(header, auth.Authorization):
+            header = header.parameters or header.to_header()
 
         if isinstance(header, (bytes, str)):
             try:
@@ -1955,7 +1957,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         if isinstance(credentials, str):
             return self._authenticate_from_token(_db, credentials)
 
-        elif isinstance(credentials, dict):
+        elif isinstance(credentials, (dict, auth.Authorization)):
             return self._authenticate_from_credentials(_db, credentials)
 
     def _authenticate_from_token(self, _db, credentials):
@@ -2108,7 +2110,9 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
 
         :param header: A dictionary with keys `username` and `password`.
         """
-        if not isinstance(header, dict):
+        if isinstance(header, auth.Authorization):
+            header = header.parameters
+        elif not isinstance(header, dict):
             return None
         return header.get('password', None)
 

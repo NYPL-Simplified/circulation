@@ -351,16 +351,16 @@ class ViewController(AdminController):
                 redirect_url = flask.request.url
 
                 if (collection):
-                    quoted_collection = urllib.parse.quote(collection)
                     redirect_url = redirect_url.replace(
-                        quoted_collection,
-                        quoted_collection.replace("/", "%2F"))
+                        collection,
+                        urllib.parse.quote_plus(collection)
+                    )
 
-                if (book):
-                    quoted_book = urllib.parse.quote(book)
+                if (book): 
                     redirect_url = redirect_url.replace(
-                        quoted_book,
-                        quoted_book.replace("/", "%2F"))
+                        book,
+                        urllib.parse.quote_plus(book)
+                    )
 
                 return redirect(self.url_for('admin_sign_in', redirect=redirect_url))
 
