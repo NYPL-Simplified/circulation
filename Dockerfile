@@ -57,9 +57,7 @@ COPY ./docker/localdev_postgres_init.sh /docker-entrypoint-initdb.d/localdev_pos
 #
 #   * We create a user, 'simplified', to be the non-root user we step down to
 #
-#   * We install NodeJS from the Nodesource packages, which lets us use Node 10,
-#     and avoids dependency conflicts between node and libxmlsec1 over the SSL
-#     library version that we'll get via system packages.
+#   * We install NodeJS from the Nodesource packages.
 #
 ###############################################################################
 
@@ -75,8 +73,8 @@ RUN apt-get update \
     ca-certificates \
     gnupg \
  && curl -sSL ${NODESOURCE_KEYFILE} | apt-key add - \
- && echo "deb https://deb.nodesource.com/node_14.x focal main" >> /etc/apt/sources.list.d/nodesource.list \
- && echo "deb-src https://deb.nodesource.com/node_14.x focal main" >> /etc/apt/sources.list.d/nodesource.list \
+ && echo "deb https://deb.nodesource.com/node_20.x jammy main" >> /etc/apt/sources.list.d/nodesource.list \
+ && echo "deb-src https://deb.nodesource.com/node_20.x jammy main" >> /etc/apt/sources.list.d/nodesource.list \
  && apt-get update \
  && apt-get install --yes --no-install-recommends \
     build-essential \
@@ -223,14 +221,14 @@ CMD ["webapp"]
 ###############################################################################
 
 FROM cm_webapp_base AS cm_webapp_local
-ENV FLASK_ENV development
+ENV FLASK_DEBUG 1
 
 ###############################################################################
 ## cm_webapp_active - self-contained version of webapp, for remote deploy
 ###############################################################################
 
 FROM cm_webapp_base AS cm_webapp_active
-ENV FLASK_ENV production
+ENV FLASK_DEBUG 0
 
 COPY --chown=simplified:simplified . /home/simplified/circulation/
 
@@ -265,14 +263,14 @@ CMD ["scripts", "|& tee -a /var/log/cron.log 2>$1"]
 ###############################################################################
 
 FROM cm_scripts_base AS cm_scripts_local
-ENV FLASK_ENV development
+ENV FLASK_DEBUG 1
 
 ###############################################################################
 ## cm_scripts_active - self-contained version of scripts, for remote deploy
 ###############################################################################
 
 FROM cm_scripts_base AS cm_scripts_active
-ENV FLASK_ENV production
+ENV FLASK_DEBUG 0
 
 COPY --chown=simplified:simplified . /home/simplified/circulation/
 
@@ -288,13 +286,13 @@ CMD ["exec"]
 ###############################################################################
 
 FROM cm_exec_base AS cm_exec_local
-ENV FLASK_ENV development
+ENV FLASK_DEBUG 1
 
 ###############################################################################
 ## cm_exec_active - self-contained version of exec, for remote deploy
 ###############################################################################
 
 FROM cm_exec_base AS cm_exec_active
-ENV FLASK_ENV production
+ENV FLASK_DEBUG 0
 
 COPY --chown=simplified:simplified . /home/simplified/circulation/
